@@ -793,18 +793,11 @@ class TAPRuleEngine:
         return created
 
     def _room_has_device(self, room: str, device_type: str) -> bool:
-        """Check if a room would have a device type based on IoT bridge config."""
+        """Check whether an attached device bridge reports a device of this type in the room."""
         if self._iot_bridge:
             for did in self._iot_bridge.rooms.get(room, []):
                 if device_type in did:
                     return True
-        # Fallback: check known room→device patterns
-        from vesper.habitat.iot_bridge import IoTBridge
-        for pattern, devices in IoTBridge.ROOM_DEVICES.items():
-            if pattern in room:
-                for dt, _ in devices:
-                    if dt.value == device_type:
-                        return True
         return False
 
     # ── Event Processing ───────────────────────────────────────────────

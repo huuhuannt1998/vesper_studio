@@ -1,15 +1,4 @@
-"""
-Core simulation modules for Vesper.
-"""
+"""Core infrastructure: the in-process event bus."""
+from vesper.core.event_bus import Event, EventBus, EventPriority
 
-from vesper.core.event_bus import EventBus, Event
-from vesper.core.environment import Environment
-from vesper.core.registry import DeviceRegistry, DeviceEntry
-
-__all__ = [
-    "EventBus",
-    "Event",
-    "Environment",
-    "DeviceRegistry",
-    "DeviceEntry",
-]
+__all__ = ["Event", "EventBus", "EventPriority"]
