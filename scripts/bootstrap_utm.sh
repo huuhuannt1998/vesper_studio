@@ -14,7 +14,7 @@
 #
 # After completion, copy results back to your Mac:
 #   # On macOS:
-#   scp -r user@VM_IP:~/vesper/results/wmediumd_* ~/Desktop/vesper/results/
+#   scp -r user@VM_IP:~/vesper/results/wmediumd_* ~/Research/vesper/results/
 # ═══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -277,5 +277,5 @@ done
 
 echo ""
 echo -e "  ${BOLD}Next: copy results back to your Mac:${NC}"
-echo -e "    scp -r $(whoami)@\$(hostname -I | awk '{print \$1}'):$OUTPUT_DIR/ ~/Desktop/vesper/results/"
+echo -e "    scp -r $(whoami)@\$(hostname -I | awk '{print \$1}'):$OUTPUT_DIR/ ~/Research/vesper/results/"
 echo ""

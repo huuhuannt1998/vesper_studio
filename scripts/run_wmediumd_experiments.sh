@@ -95,7 +95,7 @@ if [[ "$(uname -s)" != "Linux" ]]; then
     err ""
     err "Quick cloud setup (cheapest):"
     err "  1. Create Ubuntu 22.04 VM (UTM, EC2 t3.xlarge, or Hetzner CX31)"
-    err "  2. rsync -avz --exclude='.venv' --exclude='data/' ~/Desktop/vesper/ user@VM_IP:~/vesper/"
+    err "  2. rsync -avz --exclude='.venv' --exclude='data/' ~/Research/vesper/ user@VM_IP:~/vesper/"
     err "  3. ssh user@VM_IP"
     err "  4. cd ~/vesper && sudo bash scripts/run_wmediumd_experiments.sh"
     exit 1
@@ -418,5 +418,5 @@ ls -1d "$OUTPUT_DIR"/*/ 2>/dev/null | while read d; do
 done
 echo ""
 echo -e "  ${BOLD}Copy results back to macOS:${NC}"
-echo -e "    rsync -avz user@THIS_VM:$OUTPUT_DIR/ ~/Desktop/vesper/results/wmediumd_${TIMESTAMP}/"
+echo -e "    rsync -avz user@THIS_VM:$OUTPUT_DIR/ ~/Research/vesper/results/wmediumd_${TIMESTAMP}/"
 echo ""

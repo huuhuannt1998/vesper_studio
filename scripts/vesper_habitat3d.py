@@ -13,7 +13,7 @@ import pygame
 import magnum as mn
 
 # Add habitat-lab to path
-habitat_lab_path = os.path.expanduser("~/Desktop/vesper/habitat-lab-official")
+habitat_lab_path = os.path.expanduser("~/Research/vesper/habitat-lab-official")
 if habitat_lab_path not in sys.path:
     sys.path.insert(0, habitat_lab_path)
 
@@ -28,7 +28,7 @@ from habitat.articulated_agent_controllers import HumanoidRearrangeController
 from omegaconf import OmegaConf
 
 # VESPER imports
-vesper_path = os.path.expanduser("~/Desktop/vesper")
+vesper_path = os.path.expanduser("~/Research/vesper")
 if vesper_path not in sys.path:
     sys.path.insert(0, vesper_path)
 

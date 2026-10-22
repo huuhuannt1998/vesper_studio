@@ -76,6 +76,13 @@ class NetworkTarget:
     # Injected deps for traffic analysis
     wifi_emulator: Any = None  # WiFiEmulator instance for traffic capture
     hub: Any = None            # VirtualHub for hub-level attack routing
+    # Real 802.11 attack backend (revision E-0). Must expose the
+    # vesper.attacks.wifi_attacks.WiFiAttackFramework interface
+    # (attack_arp_spoof / attack_dns_hijack / attack_deauth / attack_evil_twin).
+    # When None, the infrastructure mechanisms are NOT executed (they used to
+    # return a hardcoded success=True without doing anything).
+    wifi_backend: Any = None
+    wifi_target_station: str = "sta1"
 
     @property
     def broker_host(self) -> str:
@@ -518,75 +525,27 @@ class ProtocolAttackSuite:
     These attack the simulated protocol layer, not real wireless.
     """
 
-    # ─── Attack: Simulated Zigbee Replay ────────────────────────────────
+    # ─── Zigbee mechanisms: REMOVED (revision E-0) ─────────────────────
+    # The two former methods below returned a hardcoded success=True
+    # (replay_success = True; success=True with a random "captured" key)
+    # without transmitting or receiving anything. VESPER has no IEEE
+    # 802.15.4 / Zigbee radio, so these mechanisms are out of scope and are
+    # no longer part of run_all_attacks(). See
+    # results/revision/e0_campaign/CHANGES.md.
+
+    _ZIGBEE_OUT_OF_SCOPE = (
+        "Out of scope: VESPER has no IEEE 802.15.4/Zigbee radio or Zigbee "
+        "stack. The previous implementation returned a hardcoded success "
+        "without executing anything; it was removed in revision E-0."
+    )
 
     def attack_zigbee_replay(self, target: NetworkTarget) -> NetworkAttackResult:
-        """
-        Simulate Zigbee frame replay attack.
-        Capture a command frame and replay it to re-trigger the action.
-        """
-        evidence = []
-        
-        # Simulate capturing a Zigbee frame
-        captured_frame = {
-            "frame_type": "command",
-            "src_addr": "0x1234",
-            "dst_addr": "0xFFFF",  # Broadcast
-            "cluster": "0x0006",   # On/Off cluster
-            "command": "toggle",
-            "seq_num": 42,
-            "payload": b"\x02",    # Toggle command
-        }
-        evidence.append(f"Captured Zigbee frame: cluster={captured_frame['cluster']}, cmd={captured_frame['command']}")
-        
-        # Replay the frame (simulated)
-        replay_success = True  # In real Zigbee without security, replay always works
-        evidence.append("Replayed captured frame (no frame counter check)")
-        
-        if replay_success:
-            evidence.append("Frame accepted by coordinator — no replay protection!")
-            evidence.append("Zigbee HA profile does not enforce frame counters by default")
-        
-        return NetworkAttackResult(
-            attack_name="Zigbee Frame Replay",
-            category=NetworkAttackCategory.PROTOCOL_REPLAY,
-            success=replay_success,
-            description="Capture and replay Zigbee command frames (On/Off cluster)",
-            evidence=evidence,
-            impact="Re-trigger device actions (toggle lights, unlock doors)",
-            mitigation="Enable Zigbee 3.0 security with frame counters, use install codes",
-        )
-
-    # ─── Attack: Simulated Zigbee Key Extraction ────────────────────────
+        """Removed placeholder (no Zigbee radio). Always raises."""
+        raise NotImplementedError(self._ZIGBEE_OUT_OF_SCOPE)
 
     def attack_zigbee_key_extraction(self, target: NetworkTarget) -> NetworkAttackResult:
-        """
-        Simulate extraction of the Zigbee network key during device joining.
-        The TC link key is well-known (ZigBeeAlliance09) and used to encrypt
-        the network key during transport.
-        """
-        evidence = []
-        
-        # The default Trust Center link key
-        default_tc_key = bytes.fromhex("5A6967426565416C6C69616E63653039")
-        evidence.append(f"Default TC Link Key: {default_tc_key.hex()}")
-        evidence.append(f"ASCII: ZigBeeAlliance09")
-        
-        # Simulate key exchange capture
-        simulated_network_key = bytes(random.randint(0, 255) for _ in range(16))
-        evidence.append(f"Simulated captured network key: {simulated_network_key.hex()}")
-        evidence.append("During device pairing, network key is encrypted with TC link key")
-        evidence.append("Since TC link key is well-known, network key can be decrypted!")
-        
-        return NetworkAttackResult(
-            attack_name="Zigbee Network Key Extraction",
-            category=NetworkAttackCategory.PROTOCOL_DOWNGRADE,
-            success=True,
-            description="Extract Zigbee network key using well-known Trust Center link key",
-            evidence=evidence,
-            impact="Full network key compromise — can decrypt all Zigbee traffic",
-            mitigation="Use Zigbee 3.0 install codes for per-device unique link keys",
-        )
+        """Removed placeholder (no Zigbee radio). Always raises."""
+        raise NotImplementedError(self._ZIGBEE_OUT_OF_SCOPE)
 
     # ─── Attack: Protocol Downgrade ─────────────────────────────────────
 
@@ -637,156 +596,68 @@ class ProtocolAttackSuite:
 
 class NetworkInfraAttackSuite:
     """
-    Network infrastructure attacks (ARP, DNS, deauth simulation).
+    Network infrastructure mechanisms (ARP, DNS, deauth, evil twin).
+
+    Revision E-0: the former "(Simulated)" methods returned a hardcoded
+    success=True without sending a single frame. They now execute ONLY by
+    delegating to a real 802.11 backend supplied as ``target.wifi_backend``
+    (an object with the vesper.attacks.wifi_attacks.WiFiAttackFramework
+    interface). Without a backend they raise NotImplementedError and
+    NetworkAttackFramework.run_all_attacks() skips them, so no outcome is
+    reported for a mechanism that did not run.
     """
 
-    # ─── Attack: Simulated ARP Spoofing ─────────────────────────────────
+    _NO_BACKEND = (
+        "Not executed: this mechanism requires a real 802.11 backend "
+        "(NetworkTarget.wifi_backend). The previous implementation returned "
+        "a hardcoded success without executing anything (revision E-0)."
+    )
+
+    _CATEGORY = {
+        "attack_arp_spoof": NetworkAttackCategory.ARP_SPOOF,
+        "attack_dns_hijack": NetworkAttackCategory.DNS_POISON,
+        "attack_deauth": NetworkAttackCategory.DEAUTH,
+        "attack_evil_twin": NetworkAttackCategory.EVIL_TWIN,
+    }
+
+    def _delegate(self, target: NetworkTarget, method: str, **kwargs) -> NetworkAttackResult:
+        if target.wifi_backend is None:
+            raise NotImplementedError(self._NO_BACKEND)
+        r = getattr(target.wifi_backend, method)(**kwargs)
+        evidence = list(getattr(r, "evidence", []) or [])
+        if getattr(r, "pcap_file", None):
+            evidence.append(f"pcap: {r.pcap_file}")
+        return NetworkAttackResult(
+            attack_name=getattr(r, "attack_name", method),
+            category=self._CATEGORY[method],
+            success=bool(getattr(r, "success", False)),
+            description=getattr(r, "description", ""),
+            evidence=evidence,
+            impact=getattr(r, "impact", ""),
+            mitigation=getattr(r, "mitigation", ""),
+            packets_sent=getattr(r, "packets_sent", 0),
+            packets_captured=getattr(r, "packets_captured", 0),
+        )
 
     def attack_arp_spoof(self, target: NetworkTarget) -> NetworkAttackResult:
-        """
-        Simulate ARP spoofing on the virtual network.
-        In a real Docker bridge network, ARP spoofing between containers
-        is possible unless ARP protection is enabled.
-        """
-        evidence = []
-        
-        # Craft spoofed ARP reply
-        attacker_mac = "52:54:00:de:ad:01"
-        gateway_ip = target.gateway_ip
-        
-        arp_reply = {
-            "op": "reply",
-            "sender_mac": attacker_mac,
-            "sender_ip": gateway_ip,  # Claim to be the gateway
-            "target_mac": "ff:ff:ff:ff:ff:ff",
-            "target_ip": "172.20.0.10",  # Target device
-        }
-        
-        evidence.append(f"Crafted ARP reply: {gateway_ip} is at {attacker_mac}")
-        evidence.append(f"Target device: 172.20.0.10")
-        evidence.append("ARP cache poisoning would redirect gateway traffic through attacker")
-        
-        # In simulation, we verify the concept
-        evidence.append("Docker bridge networks are vulnerable to ARP spoofing by default")
-        evidence.append("Requires --mac-address control and raw socket access")
-        
-        return NetworkAttackResult(
-            attack_name="ARP Cache Poisoning (Simulated)",
-            category=NetworkAttackCategory.ARP_SPOOF,
-            success=True,  # Docker bridge is vulnerable by design
-            description="Poison ARP cache to redirect traffic through attacker",
-            evidence=evidence,
-            impact="Man-in-the-middle position, traffic interception",
-            mitigation="Use Docker macvlan networks, enable ARP inspection, static ARP entries",
-        )
-
-    # ─── Attack: Simulated DNS Poisoning ────────────────────────────────
+        """ARP cache poisoning via the 802.11 backend (no backend -> raises)."""
+        target_ip = target.devices[0][0] if target.devices else None
+        kwargs = {"gateway_ip": target.gateway_ip}
+        if target_ip:
+            kwargs["target_ip"] = target_ip
+        return self._delegate(target, "attack_arp_spoof", **kwargs)
 
     def attack_dns_poison(self, target: NetworkTarget) -> NetworkAttackResult:
-        """
-        Simulate DNS poisoning to redirect device cloud connections.
-        IoT devices often connect to cloud APIs — hijacking DNS
-        redirects them to attacker-controlled servers.
-        """
-        evidence = []
-        
-        # Targets for DNS poisoning
-        dns_targets = {
-            "api.smartthings.com": "172.20.0.99",      # Attacker IP
-            "matter.vesper.local": "172.20.0.99",
-            "firmware.update.vesper.io": "172.20.0.99",
-            "telemetry.vesper.io": "172.20.0.99",
-        }
-        
-        for domain, fake_ip in dns_targets.items():
-            evidence.append(f"Poisoned: {domain} → {fake_ip} (attacker)")
-        
-        evidence.append("IoT devices rarely validate DNS responses (no DNSSEC)")
-        evidence.append("Firmware update URLs are particularly dangerous targets")
-        evidence.append("Could redirect SmartThings API to capture OAuth tokens")
-        
-        return NetworkAttackResult(
-            attack_name="DNS Poisoning (Simulated)",
-            category=NetworkAttackCategory.DNS_POISON,
-            success=True,
-            description="Poison DNS to redirect device cloud connections to attacker",
-            evidence=evidence,
-            impact="Credential theft, malicious firmware delivery, data exfiltration",
-            mitigation="Use DNSSEC, certificate pinning, encrypted DNS (DoH/DoT)",
-        )
-
-    # ─── Attack: WiFi Deauthentication (Simulated) ──────────────────────
+        """DNS spoofing via the 802.11 backend (no backend -> raises)."""
+        return self._delegate(target, "attack_dns_hijack")
 
     def attack_deauth(self, target: NetworkTarget) -> NetworkAttackResult:
-        """
-        Simulate WiFi deauthentication attack.
-        Forces devices offline by sending deauth frames.
-        """
-        evidence = []
-        
-        evidence.append("Crafting IEEE 802.11 deauthentication frames")
-        evidence.append("Target: All devices on BSS")
-        evidence.append("Reason code: 7 (Class 3 frame from non-associated station)")
-        
-        # Simulate device disconnections
-        disconnected = []
-        if target.devices:
-            for host, port in target.devices[:3]:
-                disconnected.append(f"Device at {host}:{port} deauthenticated")
-                evidence.append(f"  Deauth → {host}:{port}")
-        
-        evidence.append("802.11 management frames are unauthenticated in WPA2")
-        evidence.append("WPA3 with PMF (802.11w) prevents deauth attacks")
-        evidence.append("IoT devices rarely support WPA3")
-        
-        return NetworkAttackResult(
-            attack_name="WiFi Deauthentication Attack (Simulated)",
-            category=NetworkAttackCategory.DEAUTH,
-            success=True,
-            description="Send deauthentication frames to disconnect WiFi IoT devices",
-            evidence=evidence,
-            impact="Device offline, DoS, force reconnection to evil twin",
-            mitigation="WPA3 with Protected Management Frames (PMF)",
-            packets_sent=len(disconnected) * 10,
-        )
-
-    # ─── Attack: Evil Twin Access Point (Simulated) ─────────────────────
+        """802.11 deauthentication via the backend (no backend -> raises)."""
+        return self._delegate(target, "attack_deauth", target_station=target.wifi_target_station)
 
     def attack_evil_twin(self, target: NetworkTarget) -> NetworkAttackResult:
-        """
-        Simulate evil twin AP to capture device credentials.
-        After deauth, devices reconnect to strongest signal —
-        which could be the attacker's fake AP.
-        """
-        evidence = []
-        
-        evidence.append("Creating evil twin AP: 'VESPER-Home-WiFi'")
-        evidence.append("Signal strength: -30 dBm (stronger than legitimate AP)")
-        evidence.append("Security: Open (captive portal for credential capture)")
-        
-        # Simulate device connections
-        evidence.append("Device temp-sensor-001 connected to evil twin!")
-        evidence.append("Device motion-sensor-001 connected to evil twin!")
-        evidence.append("Capturing all traffic in plaintext...")
-        
-        captured = [
-            {"device": "temp-sensor-001", "data": "Matter bridge connection attempt"},
-            {"device": "motion-sensor-001", "data": "HTTP POST /api/auth token=abc123"},
-        ]
-        
-        for c in captured:
-            evidence.append(f"Captured from {c['device']}: {c['data']}")
-        
-        return NetworkAttackResult(
-            attack_name="Evil Twin Access Point (Simulated)",
-            category=NetworkAttackCategory.EVIL_TWIN,
-            success=True,
-            description="Fake AP captures device credentials after deauthentication",
-            evidence=evidence,
-            impact="Complete credential theft, traffic interception",
-            mitigation="WPA3-Enterprise, certificate-based auth, network monitoring",
-            intercepted_data=captured,
-        )
+        """Rogue AP via the backend (no backend -> raises)."""
+        return self._delegate(target, "attack_evil_twin")
 
 
 class TrafficAnalysisSuite:
@@ -917,26 +788,30 @@ class NetworkAttackFramework:
             results.append(self._timed(attack, target))
             time.sleep(0.3)
         
-        # Protocol attacks
+        # Protocol attacks. The two Zigbee mechanisms were removed in
+        # revision E-0 (hardcoded success, no Zigbee radio) and are not run.
         for attack in [
-            self.protocol_suite.attack_zigbee_replay,
-            self.protocol_suite.attack_zigbee_key_extraction,
             self.protocol_suite.attack_protocol_downgrade,
         ]:
             logger.info(f"  Running: {attack.__name__}")
             results.append(self._timed(attack, target))
             time.sleep(0.2)
         
-        # Infrastructure attacks
-        for attack in [
-            self.infra_suite.attack_arp_spoof,
-            self.infra_suite.attack_dns_poison,
-            self.infra_suite.attack_deauth,
-            self.infra_suite.attack_evil_twin,
-        ]:
-            logger.info(f"  Running: {attack.__name__}")
-            results.append(self._timed(attack, target))
-            time.sleep(0.2)
+        # Infrastructure attacks: executed only with a real 802.11 backend.
+        # Without one they are skipped (not reported as run/failed/succeeded).
+        if target.wifi_backend is not None:
+            for attack in [
+                self.infra_suite.attack_arp_spoof,
+                self.infra_suite.attack_dns_poison,
+                self.infra_suite.attack_deauth,
+                self.infra_suite.attack_evil_twin,
+            ]:
+                logger.info(f"  Running: {attack.__name__}")
+                results.append(self._timed(attack, target))
+                time.sleep(0.2)
+        else:
+            logger.warning("  Skipping ARP/DNS/deauth/evil-twin: no 802.11 backend "
+                           "(NetworkTarget.wifi_backend) -- not executed")
         
         # Traffic analysis
         results.append(self._timed(self.traffic_suite.attack_traffic_fingerprinting, target))

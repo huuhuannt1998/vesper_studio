@@ -55,6 +55,27 @@ class WiFiAttackResult:
     raw_output: str = ""
 
 
+def _nslookup_answers(output: str) -> List[str]:
+    """Return the addresses in the *answer* section of nslookup output.
+
+    nslookup prints the queried server first ("Server:" / "Address: <dns>#53")
+    and the answers after a "Name:" line; only the latter count as a
+    resolution of the queried domain.
+    """
+    answers: List[str] = []
+    in_answer = False
+    for line in (output or "").splitlines():
+        line = line.strip()
+        if line.startswith("Name:"):
+            in_answer = True
+            continue
+        if in_answer and line.startswith("Address:"):
+            addr = line.split(":", 1)[1].strip().split("#")[0]
+            if addr:
+                answers.append(addr)
+    return answers
+
+
 class WiFiAttackFramework:
     """
     Complete WiFi attack framework for VESPER.
@@ -266,11 +287,19 @@ class WiFiAttackFramework:
         )
         evidence.append(f"Station DNS lookup: {dig_result[:200]}")
 
+        # Revision E-0: success was hardcoded to True. It now requires that the
+        # station's actual resolution answer contains the spoofed address.
+        answers = _nslookup_answers(dig_result)
+        resolved_spoofed = spoofed_ip in answers
+        evidence.append(f"Resolved addresses for {domain}: {answers or 'none'}; "
+                        f"spoofed address observed: {resolved_spoofed}")
+
         return WiFiAttackResult(
             attack_name="DNS Hijacking",
             attack_type="dns_hijack",
-            success=True,
-            description=f"Redirected {domain} → {spoofed_ip} via dnsmasq",
+            success=resolved_spoofed,
+            description=f"Redirect {domain} → {spoofed_ip} via dnsmasq "
+                        f"(verified by station resolution: {resolved_spoofed})",
             evidence=evidence,
             impact="Phishing, malicious firmware delivery, credential theft",
             mitigation="DNSSEC, certificate pinning, encrypted DNS (DoH/DoT)",

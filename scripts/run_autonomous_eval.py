@@ -5242,7 +5242,9 @@ def main():
     scenes = find_scenes(eval_args.num_scenes, random_selection=(eval_args.num_scenes == 1))
     print(f"Found {len(scenes)} scenes to evaluate")
     if eval_args.with_attacks:
-        atk_count = 18 + 14 + (3 if eval_args.with_phantom_delay else 0)
+        # Revision E-0: Zigbee x2 removed; ARP/DNS/deauth/evil-twin need an 802.11
+        # backend (not attached here); the 3 phantom-delay placeholders are disabled.
+        atk_count = 18 + 8
         print(f"   → Will run {atk_count} attacks per scene ({len(scenes)} × {atk_count} = {len(scenes) * atk_count} total)")
 
     if len(models_to_run) > 1:
@@ -6440,6 +6442,9 @@ def _run_all_attacks_in_scene(
             pd_attack_results.append(r1)
             status = "✓" if r1.success else "✗"
             print(f"          {status} CVSS {r1.cvss_score}")
+        except NotImplementedError as e:
+            # Revision E-0: placeholder disabled -> not executed, not counted.
+            logger.warning(f"    PD Attack 1 not executed: {e}")
         except Exception as e:
             logger.error(f"    PD Attack 1 failed: {e}")
             pd_attack_results.append(DelayAttackResult(
@@ -6455,6 +6460,9 @@ def _run_all_attacks_in_scene(
             pd_attack_results.append(r2)
             status = "✓" if r2.success else "✗"
             print(f"          {status} CVSS {r2.cvss_score}")
+        except NotImplementedError as e:
+            # Revision E-0: placeholder disabled -> not executed, not counted.
+            logger.warning(f"    PD Attack 2 not executed: {e}")
         except Exception as e:
             logger.error(f"    PD Attack 2 failed: {e}")
             pd_attack_results.append(DelayAttackResult(
@@ -6470,6 +6478,9 @@ def _run_all_attacks_in_scene(
             pd_attack_results.append(r3)
             status = "✓" if r3.success else "✗"
             print(f"          {status} CVSS {r3.cvss_score}")
+        except NotImplementedError as e:
+            # Revision E-0: placeholder disabled -> not executed, not counted.
+            logger.warning(f"    PD Attack 3 not executed: {e}")
         except Exception as e:
             logger.error(f"    PD Attack 3 failed: {e}")
             pd_attack_results.append(DelayAttackResult(

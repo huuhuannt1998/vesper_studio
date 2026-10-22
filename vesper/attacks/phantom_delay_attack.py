@@ -48,6 +48,41 @@ logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────
+#  Revision E-0: placeholder guard
+# ─────────────────────────────────────────────────────────────────────
+#
+# An audit found that the attack_* methods of PhantomDelayAttackSuite never
+# place a proxy (or anything else) in the device<->hub message path: they
+# talk to the device directly, sleep, and then set success=True
+# unconditionally (e.g. "success = True", "automation_triggered_incorrectly
+# = True", "reorder_succeeded = True  # The attack concept is demonstrated",
+# "success=True,  # Docker bridge is always vulnerable"). No message was
+# delayed and no automation was evaluated, so their outcomes were not
+# measurements. They now raise NotImplementedError so that no caller can
+# record a success for them. PhantomDelayProxy (above the suite) is a real
+# four-thread proxy and is unchanged.
+
+_PLACEHOLDER_MSG = (
+    "Not executed: {name} was a placeholder (no on-path proxy in the message "
+    "path; success was hardcoded). Disabled in revision E-0; see "
+    "results/revision/e0_campaign/CHANGES.md."
+)
+
+
+def _placeholder(func):
+    """Mark a narrative placeholder so that calling it raises instead of
+    returning a fabricated success."""
+    import functools
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        raise NotImplementedError(_PLACEHOLDER_MSG.format(name=func.__name__))
+
+    wrapper.__vesper_placeholder__ = True
+    return wrapper
+
+
+# ─────────────────────────────────────────────────────────────────────
 #  Data Structures
 # ─────────────────────────────────────────────────────────────────────
 
@@ -442,6 +477,7 @@ class PhantomDelayAttackSuite:
 
     # ─── Attack 1: ARP-Based Session Hijack (Simulated) ────────────
 
+    @_placeholder
     def attack_arp_session_hijack(
         self, target: NetworkTarget
     ) -> DelayAttackResult:
@@ -548,6 +584,7 @@ class PhantomDelayAttackSuite:
 
     # ─── Attack 2: State-Update Delay ──────────────────────────────
 
+    @_placeholder
     def attack_state_update_delay(
         self,
         target: NetworkTarget,
@@ -709,6 +746,7 @@ class PhantomDelayAttackSuite:
 
     # ─── Attack 3: Erroneous Automation Execution ──────────────────
 
+    @_placeholder
     def attack_erroneous_execution(
         self,
         target: NetworkTarget,
@@ -851,6 +889,7 @@ class PhantomDelayAttackSuite:
 
     # ─── Attack 4: Routine Invalidation ────────────────────────────
 
+    @_placeholder
     def attack_routine_invalidation(
         self,
         target: NetworkTarget,
@@ -979,6 +1018,7 @@ class PhantomDelayAttackSuite:
 
     # ─── Attack 5: Action Reorder ──────────────────────────────────
 
+    @_placeholder
     def attack_action_reorder(
         self,
         target: NetworkTarget,
@@ -1124,6 +1164,7 @@ class PhantomDelayAttackSuite:
 
     # ─── Attack 6: Matter Event Delay ────────────────────────────────
 
+    @_placeholder
     def attack_matter_event_delay(
         self,
         target: NetworkTarget,
@@ -1256,6 +1297,7 @@ class PhantomDelayAttackSuite:
 
     # ─── Attack 7: Keepalive Evasion ───────────────────────────────
 
+    @_placeholder
     def attack_keepalive_evasion(
         self,
         target: NetworkTarget,
@@ -1356,6 +1398,7 @@ class PhantomDelayAttackSuite:
 
     # ─── Attack 8: Full Phantom-Delay Chain ────────────────────────
 
+    @_placeholder
     def attack_full_phantom_delay_chain(
         self,
         target: NetworkTarget,
@@ -1543,6 +1586,9 @@ class PhantomDelayAttackSuite:
                 result = attack_fn()
                 result.duration_ms = (time.time() - start) * 1000
                 results.append(result)
+            except NotImplementedError as e:
+                # Revision E-0: disabled placeholder -> not executed, not reported.
+                logger.warning(f"  Attack '{name}' not executed: {e}")
             except Exception as e:
                 logger.error(f"  Attack '{name}' failed: {e}")
                 results.append(DelayAttackResult(

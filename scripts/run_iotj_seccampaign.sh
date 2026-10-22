@@ -3,7 +3,7 @@
 set -u
 LMS="$HOME/.lmstudio/bin/lms"
 VPY="/Users/huanbui/miniconda3/envs/vesper/bin/python"
-REPO="/Users/huanbui/Desktop/vesper"
+REPO="/Users/huanbui/Research/vesper"
 cd "$REPO" || exit 1
 M="qwen2.5-7b-instruct"
 LOG="logs/iotj_seccampaign.log"

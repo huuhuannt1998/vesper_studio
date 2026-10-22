@@ -11,7 +11,7 @@
 set -u
 LMS="$HOME/.lmstudio/bin/lms"
 VPY="/Users/huanbui/miniconda3/envs/vesper/bin/python"
-REPO="/Users/huanbui/Desktop/vesper"
+REPO="/Users/huanbui/Research/vesper"
 cd "$REPO" || exit 1
 mkdir -p results/iotj_auto logs
 DRV="logs/iotj_auto_driver.log"

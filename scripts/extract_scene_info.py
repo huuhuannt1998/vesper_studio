@@ -8,7 +8,7 @@ import sys
 import numpy as np
 
 # Add habitat-lab to path
-habitat_lab_path = os.path.expanduser("~/Desktop/vesper/habitat-lab-official")
+habitat_lab_path = os.path.expanduser("~/Research/vesper/habitat-lab-official")
 if habitat_lab_path not in sys.path:
     sys.path.insert(0, habitat_lab_path)
 

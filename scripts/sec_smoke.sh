@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 LMS="$HOME/.lmstudio/bin/lms"; VPY="/Users/huanbui/miniconda3/envs/vesper/bin/python"
-cd /Users/huanbui/Desktop/vesper || exit 1
+cd /Users/huanbui/Research/vesper || exit 1
 LOG=logs/sec_smoke.log
 echo "[$(date)] smoke start" > "$LOG"
 "$LMS" load qwen2.5-7b-instruct --gpu max -c 4096 >>"$LOG" 2>&1 || echo "load failed" >>"$LOG"

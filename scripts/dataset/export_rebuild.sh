@@ -3,7 +3,7 @@
 # features, replace the biased episodes in the dataset, rebuild splits + baselines.
 set -euo pipefail
 PY=/Users/huanbui/miniconda3/envs/vesper/bin/python
-cd /Users/huanbui/Desktop/vesper
+cd /Users/huanbui/Research/vesper
 
 echo "=== 1. export regen raw dirs -> /tmp/regen_out ==="
 rm -rf /tmp/regen_out
