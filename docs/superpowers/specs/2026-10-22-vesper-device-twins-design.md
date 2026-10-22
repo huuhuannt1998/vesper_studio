@@ -27,6 +27,8 @@ It is not a security or networking paper. The target is an IEEE IoT-J platform p
 
 This spec covers #1. It also defines the interface that #2 and #3 use to drive devices.
 
+**Paper scope (PI, 2026-10-22).** The IoT-J paper claims one contribution: mapping real market devices to virtual twins. It asks how many real products can be mirrored, at what fidelity, and validated how, on a laptop. The rest stays out of this paper (see §8). The earlier manuscripts were judged to show "too many things", so this paper does not.
+
 ## 1. Goal, scope, success criteria
 
 **Goal.** Turn real market products into virtual devices automatically. Each device is as faithful as the available sources allow, and unmodified smart-home platforms accept it as the real product.
@@ -268,3 +270,29 @@ These are the rules:
 - `HANDOFF_PROMPT.md`, replaced by a new handoff at the end of the cleanup
 
 The queued security experiments (the last two CASAS homes, H5(b)) stay paused. Whether the security case study in #4 needs them is decided in #4's spec. Their scripts and outputs are archived, so nothing is lost.
+
+## 8. Paper scope: one contribution, one demonstration
+
+**The claim.** Real smart-home products from the market can be mapped automatically to virtual twins on a laptop. The paper reports:
+- how many products, per category, reach each fidelity level;
+- that an unmodified Home Assistant accepts and controls them;
+- that firmware anchors agree with their twins.
+
+Every result section supports this claim, through success criteria 1–6 in §1.
+
+**One end-to-end demonstration** (a short section, not a contribution). It shows the pipeline works from start to finish:
+1. A user picks one HSSD home.
+2. They select at least 8 real products from at least 4 categories in the catalog.
+3. The twins are placed in rooms by hand. Automatic placement belongs to #2.
+4. The existing embodied walking resident (`e2_embodied.py`) lives one day. Its room presence drives the sensors through `stimulate`, and it operates two devices through `operate`.
+5. An unmodified Home Assistant runs three or more automations.
+
+The demo claims only that this works. It makes no realism or scale claims about homes or residents.
+
+**Not in this paper**
+- Automatic home composition (#2).
+- Resident behavior: operating and reacting to devices, multiple occupants, realistic routines (#3).
+- The use-case studies: sim-to-real sensing, automation testing, energy and comfort, security (#4).
+- Throughput at the scale of thousands of homes.
+
+Each of these is a later paper built on this one.
