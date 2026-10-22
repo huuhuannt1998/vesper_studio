@@ -49,7 +49,8 @@ def main(argv: list[str]) -> int:
     known = _load_manifest(manifest)
     targets, problems = [], []
     for raw in a.paths:
-        t = (root / raw).resolve()
+        p = root / raw
+        t = p.parent.resolve() / p.name  # never follow a symlink named as PATH itself
         if root not in t.parents:
             problems.append(f"outside root: {raw}")
             continue

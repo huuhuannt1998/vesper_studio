@@ -75,3 +75,17 @@ def test_refuses_missing_manifest_and_paths_outside_root(tmp_path):
     m.write_text("")
     assert atd.main(["--manifest", str(m), "--root", str(root), "../etc"]) == 1
     assert (root / "z").exists()
+
+
+def test_symlink_path_never_deletes_its_target(tmp_path):
+    root = tmp_path / "repo"
+    kept = root / "kept"
+    kept.mkdir(parents=True)
+    f = kept / "data.txt"
+    f.write_text("keep me")
+    link = root / "legacy_link"
+    link.symlink_to(kept, target_is_directory=True)
+    m = tmp_path / "M"
+    _manifest(root, [f], m)  # the target's files are archived; the link itself is not
+    assert atd.main(["--manifest", str(m), "--root", str(root), "legacy_link"]) == 1
+    assert f.exists() and link.is_symlink()

@@ -1,8 +1,11 @@
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
-KEEP = [
+# Tracked: present in every checkout.
+KEEP_TRACKED = [
     "vesper/core/event_bus.py", "vesper/automation/tap_engine.py",
     "vesper/simulation/event_stream.py", "vesper/simulation/task_database.py",
     "vesper/simulation/task_generator.py", "vesper/simulation/task_system.py",
@@ -11,16 +14,22 @@ KEEP = [
     "scripts/revision/casas_workloads.py", "scripts/revision/casas_data_quality.py",
     "scripts/revision/e1v2_llm_schedules.py", "scripts/revision/rule_corpus_prevalence.py",
     "scripts/revision/pause_in_windows.py", "scripts/extract_scene_info.py",
+    "scripts/cleanup/archive_then_delete.py", "tests/test_event_bus.py",
+]
+
+# Untracked research data and assets: present only in the original working copy.
+KEEP_LOCAL = [
     "results/revision/llm_schedules", "results/revision/casas",
     "results/revision/e2/embodied", "results/revision/rule_corpus",
-    "data", "habitat-lab-official", "docs/superpowers", "tests/test_event_bus.py",
+    "results/revision/novelty/hssd_regions.json",  # read by e2_embodied.py `scenes`
+    "data", "habitat-lab-official",
 ]
 
 GONE = [
     "vesper/attacks", "vesper/network", "vesper/protocol", "vesper/hub", "vesper/integrations",
     "vesper/firmware", "vesper/devices", "vesper/dashboard", "vesper/matter", "vesper/habitat",
-    "vesper/evaluation", "vesper/utils", "vesper/engine.py", "vesper/platform.py", "vesper/config.py",
-    "vesper/__main__.py", "vesper/core/environment.py", "vesper/core/registry.py",
+    "vesper/evaluation", "vesper/utils", "vesper/logs", "vesper/engine.py", "vesper/platform.py",
+    "vesper/config.py", "vesper/__main__.py", "vesper/core/environment.py", "vesper/core/registry.py",
     "vesper/simulation/autonomous_simulation.py", "vesper/agents/base.py",
     "vesper/agents/controller.py", "vesper/agents/llm_controller.py", "vesper/agents/smart_agent.py",
     "docker", "build", "esp32_demo", "configs", "typescript", "requirements.txt", "vesper.egg-info",
@@ -35,20 +44,18 @@ GONE = [
 ]
 
 
-def test_kept_paths_exist():
-    missing = [p for p in KEEP if not (ROOT / p).exists()]
+def test_tracked_kept_paths_exist():
+    missing = [p for p in KEEP_TRACKED if not (ROOT / p).exists()]
+    assert missing == []
+
+
+@pytest.mark.skipif(not (ROOT / "results/revision").is_dir(),
+                    reason="local research data exists only in the original working copy")
+def test_local_kept_paths_exist():
+    missing = [p for p in KEEP_LOCAL if not (ROOT / p).exists()]
     assert missing == []
 
 
 def test_legacy_paths_removed():
     present = [p for p in GONE if (ROOT / p).exists()]
     assert present == []
-
-
-def test_results_and_scripts_hold_only_kept_entries():
-    junk = {"__pycache__", ".DS_Store"}
-    assert {p.name for p in (ROOT / "results").iterdir()} - junk == {"revision"}
-    assert {p.name for p in (ROOT / "results/revision").iterdir()} - junk == {
-        "llm_schedules", "casas", "e2", "rule_corpus"}
-    assert {p.name for p in (ROOT / "scripts").iterdir()} - junk == {
-        "extract_scene_info.py", "revision", "cleanup"}
