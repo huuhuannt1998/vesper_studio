@@ -209,67 +209,36 @@ No Zigbee firmware emulator was found, so there is no Zigbee anchor (a stated li
 4. Build time for the Renode and QEMU firmware. Cross-compiling is real compute and needs the PI's go under the shared-Mac rules.
 5. Habitat itself has been frozen since v0.3.4 (Meta ended official maintenance). VESPER pins 0.3.3. This matters for #2 and #3.
 
-## 7. Repository cleanup (after this spec is approved)
+## 7. Repository cleanup (decided 2026-10-22)
 
-These are the rules:
-- "Archive" means copying into `~/Research/vesper-archive-2026-10/` with a SHA-256 manifest. Nothing unique is erased.
-- "Remove" means `git rm` on a `cleanup/2026-10` branch; git history keeps it.
-- The commit needs the PI's explicit OK.
-- The separate `~/Research/vesper-sh` repo is not touched.
+The PI chose "tag, archive, remove all legacy". The first draft of this section kept modules that import code it also removed. This version is self-consistent.
 
-**Keep**
-- `data/` (Habitat assets, CASAS) and `habitat-lab-official/`
-- `vesper/core/event_bus.py`, `vesper/core/registry.py`, `vesper/automation/tap_engine.py`
-- `vesper/simulation/{task_generator,task_system,time_manager}.py`
-- `vesper/matter/*`
-- `vesper/utils/dataset.py`
-- `vesper/evaluation/{activity_comparison,download_datasets,metrics,scalability_bench}.py`
-- From `scripts/revision/`:
-  - `e2_embodied.py`
-  - `e_a_ha_{stack,rules,driver}.py`
-  - `casas_workloads.py`, `casas_data_quality.py`
-  - `e1v2_workloads.py`, `e1v2_llm_schedules.py`
-  - `rule_corpus_prevalence.py`
-  - `pause_in_windows.py`
-- `scripts/extract_scene_info.py`
-- From `results/revision/`: `llm_schedules/`, `casas/`, `e2/embodied/`, `rule_corpus/`
-- `docs/` and this spec
+- **Snapshot first:**
+  - commit the pending legacy edits;
+  - tag `legacy-security-v1`;
+  - archive the working tree to the external SSD at `/Volumes/ResearchSSD/vesper-archive-2026-10.noindex/`, with a SHA-256 manifest and a `git bundle` of all refs.
 
-**Defer to #2/#3** (kept for now; decided in those specs)
-- `vesper/habitat/*`
-- `vesper/devices/{scene_device_placer,scene_configs}.py`
-- `vesper/dashboard/app.py`: a possible base for the "create a home, pick devices" UI
-- `vesper/agents/*`
-- `vesper/engine.py`, `vesper/platform.py`, `vesper/__main__.py`, `vesper/config.py`
+  Most IoT-J revision work (`scripts/revision/`, `results/revision/`, `IoTJ-manuscript/`) was never tracked by git. The archive is therefore the safety net for it, not the tag.
+- **Keep (new direction):**
+  - `vesper/core/event_bus.py`
+  - `vesper/automation/tap_engine.py`
+  - `vesper/simulation/{event_stream,task_database,task_generator,task_system,time_manager}.py`
+  - `vesper/agents/llm_client.py`
+  - In `scripts/revision/`: `e2_embodied.py` (the Habitat walking-resident executor), `e1v2_workloads.py`, `casas_workloads.py`, `casas_data_quality.py`, `e1v2_llm_schedules.py`, `rule_corpus_prevalence.py`, `pause_in_windows.py`
+  - `scripts/extract_scene_info.py`
+  - `results/revision/{llm_schedules,casas,e2/embodied,rule_corpus}` (on disk)
+  - `data/`, `habitat-lab-official/`, `docs/superpowers/`, `tests/test_event_bus.py`
+- **Remove everything else that is legacy:**
+  - the old device, network, protocol, hub, integration, firmware, attack, dashboard, Matter-client, Habitat-bridge, evaluation and agent modules;
+  - the old CLI, engine and config;
+  - Docker files and stale tests;
+  - the E2 replay engine and the old Home Assistant harness;
+  - the security, Wi-Fi and demo scripts;
+  - both manuscripts, all other results, logs and scratch output.
 
-**Remove, superseded by the twins once #1 lands**
-- `vesper/devices/{base,contact_sensor,light_sensor,motion_sensor,smart_door,security_camera,manager}.py`
-- `vesper/hub/{base,manager,virtual_hub}.py`
-- `vesper/integrations/device_registry.py`
+  All of it stays recoverable from the tag and the archive.
 
-**Remove (security, network, hardware or Docker scope)**
-- `vesper/attacks/`, `vesper/network/`, `vesper/protocol/`
-- `vesper/firmware/sensor_templates.py`
-- `vesper/hub/physical_hub.py`
-- `vesper/integrations/{smartthings,schema_connector,sync_bridge,docker_device_manager}.py`
-- `vesper/evaluation/{security_eval,latency_profiler,llm_ablation,experiment_runner,instrumentation,report_generator}.py`
-- `vesper/habitat/wifi_firmware_bridge.py`
-- `docker/`, `build/`, `esp32_demo/`, `configs/default.yaml`
-- `scripts/attacks/`, `scripts/dataset/`
-- Every other top-level script in `scripts/`, i.e. all of the security-campaign, Wi-Fi/ns-3, real-pcap and SmartThings demo scripts, except `extract_scene_info.py`
-- Tests that cover only removed modules
-
-**Keep for review in #1's plan:** `vesper/firmware/esp32_runner.py`, the ESP32 QEMU runner. It may seed anchor 3.
-
-**Archive (then remove from the working tree)**
-- `INFOCOM-2027-manuscript/`, `IoTJ-manuscript/`
-- `results/` except the kept items
-- `logs/`, `simulator_screenshots/`, `scratchpad_out/`, `$OUTDIR/`
-- `typescript`, `vesper-sh.zip`, `gpt-feedback.md`
-- `IoT-Phantom-Delay-Attack-main/` (third-party material)
-- `HANDOFF_PROMPT.md`, replaced by a new handoff at the end of the cleanup
-
-The queued security experiments (the last two CASAS homes, H5(b)) stay paused. Whether the security case study in #4 needs them is decided in #4's spec. Their scripts and outputs are archived, so nothing is lost.
+The exact file lists and commands are in `docs/superpowers/plans/2026-10-22-plan-a-cleanup-and-skeleton.md`. The separate `~/Research/vesper-sh` repo and the `data/` submodule pointers are not touched.
 
 ## 8. Paper scope: one contribution, one demonstration
 
