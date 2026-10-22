@@ -1,8 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-102344439,"hallway_motion_light",motion_detected,hallway,1,0,0,"None",0.26
-102344439,"recgame_motion_light",motion_detected,rec/game,0,0,0,"None",0.00
-102344439,"toilet_motion_light",motion_detected,toilet,0,0,0,"None",0.00
-102344439,"kitchen_motion_lock",motion_detected,kitchen,0,0,0,"None",0.00
-102344439,"kitchen_motion_lock",motion_detected,kitchen,0,0,0,"None",0.00
-102344439,"hallway_motion_light",motion_detected,hallway,0,0,0,"None",0.00
-102344439,"bedroom_001_motion_light",motion_detected,bedroom.001,0,0,0,"None",0.00

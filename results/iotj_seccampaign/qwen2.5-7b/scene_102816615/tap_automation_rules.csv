@@ -1,4 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-102816615,"hallway_motion_light",motion_detected,hallway,1,0,0,"None",0.19
-102816615,"bedroom_001_motion_light",motion_detected,bedroom.001,1,0,0,"None",0.15
-102816615,"hallway_motion_light",motion_detected,hallway,0,0,0,"None",0.00

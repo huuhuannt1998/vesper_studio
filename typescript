@@ -1,1761 +1,0 @@
-Script started on Sun Mar  8 20:25:43 2026
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsscp /Users/huanbui/Desktop/vesper/scripts/run_ [Krremaining.sh hbui11@192.168.2.3:~/[?2004l
-run_remaining.sh                                0%    0     0.0KB/s   --:-- ETArun_remaining.sh                              100%  732     1.4MB/s   00:00    
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "nohup sudo bash /home/ [Khhbui11/run_remaining.sh > /home/hbui11/remaining.log 2>&1 &" && echo "Started re [Kmmaining experiments in background"[?2004l
-Started remaining experiments in background
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 10 && ssh hbui11@192.168.2.3 "ps aux | g [Krrep -E 'rqn|remaining' | grep -v grep && echo '---' && tail -10 /home/hbui11/rem [Kaaining.log"[?2004l
-hbui11     17822  0.0  0.0   6884  3060 ?        Ss   00:23   0:00 bash -c cd /home/hbui11 && sudo DEBIAN_FRONTEND=noninteractive bash -c "source .venv/bin/activate 2>/dev/null; python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline 2>&1" | tail -5
-root       17823  0.0  0.0  12976  4692 ?        S    00:23   0:00 sudo DEBIAN_FRONTEND=noninteractive bash -c source .venv/bin/activate 2>/dev/null; python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline 2>&1
-root       17825  0.0  0.0   6884  3028 ?        S    00:23   0:00 bash -c source .venv/bin/activate 2>/dev/null; python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline 2>&1
-root       17826  0.5  0.2 246276 18112 ?        Sl   00:23   0:01 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-root       18583  0.0  0.0  16744  5120 ?        Ss   00:25   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/wpa_sta0.log
-root       18601  0.0  0.0  16744  5120 ?        Ss   00:25   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/wpa_sta1.log
-root       19084  0.0  0.0  10664  4240 ?        Ss   00:26   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/hostapd.log
-root       19182  0.0  0.0  12980  4696 ?        S    00:26   0:00 sudo bash /home/hbui11/run_remaining.sh
-root       19183  0.0  0.0   6884  2996 ?        S    00:26   0:00 bash /home/hbui11/run_remaining.sh
-root       19184  0.5  0.2 172492 18088 ?        S    00:26   0:00 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-root       19185  0.0  0.0   5208   784 ?        S    00:26   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline.log
-mosquit+   19190  0.0  0.0  15780  8104 ?        S    00:26   0:00 matter_bridge -c /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/matter_bridge.conf
----
-2026-03-09 00:27:00,273 [vesper.rqn1] INFO:   ✓ ns-bridge1 → bridge: reachable
-2026-03-09 00:27:00,273 [vesper.rqn1] INFO:   Bridge topology: 2/2 devices connected
-2026-03-09 00:27:00,273 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:27:00,273 [vesper.rqn1] INFO:   Trial 1 — BRIDGE mode
-2026-03-09 00:27:00,273 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:27:01,278 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:27:12,599 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:27:14,696 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:27:20,180 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:27:20,181 [vesper.rqn1] INFO:   Running network attacks...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -20 /home/hbui11/ [Krremaining.log 2>/dev/null; echo '==='; ps aux | grep python3 | grep -v grep"[?2004l
-2026-03-09 00:26:59,256 [vesper.rqn1] INFO:   Bridge station ns-bridge1 → 172.20.0.11
-2026-03-09 00:27:00,267 [vesper.rqn1] INFO:   ✓ ns-bridge0 → bridge: reachable
-2026-03-09 00:27:00,273 [vesper.rqn1] INFO:   ✓ ns-bridge1 → bridge: reachable
-2026-03-09 00:27:00,273 [vesper.rqn1] INFO:   Bridge topology: 2/2 devices connected
-2026-03-09 00:27:00,273 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:27:00,273 [vesper.rqn1] INFO:   Trial 1 — BRIDGE mode
-2026-03-09 00:27:00,273 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:27:01,278 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:27:12,599 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:27:14,696 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:27:20,180 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:27:20,181 [vesper.rqn1] INFO:   Running network attacks...
-2026-03-09 00:27:26,807 [vesper.rqn1] INFO:     Network: 3/5 succeeded
-2026-03-09 00:27:26,808 [vesper.rqn1] INFO:   Measuring throughput...
-2026-03-09 00:27:35,029 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:27:35,031 [vesper.rqn1] INFO:   Trial 2 — BRIDGE mode
-2026-03-09 00:27:35,031 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:27:36,039 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:27:47,365 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:27:49,476 [vesper.rqn1] INFO:   Running firmware attacks...
-===
-root         760  0.0  0.2  30068 18272 ?        Ss   Mar08   0:00 /usr/bin/python3 /usr/bin/networkd-dispatcher --run-startup-triggers
-root         844  0.0  0.2 107024 20080 ?        Ssl  Mar08   0:00 /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
-hbui11     17822  0.0  0.0   6884  3060 ?        Ss   00:23   0:00 bash -c cd /home/hbui11 && sudo DEBIAN_FRONTEND=noninteractive bash -c "source .venv/bin/activate 2>/dev/null; python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline 2>&1" | tail -5
-root       17823  0.0  0.0  12976  4692 ?        S    00:23   0:00 sudo DEBIAN_FRONTEND=noninteractive bash -c source .venv/bin/activate 2>/dev/null; python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline 2>&1
-root       17825  0.0  0.0   6884  3028 ?        S    00:23   0:00 bash -c source .venv/bin/activate 2>/dev/null; python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline 2>&1
-root       17826  0.5  0.2 246276 18112 ?        Sl   00:23   0:01 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-root       19184  0.5  0.2 172492 18088 ?        S    00:26   0:00 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "ls /home/ [Khhbui11/results/wmediumd_20260309_000453/ && tail -5 /home/hbui11/remaining.log & [K&& echo '---' && ps aux | grep -E 'rqn|remaining' | grep -v grep | wc -l"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -10 /home/hbui11/ [Krremaining.log && echo '===DIRS===' && ls /home/hbui11/results/wmediumd_20260309_ [K0000453/"[?2004l
-2026-03-09 00:28:01,616 [vesper.rqn1] INFO:     Network: 3/5 succeeded
-2026-03-09 00:28:01,616 [vesper.rqn1] INFO:   Measuring throughput...
-2026-03-09 00:28:09,831 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:28:09,832 [vesper.rqn1] INFO:   Trial 3 — BRIDGE mode
-2026-03-09 00:28:09,832 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:28:10,838 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:28:22,105 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:28:24,199 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:28:29,709 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:28:29,711 [vesper.rqn1] INFO:   Running network attacks...
-===DIRS===
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "tail -3 / [Khhome/hbui11/remaining.log && echo '===DIRS===' && ls /home/hbui11/results/wmediu [Kmmd_20260309_000453/ && echo '===PROCS===' && ps aux | grep -E 'rqn|remaining' |  [Kggrep -v grep | wc -l"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keemaining.log && ls /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-2026-03-09 00:29:00,582 [vesper.rqn1] INFO:   WiFi topology: 2/2 stations connected
-2026-03-09 00:29:00,585 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:29:00,585 [vesper.rqn1] INFO:   Trial 1 — WIFI mode
-2026-03-09 00:29:00,586 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:29:01,597 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 900 && ssh hbui11@192.168.2.3 "tail -5 / [Khhome/hbui11/remaining.log && echo '===DIRS===' && ls /home/hbui11/results/wmediu [Kmmd_20260309_000453/ && echo '===PROCS===' && ps aux | grep -E 'rqn|remaining' |  [Kggrep -v grep | wc -l"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -3 /home/hbui11/r [Keemaining.log && ls /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-2026-03-09 00:29:43,109 [vesper.rqn1] INFO:   Counting 802.11 retransmissions...
-2026-03-09 00:29:53,427 [vesper.rqn1] INFO:   Measuring reconnection dynamics...
-2026-03-09 00:29:55,434 [vesper.rqn1] INFO:   Running WiFi-layer attacks...
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keemaining.log && echo '===DIRS===' && ls /home/hbui11/results/wmediumd_20260309_0 [K000453/ && echo '===PROCS===' && ps aux | grep -E 'rqn|remaining' | grep -v grep  [K|| wc -l"[?2004l
-2026-03-09 00:29:43,109 [vesper.rqn1] INFO:   Counting 802.11 retransmissions...
-2026-03-09 00:29:53,427 [vesper.rqn1] INFO:   Measuring reconnection dynamics...
-2026-03-09 00:29:55,434 [vesper.rqn1] INFO:   Running WiFi-layer attacks...
-2026-03-09 00:30:13,638 [vesper.rqn1] INFO:     WiFi-layer: 3/5 succeeded
-2026-03-09 00:30:14,668 [vesper.rqn1] INFO:     Waiting for stations to re-associate...
-===DIRS===
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-===PROCS===
-12
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 300 && ssh hbui11@192.168.2.3 "tail -5 / [Khhome/hbui11/remaining.log && echo '===DIRS===' && ls /home/hbui11/results/wmediu [Kmmd_20260309_000453/ && echo '===PROCS===' && ps aux | grep -E 'rqn|remaining' |  [Kggrep -v grep | wc -l"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -3 /home/hbui11/r [Keemaining.log && ls /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-2026-03-09 00:30:19,690 [vesper.rqn1] INFO:   Trial 2 — WIFI mode
-2026-03-09 00:30:19,690 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:30:20,697 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "tail -5 / [Khhome/hbui11/remaining.log && echo '===DIRS===' && ls /home/hbui11/results/wmediu [Kmmd_20260309_000453/ && echo '===PROCS===' && ps aux | grep -E 'rqn|remaining' |  [Kggrep -v grep | wc -l"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keemaining.log && ls /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-2026-03-09 00:30:15,681 [vesper.rqn1] INFO:     Stations re-associated after 1s
-2026-03-09 00:30:19,689 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:30:19,690 [vesper.rqn1] INFO:   Trial 2 — WIFI mode
-2026-03-09 00:30:19,690 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:30:20,697 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "ps aux | grep python3  [K|| grep rqn | grep -v grep && echo '---' && tail -1 /home/hbui11/results/wmediumd [K__20260309_000453/rqn1_baseline/rqn1.log 2>/dev/null"[?2004l
-hbui11     17822  0.0  0.0   6884  3060 ?        Ss   00:23   0:00 bash -c cd /home/hbui11 && sudo DEBIAN_FRONTEND=noninteractive bash -c "source .venv/bin/activate 2>/dev/null; python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline 2>&1" | tail -5
-root       17823  0.0  0.0  12976  4692 ?        S    00:23   0:00 sudo DEBIAN_FRONTEND=noninteractive bash -c source .venv/bin/activate 2>/dev/null; python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline 2>&1
-root       17825  0.0  0.0   6884  3028 ?        S    00:23   0:00 bash -c source .venv/bin/activate 2>/dev/null; python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline 2>&1
-root       17826  0.4  0.2 246276 18112 ?        Sl   00:23   0:02 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-root       19184  0.2  0.2 172492 18592 ?        S    00:26   0:00 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
----
-2026-03-09 00:31:04,124 [vesper.rqn1] INFO:   Running network attacks...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo kill 17822 17823  [K117825 17826 2>/dev/null; echo 'killed old instance'; ps aux | grep python3 | gre [Kpp rqn | grep -v grep"[?2004l
-killed old instance
-root       17823  0.0  0.0  12976  4692 ?        R    00:23   0:00 sudo DEBIAN_FRONTEND=noninteractive bash -c source .venv/bin/activate 2>/dev/null; python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline 2>&1
-root       19184  0.2  0.2 172492 18592 ?        S    00:26   0:00 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo kill -9 17823 2>/ [Kddev/null; ps aux | grep python3 | grep rqn | grep -v grep"[?2004l
-root       19184  0.2  0.2 172492 18592 ?        S    00:26   0:00 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "tail -5 / [Khhome/hbui11/remaining.log && echo '===DIRS===' && ls /home/hbui11/results/wmediu [Kmmd_20260309_000453/ && echo '===PROCS===' && ps aux | grep -E 'rqn|remaining' |  [Kggrep -v grep | wc -l"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -3 /home/hbui11/r [Keemaining.log"[?2004l
-2026-03-09 00:31:14,160 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:31:19,643 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:31:19,644 [vesper.rqn1] INFO:   Running network attacks...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -3 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log 2>/dev/null"[?2004l
-2026-03-09 00:31:14,160 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:31:19,643 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:31:19,644 [vesper.rqn1] INFO:   Running network attacks...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "ps aux | grep 19184 |  [Kggrep -v grep && ls -la /proc/19184/fd 2>/dev/null | wc -l"[?2004l
-root       19184  0.2  0.2 172492 18592 ?        S    00:26   0:00 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-0
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo kill -9 19184 2>/ [Kddev/null; sudo pkill -9 -f 'run_rqn|run_remaining|hostapd|wpa_supplicant|iperf3| [Kwwmediumd' 2>/dev/null; sudo modprobe -r mac80211_hwsim 2>/dev/null; echo 'Cleane [Kdd up'; sleep 2; ps aux | grep -E 'rqn|remaining|hostapd|wpa_supplicant' | grep - [Kvv grep | wc -l"[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "echo clean; sudo pkill [K  -9 -f 'rqn|remaining|hostapd|wpa_supplicant|iperf3|wmediumd' 2>/dev/null; sudo  [Kmmodprobe -r mac80211_hwsim 2>/dev/null; echo done; ls /home/hbui11/results/wmedi [Kuumd_20260309_000453/"[?2004l
-clean
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "ls /home/hbui11/result [Kss/wmediumd_20260309_000453/ 2>/dev/null && echo ok || echo 'no dir'"[?2004l
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-ok
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "find /home/hbui11/resu [Kllts/wmediumd_20260309_000453/ -name '*.json' | sort && echo '---' && tail -10 /h [Koome/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && echo '---R [KQQ2---' && tail -10 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd.l [Koog"[?2004l
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/bridge/trial_1/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/bridge/trial_1/trial_result.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/bridge/trial_2/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/bridge/trial_2/trial_result.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/bridge/trial_3/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/bridge/trial_3/trial_result.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/wifi/trial_1/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/wifi/trial_1/trial_result.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/wifi/trial_2/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/wifi/trial_2/trial_result.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/bridge/trial_1/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/bridge/trial_1/trial_result.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/bridge/trial_2/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/bridge/trial_2/trial_result.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/bridge/trial_3/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/bridge/trial_3/trial_result.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/comparison/rqn1_comparison.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/rqn1_full_results.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/wifi/trial_1/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/wifi/trial_1/trial_result.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/wifi/trial_2/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/wifi/trial_2/trial_result.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/wifi/trial_3/raw_rtt.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/wifi/trial_3/trial_result.json
----
-2026-03-09 00:30:19,690 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:30:20,697 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:30:56,505 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:30:58,622 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:31:04,123 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:31:04,124 [vesper.rqn1] INFO:   Running network attacks...
-2026-03-09 00:31:12,063 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:31:14,160 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:31:19,643 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:31:19,644 [vesper.rqn1] INFO:   Running network attacks...
----RQ2---
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsscp /Users/huanbui/Desktop/vesper/scripts/run_ [Krremaining2.sh hbui11@192.168.2.3:~/ && ssh hbui11@192.168.2.3 "nohup sudo bash / [Khhome/hbui11/run_remaining2.sh > /home/hbui11/remaining2.log 2>&1 &" && echo "Sta [Krrted"[?2004l
-run_remaining2.sh                               0%    0     0.0KB/s   --:-- ETArun_remaining2.sh                             100% 1243     2.1MB/s   00:00    
-Started
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 15 && ssh hbui11@192.168.2.3 "tail -10 / [Khhome/hbui11/remaining2.log"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -15 /home/hbui11/ [Krremaining2.log"[?2004l
-2026-03-09 00:33:44,416 [vesper.rqn1] INFO:   Firmware simulators started on ports [5561, 5562]
-2026-03-09 00:33:45,927 [vesper.rqn1] INFO:   Matter broker started on 0.0.0.0:8484
-2026-03-09 00:33:45,927 [vesper.rqn1] INFO: 
-▶ BRIDGE MODE
-2026-03-09 00:33:45,928 [vesper.rqn1] INFO: Setting up bridge mode (Linux bridge + veth)...
-2026-03-09 00:33:46,004 [vesper.rqn1] INFO:   Bridge station ns-bridge0 → 172.20.0.10
-2026-03-09 00:33:46,049 [vesper.rqn1] INFO:   Bridge station ns-bridge1 → 172.20.0.11
-2026-03-09 00:33:47,057 [vesper.rqn1] INFO:   ✓ ns-bridge0 → bridge: reachable
-2026-03-09 00:33:47,092 [vesper.rqn1] INFO:   ✓ ns-bridge1 → bridge: reachable
-2026-03-09 00:33:47,092 [vesper.rqn1] INFO:   Bridge topology: 2/2 devices connected
-2026-03-09 00:33:47,092 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:33:47,092 [vesper.rqn1] INFO:   Trial 1 — BRIDGE mode
-2026-03-09 00:33:47,092 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:33:48,098 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:33:59,431 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 1800 && ssh hbui11@192.168.2.3 "echo '== [K==LAST LINES==='; tail -5 /home/hbui11/remaining2.log; echo '===DIRS==='; ls /hom [Kee/hbui11/results/wmediumd_20260309_000453/; echo '===PROCS==='; ps aux | grep -E [K  'rqn|remaining' | grep -v grep | wc -l"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -3 /home/hbui11/r [Keemaining2.log && ls /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-2026-03-09 00:34:21,859 [vesper.rqn1] INFO:   Trial 2 — BRIDGE mode
-2026-03-09 00:34:21,859 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:34:22,867 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keemaining2.log && echo '---' && ls /home/hbui11/results/wmediumd_20260309_000453/ [K  && echo '---' && ps aux | grep -E 'rqn|remaining2' | grep -v grep | wc -l"[?2004l
-2026-03-09 00:34:21,857 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:34:21,859 [vesper.rqn1] INFO:   Trial 2 — BRIDGE mode
-2026-03-09 00:34:21,859 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:34:22,867 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:34:34,219 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
----
-5
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "wc -l /home/hbui11/rem [Kaaining2.log && tail -3 /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseli [Knne/rqn1.log 2>/dev/null && echo '---' && stat --format=%Y /home/hbui11/results/w [Kmmediumd_20260309_000453/rqn1_baseline/rqn1.log 2>/dev/null && date +%s"[?2004l
-53 /home/hbui11/remaining2.log
-2026-03-09 00:34:41,833 [vesper.rqn1] INFO:   Running network attacks...
-2026-03-09 00:34:48,481 [vesper.rqn1] INFO:     Network: 3/5 succeeded
-2026-03-09 00:34:48,482 [vesper.rqn1] INFO:   Measuring throughput...
----
-1773016488
-1773016488
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log 2>/dev/null"[?2004l
-2026-03-09 00:34:48,482 [vesper.rqn1] INFO:   Measuring throughput...
-2026-03-09 00:34:56,716 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:34:56,717 [vesper.rqn1] INFO:   Trial 3 — BRIDGE mode
-2026-03-09 00:34:56,717 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:34:57,723 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "ps aux | grep python3  [K|| grep rqn | grep -v grep"[?2004l
-root       22150  0.7  0.2 246284 17872 ?        Sl   00:33   0:00 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "tail -10  [K//home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log 2>/dev/null [K  && echo '===DIRS===' && ls /home/hbui11/results/wmediumd_20260309_000453/ && ec [Khho '===PROCS===' && ps aux | grep python3 | grep rqn | grep -v grep"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -10 /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && echo === && ls /home/ [Khhbui11/results/wmediumd_20260309_000453/ && ps aux | grep python3 | grep rqn | g [Krrep -v grep"[?2004l
-2026-03-09 00:35:37,558 [vesper.rqn1] INFO:   Moved phy2 (wlan2) → ns-sta1
-2026-03-09 00:35:37,603 [vesper.rqn1] INFO:   wpa_supplicant started on wlan2 in ns-sta1
-2026-03-09 00:35:37,603 [vesper.rqn1] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 00:35:45,780 [vesper.rqn1] INFO:   All stations associated after 8s
-2026-03-09 00:35:46,295 [vesper.rqn1] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: reachable
-2026-03-09 00:35:46,809 [vesper.rqn1] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: reachable
-2026-03-09 00:35:46,810 [vesper.rqn1] INFO:   WiFi topology: 2/2 stations connected
-2026-03-09 00:35:46,811 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:35:46,811 [vesper.rqn1] INFO:   Trial 1 — WIFI mode
-2026-03-09 00:35:46,811 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-===
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-root       22150  0.6  0.2 246284 17872 ?        Sl   00:33   0:00 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 900 && ssh hbui11@192.168.2.3 "tail -5 / [Khhome/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log 2>/dev/null  [K&&& echo === && ls /home/hbui11/results/wmediumd_20260309_000453/ && echo === &&  [Kpps aux | grep python3 | grep rqn | grep -v grep || echo 'No rqn processes'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && echo === && ls /home/h [Kbbui11/results/wmediumd_20260309_000453/"[?2004l
-2026-03-09 00:36:56,008 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:37:00,025 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:37:00,026 [vesper.rqn1] INFO:   Trial 2 — WIFI mode
-2026-03-09 00:37:00,026 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:37:01,031 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-===
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && ls /home/hbui11/result [Kss/wmediumd_20260309_000453/ && ps aux | grep python3 | grep rqn | grep -v grep | [K|| echo 'no procs'"[?2004l
-2026-03-09 00:36:56,008 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:37:00,025 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:37:00,026 [vesper.rqn1] INFO:   Trial 2 — WIFI mode
-2026-03-09 00:37:00,026 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:37:01,031 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-root       22150  0.5  0.2 246284 18316 ?        Sl   00:33   0:01 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "stat --format='%Y' /ho [Kmme/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && date +%s && [K  wc -l /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log"[?2004l
-1773016621
-1773016671
-83 /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 300 && ssh hbui11@192.168.2.3 "tail -5 / [Khhome/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && ls /home/ [Khhbui11/results/wmediumd_20260309_000453/"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -8 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log"[?2004l
-2026-03-09 00:37:00,025 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:37:00,026 [vesper.rqn1] INFO:   Trial 2 — WIFI mode
-2026-03-09 00:37:00,026 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:37:01,031 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:37:54,827 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:37:56,930 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:   Running network attacks...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && ls /home/hbui11/result [Kss/wmediumd_20260309_000453/"[?2004l
-2026-03-09 00:37:01,031 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:37:54,827 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:37:56,930 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:   Running network attacks...
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "tail -5 / [Khhome/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && echo ===  [K&&& ls /home/hbui11/results/wmediumd_20260309_000453/ && ps aux | grep python3 |  [Kggrep rqn | grep -v grep || echo 'done or RQ-N2 started'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log"[?2004l
-2026-03-09 00:37:01,031 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:37:54,827 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:37:56,930 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:   Running network attacks...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "stat --format='%Y' /ho [Kmme/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log; date +%s; ps  [Kaaux | grep 22150 | grep -v grep"[?2004l
-1773016682
-1773016738
-root       22150  0.4  0.2 246284 18316 ?        Sl   00:33   0:01 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -10 /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && echo === && ls /home/ [Khhbui11/results/wmediumd_20260309_000453/ && ps aux | grep python3 | grep rqn | g [Krrep -v grep || echo 'RQ-N1 done'"[?2004l
-2026-03-09 00:36:46,880 [vesper.rqn1] INFO:     Waiting for stations to re-associate...
-2026-03-09 00:36:56,008 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:37:00,025 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:37:00,026 [vesper.rqn1] INFO:   Trial 2 — WIFI mode
-2026-03-09 00:37:00,026 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:37:01,031 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:37:54,827 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:37:56,930 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:   Running network attacks...
-===
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-root       22150  0.4  0.2 246284 18316 ?        Sl   00:33   0:01 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "strace -p 22150 -e tra [Kcce=write -f -t 2>&1 | head -20" 2>/dev/null; true[?2004l
-strace: Could not attach to process. If your uid matches the uid of the target process, check the setting of /proc/sys/kernel/yama/ptrace_scope, or try again as the root user. For more details, see /etc/sysctl.d/10-ptrace.conf: Operation not permitted
-strace: attach: ptrace(PTRACE_SEIZE, 22150): Operation not permitted
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo strace -p 22150 - [Kee trace=write,nanosleep -f -t 2>&1 | timeout 10 head -30"[?2004l
-^C[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo timeout 5 strace  [K--p 22150 -e trace=write -f 2>&1 | tail -10"[?2004l
-strace: Could not attach to process. If your uid matches the uid of the target process, check the setting of /proc/sys/kernel/yama/ptrace_scope, or try again as the root user. For more details, see /etc/sysctl.d/10-ptrace.conf: Operation not permitted
-strace: attach: ptrace(PTRACE_SEIZE, 22150): Operation not permitted
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo cat /proc/22150/w [Kcchan 2>/dev/null && echo '' && sudo ls -la /proc/22150/fd 2>/dev/null | tail -5" [K[K[?2004l
-do_poll.constprop.0
-lrwx------ 1 root root 64 Mar  9 00:39 5 -> socket:[191694]
-lr-x------ 1 root root 64 Mar  9 00:39 6 -> pipe:[189320]
-lr-x------ 1 root root 64 Mar  9 00:39 7 -> pipe:[204009]
-lr-x------ 1 root root 64 Mar  9 00:39 8 -> pipe:[189321]
-lr-x------ 1 root root 64 Mar  9 00:39 9 -> pipe:[205398]
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "tail -5 / [Khhome/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && echo ===  [K&&& find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn1_full_results. [Kjjson' -o -name 'rqn2_summary.json' && echo === && ls /home/hbui11/results/wmediu [Kmmd_20260309_000453/"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && find /home/hbui11/resu [Kllts/wmediumd_20260309_000453/ -name 'rqn*_full_results.json' -o -name 'rqn2_summ [Kaary.json' && ls /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-2026-03-09 00:37:01,031 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:37:54,827 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:37:56,930 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:   Running network attacks...
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/rqn1_full_results.json
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo pstree -p 22150 2 [K>>/dev/null"[?2004l
-python3(22150)-+-matter_bridge(22156)
-               |-sh(24558)---matter_bridge_p(24559)
-               |-tshark(23734)
-               |-{python3}(22152)
-               `-{python3}(22153)
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo kill 24558 24559  [K22>/dev/null; sleep 2; sudo pstree -p 22150 2>/dev/null"[?2004l
-python3(22150)-+-iperf3(24716)
-               |-matter_bridge(22156)
-               |-sh(24717)---iperf3(24718)
-               |-tshark(23734)
-               |-{python3}(22152)
-               `-{python3}(22153)
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -3 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && sudo pstree -p 22150 2 [K>>/dev/null && ps aux | grep 22150 | grep -v grep"[?2004l
-2026-03-09 00:40:47,592 [vesper.rqn1] INFO:     Network: 0/5 succeeded
-2026-03-09 00:40:47,593 [vesper.rqn1] INFO:   Measuring throughput...
-2026-03-09 00:40:51,713 [vesper.rqn1] INFO:   Counting 802.11 retransmissions...
-python3(22150)-+-matter_bridge(22156)
-               |-sh(24723)---timeout(24724)---tshark(24725)-+-dumpcap(24747)
-               |                                            `-{tshark}(24731)
-               |-tshark(23734)
-               |-{python3}(22152)
-               `-{python3}(22153)
-root       22150  0.3  0.2 246284 18316 ?        Sl   00:33   0:01 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 900 && ssh hbui11@192.168.2.3 "tail -10  [K//home/hbui11/remaining2.log && echo '===DIRS===' && ls /home/hbui11/results/wmed [Kiiumd_20260309_000453/ && echo '===JSON===' && find /home/hbui11/results/wmediumd [K__20260309_000453/ -name 'rqn*_full_results.json' -o -name 'rqn2_summary.json' && [K  echo '===PROCS===' && ps aux | grep python3 | grep rqn | grep -v grep || echo ' [Kaall done'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && ls /home/hbui11/result [Kss/wmediumd_20260309_000453/"[?2004l
-2026-03-09 00:40:47,592 [vesper.rqn1] INFO:     Network: 0/5 succeeded
-2026-03-09 00:40:47,593 [vesper.rqn1] INFO:   Measuring throughput...
-2026-03-09 00:40:51,713 [vesper.rqn1] INFO:   Counting 802.11 retransmissions...
-2026-03-09 00:41:02,053 [vesper.rqn1] INFO:   Measuring reconnection dynamics...
-2026-03-09 00:41:04,059 [vesper.rqn1] INFO:   Running WiFi-layer attacks...
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo pstree -p 22150 2 [K>>/dev/null"[?2004l
-python3(22150)-+-matter_bridge(22156)
-               |-{python3}(22152)
-               `-{python3}(22153)
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -10 /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log"[?2004l
-2026-03-09 00:40:51,713 [vesper.rqn1] INFO:   Counting 802.11 retransmissions...
-2026-03-09 00:41:02,053 [vesper.rqn1] INFO:   Measuring reconnection dynamics...
-2026-03-09 00:41:04,059 [vesper.rqn1] INFO:   Running WiFi-layer attacks...
-2026-03-09 00:41:22,121 [vesper.rqn1] INFO:     WiFi-layer: 3/5 succeeded
-2026-03-09 00:41:23,154 [vesper.rqn1] INFO:     Waiting for stations to re-associate...
-2026-03-09 00:41:32,306 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO:   Trial 3 — WIFI mode
-2026-03-09 00:41:36,347 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:37,351 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 300 && ssh hbui11@192.168.2.3 "tail -5 / [Khhome/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && ls /home/ [Khhbui11/results/wmediumd_20260309_000453/"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && find /home/hbui11/resu [Kllts/wmediumd_20260309_000453/ -name 'rqn*_full_results.json' && ls /home/hbui11/ [Krresults/wmediumd_20260309_000453/"[?2004l
-2026-03-09 00:41:32,306 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO:   Trial 3 — WIFI mode
-2026-03-09 00:41:36,347 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:37,351 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/rqn1_full_results.json
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -5 /home/hbui11/r [Keesults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && find /home/hbui11/resu [Kllts/wmediumd_20260309_000453/ -name 'rqn*_full_results.json' -o -name 'rqn2_summ [Kaary.json' && ls /home/hbui11/results/wmediumd_20260309_000453/ && ps aux | grep  [Kppython3 | grep rqn | grep -v grep || echo 'RQ-N1 baseline might be done'"[?2004l
-2026-03-09 00:41:32,306 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO:   Trial 3 — WIFI mode
-2026-03-09 00:41:36,347 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:37,351 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/rqn1_full_results.json
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd.log
-root       22150  0.3  0.2 247308 18316 ?        Sl   00:33   0:01 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo pstree -p 22150 & [K&& date"[?2004l
-python3(22150)-+-matter_bridge(22156)
-               |-sh(25376)---matter_bridge_p(25377)
-               |-tshark(25052)
-               |-{python3}(22152)
-               `-{python3}(22153)
-Mon Mar  9 12:44:03 AM UTC 2026
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo kill 25376 25377  [K&&& echo 'killed stuck processes' && sleep 2 && sudo pstree -p 22150"[?2004l
-killed stuck processes
-python3(22150)-+-matter_bridge(22156)
-               |-sh(25491)---matter_bridge_p(25492)
-               |-tshark(25052)
-               |-{python3}(22152)
-               `-{python3}(22153)
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "ps aux | grep python3  [K|| grep rqn | grep -v grep; tail -20 /home/hbui11/results/wmediumd_20260309_00045 [K33/rqn1_baseline/rqn1.log; tail -10 /home/hbui11/remaining2.log"[?2004l
-root       22150  0.2  0.2 247308 18316 ?        Sl   00:33   0:01 python3 scripts/run_rqn1_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline
-2026-03-09 00:37:54,827 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:37:56,930 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:38:02,456 [vesper.rqn1] INFO:   Running network attacks...
-2026-03-09 00:40:47,592 [vesper.rqn1] INFO:     Network: 0/5 succeeded
-2026-03-09 00:40:47,593 [vesper.rqn1] INFO:   Measuring throughput...
-2026-03-09 00:40:51,713 [vesper.rqn1] INFO:   Counting 802.11 retransmissions...
-2026-03-09 00:41:02,053 [vesper.rqn1] INFO:   Measuring reconnection dynamics...
-2026-03-09 00:41:04,059 [vesper.rqn1] INFO:   Running WiFi-layer attacks...
-2026-03-09 00:41:22,121 [vesper.rqn1] INFO:     WiFi-layer: 3/5 succeeded
-2026-03-09 00:41:23,154 [vesper.rqn1] INFO:     Waiting for stations to re-associate...
-2026-03-09 00:41:32,306 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO:   Trial 3 — WIFI mode
-2026-03-09 00:41:36,347 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:37,351 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:42:31,088 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:42:33,215 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:42:38,727 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:42:38,727 [vesper.rqn1] INFO:   Running network attacks...
-2026-03-09 00:41:23,154 [vesper.rqn1] INFO:     Waiting for stations to re-associate...
-2026-03-09 00:41:32,306 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO:   Trial 3 — WIFI mode
-2026-03-09 00:41:36,347 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:37,351 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:42:31,088 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:42:33,215 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:42:38,727 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:42:38,727 [vesper.rqn1] INFO:   Running network attacks...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 120 && ssh hbui11@192.168.2.3 "tail -5 / [Khhome/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && sudo pstr [Keee -p 22150 2>/dev/null || echo 'process 22150 gone'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -10 /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log"[?2004l
-2026-03-09 00:41:23,154 [vesper.rqn1] INFO:     Waiting for stations to re-associate...
-2026-03-09 00:41:32,306 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO:   Trial 3 — WIFI mode
-2026-03-09 00:41:36,347 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:37,351 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:42:31,088 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:42:33,215 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:42:38,727 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:42:38,727 [vesper.rqn1] INFO:   Running network attacks...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo pstree -p 22150 & [K&& date"[?2004l
-python3(22150)-+-matter_bridge(22156)
-               |-sh(25491)---matter_bridge_p(25492)
-               |-tshark(25052)
-               |-{python3}(22152)
-               `-{python3}(22153)
-Mon Mar  9 12:44:54 AM UTC 2026
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "sudo kill 25491 25492  [K&&& echo 'killed stuck processes'"[?2004l
-killed stuck processes
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 30 && ssh hbui11@192.168.2.3 "tail -15 / [Khhome/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh -o ConnectTimeout=10 hbui11@192.168.2.3 "t [Kaail -15 /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log"[?2004l
-2026-03-09 00:41:23,154 [vesper.rqn1] INFO:     Waiting for stations to re-associate...
-2026-03-09 00:41:32,306 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO:   Trial 3 — WIFI mode
-2026-03-09 00:41:36,347 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:37,351 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:42:31,088 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:42:33,215 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:42:38,727 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:42:38,727 [vesper.rqn1] INFO:   Running network attacks...
-2026-03-09 00:45:04,410 [vesper.rqn1] INFO:     Network: 0/5 succeeded
-2026-03-09 00:45:04,410 [vesper.rqn1] INFO:   Measuring throughput...
-2026-03-09 00:45:08,486 [vesper.rqn1] INFO:   Counting 802.11 retransmissions...
-2026-03-09 00:45:18,808 [vesper.rqn1] INFO:   Measuring reconnection dynamics...
-2026-03-09 00:45:20,816 [vesper.rqn1] INFO:   Running WiFi-layer attacks...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 60 && ssh -o ConnectTimeout=10 hbui11@19 [K22.168.2.3 "tail -20 /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/ [Krrqn1.log && echo '---' && find /home/hbui11/results/wmediumd_20260309_000453/ -n [Kaame 'rqn*_full_results.json' && echo '---' && ps aux | grep python3 | grep rqn | [K  grep -v grep || echo 'No rqn process running'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -20 /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log"[?2004l
-2026-03-09 00:41:02,053 [vesper.rqn1] INFO:   Measuring reconnection dynamics...
-2026-03-09 00:41:04,059 [vesper.rqn1] INFO:   Running WiFi-layer attacks...
-2026-03-09 00:41:22,121 [vesper.rqn1] INFO:     WiFi-layer: 3/5 succeeded
-2026-03-09 00:41:23,154 [vesper.rqn1] INFO:     Waiting for stations to re-associate...
-2026-03-09 00:41:32,306 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:36,346 [vesper.rqn1] INFO:   Trial 3 — WIFI mode
-2026-03-09 00:41:36,347 [vesper.rqn1] INFO: ════════════════════════════════════════════════════════════
-2026-03-09 00:41:37,351 [vesper.rqn1] INFO:   Measuring ICMP RTT...
-2026-03-09 00:42:31,088 [vesper.rqn1] INFO:   Measuring TCP handshake RTT...
-2026-03-09 00:42:33,215 [vesper.rqn1] INFO:   Running firmware attacks...
-2026-03-09 00:42:38,727 [vesper.rqn1] INFO:     Firmware: 10/18 succeeded
-2026-03-09 00:42:38,727 [vesper.rqn1] INFO:   Running network attacks...
-2026-03-09 00:45:04,410 [vesper.rqn1] INFO:     Network: 0/5 succeeded
-2026-03-09 00:45:04,410 [vesper.rqn1] INFO:   Measuring throughput...
-2026-03-09 00:45:08,486 [vesper.rqn1] INFO:   Counting 802.11 retransmissions...
-2026-03-09 00:45:18,808 [vesper.rqn1] INFO:   Measuring reconnection dynamics...
-2026-03-09 00:45:20,816 [vesper.rqn1] INFO:   Running WiFi-layer attacks...
-2026-03-09 00:45:38,892 [vesper.rqn1] INFO:     WiFi-layer: 3/5 succeeded
-2026-03-09 00:45:39,932 [vesper.rqn1] INFO:     Waiting for stations to re-associate...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 30 && ssh hbui11@192.168.2.3 "tail -10 / [Khhome/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1.log && echo '=== [KFFULL_RESULTS===' && find /home/hbui11/results/wmediumd_20260309_000453/ -name 'r [Kqqn*_full_results.json'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -10 /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn1_baseline/rqn1.log"[?2004l
-2026-03-09 00:45:38,892 [vesper.rqn1] INFO:     WiFi-layer: 3/5 succeeded
-2026-03-09 00:45:39,932 [vesper.rqn1] INFO:     Waiting for stations to re-associate...
-2026-03-09 00:45:49,080 [vesper.rqn1] INFO:     Stations re-associated after 9s
-2026-03-09 00:45:53,097 [vesper.rqn1] INFO: Tearing down 802.11 mode...
-2026-03-09 00:45:55,419 [vesper.rqn1] INFO: 
-Total experiment time: 729s (12.2 min)
-2026-03-09 00:45:55,426 [vesper.rqn1] INFO: LaTeX table → /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/tab_bridge_vs_80211.tex
-2026-03-09 00:45:55,427 [vesper.rqn1] WARNING: matplotlib not available — skipping CDF figure
-2026-03-09 00:45:55,431 [vesper.rqn1] INFO: 
-Results saved to /home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "find /home/hbui11/resu [Kllts/wmediumd_20260309_000453/ -name 'rqn*_full_results.json' -o -name 'rqn2_summ [Kaary.json' && echo '---REMAINING LOG---' && tail -20 /home/hbui11/remaining2.log  [K&&& echo '---RUNNING---' && ps aux | grep python3 | grep -v grep"[?2004l
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_wmediumd/rqn1_full_results.json
-/home/hbui11/results/wmediumd_20260309_000453/rqn1_baseline/rqn1_full_results.json
----REMAINING LOG---
-2026-03-09 00:45:55,512 [vesper.rqn2] INFO:   Trials:  3
-2026-03-09 00:45:55,512 [vesper.rqn2] INFO:   Output:  /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-2026-03-09 00:45:55,512 [vesper.rqn2] INFO:   wmediumd: ENABLED (scenario=typical_home)
-2026-03-09 00:45:55,512 [vesper.rqn2] INFO: 
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-2026-03-09 00:45:55,512 [vesper.rqn2] INFO:   Config 0/7: Baseline
-2026-03-09 00:45:55,512 [vesper.rqn2] INFO: ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-2026-03-09 00:45:55,512 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 1
-2026-03-09 00:45:57,023 [vesper.rqn2] INFO: Setting up WiFi topology: Baseline
-2026-03-09 00:45:59,119 [vesper.wmediumd] INFO: Discovered hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 00:45:59,119 [vesper.rqn2] INFO:   Starting wmediumd with 4 hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 00:45:59,119 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:45:59,119 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 00:45:59,120 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 00:45:59,120 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:46:00,125 [vesper.wmediumd] INFO: wmediumd started (PID 26092)
-2026-03-09 00:46:00,126 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 00:46:03,391 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 00:46:12,559 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 00:46:13,081 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
----RUNNING---
-root         760  0.0  0.2  30068 18272 ?        Ss   Mar08   0:00 /usr/bin/python3 /usr/bin/networkd-dispatcher --run-startup-triggers
-root         844  0.0  0.2 107024 20080 ?        Ssl  Mar08   0:00 /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
-root       26025  0.5  0.2  24128 16628 ?        S    00:45   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "cat /home/hbui11/resul [Ktts/wmediumd_20260309_000453/rqn1_baseline/rqn1_full_results.json" | python3 -m j [Ksson.tool | head -80[?2004l
-{
-    "timestamp": "2026-03-09T00:45:55.428108",
-    "mode": "full",
-    "wmediumd_enabled": false,
-    "wmediumd_scenario": null,
-    "num_trials": 3,
-    "elapsed_s": 729.5,
-    "bridge_trials": [
-        {
-            "mode": "bridge",
-            "trial": 1,
-            "timestamp": "2026-03-09T00:33:47.092915",
-            "icmp_rtt": {
-                "172.20.0.10": {
-                    "count": 100,
-                    "min_ms": 0.041,
-                    "max_ms": 0.43,
-                    "mean_ms": 0.077,
-                    "median_ms": 0.073,
-                    "stdev_ms": 0.046,
-                    "p95_ms": 0.138,
-                    "p99_ms": 0.43
-                },
-                "172.20.0.11": {
-                    "count": 100,
-                    "min_ms": 0.04,
-                    "max_ms": 0.477,
-                    "mean_ms": 0.08,
-                    "median_ms": 0.075,
-                    "stdev_ms": 0.045,
-                    "p95_ms": 0.113,
-                    "p99_ms": 0.477
-                }
-            },
-            "tcp_handshake_rtt": {
-                "5561": {
-                    "count": 50,
-                    "min_ms": 0.101,
-                    "max_ms": 1.692,
-                    "mean_ms": 0.292,
-                    "stdev_ms": 0.322
-                },
-                "5562": {
-                    "count": 50,
-                    "min_ms": 0.047,
-                    "max_ms": 1.999,
-                    "mean_ms": 0.243,
-                    "stdev_ms": 0.338
-                }
-            },
-            "firmware_attacks": {
-                "total": 18,
-                "successful": 10,
-                "rate": 55.6,
-                "details": [
-                    {
-                        "port": 5561,
-                        "attack": "buffer_overflow",
-                        "category": "firmware",
-                        "success": true,
-                        "evidence": [
-                            "FATAL: stack overflow at 0x400d1234\r\nrebooting...\r\n"
-                        ]
-                    },
-                    {
-                        "port": 5561,
-                        "attack": "command_injection",
-                        "category": "firmware",
-                        "success": false,
-                        "evidence": [
-                            "{\"device_type\": \"smart_light\", \"matter_bridge\": \"192.168.4.1\", \"matter_bridge_port\": 8484, \"firmware\": \"1.0.3\", \"wifi_ssid\": \"VESPER-IoT-Network\", \"wifi_pass\": \"vesper-secure-2026\"}\r\n"
-                        ]
-                    },
-                    {
-                        "port": 5561,
-                        "attack": "credential_dump",
-                        "category": "firmware",
-                        "success": true,
-                        "evidence": [
-                            "{\"device_type\": \"smart_light\", \"matter_bridge\": \"192.168.4.1\", \"matter_bridge_port\": 8484, \"firmware\": \"1.0.3\", \"wifi_ssid\": \"VESPER-IoT-Network\", \"wifi_pass\": \"vesper-secure-2026\"}\r\n"
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "cat /home/hbui11/resul [Ktts/wmediumd_20260309_000453/rqn1_baseline/tab_bridge_vs_80211.tex"[?2004l
-\begin{table}[t]
-\centering
-\caption{Bridge vs.\ 802.11 emulation divergence (RQ-N1).
-         Mean over 3 trials, seed~42.  ``Bridge'' uses a Linux bridge
-         (equivalent to Docker bridge networking).  ``802.11'' uses
-         \texttt{mac80211\_hwsim} with WPA2-PSK + hostapd.}
-\label{tab:bridge-vs-80211}
-\small
-\begin{tabular}{@{}lcc@{}}
-\toprule
-\textbf{Metric} & \textbf{Bridge} & \textbf{802.11 (Ours)} \\
-\midrule
-\multicolumn{3}{@{}l}{\emph{Attack success rate (\%)}} \\
-\quad Firmware attacks   & 55.6 & 55.6 \\
-\quad Network attacks    & 60.0 & 20.0 \\
-\quad WiFi-layer attacks & 0 (N/A) & 53.3 \\
-\midrule
-\multicolumn{3}{@{}l}{\emph{Latency}} \\
-\quad Mean ICMP RTT (ms)  & 0.079 & 0.151 \\
-\quad RTT jitter (ms)     & 0.058 & 0.096 \\
-\quad Jitter ratio        & 1.0$\times$ & 1.66$\times$ \\
-\midrule
-\multicolumn{3}{@{}l}{\emph{802.11 behavior}} \\
-\quad Retransmissions (10\,s) & 0 & 0 \\
-\quad Reconnection (ms)   & N/A & 104.0 \\
-\midrule
-\multicolumn{3}{@{}l}{\emph{Throughput}} \\
-\quad TCP (Mbps)          & 155000.12 & 1104.96 \\
-\bottomrule
-\end{tabular}
-\end{table}
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "cat /home/hbui11/resul [Ktts/wmediumd_20260309_000453/rqn1_wmediumd/tab_bridge_vs_80211.tex"[?2004l
-\begin{table}[t]
-\centering
-\caption{Bridge vs.\ 802.11 emulation divergence (RQ-N1).
-         Mean over 3 trials, seed~42.  ``Bridge'' uses a Linux bridge
-         (equivalent to Docker bridge networking).  ``802.11'' uses
-         \texttt{mac80211\_hwsim} with WPA2-PSK + hostapd.}
-\label{tab:bridge-vs-80211}
-\small
-\begin{tabular}{@{}lcc@{}}
-\toprule
-\textbf{Metric} & \textbf{Bridge} & \textbf{802.11 (Ours)} \\
-\midrule
-\multicolumn{3}{@{}l}{\emph{Attack success rate (\%)}} \\
-\quad Firmware attacks   & 55.6 & 55.6 \\
-\quad Network attacks    & 60.0 & 20.0 \\
-\quad WiFi-layer attacks & 0 (N/A) & 53.3 \\
-\midrule
-\multicolumn{3}{@{}l}{\emph{Latency}} \\
-\quad Mean ICMP RTT (ms)  & 0.094 & 0.984 \\
-\quad RTT jitter (ms)     & 0.076 & 0.286 \\
-\quad Jitter ratio        & 1.0$\times$ & 3.76$\times$ \\
-\midrule
-\multicolumn{3}{@{}l}{\emph{802.11 behavior}} \\
-\quad Retransmissions (10\,s) & 0 & 0 \\
-\quad Reconnection (ms)   & N/A & 102.8 \\
-\midrule
-\multicolumn{3}{@{}l}{\emph{Throughput}} \\
-\quad TCP (Mbps)          & 160163.47 & 5.56 \\
-\bottomrule
-\end{tabular}
-\end{table}
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 120 && ssh hbui11@192.168.2.3 "tail -10  [K//home/hbui11/remaining2.log && echo '===RQ-N2 LOG===' && ls /home/hbui11/results [K//wmediumd_20260309_000453/rqn2_wmediumd/ 2>/dev/null | head -20"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -15 /home/hbui11/ [Krremaining2.log"[?2004l
-2026-03-09 00:46:49,537 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
-2026-03-09 00:46:49,541 [vesper.wmediumd] INFO: Stopping wmediumd (PID 26092)
-2026-03-09 00:46:51,771 [vesper.rqn2] INFO: Setting up WiFi topology: Baseline
-2026-03-09 00:46:53,895 [vesper.wmediumd] INFO: Discovered hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 00:46:53,895 [vesper.rqn2] INFO:   Starting wmediumd with 4 hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 00:46:53,896 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:46:53,897 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 00:46:53,897 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 00:46:53,897 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:46:54,899 [vesper.wmediumd] INFO: wmediumd started (PID 26681)
-2026-03-09 00:46:54,900 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 00:46:58,129 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 00:47:07,278 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 00:47:07,795 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 00:47:08,308 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 180 && ssh hbui11@192.168.2.3 "tail -10  [K//home/hbui11/remaining2.log && echo '---' && ps aux | grep python3 | grep rqn |  [Kggrep -v grep"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -10 /home/hbui11/ [Krremaining2.log"[?2004l
-2026-03-09 00:46:53,897 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 00:46:53,897 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 00:46:53,897 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:46:54,899 [vesper.wmediumd] INFO: wmediumd started (PID 26681)
-2026-03-09 00:46:54,900 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 00:46:58,129 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 00:47:07,278 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 00:47:07,795 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 00:47:08,308 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 00:47:34,876 [vesper.rqn2] INFO:     Measuring throughput...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -20 /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log 2>/dev/null || tail -20  [K//home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd.log 2>/dev/null"[?2004l
-2026-03-09 00:46:49,541 [vesper.wmediumd] INFO: Stopping wmediumd (PID 26092)
-2026-03-09 00:46:51,771 [vesper.rqn2] INFO: Setting up WiFi topology: Baseline
-2026-03-09 00:46:53,895 [vesper.wmediumd] INFO: Discovered hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 00:46:53,895 [vesper.rqn2] INFO:   Starting wmediumd with 4 hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 00:46:53,896 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:46:53,897 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 00:46:53,897 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 00:46:53,897 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:46:54,899 [vesper.wmediumd] INFO: wmediumd started (PID 26681)
-2026-03-09 00:46:54,900 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 00:46:58,129 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 00:47:07,278 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 00:47:07,795 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 00:47:08,308 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 00:47:34,876 [vesper.rqn2] INFO:     Measuring throughput...
-2026-03-09 00:47:41,155 [vesper.rqn2] INFO:     Measuring reconnection...
-2026-03-09 00:47:41,403 [vesper.rqn2] INFO:     Result: 15/19 attacks (78.9%)
-2026-03-09 00:47:44,408 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 3
-2026-03-09 00:47:44,409 [vesper.wmediumd] INFO: Stopping wmediumd (PID 26681)
-2026-03-09 00:47:46,579 [vesper.rqn2] INFO: Setting up WiFi topology: Baseline
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 300 && ssh hbui11@192.168.2.3 "tail -15  [K//home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && echo '-- [K--PROCESS---' && ps aux | grep python3 | grep rqn | grep -v grep || echo 'done'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "tail -15 /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log"[?2004l
-2026-03-09 00:47:44,408 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 3
-2026-03-09 00:47:44,409 [vesper.wmediumd] INFO: Stopping wmediumd (PID 26681)
-2026-03-09 00:47:46,579 [vesper.rqn2] INFO: Setting up WiFi topology: Baseline
-2026-03-09 00:47:48,671 [vesper.wmediumd] INFO: Discovered hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 00:47:48,672 [vesper.rqn2] INFO:   Starting wmediumd with 4 hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 00:47:48,674 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:47:48,674 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 00:47:48,674 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 00:47:48,674 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:47:49,681 [vesper.wmediumd] INFO: wmediumd started (PID 27171)
-2026-03-09 00:47:49,682 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 00:47:52,997 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 00:48:02,155 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 00:48:02,672 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 00:48:03,187 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "wc -l /home/hbui11/res [Kuults/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && sudo pstree -p \$(pgrep  [K--f run_rqn2) 2>/dev/null && date"[?2004l
-61 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "ps aux | grep python3  [K|| grep rqn | grep -v grep; ps aux | grep remaining | grep -v grep; date; tail -5 [K  /home/hbui11/remaining2.log"[?2004l
-root       26025  0.3  0.2 319296 17428 ?        Sl   00:45   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-root       22129  0.0  0.0  12980  4712 ?        S    00:33   0:00 sudo bash /home/hbui11/run_remaining2.sh
-root       22130  0.0  0.0   6884  3004 ?        S    00:33   0:00 bash /home/hbui11/run_remaining2.sh
-Mon Mar  9 12:48:27 AM UTC 2026
-2026-03-09 00:47:49,682 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 00:47:52,997 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 00:48:02,155 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 00:48:02,672 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 00:48:03,187 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 300 && ssh hbui11@192.168.2.3 "date && g [Krrep -c 'Config' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2 [K..log && tail -10 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn [K22.log"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -c 'Confi [Kgg' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && tail  [K--10 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log"[?2004l
-Mon Mar  9 12:48:50 AM UTC 2026
-7
-2026-03-09 00:48:44,299 [vesper.wmediumd] INFO: Stopping wmediumd (PID 27171)
-2026-03-09 00:48:46,502 [vesper.rqn2] INFO: Setting up WiFi topology: +Matter-auth
-2026-03-09 00:48:48,623 [vesper.wmediumd] INFO: Discovered hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 00:48:48,624 [vesper.rqn2] INFO:   Starting wmediumd with 4 hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 00:48:48,625 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:48:48,625 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 00:48:48,625 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 00:48:48,625 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:48:49,630 [vesper.wmediumd] INFO: wmediumd started (PID 27699)
-2026-03-09 00:48:49,631 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "date && g [Krrep -c 'Config' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2 [K..log && tail -5 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2 [K..log && echo '---' && find /home/hbui11/results/wmediumd_20260309_000453/ -name  [K''rqn2_summary.json' && ps aux | grep python3 | grep rqn | grep -v grep || echo ' [KRRQ-N2 process done'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -c 'Confi [Kgg' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && tail  [K--8 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && echo  [K''---' && ps aux | grep python3 | grep rqn | grep -v grep || echo 'RQ-N2 done'"[?2004l
-Mon Mar  9 12:49:13 AM UTC 2026
-7
-2026-03-09 00:48:48,625 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 00:48:48,625 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 00:48:49,630 [vesper.wmediumd] INFO: wmediumd started (PID 27699)
-2026-03-09 00:48:49,631 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 00:48:52,905 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 00:49:02,067 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 00:49:02,586 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 00:49:03,101 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----
-root       26025  0.3  0.2 319296 17428 ?        Sl   00:45   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "date && g [Krrep 'Config.*Trial\|Config.*/' /home/hbui11/results/wmediumd_20260309_000453/rqn [K22_wmediumd/rqn2.log | tail -10 && echo '---' && tail -5 /home/hbui11/results/wme [Kddiumd_20260309_000453/rqn2_wmediumd/rqn2.log && echo '---' && ps aux | grep rqn  [K|| grep -v grep || echo 'done'"[?2004l
-Mon Mar  9 12:59:27 AM UTC 2026
-2026-03-09 00:52:16,175 [vesper.rqn2] INFO:   Config 2: +AP-isolation — Trial 2
-2026-03-09 00:53:09,011 [vesper.rqn2] INFO:   Config 2: +AP-isolation — Trial 3
-2026-03-09 00:54:06,635 [vesper.rqn2] INFO:   Config 3/7: +AP-iso+auth
-2026-03-09 00:54:06,635 [vesper.rqn2] INFO:   Config 3: +AP-iso+auth — Trial 1
-2026-03-09 00:54:55,833 [vesper.rqn2] INFO:   Config 3: +AP-iso+auth — Trial 2
-2026-03-09 00:55:45,089 [vesper.rqn2] INFO:   Config 3: +AP-iso+auth — Trial 3
-2026-03-09 00:56:39,229 [vesper.rqn2] INFO:   Config 4/7: +PMF
-2026-03-09 00:56:39,229 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 1
-2026-03-09 00:57:34,014 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 2
-2026-03-09 00:58:28,733 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 3
----
-2026-03-09 00:58:47,003 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 00:58:47,528 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 00:59:14,077 [vesper.rqn2] INFO:     Measuring throughput...
-2026-03-09 00:59:20,334 [vesper.rqn2] INFO:     Measuring reconnection...
-2026-03-09 00:59:20,587 [vesper.rqn2] INFO:     Result: 15/19 attacks (78.9%)
----
-root       26025  0.3  0.2 319296 17428 ?        S    00:45   0:02 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-root       26026  0.0  0.0   5208   792 ?        S    00:45   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd.log
-root       31426  1.1  0.0   3276  1060 ?        S    00:58   0:00 wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-root       31447  0.0  0.0  10664  4164 ?        Ss   00:58   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_4/trial_3/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_4/trial_3/hostapd.log
-root       31468  0.0  0.0  16744  5056 ?        Ss   00:58   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_4/trial_3/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_4/trial_3/wpa_sta0.log
-root       31486  0.0  0.0  16744  5056 ?        Ss   00:58   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_4/trial_3/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_4/trial_3/wpa_sta1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]|Trial' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2. [Kllog | tail -10 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_0 [K000453/rqn2_wmediumd/rqn2.log"[?2004l
-Mon Mar  9 01:00:23 AM UTC 2026
-2026-03-09 00:54:06,635 [vesper.rqn2] INFO:   Config 3: +AP-iso+auth — Trial 1
-2026-03-09 00:54:55,833 [vesper.rqn2] INFO:   Config 3: +AP-iso+auth — Trial 2
-2026-03-09 00:55:45,089 [vesper.rqn2] INFO:   Config 3: +AP-iso+auth — Trial 3
-2026-03-09 00:56:39,229 [vesper.rqn2] INFO:   Config 4/7: +PMF
-2026-03-09 00:56:39,229 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 1
-2026-03-09 00:57:34,014 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 2
-2026-03-09 00:58:28,733 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 3
-2026-03-09 00:59:28,601 [vesper.rqn2] INFO:   Config 5/7: +PMF+auth
-2026-03-09 00:59:28,602 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 1
-2026-03-09 01:00:19,968 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 2
----
-2026-03-09 01:00:16,832 [vesper.rqn2] INFO:     Measuring reconnection...
-2026-03-09 01:00:16,957 [vesper.rqn2] INFO:     Result: 10/19 attacks (52.6%)
-2026-03-09 01:00:19,968 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 2
-2026-03-09 01:00:19,970 [vesper.wmediumd] INFO: Stopping wmediumd (PID 31821)
-2026-03-09 01:00:22,187 [vesper.rqn2] INFO: Setting up WiFi topology: +PMF+auth
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "date && f [Kiind /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' &&  [Kttail -10 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && [K  echo '---REMAINING---' && tail -5 /home/hbui11/remaining2.log && echo '---PROCS [K----' && ps aux | grep python3 | grep rqn | grep -v grep || echo 'No rqn process' [K"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && find /home/hbu [Kii11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' && tail -10 /hom [Kee/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && echo '---PRO [KCCS---' && ps aux | grep python3 | grep rqn | grep -v grep || echo 'No rqn proces [Kss'"[?2004l
-Mon Mar  9 01:00:45 AM UTC 2026
-2026-03-09 01:00:24,260 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:00:24,260 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 01:00:24,260 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 01:00:24,260 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:00:25,266 [vesper.wmediumd] INFO: wmediumd started (PID 32240)
-2026-03-09 01:00:25,266 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:00:28,542 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:00:37,650 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:00:38,167 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:00:38,680 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----PROCS---
-root       26025  0.3  0.2 319296 17428 ?        Sl   00:45   0:02 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmedium [Kdd/rqn2.log | tail -5 && tail -5 /home/hbui11/results/wmediumd_20260309_000453/rq [Knn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_2026030 [K99_000453/ -name 'rqn2_summary.json' && ps aux | grep rqn | grep -v grep || echo  [K''done'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log |  [Kttail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_202603 [K009_000453/ -name 'rqn2_summary.json'"[?2004l
-Mon Mar  9 01:01:07 AM UTC 2026
-2026-03-09 00:57:34,014 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 2
-2026-03-09 00:58:28,733 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 3
-2026-03-09 00:59:28,601 [vesper.rqn2] INFO:   Config 5/7: +PMF+auth
-2026-03-09 00:59:28,602 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 1
-2026-03-09 01:00:19,968 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 2
----
-2026-03-09 01:00:28,542 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:00:37,650 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:00:38,167 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:00:38,680 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:01:01,994 [vesper.rqn2] INFO:     Measuring throughput...
----
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 480 && ssh hbui11@192.168.2.3 "date && f [Kiind /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' 2>/ [Kddev/null && tail -10 /home/hbui11/remaining2.log && echo '---' && ls /home/hbui1 [K11/results/wmediumd_20260309_000453/"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && find /home/hbu [Kii11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' && tail -10 /hom [Kee/hbui11/remaining2.log && echo '---' && ls /home/hbui11/results/wmediumd_202603 [K009_000453/"[?2004l
-Mon Mar  9 01:01:26 AM UTC 2026
-2026-03-09 01:01:13,678 [vesper.rqn2] INFO: Setting up WiFi topology: +PMF+auth
-2026-03-09 01:01:15,775 [vesper.wmediumd] INFO: Discovered hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 01:01:15,776 [vesper.rqn2] INFO:   Starting wmediumd with 4 hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 01:01:15,780 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:01:15,780 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 01:01:15,780 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 01:01:15,780 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:01:16,783 [vesper.wmediumd] INFO: wmediumd started (PID 32690)
-2026-03-09 01:01:16,783 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:01:20,075 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "grep -E 'Config [0-9]' [K  /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log"[?2004l
-2026-03-09 00:45:55,512 [vesper.rqn2] INFO:   Config 0/7: Baseline
-2026-03-09 00:45:55,512 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 1
-2026-03-09 00:46:49,537 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
-2026-03-09 00:47:44,408 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 3
-2026-03-09 00:48:44,294 [vesper.rqn2] INFO:   Config 1/7: +Matter-auth
-2026-03-09 00:48:44,298 [vesper.rqn2] INFO:   Config 1: +Matter-auth — Trial 1
-2026-03-09 00:49:35,740 [vesper.rqn2] INFO:   Config 1: +Matter-auth — Trial 2
-2026-03-09 00:50:27,077 [vesper.rqn2] INFO:   Config 1: +Matter-auth — Trial 3
-2026-03-09 00:51:23,440 [vesper.rqn2] INFO:   Config 2/7: +AP-isolation
-2026-03-09 00:51:23,441 [vesper.rqn2] INFO:   Config 2: +AP-isolation — Trial 1
-2026-03-09 00:52:16,175 [vesper.rqn2] INFO:   Config 2: +AP-isolation — Trial 2
-2026-03-09 00:53:09,011 [vesper.rqn2] INFO:   Config 2: +AP-isolation — Trial 3
-2026-03-09 00:54:06,635 [vesper.rqn2] INFO:   Config 3/7: +AP-iso+auth
-2026-03-09 00:54:06,635 [vesper.rqn2] INFO:   Config 3: +AP-iso+auth — Trial 1
-2026-03-09 00:54:55,833 [vesper.rqn2] INFO:   Config 3: +AP-iso+auth — Trial 2
-2026-03-09 00:55:45,089 [vesper.rqn2] INFO:   Config 3: +AP-iso+auth — Trial 3
-2026-03-09 00:56:39,229 [vesper.rqn2] INFO:   Config 4/7: +PMF
-2026-03-09 00:56:39,229 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 1
-2026-03-09 00:57:34,014 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 2
-2026-03-09 00:58:28,733 [vesper.rqn2] INFO:   Config 4: +PMF — Trial 3
-2026-03-09 00:59:28,601 [vesper.rqn2] INFO:   Config 5/7: +PMF+auth
-2026-03-09 00:59:28,602 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 1
-2026-03-09 01:00:19,968 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 2
-2026-03-09 01:01:11,423 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 3
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 420 && ssh hbui11@192.168.2.3 "date && f [Kiind /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' &&  [Kttail -5 /home/hbui11/remaining2.log && ls /home/hbui11/results/wmediumd_20260309 [K__000453/ && ps aux | grep rqn | grep -v grep || echo 'No rqn process'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && find /home/hbu [Kii11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' && tail -5 /home [K//hbui11/remaining2.log && echo '---' && ls /home/hbui11/results/wmediumd_2026030 [K99_000453/"[?2004l
-Mon Mar  9 01:01:56 AM UTC 2026
-2026-03-09 01:01:20,075 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:01:29,226 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:01:29,741 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:01:30,254 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:01:53,419 [vesper.rqn2] INFO:     Measuring throughput...
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 60 && ssh hbui11@192.168.2.3 "grep -E 'C [Koonfig [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.lo [Kgg | tail -3 && tail -3 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediu [Kmmd/rqn2.log"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "grep -E 'Config [0-9]' [K  /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log | tail -3  [K&&& echo '---' && tail -3 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmed [Kiiumd/rqn2.log"[?2004l
-2026-03-09 01:01:11,423 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 3
-2026-03-09 01:02:07,850 [vesper.rqn2] INFO:   Config 6/7: WPA3-SAE
-2026-03-09 01:02:07,852 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 1
----
-2026-03-09 01:02:13,220 [vesper.wmediumd] INFO: wmediumd started (PID 33187)
-2026-03-09 01:02:13,221 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:02:16,516 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 360 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmedium [Kdd/rqn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_2026 [K00309_000453/rqn2_wmediumd/rqn2.log && find /home/hbui11/results/wmediumd_2026030 [K99_000453/ -name 'rqn2_summary.json'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log |  [Kttail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_202603 [K009_000453/ -name 'rqn2_summary.json'"[?2004l
-Mon Mar  9 01:02:36 AM UTC 2026
-2026-03-09 00:59:28,602 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 1
-2026-03-09 01:00:19,968 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 2
-2026-03-09 01:01:11,423 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 3
-2026-03-09 01:02:07,850 [vesper.rqn2] INFO:   Config 6/7: WPA3-SAE
-2026-03-09 01:02:07,852 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 1
----
-2026-03-09 01:02:13,221 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:02:16,516 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:02:25,720 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:02:26,281 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:02:26,792 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 420 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmedium [Kdd/rqn2.log | wc -l && tail -3 /home/hbui11/results/wmediumd_20260309_000453/rqn2 [K__wmediumd/rqn2.log && find /home/hbui11/results/wmediumd_20260309_000453/ -name  [K''rqn2_summary.json' && ls /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log |  [Kwwc -l && tail -3 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn [K22.log && echo '---' && find /home/hbui11/results/wmediumd_20260309_000453/ -name [K  'rqn2_summary.json' && echo '---' && ls /home/hbui11/results/wmediumd_20260309_ [K0000453/ && ps aux | grep rqn2 | grep -v grep || echo 'no rqn2'"[?2004l
-Mon Mar  9 01:02:55 AM UTC 2026
-26
-2026-03-09 01:02:26,281 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:02:26,792 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:02:53,351 [vesper.rqn2] INFO:     Measuring throughput...
----
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-root       26025  0.3  0.2 319296 17428 ?        Sl   00:45   0:03 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-root       26026  0.0  0.0   5208   792 ?        S    00:45   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd.log
-root       33187  0.6  0.0   3276  1060 ?        S    01:02   0:00 wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-root       33208  0.0  0.0  11040  6360 ?        Ss   01:02   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_1/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_1/hostapd.log
-root       33229  0.0  0.0  16756  6380 ?        Ss   01:02   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_1/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_1/wpa_sta0.log
-root       33247  0.0  0.0  16756  6380 ?        Ss   01:02   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_1/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_1/wpa_sta1.log
-mosquit+   33383  0.1  0.0  15780  8104 ?        S    01:02   0:00 matter_bridge -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_1/matter_bridge.conf
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 300 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmedium [Kdd/rqn2.log | tail -5 && echo '---' && tail -3 /home/hbui11/results/wmediumd_2026 [K00309_000453/rqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wm [Keediumd_20260309_000453/ -name 'rqn2_summary.json'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log |  [Kttail -5 && echo '---' && tail -3 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_202603 [K009_000453/ -name 'rqn2_summary.json'"[?2004l
-Mon Mar  9 01:03:17 AM UTC 2026
-2026-03-09 01:00:19,968 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 2
-2026-03-09 01:01:11,423 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 3
-2026-03-09 01:02:07,850 [vesper.rqn2] INFO:   Config 6/7: WPA3-SAE
-2026-03-09 01:02:07,852 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 1
-2026-03-09 01:03:02,812 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 2
----
-2026-03-09 01:03:08,091 [vesper.wmediumd] INFO: wmediumd started (PID 33676)
-2026-03-09 01:03:08,091 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:03:11,371 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
----
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 360 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmedium [Kdd/rqn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_2026 [K00309_000453/rqn2_wmediumd/rqn2.log && echo '---SUM---' && find /home/hbui11/resu [Kllts/wmediumd_20260309_000453/ -name 'rqn2_summary.json'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log |  [Kttail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_202603 [K009_000453/ -name 'rqn2_summary.json' && ls /home/hbui11/results/wmediumd_2026030 [K99_000453/"[?2004l
-Mon Mar  9 01:03:36 AM UTC 2026
-2026-03-09 01:00:19,968 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 2
-2026-03-09 01:01:11,423 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 3
-2026-03-09 01:02:07,850 [vesper.rqn2] INFO:   Config 6/7: WPA3-SAE
-2026-03-09 01:02:07,852 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 1
-2026-03-09 01:03:02,812 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 2
----
-2026-03-09 01:03:08,091 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:03:11,371 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:03:20,487 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:03:21,005 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:03:21,519 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "date && f [Kiind /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' &&  [Kggrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediu [Kmmd/rqn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_202 [K660309_000453/rqn2_wmediumd/rqn2.log && echo '---' && ls /home/hbui11/results/wme [Kddiumd_20260309_000453/ && ps aux | grep rqn | grep -v grep || echo 'DONE'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && find /home/hbu [Kii11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' && grep -E 'Conf [Kiig [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log | [K  tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_000453/ [Krrqn2_wmediumd/rqn2.log && echo '---' && ls /home/hbui11/results/wmediumd_2026030 [K99_000453/ && ps aux | grep rqn | grep -v grep || echo 'DONE'"[?2004l
-Mon Mar  9 01:03:56 AM UTC 2026
-2026-03-09 01:00:19,968 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 2
-2026-03-09 01:01:11,423 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 3
-2026-03-09 01:02:07,850 [vesper.rqn2] INFO:   Config 6/7: WPA3-SAE
-2026-03-09 01:02:07,852 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 1
-2026-03-09 01:03:02,812 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 2
----
-2026-03-09 01:03:21,005 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:03:21,519 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:03:48,105 [vesper.rqn2] INFO:     Measuring throughput...
-2026-03-09 01:03:54,376 [vesper.rqn2] INFO:     Measuring reconnection...
-2026-03-09 01:03:54,618 [vesper.rqn2] INFO:     Result: 15/19 attacks (78.9%)
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-root       26025  0.3  0.2 319296 17428 ?        S    00:45   0:03 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-root       26026  0.0  0.0   5208   792 ?        S    00:45   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd.log
-root       33676  0.9  0.0   3276  1060 ?        S    01:03   0:00 wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-root       33697  0.0  0.0  11040  6360 ?        Ss   01:03   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_2/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_2/hostapd.log
-root       33718  0.0  0.0  16756  6380 ?        Ss   01:03   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_2/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_2/wpa_sta0.log
-root       33736  0.0  0.0  16756  6380 ?        Ss   01:03   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_2/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_2/wpa_sta1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 300 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmedium [Kdd/rqn2.log | tail -5 && echo '---' && tail -3 /home/hbui11/results/wmediumd_2026 [K00309_000453/rqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wm [Keediumd_20260309_000453/ -name 'rqn2_summary.json'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log |  [Kttail -5 && echo '---' && tail -3 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_202603 [K009_000453/ -name 'rqn2_summary.json'"[?2004l
-Mon Mar  9 01:04:16 AM UTC 2026
-2026-03-09 01:01:11,423 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 3
-2026-03-09 01:02:07,850 [vesper.rqn2] INFO:   Config 6/7: WPA3-SAE
-2026-03-09 01:02:07,852 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 1
-2026-03-09 01:03:02,812 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 2
-2026-03-09 01:03:57,627 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 3
----
-2026-03-09 01:04:06,165 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:04:15,287 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:04:15,805 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
----
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 300 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmedium [Kdd/rqn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_2026 [K00309_000453/rqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wm [Keediumd_20260309_000453/ -name 'rqn2_summary.json' && ls /home/hbui11/results/wme [Kddiumd_20260309_000453/"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log |  [Kttail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_202603 [K009_000453/ -name 'rqn2_summary.json' && ls /home/hbui11/results/wmediumd_2026030 [K99_000453/"[?2004l
-Mon Mar  9 01:04:35 AM UTC 2026
-2026-03-09 01:01:11,423 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 3
-2026-03-09 01:02:07,850 [vesper.rqn2] INFO:   Config 6/7: WPA3-SAE
-2026-03-09 01:02:07,852 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 1
-2026-03-09 01:03:02,812 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 2
-2026-03-09 01:03:57,627 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 3
----
-2026-03-09 01:04:02,885 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:04:06,165 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:04:15,287 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:04:15,805 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:04:16,320 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 300 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmedium [Kdd/rqn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_2026 [K00309_000453/rqn2_wmediumd/rqn2.log && echo '---SUM---' && find /home/hbui11/resu [Kllts/wmediumd_20260309_000453/ -name 'rqn2_summary.json' && echo '---LS---' && ls [K  /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log |  [Kttail -8 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_202603 [K009_000453/ -name 'rqn2_summary.json' && ls /home/hbui11/results/wmediumd_2026030 [K99_000453/ && ps aux | grep rqn | grep -v grep || echo 'DONE'"[?2004l
-Mon Mar  9 01:04:55 AM UTC 2026
-2026-03-09 00:59:28,601 [vesper.rqn2] INFO:   Config 5/7: +PMF+auth
-2026-03-09 00:59:28,602 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 1
-2026-03-09 01:00:19,968 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 2
-2026-03-09 01:01:11,423 [vesper.rqn2] INFO:   Config 5: +PMF+auth — Trial 3
-2026-03-09 01:02:07,850 [vesper.rqn2] INFO:   Config 6/7: WPA3-SAE
-2026-03-09 01:02:07,852 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 1
-2026-03-09 01:03:02,812 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 2
-2026-03-09 01:03:57,627 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 3
----
-2026-03-09 01:04:15,805 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:04:16,320 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:04:42,913 [vesper.rqn2] INFO:     Measuring throughput...
-2026-03-09 01:04:49,165 [vesper.rqn2] INFO:     Measuring reconnection...
-2026-03-09 01:04:49,355 [vesper.rqn2] INFO:     Result: 15/19 attacks (78.9%)
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-root       26025  0.3  0.2 319296 17428 ?        S    00:45   0:03 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-root       26026  0.0  0.0   5208   792 ?        S    00:45   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd.log
-root       34188  0.9  0.0   3276  1044 ?        S    01:04   0:00 wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-root       34209  0.0  0.0  11040  6316 ?        Ss   01:04   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_3/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_3/hostapd.log
-root       34230  0.0  0.0  16756  6380 ?        Ss   01:04   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_3/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_3/wpa_sta0.log
-root       34248  0.0  0.0  16756  6380 ?        Ss   01:04   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_3/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_6/trial_3/wpa_sta1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 240 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmedium [Kdd/rqn2.log | tail -5 && echo '---' && tail -3 /home/hbui11/results/wmediumd_2026 [K00309_000453/rqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wm [Keediumd_20260309_000453/ -name 'rqn2_summary.json'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log |  [Kttail -5 && echo '---' && tail -3 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_202603 [K009_000453/ -name 'rqn2_summary.json'"[?2004l
-Mon Mar  9 01:05:14 AM UTC 2026
-2026-03-09 01:02:07,852 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 1
-2026-03-09 01:03:02,812 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 2
-2026-03-09 01:03:57,627 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 3
-2026-03-09 01:04:57,373 [vesper.rqn2] INFO:   Config 7/7: Fully hardened
-2026-03-09 01:04:57,374 [vesper.rqn2] INFO:   Config 7: Fully hardened — Trial 1
----
-2026-03-09 01:05:02,790 [vesper.wmediumd] INFO: wmediumd started (PID 34699)
-2026-03-09 01:05:02,790 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:05:06,084 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
----
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 240 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmedium [Kdd/rqn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_2026 [K00309_000453/rqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wm [Keediumd_20260309_000453/ -name 'rqn2_summary.json' && echo '---' && ls /home/hbui [K111/results/wmediumd_20260309_000453/"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log |  [Kttail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_wmediumd/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_202603 [K009_000453/ -name 'rqn2_summary.json' && ls /home/hbui11/results/wmediumd_2026030 [K99_000453/"[?2004l
-Mon Mar  9 01:05:35 AM UTC 2026
-2026-03-09 01:02:07,852 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 1
-2026-03-09 01:03:02,812 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 2
-2026-03-09 01:03:57,627 [vesper.rqn2] INFO:   Config 6: WPA3-SAE — Trial 3
-2026-03-09 01:04:57,373 [vesper.rqn2] INFO:   Config 7/7: Fully hardened
-2026-03-09 01:04:57,374 [vesper.rqn2] INFO:   Config 7: Fully hardened — Trial 1
----
-2026-03-09 01:05:02,790 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:05:06,084 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:05:15,207 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:05:15,727 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:05:16,243 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 240 && ssh hbui11@192.168.2.3 "date && g [Krrep -c 'Config' /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2 [K..log && tail -5 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2 [K..log && find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary. [Kjjson' && ls /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && tail -10 /home [K//hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && echo '---' && [K  find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' & [K&& ls /home/hbui11/results/wmediumd_20260309_000453/ && ps aux | grep rqn | grep  [K--v grep || echo 'DONE'"[?2004l
-Mon Mar  9 01:05:54 AM UTC 2026
-2026-03-09 01:05:46,690 [vesper.wmediumd] INFO: Stopping wmediumd (PID 34699)
-2026-03-09 01:05:48,920 [vesper.rqn2] INFO: Setting up WiFi topology: Fully hardened
-2026-03-09 01:05:51,035 [vesper.wmediumd] INFO: Discovered hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 01:05:51,035 [vesper.rqn2] INFO:   Starting wmediumd with 4 hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 01:05:51,036 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:05:51,036 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 01:05:51,036 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 01:05:51,036 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:05:52,041 [vesper.wmediumd] INFO: wmediumd started (PID 35141)
-2026-03-09 01:05:52,041 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-root       26025  0.3  0.2 319296 17428 ?        S    00:45   0:03 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-root       26026  0.0  0.0   5208   792 ?        S    00:45   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd.log
-root       35141  0.0  0.0   3276  1052 ?        S    01:05   0:00 wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-root       35162  0.0  0.0  10664  2436 ?        Ss   01:05   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/hostapd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 180 && ssh hbui11@192.168.2.3 "date && t [Kaail -10 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log &&  [Keecho '---' && find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_su [Kmmmary.json' && ls /home/hbui11/results/wmediumd_20260309_000453/ && ps aux | gre [Kpp rqn | grep -v grep || echo 'ALL DONE'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && tail -10 /home [K//hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && echo '---' && [K  find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' & [K&& ls /home/hbui11/results/wmediumd_20260309_000453/ && ps aux | grep rqn | grep  [K--v grep || echo 'ALL DONE'"[?2004l
-Mon Mar  9 01:06:14 AM UTC 2026
-2026-03-09 01:05:51,036 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:05:51,036 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 01:05:51,036 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 01:05:51,036 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:05:52,041 [vesper.wmediumd] INFO: wmediumd started (PID 35141)
-2026-03-09 01:05:52,041 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:05:55,355 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:06:04,472 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:06:04,993 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:06:05,507 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-root       26025  0.3  0.2 319296 17428 ?        Sl   00:45   0:03 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-root       26026  0.0  0.0   5208   792 ?        S    00:45   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd.log
-root       35141  0.3  0.0   3276  1052 ?        S    01:05   0:00 wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-root       35162  0.0  0.0  11040  6364 ?        Ss   01:05   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/hostapd.log
-root       35239  0.0  0.0  16756  6380 ?        Ss   01:05   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/wpa_sta0.log
-root       35257  0.0  0.0  16756  6380 ?        Ss   01:05   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/wpa_sta1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 180 && ssh hbui11@192.168.2.3 "date && t [Kaail -10 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log &&  [Keecho '---' && find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_su [Kmmmary.json' && ls /home/hbui11/results/wmediumd_20260309_000453/ && ps aux | gre [Kpp 'rqn[12]' | grep -v grep || echo 'rqn done'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && tail -10 /home [K//hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && echo '---' && [K  find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' & [K&& ls /home/hbui11/results/wmediumd_20260309_000453/ && ps aux | grep 'rqn[12]' | [K  grep -v grep || echo 'rqn done'"[?2004l
-Mon Mar  9 01:06:33 AM UTC 2026
-2026-03-09 01:05:51,036 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:05:52,041 [vesper.wmediumd] INFO: wmediumd started (PID 35141)
-2026-03-09 01:05:52,041 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:05:55,355 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:06:04,472 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:06:04,993 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:06:05,507 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:06:26,515 [vesper.rqn2] INFO:     Measuring throughput...
-2026-03-09 01:06:32,744 [vesper.rqn2] INFO:     Measuring reconnection...
-2026-03-09 01:06:32,871 [vesper.rqn2] INFO:     Result: 8/19 attacks (42.1%)
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-root       26025  0.3  0.2 319296 17428 ?        S    00:45   0:03 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-root       26026  0.0  0.0   5208   792 ?        S    00:45   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd.log
-root       35141  1.1  0.0   3276  1052 ?        S    01:05   0:00 wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-root       35162  0.0  0.0  11040  6364 ?        Ss   01:05   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/hostapd.log
-root       35239  0.0  0.0  16756  6380 ?        Ss   01:05   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/wpa_sta0.log
-root       35257  0.0  0.0  16756  6380 ?        Ss   01:05   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_2/wpa_sta1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 120 && ssh hbui11@192.168.2.3 "date && t [Kaail -10 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log &&  [Keecho '---' && find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_su [Kmmmary.json' && ls /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && tail -10 /home [K//hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && echo '---' && [K  find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' & [K&& ls /home/hbui11/results/wmediumd_20260309_000453/ && ps aux | grep 'rqn[12]' | [K  grep -v grep || echo 'DONE'"[?2004l
-Mon Mar  9 01:06:55 AM UTC 2026
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:06:41,226 [vesper.wmediumd] INFO: wmediumd started (PID 35629)
-2026-03-09 01:06:41,227 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:06:44,517 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:06:53,696 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:06:54,219 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:06:54,729 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-root       26025  0.3  0.2 319296 17428 ?        S    00:45   0:03 python3 scripts/run_rqn2_native.py --full --trials 3 --wmediumd --wmediumd-scenario typical_home --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd
-root       26026  0.0  0.0   5208   792 ?        S    00:45   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd.log
-root       35629  0.3  0.0   3276  1064 ?        S    01:06   0:00 wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-root       35650  0.0  0.0  11040  6316 ?        Ss   01:06   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_3/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_3/hostapd.log
-root       35671  0.0  0.0  16756  6380 ?        Ss   01:06   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_3/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_3/wpa_sta0.log
-root       35689  0.0  0.0  16756  6380 ?        Ss   01:06   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_3/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/config_7/trial_3/wpa_sta1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 90 && ssh hbui11@192.168.2.3 "date && ta [Kiil -15 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && e [Kccho '---' && find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_sum [Kmmary.json' && echo '---REMAINING---' && tail -10 /home/hbui11/remaining2.log &&  [Keecho '---' && ls /home/hbui11/results/wmediumd_20260309_000453/ && ps aux | grep [K  rqn | grep -v grep || echo 'NO RQN RUNNING'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && tail -15 /home [K//hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && echo '---' && [K  find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' & [K&& echo '---REMAINING---' && tail -10 /home/hbui11/remaining2.log && echo '---LS- [K---' && ls /home/hbui11/results/wmediumd_20260309_000453/"[?2004l
-Mon Mar  9 01:07:15 AM UTC 2026
-2026-03-09 01:06:35,875 [vesper.rqn2] INFO:   Config 7: Fully hardened — Trial 3
-2026-03-09 01:06:35,876 [vesper.wmediumd] INFO: Stopping wmediumd (PID 35141)
-2026-03-09 01:06:38,119 [vesper.rqn2] INFO: Setting up WiFi topology: Fully hardened
-2026-03-09 01:06:40,220 [vesper.wmediumd] INFO: Discovered hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 01:06:40,220 [vesper.rqn2] INFO:   Starting wmediumd with 4 hwsim MACs: ['02:00:00:00:00:00', '02:00:00:00:01:00', '02:00:00:00:02:00', '02:00:00:00:03:00']
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:06:41,226 [vesper.wmediumd] INFO: wmediumd started (PID 35629)
-2026-03-09 01:06:41,227 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:06:44,517 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:06:53,696 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:06:54,219 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:06:54,729 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----
----REMAINING---
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO: Generated wmediumd config: /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO:   Model: path_loss, Nodes: 4
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO:   Path-loss exp: 3.5, Shadow fading: 3.0 dB, Tx power: 15.0 dBm
-2026-03-09 01:06:40,221 [vesper.wmediumd] INFO: Starting wmediumd: wmediumd -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/wmediumd/wmediumd.cfg
-2026-03-09 01:06:41,226 [vesper.wmediumd] INFO: wmediumd started (PID 35629)
-2026-03-09 01:06:41,227 [vesper.rqn2] INFO:   ✓ wmediumd running (model=path_loss, path_loss_exp=3.5)
-2026-03-09 01:06:44,517 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:06:53,696 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:06:54,219 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:06:54,729 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----LS---
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 60 && ssh hbui11@192.168.2.3 "date && ta [Kiil -10 /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && e [Kccho '---' && find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_sum [Kmmary.json' && echo '---' && ls /home/hbui11/results/wmediumd_20260309_000453/ && [K  ps aux | grep 'rqn[12]' | grep -v grep || echo 'ALL RQN DONE'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && tail -10 /home [K//hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2.log && echo '---' && [K  find /home/hbui11/results/wmediumd_20260309_000453/ -name 'rqn2_summary.json' & [K&& echo '---' && ls /home/hbui11/results/wmediumd_20260309_000453/ && ps aux | gr [Keep 'rqn[12]' | grep -v grep || echo 'ALL RQN DONE'"[?2004l
-Mon Mar  9 01:07:35 AM UTC 2026
-2026-03-09 01:06:54,219 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:06:54,729 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:07:15,775 [vesper.rqn2] INFO:     Measuring throughput...
-2026-03-09 01:07:22,011 [vesper.rqn2] INFO:     Measuring reconnection...
-2026-03-09 01:07:22,132 [vesper.rqn2] INFO:     Result: 8/19 attacks (42.1%)
-2026-03-09 01:07:30,142 [vesper.wmediumd] INFO: Stopping wmediumd (PID 35629)
-2026-03-09 01:07:31,269 [vesper.rqn2] INFO: 
-Total sweep time: 1296s (0.4h)
-2026-03-09 01:07:31,295 [vesper.rqn2] INFO: LaTeX table → /home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/tab_hardening_measured.tex
-2026-03-09 01:07:31,300 [vesper.rqn2] WARNING: matplotlib not available — skipping Pareto plot
----
-/home/hbui11/results/wmediumd_20260309_000453/rqn2_wmediumd/rqn2_summary.json
----
-rqn1_baseline
-rqn1_baseline.log
-rqn1_wmediumd
-rqn1_wmediumd.log
-rqn2_baseline
-rqn2_baseline.log
-rqn2_wmediumd
-rqn2_wmediumd.log
-root       36024  1.0  0.2  24124 16620 ?        S    01:07   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline
-root       36025  0.0  0.0   5208   792 ?        S    01:07   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline.log
-root       36099  0.0  0.0  10664  2496 ?        Ss   01:07   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_1/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_1/hostapd.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "cat /home/hbui11/resul [Ktts/wmediumd_20260309_000453/rqn2_wmediumd/rqn2_summary.json" | python3 -m json.t [Koool | head -60[?2004l
-{
-    "timestamp": "2026-03-09T01:07:31.270239",
-    "num_configs": 8,
-    "num_trials": 3,
-    "configs": [
-        {
-            "config_idx": 0,
-            "name": "Baseline",
-            "short": "WPA2/no-PMF/no-iso/anon",
-            "encryption": "WPA2-PSK",
-            "pmf": "disabled",
-            "ap_isolation": false,
-            "matter_auth": false,
-            "trials": [
-                {
-                    "config_idx": 0,
-                    "config_name": "Baseline",
-                    "config_short": "WPA2/no-PMF/no-iso/anon",
-                    "trial": 1,
-                    "timestamp": "2026-03-09T00:45:55.512345",
-                    "wifi_params": {
-                        "encryption": "WPA2-PSK",
-                        "pmf": "disabled",
-                        "ap_isolation": false,
-                        "matter_auth": false
-                    },
-                    "availability_pre": {
-                        "reachable": 2,
-                        "total": 2
-                    },
-                    "firmware_attacks": {
-                        "total": 10,
-                        "successful": 8,
-                        "rate": 80.0,
-                        "details": [
-                            {
-                                "attack": "buffer_overflow",
-                                "category": "firmware",
-                                "success": true
-                            },
-                            {
-                                "attack": "command_injection",
-                                "category": "firmware",
-                                "success": false
-                            },
-                            {
-                                "attack": "credential_dump",
-                                "category": "firmware",
-                                "success": true
-                            },
-                            {
-                                "attack": "unauthorized_ota",
-                                "category": "firmware",
-                                "success": true
-                            },
-                            {
-                                "attack": "factory_reset",
-                                "category": "firmware",
-                                "success": true
-                            },
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "cat /home/hbui11/resul [Ktts/wmediumd_20260309_000453/rqn2_wmediumd/tab_hardening_measured.tex"[?2004l
-\begin{table}[t]
-\centering
-\caption{Measured hardening tradeoffs (RQ-N2). Attack success rate
-         vs.\ availability cost across 8 WiFi configurations.
-         Mean $\pm$ 95\%~CI over 3~trials, seed~42.}
-\label{tab:hardening-measured}
-\small
-\begin{tabular}{@{}lcccccc@{}}
-\toprule
-\textbf{Config} & \textbf{Encrypt} & \textbf{PMF} & \textbf{Atk~\%} & \textbf{$\Delta$~\%} & \textbf{Reconn (ms)} & \textbf{Mbps} \\
-\midrule
-  Baseline & WPA2 & --- & 78.9 & 0 & 110.0 & 15.51 \\
-  +Matter-auth & WPA2 & --- & 52.6 & $-$33.3 & 111.9 & 14.55 \\
-  +AP-isolation & WPA2 & --- & 68.4 & $-$13.3 & 113.9 & 14.66 \\
-  +AP-iso+auth & WPA2 & --- & 42.1 & $-$46.6 & 110.0 & 14.61 \\
-  +PMF & WPA2 & \cmark & 78.9 & 0 & 107.7 & 14.49 \\
-  +PMF+auth & WPA2 & \cmark & 52.6 & $-$33.3 & 108.7 & 16.28 \\
-  WPA3-SAE & WPA3 & \cmark & 78.9 & 0 & 106.1 & 16.5 \\
-  Fully hardened & WPA3 & \cmark & 42.1 & $-$46.6 & 108.3 & 16.45 \\
-\bottomrule
-\end{tabular}
-\end{table}
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 600 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baselin [Kee/rqn2.log 2>/dev/null | tail -5 && echo '---' && tail -5 /home/hbui11/results/w [Kmmediumd_20260309_000453/rqn2_baseline/rqn2.log 2>/dev/null && echo '---' && find [K  /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline -name 'rqn2_summary [K..json' 2>/dev/null && ps aux | grep rqn | grep -v grep || echo 'ALL DONE'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn2.log 2> [K//dev/null | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260 [K3309_000453/rqn2_baseline/rqn2.log 2>/dev/null && echo '---' && find /home/hbui11 [K//results/wmediumd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' 2>/dev [K//null && ps aux | grep rqn | grep -v grep || echo 'ALL DONE'"[?2004l
-Mon Mar  9 01:08:34 AM UTC 2026
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0/7: Baseline
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 1
-2026-03-09 01:08:24,430 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
----
-2026-03-09 01:08:21,281 [vesper.rqn2] INFO:     Measuring reconnection...
-2026-03-09 01:08:21,426 [vesper.rqn2] INFO:     Result: 15/19 attacks (78.9%)
-2026-03-09 01:08:24,430 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
-2026-03-09 01:08:26,615 [vesper.rqn2] INFO: Setting up WiFi topology: Baseline
-2026-03-09 01:08:31,921 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
----
-root       36024  0.2  0.2 319292 17424 ?        S    01:07   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline
-root       36025  0.0  0.0   5208   792 ?        S    01:07   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline.log
-root       36586  0.0  0.0  10664  2500 ?        Ss   01:08   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/hostapd.log
-root       36606  0.0  0.0  16744  3216 ?        Ss   01:08   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta0.log
-root       36624  0.0  0.0  16744  3216 ?        Ss   01:08   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 900 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baselin [Kee/rqn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_2026 [K00309_000453/rqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/results/wm [Keediumd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' 2>/dev/null && ps [K  aux | grep rqn | grep -v grep || echo 'ALL EXPERIMENTS DONE'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn2.log |  [Kttail -8 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/results/wmediumd_202603 [K009_000453/rqn2_baseline -name 'rqn2_summary.json' 2>/dev/null && ps aux | grep r [Kqqn | grep -v grep || echo 'ALL EXPERIMENTS DONE'"[?2004l
-Mon Mar  9 01:08:55 AM UTC 2026
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0/7: Baseline
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 1
-2026-03-09 01:08:24,430 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
----
-2026-03-09 01:08:26,615 [vesper.rqn2] INFO: Setting up WiFi topology: Baseline
-2026-03-09 01:08:31,921 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:08:41,035 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:08:41,546 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:08:42,059 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----
-root       36024  0.3  0.2 319292 17424 ?        Sl   01:07   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline
-root       36025  0.0  0.0   5208   792 ?        S    01:07   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline.log
-root       36586  0.0  0.0  10664  4184 ?        Ss   01:08   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/hostapd.log
-root       36606  0.0  0.0  16744  5056 ?        Ss   01:08   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta0.log
-root       36624  0.0  0.0  16744  5056 ?        Ss   01:08   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta1.log
-mosquit+   36766  0.1  0.0  15780  8104 ?        S    01:08   0:00 matter_bridge -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/matter_bridge.conf
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 1200 && ssh hbui11@192.168.2.3 "date &&  [Kggrep -c 'Config' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn [K22.log && grep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rq [Knn2_baseline/rqn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wme [Kddiumd_20260309_000453/rqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' && ps a [Kuux | grep rqn | grep -v grep || echo 'ALL DONE'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -c 'Confi [Kgg' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn2.log && grep  [K--E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rq [Knn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309 [K__000453/rqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/results/wmediu [Kmmd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' && ps aux | grep rqn  [K|| grep -v grep || echo 'ALL DONE'"[?2004l
-Mon Mar  9 01:09:16 AM UTC 2026
-4
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0/7: Baseline
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 1
-2026-03-09 01:08:24,430 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
----
-2026-03-09 01:08:41,546 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:08:42,059 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:09:08,638 [vesper.rqn2] INFO:     Measuring throughput...
-2026-03-09 01:09:14,845 [vesper.rqn2] INFO:     Measuring reconnection...
-2026-03-09 01:09:14,986 [vesper.rqn2] INFO:     Result: 15/19 attacks (78.9%)
----
-root       36024  0.3  0.2 319292 17428 ?        S    01:07   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline
-root       36025  0.0  0.0   5208   792 ?        S    01:07   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline.log
-root       36586  0.0  0.0  10664  4184 ?        Ss   01:08   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/hostapd.log
-root       36606  0.0  0.0  16744  5056 ?        Ss   01:08   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta0.log
-root       36624  0.0  0.0  16744  5056 ?        Ss   01:08   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_2/wpa_sta1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 1200 && ssh hbui11@192.168.2.3 "date &&  [Kggrep -c 'Config' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn [K22.log && grep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rq [Knn2_baseline/rqn2.log | tail -5 && echo '---' && tail -3 /home/hbui11/results/wme [Kddiumd_20260309_000453/rqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' && ps a [Kuux | grep rqn | grep -v grep || echo 'ALL EXPERIMENTS COMPLETE'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -c 'Confi [Kgg' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn2.log && grep  [K--E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rq [Knn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309 [K__000453/rqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/results/wmediu [Kmmd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' && ps aux | grep rqn  [K|| grep -v grep || echo 'ALL EXPERIMENTS COMPLETE'"[?2004l
-Mon Mar  9 01:09:38 AM UTC 2026
-5
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0/7: Baseline
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 1
-2026-03-09 01:08:24,430 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
-2026-03-09 01:09:17,992 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 3
----
-2026-03-09 01:09:20,191 [vesper.rqn2] INFO: Setting up WiFi topology: Baseline
-2026-03-09 01:09:25,539 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:09:34,672 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:09:35,187 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:09:35,702 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
----
-root       36024  0.2  0.2 319292 17428 ?        Sl   01:07   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline
-root       36025  0.0  0.0   5208   792 ?        S    01:07   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline.log
-root       37090  0.0  0.0  10664  4180 ?        Ss   01:09   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/hostapd.log
-root       37111  0.0  0.0  16744  5056 ?        Ss   01:09   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta0.log
-root       37129  0.0  0.0  16744  5056 ?        Ss   01:09   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta1.log
-mosquit+   37214  0.0  0.0  15380  6520 ?        S    01:09   0:00 matter_bridge -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/matter_bridge.conf
-root       37217 24.0  1.8 521660 148516 ?       Sl   01:09   0:00 tshark -i wlan0 -w /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/attacks.pcap -q -f not tcp port 5201 and not tcp port 8484
-root       37241  0.0  0.0  16496  5828 ?        D    01:09   0:00 /usr/bin/dumpcap -n -i wlan0 -f not tcp port 5201 and not tcp port 8484 -Z none -w /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/attacks.pcap
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 1200 && ssh hbui11@192.168.2.3 "date &&  [Kggrep -c 'Config' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn [K22.log && grep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rq [Knn2_baseline/rqn2.log | tail -5 && echo '---' && tail -3 /home/hbui11/results/wme [Kddiumd_20260309_000453/rqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/ [Krresults/wmediumd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' && ps a [Kuux | grep rqn | grep -v grep || echo 'ALL EXPERIMENTS COMPLETE'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -c 'Confi [Kgg' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn2.log && grep  [K--E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rq [Knn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309 [K__000453/rqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/results/wmediu [Kmmd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' && ps aux | grep rqn  [K|| grep -v grep || echo 'ALL EXPERIMENTS COMPLETE'"[?2004l
-Mon Mar  9 01:10:03 AM UTC 2026
-5
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0/7: Baseline
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 1
-2026-03-09 01:08:24,430 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
-2026-03-09 01:09:17,992 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 3
----
-2026-03-09 01:09:25,539 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:09:34,672 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:09:35,187 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:09:35,702 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:10:02,365 [vesper.rqn2] INFO:     Measuring throughput...
----
-root       36024  0.2  0.2 319292 17428 ?        Sl   01:07   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline
-root       36025  0.0  0.0   5208   792 ?        S    01:07   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline.log
-root       37090  0.0  0.0  10664  4180 ?        Ss   01:09   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/hostapd.log
-root       37111  0.0  0.0  16744  5056 ?        Ss   01:09   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta0.log
-root       37129  0.0  0.0  16744  5056 ?        Ss   01:09   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta1.log
-mosquit+   37214  0.0  0.0  15780  8104 ?        S    01:09   0:00 matter_bridge -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/matter_bridge.conf
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 1200 && ssh hbui11@192.168.2.3 "date &&  [Kggrep -c 'Trial' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn2 [K..log && grep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn [K22_baseline/rqn2.log | tail -5 && echo '---' && tail -3 /home/hbui11/results/wmed [Kiiumd_20260309_000453/rqn2_baseline/rqn2.log && find /home/hbui11/results/wmedium [Kdd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' && ps aux | grep rqn | [K  grep -v grep || echo 'ALL DONE'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -c 'Trial [K'' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn2.log && grep - [KEE 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn [K22.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_ [K0000453/rqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/results/wmedium [Kdd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' && ps aux | grep rqn | [K  grep -v grep || echo 'ALL DONE'"[?2004l
-Mon Mar  9 01:10:25 AM UTC 2026
-4
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0/7: Baseline
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 1
-2026-03-09 01:08:24,430 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
-2026-03-09 01:09:17,992 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 3
----
-2026-03-09 01:09:35,187 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:09:35,702 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:10:02,365 [vesper.rqn2] INFO:     Measuring throughput...
-2026-03-09 01:10:18,552 [vesper.rqn2] INFO:     Measuring reconnection...
-2026-03-09 01:10:18,791 [vesper.rqn2] INFO:     Result: 15/19 attacks (78.9%)
----
-root       36024  0.2  0.2 319292 17428 ?        S    01:07   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline
-root       36025  0.0  0.0   5208   792 ?        S    01:07   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline.log
-root       37090  0.0  0.0  10664  4180 ?        Ss   01:09   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/hostapd.log
-root       37111  0.0  0.0  16744  5056 ?        Ss   01:09   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta0.log
-root       37129  0.0  0.0  16744  5056 ?        Ss   01:09   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_0/trial_3/wpa_sta1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 120 && ssh hbui11@192.168.2.3 "date && g [Krrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baselin [Kee/rqn2.log | tail -5 && tail -3 /home/hbui11/results/wmediumd_20260309_000453/rq [Knn2_baseline/rqn2.log"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -E 'Confi [Kgg [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn2.log |  [Kttail -5 && echo '---' && tail -3 /home/hbui11/results/wmediumd_20260309_000453/r [Kqqn2_baseline/rqn2.log"[?2004l
-Mon Mar  9 01:10:48 AM UTC 2026
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 1
-2026-03-09 01:08:24,430 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
-2026-03-09 01:09:17,992 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 3
-2026-03-09 01:10:26,800 [vesper.rqn2] INFO:   Config 1/7: +Matter-auth
-2026-03-09 01:10:26,801 [vesper.rqn2] INFO:   Config 1: +Matter-auth — Trial 1
----
-2026-03-09 01:10:43,491 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:10:44,010 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:10:44,522 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hssleep 1200 && ssh hbui11@192.168.2.3 "date &&  [Kggrep -E 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseli [Knne/rqn2.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_202 [K660309_000453/rqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/results/w [Kmmediumd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' && ps aux | grep [K  rqn | grep -v grep || echo 'ALL EXPERIMENTS COMPLETE'"[?2004l
-^C
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004hsssh hbui11@192.168.2.3 "date && grep -c 'Trial [K'' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn2.log && grep - [KEE 'Config [0-9]' /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/rqn [K22.log | tail -5 && echo '---' && tail -5 /home/hbui11/results/wmediumd_20260309_ [K0000453/rqn2_baseline/rqn2.log && echo '---' && find /home/hbui11/results/wmedium [Kdd_20260309_000453/rqn2_baseline -name 'rqn2_summary.json' && ps aux | grep rqn | [K  grep -v grep || echo 'ALL EXPERIMENTS COMPLETE'"[?2004l
-Mon Mar  9 01:11:11 AM UTC 2026
-5
-2026-03-09 01:07:31,402 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 1
-2026-03-09 01:08:24,430 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 2
-2026-03-09 01:09:17,992 [vesper.rqn2] INFO:   Config 0: Baseline — Trial 3
-2026-03-09 01:10:26,800 [vesper.rqn2] INFO:   Config 1/7: +Matter-auth
-2026-03-09 01:10:26,801 [vesper.rqn2] INFO:   Config 1: +Matter-auth — Trial 1
----
-2026-03-09 01:10:34,375 [vesper.rqn2] INFO:   Waiting for WPA associations (up to 30s)...
-2026-03-09 01:10:43,491 [vesper.rqn2] INFO:   All stations associated after 9s
-2026-03-09 01:10:44,010 [vesper.rqn2] INFO:   ✓ ns-sta0:wlan1 (192.168.4.10) → AP: connected
-2026-03-09 01:10:44,522 [vesper.rqn2] INFO:   ✓ ns-sta1:wlan2 (192.168.4.11) → AP: connected
-2026-03-09 01:11:07,777 [vesper.rqn2] INFO:     Measuring throughput...
----
-root       36024  0.2  0.2 319292 17428 ?        Sl   01:07   0:00 python3 scripts/run_rqn2_native.py --full --trials 3 --output /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline
-root       36025  0.0  0.0   5208   792 ?        S    01:07   0:00 tee /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline.log
-root       37597  0.0  0.0  10664  4244 ?        Ss   01:10   0:00 hostapd -B /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_1/trial_1/hostapd.conf -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_1/trial_1/hostapd.log
-root       37617  0.0  0.0  16744  5056 ?        Ss   01:10   0:00 wpa_supplicant -B -i wlan1 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_1/trial_1/wpa_sta0.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_1/trial_1/wpa_sta0.log
-root       37635  0.0  0.0  16744  5056 ?        Ss   01:10   0:00 wpa_supplicant -B -i wlan2 -c /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_1/trial_1/wpa_sta1.conf -D nl80211 -f /home/hbui11/results/wmediumd_20260309_000453/rqn2_baseline/config_1/trial_1/wpa_sta1.log
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(base) huanbui@Huans-MBP vesper % [K[?2004h  source /Users/huanbui/Desktop/vesper/.venv/bi [Knn/activate[?2004l
-[1m[7m%[27m[1m[0m                                                                                [0m[27m[24m[J(.venv) (base) huanbui@Huans-MBP vesper % [K[?2004h

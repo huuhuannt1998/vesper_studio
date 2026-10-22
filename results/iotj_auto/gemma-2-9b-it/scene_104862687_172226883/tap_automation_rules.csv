@@ -1,6 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-104862687_172226883,"motion_lights_on_living room",motion_detected,living room,1,0,0,"None",0.19
-104862687_172226883,"motion_lights_on_kitchen",motion_detected,kitchen,1,0,0,"None",0.27
-104862687_172226883,"leave_lights_off_living room",agent_left_room,living room,1,0,0,"None",0.11
-104862687_172226883,"motion_lights_on_living room",motion_detected,living room,1,0,0,"None",0.54
-104862687_172226883,"leave_lights_off_kitchen",agent_left_room,kitchen,1,0,0,"None",0.13

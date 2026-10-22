@@ -1,1 +1,0 @@
-scene_id,trial_id,task_name,source_room,target_room,success,num_steps,nav_time_sec,geodesic_dist,actual_dist,spl,phase

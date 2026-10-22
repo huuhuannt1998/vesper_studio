@@ -1,5 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-108294798_176710428,"laundryroom_motion_light",motion_detected,laundryroom/mudroom,0,1,0,"None",0.45
-108294798_176710428,"toilet_motion_light",motion_detected,toilet,0,1,0,"None",0.09
-108294798_176710428,"outdoor_motion_light",motion_detected,outdoor,0,1,0,"None",0.13
-108294798_176710428,"living_room_motion_light",motion_detected,living room,1,0,0,"None",0.25

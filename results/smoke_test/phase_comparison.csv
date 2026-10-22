@@ -1,1 +1,0 @@
-scene_id,num_rooms,num_devices,baseline_nav_sr,baseline_spl,baseline_motion,baseline_auto,attack_nav_sr,attack_spl,attack_motion,attack_auto,post_nav_sr,post_spl,post_motion,post_auto,delta_nav_sr,delta_spl,attacks_run,attacks_success,vuln_rate,pcap_files,duration_sec

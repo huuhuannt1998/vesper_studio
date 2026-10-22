@@ -1,5 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-105515403_173104449,"hallway_motion_light",motion_detected,hallway,1,0,0,"None",0.18
-105515403_173104449,"washroom_motion_light",motion_detected,washroom,0,1,0,"None",0.16
-105515403_173104449,"hallway_motion_light",motion_detected,hallway,1,0,0,"None",0.16
-105515403_173104449,"kitchen_motion_light",motion_detected,kitchen,1,0,0,"None",0.16

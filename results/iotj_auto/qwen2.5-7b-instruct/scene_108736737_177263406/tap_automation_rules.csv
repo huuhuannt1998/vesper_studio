@@ -1,6 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-108736737_177263406,"toilet_motion_light",motion_detected,toilet,0,1,0,"None",0.16
-108736737_177263406,"entryway_motion_unlock",motion_detected,entryway/foyer/lobby,2,0,0,"None",0.19
-108736737_177263406,"living_room_motion_light",motion_detected,living room,1,0,0,"None",0.15
-108736737_177263406,"hallway_motion_light",motion_detected,hallway,1,0,0,"None",0.15
-108736737_177263406,"office_motion_light",motion_detected,office,1,0,0,"None",0.17

@@ -1,5 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-108294798_176710428,"toilet_motion",motion_detected,toilet,0,0,0,"None",0.00
-108294798_176710428,"toilet_occupancy",agent_entered_room,toilet,0,1,0,"None",0.08
-108294798_176710428,"livingroom_motion_light",motion_detected,living room,1,0,0,"None",0.18
-108294798_176710428,"livingroom_motion_light",motion_detected,living room,0,0,0,"None",0.00

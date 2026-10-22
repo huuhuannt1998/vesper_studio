@@ -1,3 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-102816615,"bedroom_motion_light",motion_detected,bedroom,0,0,0,"None",0.00
-102816615,"entryway_door_lock_at_bedtime",agent_entered_room,bedroom,0,0,0,"None",0.00

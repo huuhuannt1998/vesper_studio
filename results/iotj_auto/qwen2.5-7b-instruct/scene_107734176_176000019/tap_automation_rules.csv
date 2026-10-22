@@ -1,4 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-107734176_176000019,"agent_entry_unlock",agent_entered_room,hallway,2,0,0,"None",0.22
-107734176_176000019,"agent_entry_unlock",agent_entered_room,hallway,2,0,0,"None",0.22
-107734176_176000019,"bedroom_motion_light",motion_detected,bedroom,1,0,0,"None",0.16

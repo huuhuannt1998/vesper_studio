@@ -1,5 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-106878915_174887025,"bedroom_001_motion_light",motion_detected,bedroom.001,1,0,0,"None",0.28
-106878915_174887025,"terrace_001_motion_light",motion_detected,terrace.001,0,0,0,"None",0.00
-106878915_174887025,"bedroom_001_motion_light",motion_detected,bedroom.001,0,0,0,"None",0.00
-106878915_174887025,"bedroom_001_motion_light",motion_detected,bedroom.001,0,0,0,"None",0.00

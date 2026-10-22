@@ -1,6 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-104862573_172226682,"other_motion_light",motion_detected,other room,0,1,0,"None",0.19
-104862573_172226682,"entryway_motion_unlock",motion_detected,other room,0,2,0,"None",0.60
-104862573_172226682,"livingroom_motion_light",motion_detected,living room.001,1,0,0,"None",0.25
-104862573_172226682,"other_motion_light",motion_detected,other room,0,1,0,"None",0.16
-104862573_172226682,"entryway_motion_unlock",motion_detected,other room,0,2,0,"None",0.11

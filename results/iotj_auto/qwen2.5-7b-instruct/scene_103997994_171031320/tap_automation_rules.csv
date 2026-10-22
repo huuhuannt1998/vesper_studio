@@ -1,8 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-103997994_171031320,"office_motion_lock",motion_detected,office,0,0,0,"None",0.00
-103997994_171031320,"living_room_motion_light",motion_detected,living room,1,0,0,"None",0.21
-103997994_171031320,"office_motion_lock",motion_detected,office,0,0,0,"None",0.00
-103997994_171031320,"bedroom.003_motion_light",motion_detected,bedroom.003,1,0,0,"None",0.19
-103997994_171031320,"dining_room_motion_light",motion_detected,dining room,0,0,0,"None",0.00
-103997994_171031320,"toilet_motion_light",motion_detected,toilet,0,0,0,"None",0.00
-103997994_171031320,"living_room_motion_light",motion_detected,living room,0,0,0,"None",0.00

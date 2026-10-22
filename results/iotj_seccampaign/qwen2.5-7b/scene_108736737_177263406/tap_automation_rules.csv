@@ -1,4 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-108736737_177263406,"mudroom_motion_light",motion_detected,laundryroom/mudroom,0,0,0,"None",0.00
-108736737_177263406,"kitchen_unlock_on_motion",motion_detected,laundryroom/mudroom,0,0,0,"None",0.00
-108736737_177263406,"laundryroom_unlock_on_motion",motion_detected,laundryroom/mudroom,0,0,0,"None",0.00

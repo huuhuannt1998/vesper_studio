@@ -1,6 +1,0 @@
-scene_id,rule_name,trigger_event,trigger_room,actions_ok,actions_fail,attack_active,attack_name,latency_ms
-103997445_171030492,"bar_motion_light",motion_detected,bar,0,0,0,"None",0.00
-103997445_171030492,"lounge_motion_light",motion_detected,lounge,0,0,0,"None",0.00
-103997445_171030492,"bar_motion_light",motion_detected,bar,0,0,0,"None",0.00
-103997445_171030492,"bathroom_motion_alert",motion_detected,bathroom,0,0,0,"None",0.00
-103997445_171030492,"kitchen_water_leak_alert",motion_detected,kitchen,0,0,0,"None",0.00
