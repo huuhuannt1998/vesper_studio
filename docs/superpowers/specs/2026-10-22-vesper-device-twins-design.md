@@ -38,14 +38,14 @@ This spec covers #1. It also defines the interface that #2 and #3 use to drive d
 | Level | Reproduces | Main sources and tools |
 |---|---|---|
 | L0 Identity | vendor, model, product IDs, category | Zigbee2MQTT supported devices; Matter DCL; Z-Wave JS DB |
-| L1 Configuration | features, states, ranges, units, Home Assistant mapping | zigbee-herdsman-converters `exposes`; Matter data-model XML; Z-Wave JS params |
+| L1 Configuration | features, states, ranges, units, Home Assistant mapping | zigbee-herdsman-converters `exposes`; Matter clusters and device types from the SDK's Apache-2.0 ZAP XML; Z-Wave JS params |
 | L2 Protocol-faithful | an interface that real platforms accept as the product | Zigbee2MQTT MQTT API (scale tier); real Matter nodes via matter.js (Matter tier) |
 | L3 Behavior/timing | reporting rules, latency, battery/sleep, power draw | Zigbee2MQTT/ZCL reporting defaults; Matter ICD/subscription timing; published latency data; REFIT and UK-DALE profiles |
 | L4 Firmware anchor | the same firmware code on an emulated SoC | Renode (nRF52840), Espressif QEMU (ESP32) |
 | L5 Stock vendor firmware | out of scope (not feasible at scale on a laptop) | — |
 
 **In scope**
-- Catalog ingestion: Zigbee2MQTT definitions, the Matter data model and DCL, the Z-Wave JS DB, and Home Assistant device classes as the shared vocabulary.
+- Catalog ingestion: Zigbee2MQTT definitions, the Matter data model (from the SDK's Apache-2.0 ZAP XML, see Licensing) and DCL, the Z-Wave JS DB, and Home Assistant device classes as the shared vocabulary.
 - One normalized device schema (VDS) that records each field's level and source.
 - A twin generator and runtime.
 - Two exposure tiers:
@@ -73,7 +73,7 @@ This spec covers #1. It also defines the interface that #2 and #3 use to drive d
 
 ```
  Real sources (pinned, snapshotted with provenance)
- Zigbee2MQTT defs | Matter data model | Matter DCL | Z-Wave JS DB
+ Zigbee2MQTT defs | Matter ZAP XML | Matter DCL | Z-Wave JS DB
         │ ingest
         ▼
  catalog: one VDS per product (L0..L4 sections, each tagged with level + source)
@@ -184,7 +184,8 @@ No Zigbee firmware emulator was found, so there is no Zigbee anchor (a stated li
 - CLI: `vesper catalog sync|build`, `vesper twins run <home.yaml>`, `vesper validate`, `vesper report`, `vesper anchors run`.
 
 **Licensing**
-- Release the derived VDS catalog. Its sources are MIT or Apache-2.0; check the DCL's reuse terms before release.
+- Release the derived VDS catalog. Every VDS record carries its sources' licenses, and the release build includes only records whose sources permit redistribution. Its sources are MIT or Apache-2.0; check the DCL's reuse terms before release.
+- Matter semantics come only from Apache-2.0 sources: connectedhomeip's ZAP XML (`src/app/zap-templates/zcl/data-model/chip/`, including `matter-devices.xml`) and, where needed, matter.js. Never ingest connectedhomeip's `data_model/<version>/` XML. Its CSA license allows only internal use and forbids publishing it or creating derivative works, which covers converting it to VDS (decision 2026-10-22).
 - Never redistribute:
   - the Zigbee2MQTT application (GPL-3.0): VESPER only implements its public MQTT interface;
   - firmware binaries: publish URL plus hash only;
