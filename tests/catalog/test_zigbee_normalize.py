@@ -118,3 +118,10 @@ def test_reporting_change_is_in_the_feature_units_not_raw_zcl():
     reporting = zigbee_records(doc)[0]["behavior"]["reporting"]
     assert reporting["temperature"] == {"min_s": 10, "max_s": 3600, "change": 1.0}  # 100 raw = 1.0 °C
     assert reporting["illuminance"]["change"] == 0
+
+
+def test_l2_is_left_to_validation_evidence():
+    rec = zigbee_records({"version": "26.123.0", "definitions": [zdef("TH-1", "Acme", [
+        {"name": "temperature", "access": 5, "type": "numeric", "property": "temperature", "unit": "°C"}])]})[0]
+    assert rec["fidelity"]["reached"]["L2"] is False
+    assert "vesper validate acceptance" in rec["fidelity"]["reasons"]["L2"]

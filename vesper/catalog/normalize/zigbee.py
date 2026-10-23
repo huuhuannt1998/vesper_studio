@@ -18,7 +18,8 @@ REPORTING_DEFAULTS = {
     "power": (5, 3600, 1), "battery": (3600, 65000, 0), "lock_state": (0, 3600, 0),
 }
 REPORTING_PARENT = {"state": {"light", "switch"}, "brightness": {"light"}}
-L2_REASON = "exposure tier not built yet (Plan C)"
+L2_REASON = ("credited per product by validation evidence: `vesper validate acceptance`, "
+             "summarised by `vesper report`; the catalog itself only knows the sources")
 L3_REASON = "reporting uses zigbee-herdsman-converters static defaults (assumed); timing not yet validated"
 L4_REASON = "no firmware anchor for Zigbee (no Zigbee SoC emulator exists)"
 
