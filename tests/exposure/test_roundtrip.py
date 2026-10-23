@@ -24,7 +24,8 @@ def test_every_published_definition_equals_its_source_record():
     records = zigbee_records(ZIGBEE_DOC)
     devices, twin_of = published(records)
     report = compare(devices, twin_of, source_definitions(ZIGBEE_DOC))
-    assert report == {"checked": len(records), "identical": len(records), "different": {}, "unmatched": []}
+    assert report == {"checked": len(records), "identical": len(records), "different": {}, "unmatched": [],
+                      "missing": [], "duplicates": [], "complete": True}
 
 
 def test_a_normalization_change_shows_up_as_a_diff():
@@ -55,3 +56,13 @@ def test_receive_retained_reads_the_message_then_stops_listening():
 def test_receive_retained_times_out_without_a_retained_message():
     with pytest.raises(TimeoutError, match="z/bridge/devices"):
         receive_retained(FakeBroker().client(), "z/bridge/devices", timeout=0.05)
+
+
+def test_a_missing_or_duplicated_device_is_reported():
+    sources = source_definitions(ZIGBEE_DOC)
+    devices, twin_of = published(zigbee_records(ZIGBEE_DOC))
+    assert compare(devices, twin_of, sources)["complete"] is True
+    first, second = devices[1], devices[2]
+    report = compare([d for d in devices if d is not first] + [second], twin_of, sources)
+    assert report["missing"] == [first["friendly_name"]] and report["duplicates"] == [second["friendly_name"]]
+    assert report["complete"] is False

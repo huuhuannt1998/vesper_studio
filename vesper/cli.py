@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import sys
 import time
 from datetime import UTC, datetime
@@ -71,6 +72,17 @@ def _zhc_version(catalog_dir: Path) -> str:
     return "unknown"
 
 
+OFFLINE_WILL = ("zigbee2mqtt/bridge/state", json.dumps({"state": "offline"}))
+
+
+def _install_sigterm() -> None:
+    """Turn SIGTERM (how a coordinator or a peer stops a job) into SystemExit, so every `finally` runs and
+    the Home Assistant and Mosquitto processes VESPER started are stopped, not orphaned."""
+    def handler(signum, frame):
+        raise SystemExit(128 + signum)
+    signal.signal(signal.SIGTERM, handler)
+
+
 def _setup(args) -> int:
     from vesper.validation.stack import StackError, setup_ha
     try:
@@ -92,7 +104,7 @@ def _twins_run(args) -> int:
     runtime = Runtime(clock=WallClock(), seed=home.seed)
     for record, placement in zip(home.records, home.placements, strict=True):
         runtime.add(record, twin_id=placement.twin_id)
-    client = connect(home.host, home.port, "vesper-bridge")
+    client = connect(home.host, home.port, "vesper-bridge", will=OFFLINE_WILL)
     bridge = Bridge(runtime, home.placements, client, zhc_version=_zhc_version(Path(args.catalog)))
     bridge.start()
     print(f"{len(home.placements)} twins online at mqtt://{home.host}:{home.port}; Ctrl-C stops")
@@ -103,6 +115,7 @@ def _twins_run(args) -> int:
         pass
     finally:
         bridge.stop()
+        bridge.flush()
         disconnect(client)
         runtime.clock.close()
     return 0
@@ -116,27 +129,31 @@ def _validate_roundtrip(args) -> int:
     from vesper.twins.clock import LogicalClock
     from vesper.twins.runtime import Runtime
     from vesper.validation.roundtrip import compare, receive_retained, source_definitions
-    from vesper.validation.stack import Mosquitto
+    from vesper.validation.stack import Mosquitto, StackError
     _, files = load_snapshot(Path(args.raw_root), "zigbee")
     doc = json.loads(files["definitions.json"])
     records = zigbee_records(doc)
     broker = None if args.external_broker else Mosquitto(Path(args.root), port=args.mqtt_port)
-    if broker:
-        broker.start()
     try:
+        if broker:
+            broker.start()
         runtime = Runtime(clock=LogicalClock())
         placements = [Placement(runtime.add(r).id, f"vesper_rt_{i:05d}") for i, r in enumerate(records)]
         publisher = connect("127.0.0.1", args.mqtt_port, "vesper-roundtrip-bridge")
         checker = connect("127.0.0.1", args.mqtt_port, "vesper-roundtrip-check")
+        bridge = Bridge(runtime, placements, publisher, discovery=False, zhc_version=doc["version"])
         try:
-            bridge = Bridge(runtime, placements, publisher, discovery=False, zhc_version=doc["version"])
             bridge.start()
             devices = receive_retained(checker, f"{bridge.base_topic}/bridge/devices", timeout=args.timeout)
             report = compare(devices, {p.friendly_name: p.twin_id for p in placements}, source_definitions(doc))
-            bridge.retract()
         finally:
+            bridge.retract()  # leave nothing retained on the broker, an external one included
+            bridge.flush()
             disconnect(publisher)
             disconnect(checker)
+    except StackError as e:
+        print(f"FAILED roundtrip: {e}", file=sys.stderr)
+        return 1
     finally:
         if broker:
             broker.stop()
@@ -145,8 +162,28 @@ def _validate_roundtrip(args) -> int:
                "l1_with_diffs": sorted(set(report["different"]) & l1)}
     path = _write_report(args.out, "roundtrip", report)
     print(f"round trip: {report['identical']}/{report['checked']} definitions identical "
-          f"({len(report['different'])} with diffs, {len(report['unmatched'])} unmatched); report {path}")
-    return 0 if not report["different"] and not report["unmatched"] else 1
+          f"({len(report['different'])} with diffs, {len(report['unmatched'])} unmatched, "
+          f"{len(report['missing'])} missing, {len(report['duplicates'])} duplicated); report {path}")
+    return 0 if report["complete"] and not report["different"] else 1
+
+
+def _validate_discovery(args) -> int:
+    from vesper.twins.home import load_catalog
+    from vesper.validation import ha_schema
+    from vesper.validation.stack import HA_VERSION, Paths, StackError
+    messages = ha_schema.discovery_messages(list(load_catalog(Path(args.catalog)).values()))
+    try:
+        results = ha_schema.check_with_ha(messages, Paths(Path(args.root)).ha_python)
+    except (StackError, OSError) as e:
+        print(f"FAILED discovery: {e}", file=sys.stderr)
+        return 1
+    summary = ha_schema.summarize_schema(results)
+    report = {"summary": summary, "rejected": [r for r in results if not r["ok"]],
+              "ha_version": HA_VERSION}
+    path = _write_report(args.out, "discovery", report)
+    print(f"discovery: {summary['accepted']}/{summary['components']} components accepted by Home Assistant's "
+          f"schemas; {summary['devices_fully_accepted']}/{summary['devices']} devices fully; report {path}")
+    return 0 if summary["accepted"] == summary["components"] else 1
 
 
 def _validate_acceptance(args) -> int:
@@ -155,7 +192,7 @@ def _validate_acceptance(args) -> int:
     from vesper.twins.clock import WallClock
     from vesper.twins.home import load_catalog
     from vesper.twins.runtime import Runtime
-    from vesper.validation.acceptance import check_product, select_products, summarize
+    from vesper.validation.acceptance import EMPTY_HA_PRODUCTS_LIMIT, check_product, select_products, summarize
     from vesper.validation.stack import HA_VERSION, HomeAssistant, Mosquitto, StackError
     records = [r for r in load_catalog(Path(args.catalog)).values() if r["id"].startswith("zigbee:")]
     products = select_products(records, per_category=args.per_category, seed=args.seed,
@@ -169,15 +206,22 @@ def _validate_acceptance(args) -> int:
         ha.ensure_mqtt(args.mqtt_port)
         runtime = Runtime(clock=WallClock(), seed=args.seed)
         placements = [Placement(runtime.add(r).id, f"vesper_acc_{i:04d}") for i, r in enumerate(products)]
-        client = connect("127.0.0.1", args.mqtt_port, "vesper-acceptance-bridge")
+        client = connect("127.0.0.1", args.mqtt_port, "vesper-acceptance-bridge", will=OFFLINE_WILL)
+        bridge = Bridge(runtime, placements, client, zhc_version=_zhc_version(Path(args.catalog)))
         try:
-            bridge = Bridge(runtime, placements, client, zhc_version=_zhc_version(Path(args.catalog)))
             bridge.start()
-            results = [check_product(ha, runtime, bridge, p, timeout=args.timeout, poll=0.25) for p in placements]
-            if not args.keep:
-                bridge.retract()
-            bridge.stop()
+            results = []
+            for p in placements:
+                results.append(check_product(ha, runtime, bridge, p, timeout=args.timeout, poll=0.25))
+                if len(results) == EMPTY_HA_PRODUCTS_LIMIT and not any(e["created"] for r in results
+                                                                       for e in r["entities"]):
+                    raise StackError(f"Home Assistant created no entity for the first {EMPTY_HA_PRODUCTS_LIMIT} "
+                                     f"products; check its MQTT integration and {Path(args.root) / 'ha' / 'hass.log'}")
         finally:
+            bridge.stop()
+            if not args.keep:
+                bridge.retract()  # after stop(), so no retained "offline" message is left behind
+            bridge.flush()
             disconnect(client)
             runtime.clock.close()
     except StackError as e:
@@ -223,6 +267,10 @@ def main(argv: list[str] | None = None) -> int:
 
     validate = commands.add_parser("validate", help="software-only validation (spec §4)")
     checks = validate.add_subparsers(dest="action", required=True)
+    disc = checks.add_parser("discovery", help="Home Assistant's own schemas over every discovery message")
+    disc.add_argument("--catalog", default="catalog/vds")
+    disc.add_argument("--root", default=".vesper")
+    disc.add_argument("--out")
     rt = checks.add_parser("roundtrip", help="bridge definitions vs the source snapshot (L0/L1)")
     rt.add_argument("--raw-root", default="catalog/raw")
     rt.add_argument("--root", default=".vesper")
@@ -242,12 +290,16 @@ def main(argv: list[str] | None = None) -> int:
     acc.add_argument("--keep", action="store_true", help="leave the twins discovered in Home Assistant")
     acc.add_argument("--out")
     args = parser.parse_args(argv)
+    if args.command in ("setup", "twins", "validate"):
+        _install_sigterm()
     if args.command == "catalog":
         return _sync(args) if args.action == "sync" else _build(args)
     if args.command == "setup":
         return _setup(args)
     if args.command == "twins":
         return _twins_run(args)
+    if args.action == "discovery":
+        return _validate_discovery(args)
     return _validate_roundtrip(args) if args.action == "roundtrip" else _validate_acceptance(args)
 
 

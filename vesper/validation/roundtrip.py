@@ -38,10 +38,18 @@ def diff_paths(a, b, path: str = "") -> list[str]:
 
 
 def compare(published: list[dict], twin_of: dict[str, str], sources: dict[str, dict]) -> dict:
-    report = {"checked": 0, "identical": 0, "different": {}, "unmatched": []}
+    """Each published definition against its source. `complete` also requires every placed twin to be
+    published exactly once: a list that silently lacks or repeats devices is not a passing round trip."""
+    report = {"checked": 0, "identical": 0, "different": {}, "unmatched": [], "missing": [], "duplicates": []}
+    seen: set[str] = set()
     for device in published:
         if device.get("type") == "Coordinator":
             continue
+        if device["friendly_name"] in seen:
+            if device["friendly_name"] not in report["duplicates"]:
+                report["duplicates"].append(device["friendly_name"])
+            continue
+        seen.add(device["friendly_name"])
         twin_id = twin_of.get(device["friendly_name"])
         if twin_id not in sources:
             report["unmatched"].append(device["friendly_name"])
@@ -52,6 +60,9 @@ def compare(published: list[dict], twin_of: dict[str, str], sources: dict[str, d
             report["different"][twin_id] = paths[:20]
         else:
             report["identical"] += 1
+    report["missing"] = sorted(name for name in twin_of if name not in seen)
+    report["complete"] = (not report["missing"] and not report["duplicates"] and not report["unmatched"]
+                          and report["checked"] == len(twin_of))
     return report
 
 

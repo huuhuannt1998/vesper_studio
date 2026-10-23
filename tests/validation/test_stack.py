@@ -109,7 +109,11 @@ def test_start_writes_a_loopback_config_and_waits_for_the_api(tmp_path):
 
 
 class FakeServer:
-    """Answers the onboarding, token and config-flow endpoints like Home Assistant 2026.10."""
+    """Answers the onboarding, token, state and config-entry endpoints like Home Assistant 2026.10.
+
+    As in Home Assistant's REST API, listed config entries carry no `data` (config_entries.py); the
+    broker an entry points at is visible only in this fake's own `entries`.
+    """
 
     def __init__(self, entries=None, flow_step="broker", flow_result="create_entry", onboarded=False):
         self.entries, self.flow_step, self.flow_result, self.requests = entries or [], flow_step, flow_result, []
@@ -128,7 +132,15 @@ class FakeServer:
         if path.startswith("/api/onboarding/"):
             return httpx.Response(200, json={})
         if path == "/api/config/config_entries/entry":
-            return httpx.Response(200, json=self.entries)
+            return httpx.Response(200, json=[{"entry_id": f"e{i}", "domain": e["domain"], "title": "MQTT"}
+                                             for i, e in enumerate(self.entries)])
+        if path.startswith("/api/config/config_entries/entry/") and request.method == "DELETE":
+            del self.entries[int(path.rsplit("/e", 1)[1])]
+            return httpx.Response(200, json={"require_restart": False})
+        if path == "/api/states/sensor.broken":
+            return httpx.Response(500, text="Internal Server Error")
+        if path.startswith("/api/states/"):
+            return httpx.Response(404, json={"message": "Entity not found."})
         if path == "/api/config/config_entries/flow":
             return httpx.Response(200, json={"flow_id": "f1", "type": "form", "step_id": self.flow_step})
         if path == "/api/config/config_entries/flow/f1":
@@ -163,19 +175,60 @@ def test_onboarding_runs_once_and_keeps_only_a_private_refresh_token(tmp_path):
     assert len([p for m, p in server.requests if p == "/api/onboarding/users"]) == 1
 
 
-def test_mqtt_is_configured_for_vespers_broker_only(tmp_path):
+def test_each_run_recreates_the_mqtt_entry_for_vespers_broker(tmp_path):
     server = FakeServer()
     ha = onboarded(tmp_path, server)
     ha.ensure_mqtt(18830)
+    ha.ensure_mqtt(18831)
+    assert server.entries == [{"domain": "mqtt", "data": {"broker": "127.0.0.1", "port": 18831}}]
+
+
+def test_an_mqtt_entry_for_another_broker_is_replaced(tmp_path):
+    """The REST API does not show an entry's broker, so VESPER never trusts an existing entry."""
+    server = FakeServer(entries=[{"domain": "mqtt", "data": {"broker": "127.0.0.1", "port": 1883}}])
+    ha = onboarded(tmp_path, server)
+    ha.ensure_mqtt(18830)
     assert server.entries == [{"domain": "mqtt", "data": {"broker": "127.0.0.1", "port": 18830}}]
-    ha.ensure_mqtt(18830)  # already configured: no second flow
-    assert len([p for m, p in server.requests if p == "/api/config/config_entries/flow"]) == 1
+    assert ("DELETE", "/api/config/config_entries/entry/e0") in server.requests
 
 
-def test_an_mqtt_entry_for_another_broker_is_refused(tmp_path):
-    ha = onboarded(tmp_path, FakeServer(entries=[{"domain": "mqtt", "data": {"broker": "127.0.0.1", "port": 1883}}]))
-    with pytest.raises(StackError, match="another broker"):
-        ha.ensure_mqtt(18830)
+def test_a_home_assistant_error_on_a_state_read_is_not_a_missing_entity(tmp_path):
+    ha = onboarded(tmp_path, FakeServer())
+    assert ha.state("sensor.absent") is None
+    with pytest.raises(StackError, match="500"):
+        ha.state("sensor.broken")
+
+
+def test_a_mosquitto_that_never_listens_is_stopped(tmp_path, monkeypatch):
+    import vesper.validation.stack as stack
+
+    proc = FakeProc()
+
+    def never(port, timeout, host="127.0.0.1"):
+        raise StackError("nothing listens")
+
+    monkeypatch.setattr(stack, "wait_for_port", never)
+    with pytest.raises(StackError):
+        Mosquitto(tmp_path, port=free_port(), popen=lambda cmd: proc, binary="/bin/true").start()
+    assert proc.terminated
+
+
+def test_a_mosquitto_that_ignores_terminate_is_killed(tmp_path):
+    class Stubborn(FakeProc):
+        killed = False
+
+        def wait(self, timeout=None):
+            if not self.killed:
+                raise subprocess.TimeoutExpired("mosquitto", timeout)
+            return 0
+
+        def kill(self):
+            self.killed = True
+
+    proc = Stubborn()
+    m = Mosquitto(tmp_path, binary="/bin/true", proc=proc)
+    m.stop()
+    assert proc.killed and m.proc is None
 
 
 def test_an_unexpected_flow_is_refused(tmp_path):

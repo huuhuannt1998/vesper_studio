@@ -137,12 +137,20 @@ class Mosquitto:
         conf.write_text(f"listener {self.port} 127.0.0.1\nallow_anonymous true\npersistence false\n"
                         f"log_dest file {conf.parent.resolve() / 'mosquitto.log'}\n")
         self.proc = self.popen([self.binary or mosquitto_binary(), "-c", str(conf)])
-        wait_for_port(self.port, 10)
+        try:
+            wait_for_port(self.port, 10)
+        except StackError:
+            self.stop()
+            raise
 
     def stop(self) -> None:
         if self.proc is not None:
             self.proc.terminate()
-            self.proc.wait(timeout=10)
+            try:
+                self.proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.wait(timeout=10)
             self.proc = None
 
 
@@ -251,14 +259,18 @@ class HomeAssistant:
 
     # -- configuration and use ------------------------------------------------------------------
     def ensure_mqtt(self, broker_port: int) -> None:
-        """Configure the MQTT integration for VESPER's broker only; refuse any other broker entry."""
+        """Point the MQTT integration at VESPER's broker, freshly on every run.
+
+        The REST API does not show which broker an existing entry uses (entries are listed without their
+        data), so every existing MQTT entry is removed and one is created. Removing an entry also removes
+        the devices and entities it discovered, so no entity from an earlier run survives as a ghost.
+        """
         entries = self.api("GET", "/api/config/config_entries/entry", params={"domain": "mqtt"}).json()
         for e in entries:
-            data = e.get("data") or {}
-            if data and (data.get("broker"), data.get("port")) != ("127.0.0.1", broker_port):
-                raise StackError(f"Home Assistant has an MQTT entry for another broker: {data}")
-        if entries:
-            return
+            if e.get("domain", "mqtt") == "mqtt":
+                r = self.api("DELETE", f"/api/config/config_entries/entry/{e['entry_id']}")
+                if r.status_code >= 400:
+                    raise StackError(f"could not remove the old MQTT entry ({r.status_code}): {r.text[:200]}")
         flow = self.api("POST", "/api/config/config_entries/flow", json={"handler": "mqtt"}).json()
         if flow.get("step_id") != "broker":
             raise StackError(f"unexpected MQTT config flow step: {flow}")
@@ -268,8 +280,13 @@ class HomeAssistant:
             raise StackError(f"the MQTT integration was not configured: {result}")
 
     def state(self, entity_id: str) -> dict | None:
+        """The entity's state, None if Home Assistant has no such entity; any other answer is an error."""
         r = self.api("GET", f"/api/states/{entity_id}")
-        return r.json() if r.status_code == 200 else None
+        if r.status_code == 404:
+            return None
+        if r.status_code != 200:
+            raise StackError(f"reading {entity_id} failed ({r.status_code}): {r.text[:200]}")
+        return r.json()
 
     def call(self, domain: str, service: str, data: dict) -> None:
         r = self.api("POST", f"/api/services/{domain}/{service}", json=data)

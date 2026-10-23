@@ -22,13 +22,19 @@ def broker(monkeypatch):
     b = FakeBroker()
     connected = []
 
-    def connect(host, port, client_id, timeout=10.0):
+    def connect(host, port, client_id, timeout=10.0, will=None):
         connected.append((host, port, client_id))
+        if will:
+            b.wills[client_id] = will
         return b.client()
 
+    def disconnect(client):
+        b.unflushed += sum(not d.waited for d in client.deliveries)  # paho drops what is still queued
+        client.connected = False
+
     monkeypatch.setattr(mqtt_mod, "connect", connect)
-    monkeypatch.setattr(mqtt_mod, "disconnect", lambda c: setattr(c, "connected", False))
-    b.connected = connected
+    monkeypatch.setattr(mqtt_mod, "disconnect", disconnect)
+    b.connected, b.wills, b.unflushed = connected, {}, 0
     return b
 
 
@@ -222,3 +228,93 @@ def test_ctrl_c_during_acceptance_still_stops_home_assistant_and_the_broker(monk
     with pytest.raises(KeyboardInterrupt):
         cli.main(["validate", "acceptance", "--catalog", str(catalog), "--root", str(tmp_path / ".vesper")])
     assert stack.ha[0].events == ["start", "stop"] and stack.mosquitto[0].events == ["start", "stop"]
+
+
+def test_a_sigterm_stops_the_services_like_ctrl_c(monkeypatch):
+    import signal
+
+    installed = {}
+    monkeypatch.setattr(signal, "signal", lambda sig, handler: installed.setdefault(sig, handler))
+    cli._install_sigterm()
+    with pytest.raises(SystemExit):
+        installed[signal.SIGTERM](signal.SIGTERM, None)
+
+
+def test_long_running_commands_install_the_sigterm_handler(monkeypatch, tmp_path, catalog, stack):
+    calls = []
+    monkeypatch.setattr(cli, "_install_sigterm", lambda: calls.append(1))
+    StackHA.fail_start = True
+    cli.main(["validate", "acceptance", "--catalog", str(catalog), "--root", str(tmp_path / ".vesper")])
+    assert calls == [1]
+
+
+def test_a_broker_that_cannot_start_fails_the_roundtrip_cleanly(monkeypatch, tmp_path, mosquitto, capsys):
+    raw = write_all(tmp_path / "raw")
+
+    def cannot(self):
+        self.events.append("start")
+        raise stack_mod.StackError("nothing listens on 127.0.0.1:18830 after 10 s")
+
+    monkeypatch.setattr(FakeMosquitto, "start", cannot)
+    assert cli.main(["validate", "roundtrip", "--raw-root", str(raw), "--root", str(tmp_path / ".vesper")]) == 1
+    assert "FAILED roundtrip: nothing listens" in capsys.readouterr().err
+    assert mosquitto[0].events == ["start", "stop"]
+
+
+def test_acceptance_gives_up_when_home_assistant_creates_nothing(monkeypatch, tmp_path, catalog, stack, capsys):
+    monkeypatch.setattr(StackHA, "state", lambda self, entity_id: None)
+    code = cli.main(["validate", "acceptance", "--catalog", str(catalog), "--root", str(tmp_path / ".vesper"),
+                     "--per-category", "1", "--timeout", "0.05", "--out", str(tmp_path / "acc.json")])
+    assert code == 1 and "created no entity for the first 3 products" in capsys.readouterr().err
+    assert stack.ha[0].events[-1] == "stop"
+
+
+def test_the_bridge_leaves_an_offline_last_will(monkeypatch, tmp_path, broker, catalog):
+    home = tmp_path / "home.yaml"
+    home.write_text("devices:\n  - {product: 'zigbee:aqara:mccgq11lm', name: door}\n")
+    monkeypatch.setattr(cli.time, "sleep", lambda s: (_ for _ in ()).throw(KeyboardInterrupt))
+    cli.main(["twins", "run", str(home), "--catalog", str(catalog)])
+    topic, payload = broker.wills["vesper-bridge"]
+    assert topic == "zigbee2mqtt/bridge/state" and json.loads(payload) == {"state": "offline"}
+
+
+def test_queued_messages_are_delivered_before_disconnecting(monkeypatch, tmp_path, broker, mosquitto, catalog):
+    raw = write_all(tmp_path / "raw")
+    assert cli.main(["validate", "roundtrip", "--raw-root", str(raw), "--external-broker",
+                     "--out", str(tmp_path / "rt.json")]) == 0
+    home = tmp_path / "home.yaml"
+    home.write_text("devices:\n  - {product: 'zigbee:aqara:mccgq11lm', name: door}\n")
+    monkeypatch.setattr(cli.time, "sleep", lambda s: (_ for _ in ()).throw(KeyboardInterrupt))
+    cli.main(["twins", "run", str(home), "--catalog", str(catalog)])
+    assert broker.unflushed == 0
+
+
+def test_acceptance_retracts_the_twins_even_when_a_check_fails(monkeypatch, tmp_path, catalog, stack):
+    def failing(*a, **k):
+        raise stack_mod.StackError("Home Assistant answered 502")
+
+    monkeypatch.setattr(acceptance_mod, "check_product", failing)
+    code = cli.main(["validate", "acceptance", "--catalog", str(catalog), "--root", str(tmp_path / ".vesper"),
+                     "--out", str(tmp_path / "acc.json")])
+    assert code == 1 and StackHA.broker.retained == {}
+
+
+def test_discovery_check_runs_home_assistants_schemas_over_the_catalog(monkeypatch, tmp_path, catalog, capsys):
+    import vesper.validation.ha_schema as ha_schema_mod
+
+    seen = {}
+
+    def fake_check(messages, ha_python):
+        seen["n"], seen["python"] = len(messages), ha_python
+        return [{"topic": t, "component": "c", "platform": "sensor", "ok": i != 0, "error": None if i else "bad unit"}
+                for i, (t, _) in enumerate(messages)]
+
+    monkeypatch.setattr(ha_schema_mod, "check_with_ha", fake_check)
+    out = tmp_path / "disc.json"
+    code = cli.main(["validate", "discovery", "--catalog", str(catalog), "--root", str(tmp_path / ".vesper"),
+                     "--out", str(out)])
+    report = json.loads(out.read_text())
+    assert code == 1 and seen["python"] == stack_mod.Paths(tmp_path / ".vesper").ha_python
+    assert report["summary"]["components"] == seen["n"] and report["summary"]["errors"] == {"bad unit": 1}
+    assert report["rejected"][0]["error"] == "bad unit"
+    assert f"{seen['n'] - 1}/{seen['n']} components accepted" in capsys.readouterr().out
