@@ -136,3 +136,4 @@ paper_rewriting_output/
 catalog/raw/
 catalog/cache/
 catalog/vds/
+.vesper/
