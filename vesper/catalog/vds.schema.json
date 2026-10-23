@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VESPER Device Spec (VDS), version 1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["vds_version", "id", "identity", "features", "binding", "behavior", "firmware", "fidelity", "sources"],
+  "properties": {
+    "vds_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^(zigbee|matter|zwave):[a-z0-9._-]+:[a-z0-9._-]+$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vendor", "model", "description", "category", "ids", "protocols", "white_label_of"],
+      "properties": {
+        "vendor": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1},
+        "description": {"type": "string"},
+        "category": {"enum": ["light", "plug", "switch", "button", "lock", "thermostat", "cover", "fan",
+                              "contact_sensor", "motion_sensor", "leak_sensor", "smoke_sensor", "gas_sensor",
+                              "vibration_sensor", "climate_sensor", "air_quality_sensor", "light_sensor",
+                              "energy_meter", "bridge", "appliance", "media", "camera", "other"]},
+        "ids": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "zigbee_model": {"type": "array", "items": {"type": "string"}},
+            "zigbee_fingerprint": {"type": "array", "items": {
+              "type": "object", "additionalProperties": false, "required": ["model_id", "manufacturer_name"],
+              "properties": {"model_id": {"type": ["string", "null"]}, "manufacturer_name": {"type": ["string", "null"]}}}},
+            "matter_vid_pid": {"type": "array", "items": {
+              "type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0, "maximum": 65535}}},
+            "zwave": {"type": "array", "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["manufacturer_id", "product_type", "product_id"],
+              "properties": {"manufacturer_id": {"$ref": "#/$defs/hex16"}, "product_type": {"$ref": "#/$defs/hex16"},
+                             "product_id": {"$ref": "#/$defs/hex16"}}}}
+          }
+        },
+        "protocols": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["zigbee", "matter", "zwave"]}},
+        "white_label_of": {"type": ["string", "null"]}
+      }
+    },
+    "features": {"type": "array", "items": {"$ref": "#/$defs/feature"}},
+    "binding": {"type": "object", "additionalProperties": false,
+                "properties": {"zigbee": {"type": "object"}, "matter": {"type": "object"}, "zwave": {"type": "object"}}},
+    "behavior": {"type": "object", "required": ["reporting"],
+                 "properties": {"reporting": {"type": "object", "additionalProperties": {"$ref": "#/$defs/reporting"}}}},
+    "firmware": {"type": "null"},
+    "fidelity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reached", "provenance", "assumed", "reasons"],
+      "properties": {
+        "reached": {"type": "object", "additionalProperties": false, "required": ["L0", "L1", "L2", "L3", "L4"],
+                    "properties": {"L0": {"type": "boolean"}, "L1": {"type": "boolean"},
+                                   "L2": {"enum": [false, "z2m-api", "matter", "zwave-mock", "lan-fixture"]},
+                                   "L3": {"enum": [false, true, "partial"]}, "L4": {"type": "boolean"}}},
+        "provenance": {"type": "object", "additionalProperties": {"type": "string"}},
+        "assumed": {"type": "array", "items": {"type": "string"}},
+        "reasons": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "sources": {"type": "array", "minItems": 1, "items": {
+      "type": "object", "additionalProperties": false, "required": ["source", "version", "license", "redistributable"],
+      "properties": {"source": {"type": "string"}, "version": {"type": "string"}, "license": {"type": "string"},
+                     "redistributable": {"type": "boolean"}}}}
+  },
+  "$defs": {
+    "hex16": {"type": "string", "pattern": "^0x[0-9a-f]{4}$"},
+    "reporting": {"type": "object", "additionalProperties": false, "required": ["min_s", "max_s", "change"],
+                  "properties": {"min_s": {"type": "number", "minimum": 0}, "max_s": {"type": "number", "minimum": 0},
+                                 "change": {"type": "number", "minimum": 0}}},
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "access", "category", "ha", "source"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "path": {"type": "string"},
+        "type": {"enum": ["binary", "numeric", "enum", "text", "bitmap", "unsupported"]},
+        "access": {"type": "array", "uniqueItems": true, "items": {"enum": ["state", "set", "get"]}},
+        "category": {"enum": ["config", "diagnostic", null]},
+        "property": {"type": "string"},
+        "endpoint": {"type": ["string", "integer"]},
+        "unit": {"type": "string"},
+        "range": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}},
+        "step": {"type": "number"},
+        "scale": {"type": "number"},
+        "values": {"type": "array"},
+        "value_on": {},
+        "value_off": {},
+        "value_toggle": {},
+        "flags": {"type": "array", "items": {"type": "string"}},
+        "ha": {"type": ["string", "null"], "pattern": "^[a-z_]+(/[a-z0-9_]+)?$"},
+        "source": {"type": "string", "minLength": 1},
+        "unsupported_reason": {"type": "string"}
+      }
+    }
+  }
+}
