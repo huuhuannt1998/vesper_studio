@@ -8,7 +8,7 @@ These experiments produce the paper's success criteria 2 and 3 for Zigbee-style 
 | Round trip | L0/L1 | `vesper validate roundtrip` | every placed twin published exactly once (`complete`), with 0 definition diffs |
 | Platform acceptance | L2, scale tier | `vesper validate acceptance` | see "Pass" under Experiment 2; at least 8 categories in `categories_passing` |
 | Reporting rules | L3 (offline) | `vesper validate rules` | 0 violations of R1–R4 (`docs/experiments/l3-timing-design.md`) |
-| Latency | L3 (live Mosquitto) | `vesper validate latency` | T1 and T3 per path, as pre-registered |
+| Latency | L3 (live Mosquitto, default QoS) | `vesper validate latency` | G and the residual checks P, as pre-registered |
 
 `vesper report` then writes the fidelity report from the catalog and the latest result of each check.
 
@@ -115,25 +115,39 @@ Thermostat (climate), cover and fan are not exposed yet, so they never count. `c
 This runs every L1 Zigbee product with reporting rules on the logical clock, under a seeded script of stimuli and platform commands. Every report is checked against R1–R4 as it is emitted.
 - It is CPU only and starts nothing. Simulated time runs far faster than real time.
 - Budget (estimate): minutes for the full catalog, 1 core, <1 GB.
-- Output: `results/device-twins/rules-<UTC>.json`, holding the products and features checked, the report count, the violations (first 200, plus the total), and any faulted twins.
-- Pass: `passed` is true (zero violations, nothing faulted).
+- Output: `results/device-twins/rules-<UTC>.json`, holding:
+  - the products, reporting features and presence features checked;
+  - the report count and the occupancy clears checked;
+  - rules dropped for features the twin lacks;
+  - stimulus rejections;
+  - the violations (first 200, plus the total), and any faulted twins;
+  - the run's provenance.
+- Pass: `passed` is true: at least one feature checked, zero violations, nothing faulted.
 
 ## Experiment 4: latency (L3, live Mosquitto)
 
-    taskpolicy -b .venv/bin/vesper validate latency --n 200 --seed 0
+    .venv/bin/vesper validate latency --seed 0
 
-1. Starts VESPER's own Mosquitto on 18830.
-2. Measures VESPER's own pipeline overhead (200 contact-sensor twins opened once each, no latency model).
-3. Measures each path: `local`, `vendor_cloud`, `trigger_action_cloud`. Each uses 200 fresh twins and the published model minus that overhead.
-4. Applies T1–T3.
+**Scheduling requirement.** Run this one at the default QoS, without `taskpolicy -b`, as the only job on the machine.
+- At background QoS macOS coalesces timers by 80–200 ms, which would measure the host, not VESPER (pre-registration, "Procedures").
+- It is light: 1 core, <1 GB, ~10 min.
+- On the shared lab Mac it still needs the PI's explicit approval for the slot.
 
-Budget (estimate):
-- `trigger_action_cloud`'s median is 84 s, but its 200 twins run concurrently, so the whole run takes ~5–10 min;
-- 1 core, <1 GB.
+What it does:
+1. **G (offline):** checks that each path's generator reproduces its published distribution (100,000 draws).
+2. **Calibration:** starts VESPER's own Mosquitto on 18830, using topics under `vesper-latency/`. Then it injects a constant 50 ms into 200 contact-sensor twins, through the same timer path as every model, to measure VESPER's own overhead.
+3. **P (each path):** for `local`, `vendor_cloud` and `trigger_action_cloud`, 200 fresh twins with their own seed. Each sample records the injected and the observed latency.
+   - The residual, observed − injected, must stay within median ≤ 20 ms and P95 ≤ 50 ms.
+   - The end-to-end latency against the published distribution is reported descriptively.
 
-Output: `results/device-twins/latency-<UTC>.json`, holding the overhead, then per path the samples, median, published median, 90% CI of their ratio, Anderson–Darling statistic and coverage. The pre-registration constants are included.
+Output: `results/device-twins/latency-<UTC>.json`, holding:
+- the generator checks, the calibration and the overhead;
+- per path: the residual check, the descriptive comparison, and every sample (injected and observed);
+- the pre-registered constants, and the run's provenance (parameters, git commit, dirty state, catalog versions).
 
-Pass: T1 and T3 hold for every path.
+A run that fails, for example on a timeout, still writes its result with the error.
+
+Pass: G, the calibration's residual check and every path's residual check all pass (exit code 0).
 
 ## The fidelity report
 
@@ -143,7 +157,7 @@ This writes `results/device-twins/fidelity-<UTC>.md` and `.json`. They contain:
 - source versions;
 - coverage per level;
 - the most common `assumed` fields;
-- each check's latest result: a check that never ran is shown as "not run yet", never as passed;
+- each check's latest result: a check that never ran is shown as "not run yet", never as passed. A run over nothing does not pass. A run whose parameters differ from the pre-registration, or that records none, is marked exploratory;
 - the timing paths with their sources.
 
 L2 is credited only to products that passed acceptance.
