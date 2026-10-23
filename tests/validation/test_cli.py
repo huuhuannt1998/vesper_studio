@@ -318,3 +318,47 @@ def test_discovery_check_runs_home_assistants_schemas_over_the_catalog(monkeypat
     assert report["summary"]["components"] == seen["n"] and report["summary"]["errors"] == {"bad unit": 1}
     assert report["rejected"][0]["error"] == "bad unit"
     assert f"{seen['n'] - 1}/{seen['n']} components accepted" in capsys.readouterr().out
+
+
+def test_rules_command_checks_every_twin_offline(tmp_path, catalog, capsys):
+    out = tmp_path / "rules.json"
+    code = cli.main(["validate", "rules", "--catalog", str(catalog), "--hours", "2", "--seed", "0", "--out", str(out)])
+    report = json.loads(out.read_text())
+    assert code == 0 and report["passed"] and report["reports"] > 0 and report["violation_count"] == 0
+    assert "0 violations" in capsys.readouterr().out
+
+
+def test_latency_command_measures_overhead_then_each_path(monkeypatch, tmp_path, broker, mosquitto, catalog, capsys):
+    import random
+
+    import vesper.validation.timing as timing_mod
+    from vesper.twins.latency import PATHS
+
+    calls = []
+
+    def fake_measure(record, bridge_client, observer, *, n, path, overhead_s, spacing_s, timeout_s, seed):
+        calls.append((path.name if path else None, overhead_s, n))
+        rng = random.Random(seed)
+        return [0.004] * n if path is None else [path.sample(rng) for _ in range(n)]
+
+    monkeypatch.setattr(timing_mod, "measure_latency", fake_measure)
+    out = tmp_path / "lat.json"
+    code = cli.main(["validate", "latency", "--catalog", str(catalog), "--root", str(tmp_path / ".vesper"),
+                     "--paths", "local,vendor_cloud", "--n", "200", "--out", str(out)])
+    report = json.loads(out.read_text())
+    assert [c[0] for c in calls] == [None, "local", "vendor_cloud"] and calls[1][1] == 0.004
+    assert report["overhead"]["median_s"] == 0.004 and set(report["paths"]) == {"local", "vendor_cloud"}
+    assert report["preregistration"]["margin"] == 0.10 and report["paths"]["local"]["source"] == PATHS["local"].source
+    assert code == (0 if report["passed"] else 1) and mosquitto[0].events == ["start", "stop"]
+    assert "local:" in capsys.readouterr().out
+
+
+def test_report_command_writes_markdown_and_json(tmp_path, catalog, capsys):
+    (catalog / "coverage.json").write_text(json.dumps({"zigbee": {"L0": 1, "L1": 1, "L2": 0, "L3": 0, "L4": 0}}))
+    out = tmp_path / "report"
+    assert cli.main(["report", "--catalog", str(catalog), "--results", str(tmp_path / "none"),
+                     "--out-dir", str(out)]) == 0
+    [md] = out.glob("fidelity-*.md")
+    [js] = out.glob("fidelity-*.json")
+    assert "## Checks" in md.read_text() and json.loads(js.read_text())["checks"]["roundtrip"] is None
+    assert "fidelity report" in capsys.readouterr().out

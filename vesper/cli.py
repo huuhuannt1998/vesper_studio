@@ -167,6 +167,80 @@ def _validate_roundtrip(args) -> int:
     return 0 if report["complete"] and not report["different"] else 1
 
 
+def _report(args) -> int:
+    from vesper.validation.report import build_report, render_markdown
+    report = build_report(Path(args.catalog), Path(args.results))
+    stamp = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / f"fidelity-{stamp}.json").write_text(json.dumps(report, indent=2, sort_keys=True, default=str) + "\n")
+    (out / f"fidelity-{stamp}.md").write_text(render_markdown(report))
+    print(f"fidelity report: {out / f'fidelity-{stamp}.md'}")
+    return 0
+
+
+def _validate_rules(args) -> int:
+    from vesper.twins.home import load_catalog
+    from vesper.validation.timing import run_rules
+    records = [r for r in load_catalog(Path(args.catalog)).values() if r["id"].startswith("zigbee:")]
+    report = run_rules(records, seed=args.seed, duration_s=args.hours * 3600)
+    path = _write_report(args.out, "rules", report)
+    print(f"rules: {report['products']} products, {report['features_checked']} reporting features, "
+          f"{report['reports']} reports, {report['violation_count']} violations; report {path}")
+    return 0 if report["passed"] else 1
+
+
+def _validate_latency(args) -> int:
+    from statistics import median
+
+    from vesper.exposure.mqtt import connect, disconnect
+    from vesper.twins.home import load_catalog
+    from vesper.twins.latency import PATHS
+    from vesper.validation import stats, timing
+    from vesper.validation.stack import Mosquitto, StackError
+    record = load_catalog(Path(args.catalog))[args.product]
+    broker = None if args.external_broker else Mosquitto(Path(args.root), port=args.mqtt_port)
+    try:
+        if broker:
+            broker.start()
+        bridge_client = connect("127.0.0.1", args.mqtt_port, "vesper-latency-bridge")
+        observer = connect("127.0.0.1", args.mqtt_port, "vesper-latency-observer")
+        try:
+            def run(path, overhead_s):
+                timeout = 60.0 + (path.quantile(0.999) if path else 0.0)
+                return timing.measure_latency(record, bridge_client, observer, n=args.n, path=path,
+                                              overhead_s=overhead_s, spacing_s=args.spacing, timeout_s=timeout,
+                                              seed=args.seed)
+            overhead = run(None, 0.0)
+            overhead_s = median(overhead)
+            results = {}
+            for name in args.paths.split(","):
+                xs = run(PATHS[name], overhead_s)
+                results[name] = stats.assess_path(xs, PATHS[name], seed=args.seed) | {"samples_s": xs}
+        finally:
+            disconnect(bridge_client)
+            disconnect(observer)
+    except (StackError, TimeoutError) as e:
+        print(f"FAILED latency: {e}", file=sys.stderr)
+        return 1
+    finally:
+        if broker:
+            broker.stop()
+    report = {"product": args.product, "seed": args.seed,
+              "overhead": {"n": len(overhead), "median_s": overhead_s, "max_s": max(overhead), "samples_s": overhead},
+              "paths": results, "passed": all(r["passed"] for r in results.values()),
+              "preregistration": {"design": "docs/experiments/l3-timing-design.md", "margin": stats.MARGIN,
+                                  "n": args.n, "bootstrap": stats.N_BOOT, "ad_critical": stats.AD_CRITICAL_05,
+                                  "coverage_min": stats.COVERAGE_MIN}}
+    path = _write_report(args.out, "latency", report)
+    for name, r in results.items():
+        print(f"{name}: median {r['median_s'] * 1000:.1f} ms vs published {r['published_median_s'] * 1000:.1f} ms; "
+              f"ratio 90% CI [{r['ratio_ci90'][0]:.3f}, {r['ratio_ci90'][1]:.3f}]; coverage {r['T3_coverage']:.2f}; "
+              f"{'PASS' if r['passed'] else 'FAIL'}")
+    print(f"overhead median {overhead_s * 1000:.2f} ms; report {path}")
+    return 0 if report["passed"] else 1
+
+
 def _validate_discovery(args) -> int:
     from vesper.twins.home import load_catalog
     from vesper.validation import ha_schema
@@ -259,6 +333,11 @@ def main(argv: list[str] | None = None) -> int:
     setup_ha_cmd = setup_actions.add_parser("ha", help="Home Assistant Core in its own venv (needs uv)")
     setup_ha_cmd.add_argument("--root", default=".vesper")
 
+    rep = commands.add_parser("report", help="the fidelity report: coverage, assumptions and every check's result")
+    rep.add_argument("--catalog", default="catalog/vds")
+    rep.add_argument("--results", default="results/device-twins")
+    rep.add_argument("--out-dir", default="results/device-twins")
+
     twins = commands.add_parser("twins", help="run virtual devices")
     twin_actions = twins.add_subparsers(dest="action", required=True)
     run = twin_actions.add_parser("run", help="expose a home's twins over MQTT until Ctrl-C")
@@ -267,6 +346,22 @@ def main(argv: list[str] | None = None) -> int:
 
     validate = commands.add_parser("validate", help="software-only validation (spec §4)")
     checks = validate.add_subparsers(dest="action", required=True)
+    rules = checks.add_parser("rules", help="L3: every twin obeys its reporting rules (logical clock, offline)")
+    rules.add_argument("--catalog", default="catalog/vds")
+    rules.add_argument("--hours", type=float, default=4.0)
+    rules.add_argument("--seed", type=int, default=0)
+    rules.add_argument("--out")
+    lat = checks.add_parser("latency", help="L3: latency at the MQTT boundary vs the published distributions")
+    lat.add_argument("--catalog", default="catalog/vds")
+    lat.add_argument("--product", default="zigbee:aqara:mccgq11lm", help="a contact sensor to replicate")
+    lat.add_argument("--paths", default="local,vendor_cloud,trigger_action_cloud")
+    lat.add_argument("--n", type=int, default=200)
+    lat.add_argument("--spacing", type=float, default=0.05, help="seconds between stimuli")
+    lat.add_argument("--seed", type=int, default=0)
+    lat.add_argument("--root", default=".vesper")
+    lat.add_argument("--mqtt-port", type=int, default=18830)
+    lat.add_argument("--external-broker", action="store_true")
+    lat.add_argument("--out")
     disc = checks.add_parser("discovery", help="Home Assistant's own schemas over every discovery message")
     disc.add_argument("--catalog", default="catalog/vds")
     disc.add_argument("--root", default=".vesper")
@@ -296,10 +391,16 @@ def main(argv: list[str] | None = None) -> int:
         return _sync(args) if args.action == "sync" else _build(args)
     if args.command == "setup":
         return _setup(args)
+    if args.command == "report":
+        return _report(args)
     if args.command == "twins":
         return _twins_run(args)
     if args.action == "discovery":
         return _validate_discovery(args)
+    if args.action == "rules":
+        return _validate_rules(args)
+    if args.action == "latency":
+        return _validate_latency(args)
     return _validate_roundtrip(args) if args.action == "roundtrip" else _validate_acceptance(args)
 
 
