@@ -33,6 +33,7 @@ class _Reporter:
     pending: bool = False
     changed_at: float = 0.0
     cause: str = "stimulus"
+    drifted: bool = False  # the pending change fell back within `change` of the last report
 
 
 @dataclass
@@ -61,6 +62,7 @@ class Runtime:
         self._subscribers: list[Callable[[Event], None]] = []
         self._reporters: dict[tuple[str, str], _Reporter] = {}
         self._last_presence: dict[str, float] = {}
+        self._last_observed: dict[str, float] = {}  # per twin: reports reach the platform in the order they left
 
     # -- set-up -------------------------------------------------------------------------------
     def add(self, vds: dict, twin_id: str | None = None) -> Twin:
@@ -169,12 +171,16 @@ class Runtime:
             return
         rep = self._reporters[(twin.id, name)]
         if not self._significant(rep.last_value, value, rule["change"]):
+            if rep.pending:
+                rep.drifted = True
             return
         if rep.last_t is None or now >= rep.last_t + rule["min_s"]:
             self._report(twin, name, now, cause)
         elif not rep.pending:
-            rep.pending, rep.changed_at, rep.cause = True, now, cause
+            rep.pending, rep.changed_at, rep.cause, rep.drifted = True, now, cause, False
             self.clock.call_at(rep.last_t + rule["min_s"], self._guarded(twin, lambda: self._flush(twin, name)))
+        elif rep.drifted:  # reportable again after drifting back: this is the change the report carries
+            rep.changed_at, rep.cause, rep.drifted = now, cause, False
 
     @staticmethod
     def _significant(old, new, change) -> bool:
@@ -214,10 +220,12 @@ class Runtime:
         except Exception as e:  # a broken latency model faults this twin only
             self.faulted[twin.id] = f"{type(e).__name__}: {e}"
             return
-        event = Event(twin.id, name, value, physical_t, self.clock.now() + delay, cause)
-        if delay == 0:
+        observed = max(self.clock.now() + delay, self._last_observed.get(twin.id, float("-inf")))
+        self._last_observed[twin.id] = observed
+        event = Event(twin.id, name, value, physical_t, observed, cause)
+        if observed <= self.clock.now():
             self._deliver(event)
-        else:
+        else:  # same-time callbacks keep their order, so one twin's reports never overtake each other
             self.clock.call_at(event.observed_t, self._guarded(twin, lambda: self._deliver(event)))
 
     def _deliver(self, event: Event) -> None:

@@ -177,3 +177,31 @@ def test_a_periodic_report_after_a_fractional_report_time_does_not_spin(vds):
     worker.start()
     assert done.wait(5), "the periodic tick spins at one instant"
     assert [e.cause for e in events if e.feature == "state"] == ["platform", "periodic"]
+
+
+def test_one_twins_reports_reach_the_platform_in_the_order_they_left(vds):
+    """Independent latency draws must not let a later report overtake an earlier one (stale final state)."""
+    delays = iter([2.0, 0.1])
+    rt, events, (plug,) = runtime(vds["PLUG-1"], latency=lambda twin, feature, cause: next(delays))
+    rt.platform_set(plug, "state", "ON")
+    rt.clock.advance(0.5)
+    rt.platform_set(plug, "state", "OFF")
+    rt.clock.advance(5)
+    assert [e.value for e in events if e.feature == "state"] == ["ON", "OFF"]
+    times = [e.observed_t for e in events if e.feature == "state"]
+    assert times == sorted(times)
+
+
+def test_a_deferral_that_drifted_back_and_rearmed_reports_the_new_physical_time(vds):
+    rt, events, (th,) = runtime(vds["TH-1"])
+    rt.clock.advance(60)
+    rt.stimulate(th, {"type": "ambient", "temperature": 20.0})  # reported at 60
+    rt.clock.advance(1)
+    rt.stimulate(th, {"type": "ambient", "temperature": 22.0})  # 61: significant, deferred to 70
+    rt.clock.advance(1)
+    rt.stimulate(th, {"type": "ambient", "temperature": 20.3})  # 62: drifted back
+    rt.clock.advance(2)
+    rt.stimulate(th, {"type": "ambient", "temperature": 23.0})  # 64: significant again
+    rt.clock.advance(20)
+    reports = [(e.value, e.physical_t, e.observed_t) for e in events if e.feature == "temperature"]
+    assert reports == [(20.0, 60, 60), (23.0, 64, 70)]
