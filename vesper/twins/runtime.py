@@ -170,7 +170,7 @@ class Runtime:
         rep = self._reporters[(twin.id, name)]
         if not self._significant(rep.last_value, value, rule["change"]):
             return
-        if rep.last_t is None or now - rep.last_t >= rule["min_s"]:
+        if rep.last_t is None or now >= rep.last_t + rule["min_s"]:
             self._report(twin, name, now, cause)
         elif not rep.pending:
             rep.pending, rep.changed_at, rep.cause = True, now, cause
@@ -187,7 +187,9 @@ class Runtime:
             rep = self._reporters[(twin.id, name)]
             if rep.pending and twin.id not in self.faulted:
                 rep.pending = False
-                self._report(twin, name, rep.changed_at, rep.cause)
+                # the value may have drifted back meanwhile: a deferred report still needs a reportable change
+                if self._significant(rep.last_value, twin.state[name], self._rule(twin, name)["change"]):
+                    self._report(twin, name, rep.changed_at, rep.cause)
 
     def _report(self, twin: Twin, name: str, physical_t: float, cause: str) -> None:
         rep = self._reporters[(twin.id, name)]
@@ -200,7 +202,8 @@ class Runtime:
                 if twin.id in self.faulted:
                     return
                 rule, rep = self._rule(twin, name), self._reporters[(twin.id, name)]
-                if rep.last_t is not None and self.clock.now() - rep.last_t >= rule["max_s"]:
+                # compare with the same sum the tick was scheduled at: now - last_t can round below max_s
+                if rep.last_t is not None and self.clock.now() >= rep.last_t + rule["max_s"]:
                     self._report(twin, name, self.clock.now(), "periodic")
                 self._schedule_periodic(twin, name, rep.last_t + rule["max_s"])
         self.clock.call_at(when, self._guarded(twin, tick))

@@ -150,3 +150,30 @@ def test_a_failing_scheduled_report_faults_only_its_own_twin(vds):
     rt.twins[th].state = None  # the scheduled flush will now fail
     rt.clock.advance(20)  # must not raise into the clock
     assert th in rt.faulted and door not in rt.faulted
+
+
+def test_a_deferred_report_is_dropped_if_the_value_drifted_back_below_the_change(vds):
+    rt, events, (th,) = runtime(vds["TH-1"])
+    rt.clock.advance(60)
+    rt.stimulate(th, {"type": "ambient", "temperature": 20.0})  # reported at once (last report long ago)
+    rt.clock.advance(1)
+    rt.stimulate(th, {"type": "ambient", "temperature": 22.0})  # significant, but min_s 10: deferred
+    rt.clock.advance(1)
+    rt.stimulate(th, {"type": "ambient", "temperature": 20.4})  # back within 1.0 of the last report
+    rt.clock.advance(20)
+    assert [(e.feature, e.value) for e in events if e.feature == "temperature"] == [("temperature", 20.0)]
+
+
+def test_a_periodic_report_after_a_fractional_report_time_does_not_spin(vds):
+    """(a + max_s) - a can round below max_s; the periodic tick must still report, not reschedule forever."""
+    import threading
+
+    rt, events, (plug,) = runtime(vds["PLUG-1"])
+    t = 851.518787493795  # found in a rule run: (t + 3600) - t == 3599.9999999999995
+    rt.clock.advance_to(t)
+    rt.platform_set(plug, "state", "ON")
+    done = threading.Event()
+    worker = threading.Thread(target=lambda: (rt.clock.advance_to(t + 3700), done.set()), daemon=True)
+    worker.start()
+    assert done.wait(5), "the periodic tick spins at one instant"
+    assert [e.cause for e in events if e.feature == "state"] == ["platform", "periodic"]
