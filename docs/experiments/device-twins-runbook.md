@@ -7,6 +7,12 @@ These experiments produce the paper's success criteria 2 and 3 for Zigbee-style 
 | Discovery pre-screen | L2 (offline) | `vesper validate discovery` | Home Assistant's own schemas accept every generated discovery component |
 | Round trip | L0/L1 | `vesper validate roundtrip` | every placed twin published exactly once (`complete`), with 0 definition diffs |
 | Platform acceptance | L2, scale tier | `vesper validate acceptance` | see "Pass" under Experiment 2; at least 8 categories in `categories_passing` |
+| Reporting rules | L3 (offline) | `vesper validate rules` | 0 violations of R1–R4 (`docs/experiments/l3-timing-design.md`) |
+| Latency | L3 (live Mosquitto) | `vesper validate latency` | T1 and T3 per path, as pre-registered |
+
+`vesper report` then writes the fidelity report from the catalog and the latest result of each check.
+
+Commit `docs/experiments/l3-timing-design.md` before the first L3 run: it is the pre-registration.
 
 Every resource figure below is an estimate until the first run measures it. The first run records the actual time and peak memory in the ledger.
 
@@ -101,6 +107,46 @@ Pass: `passed == products` and `len(categories_passing) >= 8` (exit code 0 means
 - had its core function exposed.
 
 Thermostat (climate), cover and fan are not exposed yet, so they never count. `categories_displayed` is the weaker count, in which every product merely passed its display checks. The paper reports both, the per-category numbers, and every skipped entity type.
+
+## Experiment 3: reporting rules (L3, offline, no services)
+
+    taskpolicy -b .venv/bin/vesper validate rules --hours 4 --seed 0
+
+This runs every L1 Zigbee product with reporting rules on the logical clock, under a seeded script of stimuli and platform commands. Every report is checked against R1–R4 as it is emitted.
+- It is CPU only and starts nothing. Simulated time runs far faster than real time.
+- Budget (estimate): minutes for the full catalog, 1 core, <1 GB.
+- Output: `results/device-twins/rules-<UTC>.json`, holding the products and features checked, the report count, the violations (first 200, plus the total), and any faulted twins.
+- Pass: `passed` is true (zero violations, nothing faulted).
+
+## Experiment 4: latency (L3, live Mosquitto)
+
+    taskpolicy -b .venv/bin/vesper validate latency --n 200 --seed 0
+
+1. Starts VESPER's own Mosquitto on 18830.
+2. Measures VESPER's own pipeline overhead (200 contact-sensor twins opened once each, no latency model).
+3. Measures each path: `local`, `vendor_cloud`, `trigger_action_cloud`. Each uses 200 fresh twins and the published model minus that overhead.
+4. Applies T1–T3.
+
+Budget (estimate):
+- `trigger_action_cloud`'s median is 84 s, but its 200 twins run concurrently, so the whole run takes ~5–10 min;
+- 1 core, <1 GB.
+
+Output: `results/device-twins/latency-<UTC>.json`, holding the overhead, then per path the samples, median, published median, 90% CI of their ratio, Anderson–Darling statistic and coverage. The pre-registration constants are included.
+
+Pass: T1 and T3 hold for every path.
+
+## The fidelity report
+
+    .venv/bin/vesper report
+
+This writes `results/device-twins/fidelity-<UTC>.md` and `.json`. They contain:
+- source versions;
+- coverage per level;
+- the most common `assumed` fields;
+- each check's latest result: a check that never ran is shown as "not run yet", never as passed;
+- the timing paths with their sources.
+
+L2 is credited only to products that passed acceptance.
 
 ## Running twins for your own Home Assistant
 
