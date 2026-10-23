@@ -209,6 +209,8 @@ No Zigbee firmware emulator was found, so there is no Zigbee anchor (a stated li
 3. Zigbee2MQTT `exposes` that depend on device options or firmware version are evaluated with defaults and recorded as such.
 4. Build time for the Renode and QEMU firmware. Cross-compiling is real compute and needs the PI's go under the shared-Mac rules.
 5. Habitat itself has been frozen since v0.3.4 (Meta ended official maintenance). VESPER pins 0.3.3. This matters for #2 and #3.
+   - Checked 2026-10-23: v0.3.4 (2026-05-07) is the final upstream version of both habitat-sim and habitat-lab, but only 0.3.3 has prebuilt packages (conda, Python 3.9, linux-64 and osx-arm64). habitat-sim 0.3.4 needs a source build and changes the agent/sensor API.
+   - Before the demo plan, run a spike after another project's experiment: build habitat-sim 0.3.4 for Python 3.12 on macOS arm64 and port `e2_embodied.py`. Move to 0.3.4 only if both succeed; otherwise stay on the prebuilt 0.3.3, which is what other researchers can install without compiling.
 
 ## 7. Repository cleanup (decided 2026-10-22)
 
