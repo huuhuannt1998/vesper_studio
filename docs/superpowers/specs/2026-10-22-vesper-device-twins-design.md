@@ -134,6 +134,8 @@ fidelity:
 
 - A level counts as reached only if every required field at that level comes from a source.
 - Defaults are allowed but are listed in `assumed`. Coverage counts exclude anything assumed.
+- A field computed by a fixed rule from structured source fields counts as sourced, e.g. a Zigbee category derived from the definition's composite types and feature names. A field guessed from free text counts as assumed, e.g. a Z-Wave category matched from description keywords (decided 2026-10-23).
+- Matter L1 covers what the certified device type guarantees: its mandatory clusters and required attributes. A product's optional clusters are unknown, and the coverage table says so.
 - The L2 value names how faithful the twin is:
   - `z2m-api`: faithful to the Zigbee2MQTT/Home Assistant interface, not to the radio;
   - `matter`: a real Matter stack;
