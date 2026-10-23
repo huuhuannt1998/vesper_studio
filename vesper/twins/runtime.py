@@ -98,10 +98,17 @@ class Runtime:
             twin = self.twins.get(twin_id)
             if twin is None or twin_id in self.faulted:
                 return []
+            if not isinstance(stimulus, dict):
+                self.notes.append(f"{twin_id}: stimulus rejected: not an object: {stimulus!r}")
+                return []
             try:
-                changes = self._stimulus_changes(twin, stimulus)
+                changes = [(n, twin.clamp(n, v)) for n, v in self._stimulus_changes(twin, stimulus)]
+            except (KeyError, TypeError, ValueError) as e:  # a malformed stimulus, not a broken twin
+                self.notes.append(f"{twin_id}: stimulus rejected: malformed {stimulus!r}: {e!r}")
+                return []
+            try:
                 for name, value in changes:
-                    self._change(twin, name, twin.clamp(name, value), "stimulus")
+                    self._change(twin, name, value, "stimulus")
                 if stimulus.get("type") == "presence" and stimulus.get("present", True) and changes:
                     self._schedule_presence_clear(twin, [n for n, _ in changes])
                 if not changes:
@@ -138,6 +145,16 @@ class Runtime:
             self._change(twin, feature, new, cause)
             return True
 
+    def _guarded(self, twin: Twin, fn: Callable[[], None]) -> Callable[[], None]:
+        """A scheduled callback that, if it fails, faults only its own twin (spec §5 isolation)."""
+        def run():
+            try:
+                fn()
+            except Exception as e:
+                with self._lock:
+                    self.faulted[twin.id] = f"{type(e).__name__}: {e}"
+        return run
+
     def _rule(self, twin: Twin, name: str) -> dict | None:
         return twin.vds.get("behavior", {}).get("reporting", {}).get(name)
 
@@ -157,7 +174,7 @@ class Runtime:
             self._report(twin, name, now, cause)
         elif not rep.pending:
             rep.pending, rep.changed_at, rep.cause = True, now, cause
-            self.clock.call_at(rep.last_t + rule["min_s"], lambda: self._flush(twin, name))
+            self.clock.call_at(rep.last_t + rule["min_s"], self._guarded(twin, lambda: self._flush(twin, name)))
 
     @staticmethod
     def _significant(old, new, change) -> bool:
@@ -186,15 +203,19 @@ class Runtime:
                 if rep.last_t is not None and self.clock.now() - rep.last_t >= rule["max_s"]:
                     self._report(twin, name, self.clock.now(), "periodic")
                 self._schedule_periodic(twin, name, rep.last_t + rule["max_s"])
-        self.clock.call_at(when, tick)
+        self.clock.call_at(when, self._guarded(twin, tick))
 
     def _emit(self, twin: Twin, name: str, value, physical_t: float, cause: str) -> None:
-        delay = max(0.0, self.latency(twin, name)) if self.latency else 0.0
+        try:
+            delay = max(0.0, self.latency(twin, name)) if self.latency else 0.0
+        except Exception as e:  # a broken latency model faults this twin only
+            self.faulted[twin.id] = f"{type(e).__name__}: {e}"
+            return
         event = Event(twin.id, name, value, physical_t, self.clock.now() + delay, cause)
         if delay == 0:
             self._deliver(event)
         else:
-            self.clock.call_at(event.observed_t, lambda: self._deliver(event))
+            self.clock.call_at(event.observed_t, self._guarded(twin, lambda: self._deliver(event)))
 
     def _deliver(self, event: Event) -> None:
         for fn in self._subscribers:
@@ -246,4 +267,4 @@ class Runtime:
                 if self._last_presence.get(twin.id) == stamp and twin.id not in self.faulted:
                     for name in names:
                         self._change(twin, name, twin.features[name]["value_off"], "stimulus")
-        self.clock.call_at(stamp + OCCUPANCY_TIMEOUT_S, clear)
+        self.clock.call_at(stamp + OCCUPANCY_TIMEOUT_S, self._guarded(twin, clear))

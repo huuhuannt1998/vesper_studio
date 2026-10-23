@@ -114,3 +114,39 @@ def test_one_product_can_be_installed_twice(vds):
     b = rt.add(vds["MCCGQ11LM"], twin_id="zigbee:aqara:mccgq11lm@back")
     rt.stimulate(a.id, {"type": "contact", "state": "opened"})
     assert rt.state(a.id)["contact"] is False and rt.state(b.id)["contact"] is True
+
+
+def test_a_malformed_stimulus_is_rejected_without_faulting_the_twin(vds):
+    rt = Runtime()
+    plug = rt.add(vds["PLUG-1"]).id
+    assert rt.stimulate(plug, {"type": "load"}) == []  # no watts
+    assert rt.stimulate(plug, "load") == []  # not even a dict
+    assert rt.stimulate(plug, {"type": "load", "watts": "lots"}) == []
+    assert plug not in rt.faulted and any("rejected" in n for n in rt.notes)
+    assert rt.stimulate(plug, {"type": "load", "watts": 5}) == ["power"]
+
+
+def test_a_failing_latency_model_faults_only_its_own_twin(vds):
+    def latency(twin, feature):
+        if twin.vds["identity"]["model"] == "PLUG-1":
+            raise ZeroDivisionError("bad model")
+        return 0.0
+
+    rt = Runtime(latency=latency)
+    plug, door = rt.add(vds["PLUG-1"]).id, rt.add(vds["MCCGQ11LM"]).id
+    seen = []
+    rt.subscribe(seen.append)
+    rt.platform_set(plug, "state", "ON")
+    rt.stimulate(door, {"type": "contact", "state": "opened"})
+    assert "ZeroDivisionError" in rt.faulted[plug] and door not in rt.faulted
+    assert [e.feature for e in seen] == ["contact"]
+
+
+def test_a_failing_scheduled_report_faults_only_its_own_twin(vds):
+    rt = Runtime()
+    th = rt.add(vds["TH-1"]).id
+    door = rt.add(vds["MCCGQ11LM"]).id
+    rt.stimulate(th, {"type": "ambient", "temperature": 30.0})  # within min_s: a flush is scheduled
+    rt.twins[th].state = None  # the scheduled flush will now fail
+    rt.clock.advance(20)  # must not raise into the clock
+    assert th in rt.faulted and door not in rt.faulted

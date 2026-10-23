@@ -40,9 +40,11 @@ class LogicalClock:
 
 
 class WallClock:
-    """Real seconds since creation. Callbacks fire in time order on one daemon thread."""
+    """Real seconds since creation. Callbacks fire in time order on one daemon thread; a callback that
+    raises is recorded in `errors` and the clock keeps running."""
 
     def __init__(self):
+        self.errors: list[str] = []
         self._t0 = time.monotonic()
         self._queue: list[tuple[float, int, Callable[[], None]]] = []
         self._seq = itertools.count()
@@ -67,7 +69,10 @@ class WallClock:
                 if self._stopped:
                     return
                 _, _, fn = heapq.heappop(self._queue)
-            fn()
+            try:
+                fn()
+            except Exception as e:  # one failing callback must not stop every later one
+                self.errors.append(f"{type(e).__name__}: {e}")
 
     def close(self) -> None:
         with self._cv:
