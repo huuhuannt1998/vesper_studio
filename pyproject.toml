@@ -20,6 +20,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]
 
+[project.scripts]
+vesper = "vesper.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["vesper"]
 
