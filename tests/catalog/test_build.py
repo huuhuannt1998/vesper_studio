@@ -19,11 +19,11 @@ def test_build_writes_catalog_coverage_and_report(raw_root, tmp_path):
     out = tmp_path / "vds"
     report = build_catalog(raw_root, out)
     assert report["skipped_sources"] == {} and report["release"] is False
-    assert len(load(out, "zigbee")) == 11 and len(load(out, "matter")) == 6 and len(load(out, "zwave")) == 3
+    assert len(load(out, "zigbee")) == 11 and len(load(out, "matter")) == 7 and len(load(out, "zwave")) == 3
     assert sorted(x["file"].rsplit("/", 1)[1] for x in report["rejected"]) == ["broken.json", "nolabel.json"]
     assert report["merged"] == []
     cov = json.loads((out / "coverage.json").read_text())
-    assert cov["matter"]["total"] == 6 and cov["matter"]["by_category"]["contact_sensor"]["L1"] == 2
+    assert cov["matter"]["total"] == 7 and cov["matter"]["by_category"]["contact_sensor"]["L1"] == 2
     assert (out / "coverage.csv").read_text().startswith("protocol,category,total,L0,L1,L2,L3,L4\n")
 
 

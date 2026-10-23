@@ -35,8 +35,8 @@ def test_fetch_all_follows_next_key_and_checks_the_total():
 
 
 def test_a_short_read_is_refused():
-    client, _ = ledger(total=7)
-    with client, pytest.raises(IngestError, match="received 6 records but the ledger reports 7"):
+    client, _ = ledger(total=8)
+    with client, pytest.raises(IngestError, match="received 7 records but the ledger reports 8"):
         fetch_all(client, "/dcl/model/models", "model", page_size=4)
 
 
@@ -51,5 +51,5 @@ def test_sync_versions_the_snapshot_by_chain_height(tmp_path):
     with client:
         sync_dcl(tmp_path, client)
     meta, files = load_snapshot(tmp_path, "dcl")
-    assert meta["version"] == "height-324957" and meta["models"] == 6 and meta["vendors"] == 2
+    assert meta["version"] == "height-324957" and meta["models"] == 7 and meta["vendors"] == 2
     assert meta["license"] == "DCL-terms-unverified" and set(files) == {"models.json", "vendors.json"}

@@ -1,7 +1,8 @@
 """Matter products (DCL identity) x device types (Apache-2.0 ZAP XML) -> VDS records (spec §3).
 
-A product's features are the mandatory attributes of the mandatory application clusters of its
-certified device type. Certification guarantees them; optional clusters of a product are unknown.
+A product's features are the attributes its certified device type requires: the mandatory attributes of
+its mandatory (serverLocked) application clusters, plus every attribute the device type lists in
+<requireAttribute>. Certification guarantees them; a product's optional clusters are unknown.
 """
 from __future__ import annotations
 
@@ -63,7 +64,8 @@ CATEGORY = {
 L2_REASON = "Matter tier not built yet (Plan D)"
 L3_REASON = "no timing source yet"
 L4_REASON = "no firmware anchor for this product"
-L1_SCOPE = "mandatory device-type features only; this product's optional clusters are unknown"
+L1_SCOPE = ("the device type's mandatory clusters and required attributes only; "
+            "this product's optional clusters are unknown")
 
 
 def _category(attribute: str) -> str | None:
@@ -82,10 +84,11 @@ def device_type_features(zap: ZapModel, dt: DeviceType, prov: str) -> list[dict]
             feats.append({"name": cname, "type": "unsupported", "access": [], "category": None, "ha": None,
                           "source": prov, "unsupported_reason": f"cluster {cname!r} has no ZAP definition"})
             continue
+        required = set(dt.required.get(cname, ()))
         for a in cluster.attributes:
-            if a.optional:
+            if a.optional and a.define not in required:  # the device type can require an optional attribute
                 continue
-            kind, extra = resolve_type(zap, a.type)
+            kind, extra = resolve_type(zap, a.type, cluster.code)
             settable = a.writable or (cname, a.name) in COMMAND_SET
             f = {"name": f"{cname}.{a.name}", "type": kind,
                  "access": ["state", "get"] + (["set"] if settable else []),

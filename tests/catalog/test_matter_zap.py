@@ -14,8 +14,8 @@ def test_parse_zap():
     assert m.device_types[0x0015].name == "Contact Sensor"
     assert m.device_types[0x0015].server_clusters == ("Identify", "Descriptor", "Boolean State")
     lock = m.clusters["Door Lock"]
-    assert [a.name for a in lock.attributes] == ["LockState", "SupportedOperatingModes", "Language"]
-    assert lock.attributes[2].optional and lock.attributes[2].writable
+    assert [a.name for a in lock.attributes] == ["LockState", "SupportedOperatingModes", "OperatingMode", "Language"]
+    assert lock.attributes[3].optional and lock.attributes[3].writable
     tmin = m.clusters["Temperature Measurement"].attributes[1]
     assert (tmin.min, tmin.max) == (-27315, 0x7FFE)
 
@@ -73,3 +73,17 @@ def test_sync_refuses_a_file_without_the_apache_header(tmp_path):
 def test_sync_refuses_content_that_differs_from_the_listed_blob(tmp_path):
     with serve(ZAP_FILES, sha="0" * 40) as client, pytest.raises(IngestError, match="does not match git blob"):
         sync_matter_zap(tmp_path, client)
+
+
+def test_device_types_keep_only_locked_server_clusters_with_their_required_attributes():
+    light = parse_zap(ZAP_FILES).device_types[0x010C]
+    assert light.server_clusters == ("On/Off", "Color Control")  # the serverLocked="false" include is optional
+    assert light.required == {"On/Off": ("ON_OFF",),
+                              "Color Control": ("COLOR_CONTROL_COLOR_TEMPERATURE", "COLOR_CONTROL_COLOR_MODE")}
+
+
+def test_enums_resolve_per_cluster_first():
+    m = parse_zap(ZAP_FILES)
+    assert resolve_type(m, "OperatingModeEnum", 0x0101) == ("enum", ["Normal", "Vacation"])
+    assert resolve_type(m, "OperatingModeEnum", 0x0046) == ("enum", ["SIT", "LIT"])
+    assert resolve_type(m, "OperatingModeEnum") == ("unsupported", None)  # ambiguous without its cluster

@@ -31,6 +31,7 @@ class Attribute:
     writable: bool
     min: int | None
     max: int | None
+    define: str = ""  # the id device types use in <requireAttribute>
 
 
 @dataclass(frozen=True)
@@ -44,15 +45,18 @@ class Cluster:
 class DeviceType:
     name: str
     device_id: int
-    server_clusters: tuple[str, ...]  # clusters whose server side the device type enables
+    server_clusters: tuple[str, ...]  # mandatory server clusters (server="true" serverLocked="true")
+    required: dict[str, tuple[str, ...]] = field(default_factory=dict)  # cluster -> <requireAttribute> defines
 
 
 @dataclass
 class ZapModel:
     clusters: dict[str, Cluster] = field(default_factory=dict)
     device_types: dict[int, DeviceType] = field(default_factory=dict)
-    enums: dict[str, list[str]] = field(default_factory=dict)
+    enums: dict[str, list[str]] = field(default_factory=dict)  # names defined without a cluster
     bitmaps: dict[str, list[str]] = field(default_factory=dict)
+    scoped_enums: dict[tuple[int, str], list[str]] = field(default_factory=dict)  # (cluster code, name)
+    scoped_bitmaps: dict[tuple[int, str], list[str]] = field(default_factory=dict)
     structs: set[str] = field(default_factory=set)
     atomic: dict[str, str] = field(default_factory=dict)  # atomic type name -> VDS feature type
 
@@ -91,10 +95,15 @@ def parse_zap(files: dict[str, bytes]) -> ZapModel:
         for atomic in root.iter("atomic"):
             for t in atomic.findall("type"):
                 m.atomic[t.get("name")] = _atomic_kind(t.get("name"))
-        for e in root.iter("enum"):
-            m.enums[e.get("name")] = [i.get("name") for i in e.findall("item")]
-        for b in root.iter("bitmap"):
-            m.bitmaps[b.get("name")] = [f.get("name") for f in b.findall("field")]
+        for tag, child, plain, scoped in (("enum", "item", m.enums, m.scoped_enums),
+                                          ("bitmap", "field", m.bitmaps, m.scoped_bitmaps)):
+            for e in root.iter(tag):
+                members = [i.get("name") for i in e.findall(child)]
+                codes = [c for c in (_int(x.get("code")) for x in e.findall("cluster")) if c is not None]
+                for code in codes:  # the same name can mean different things in different clusters
+                    scoped[(code, e.get("name"))] = members
+                if not codes:
+                    plain[e.get("name")] = members
         for s in root.iter("struct"):
             m.structs.add(s.get("name"))
         for c in root.iter("cluster"):
@@ -104,25 +113,41 @@ def parse_zap(files: dict[str, bytes]) -> ZapModel:
             m.clusters[cname] = Cluster(cname, code, tuple(
                 Attribute(name=a.get("name") or (a.text or "").strip(), type=a.get("type", ""),
                           optional=a.get("optional") == "true", writable=a.get("writable") == "true",
-                          min=_int(a.get("min")), max=_int(a.get("max")))
+                          min=_int(a.get("min")), max=_int(a.get("max")), define=a.get("define") or "")
                 for a in c.findall("attribute") if a.get("side") == "server"))
         for d in root.iter("deviceType"):
             did = _int(d.findtext("deviceId"))
             if did is not None:
+                mandatory = [i for i in d.iter("include")
+                             if i.get("server") == "true" and i.get("serverLocked") == "true"]
                 m.device_types[did] = DeviceType(
                     name=(d.findtext("typeName") or "").strip(), device_id=did,
-                    server_clusters=tuple(i.get("cluster") for i in d.iter("include") if i.get("server") == "true"))
+                    server_clusters=tuple(i.get("cluster") for i in mandatory),
+                    required={i.get("cluster"): tuple((r.text or "").strip() for r in i.findall("requireAttribute"))
+                              for i in mandatory if i.findall("requireAttribute")})
     if not m.device_types or not m.clusters:
         raise IngestError("ZAP XML defines no device types or no clusters")
     return m
 
 
-def resolve_type(m: ZapModel, type_name: str) -> tuple[str, list[str] | None]:
-    """VDS feature type for a ZAP attribute type, plus enum values or bitmap flag names."""
-    if type_name in m.enums:
-        return "enum", m.enums[type_name]
-    if type_name in m.bitmaps:
-        return "bitmap", m.bitmaps[type_name]
+def resolve_type(m: ZapModel, type_name: str, cluster_code: int | None = None) -> tuple[str, list[str] | None]:
+    """VDS feature type for a ZAP attribute type, plus enum values or bitmap flag names.
+
+    Named enums and bitmaps resolve in the attribute's own cluster first, then globally. A name defined
+    differently by several other clusters is ambiguous and reported as unsupported, never guessed.
+    """
+    kinds = (("enum", m.enums, m.scoped_enums), ("bitmap", m.bitmaps, m.scoped_bitmaps))
+    for kind, _, scoped in kinds:
+        if (cluster_code, type_name) in scoped:
+            return kind, scoped[(cluster_code, type_name)]
+    for kind, plain, scoped in kinds:
+        if type_name in plain:
+            return kind, plain[type_name]
+        candidates = {tuple(v) for (_, name), v in scoped.items() if name == type_name}
+        if len(candidates) == 1:
+            return kind, list(candidates.pop())
+        if candidates:
+            return "unsupported", None
     if type_name in m.structs:
         return "unsupported", None
     return m.atomic.get(type_name, "unsupported"), None

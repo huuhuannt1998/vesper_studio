@@ -56,3 +56,16 @@ def test_unknown_vendor_name_and_device_type_are_reasons_not_crashes():
     assert r["fidelity"]["reasons"]["L0"] == ("vendor not in DCL vendor info; no product name; "
                                               "device type 0x03E7 not in the ZAP XML")
     assert r["features"] == [] and r["identity"]["category"] == "other"
+
+
+def test_required_attributes_are_features_even_where_the_cluster_marks_them_optional():
+    feats = {f["name"]: f for f in records()["matter:100b:0018"]["features"]}
+    assert set(feats) == {"On/Off.OnOff", "Color Control.ColorMode", "Color Control.ColorTemperatureMireds"}
+    assert feats["Color Control.ColorTemperatureMireds"]["range"] == [0, 0xFEFF]
+    assert "set" in feats["Color Control.ColorTemperatureMireds"]["access"]
+    assert feats["Color Control.ColorMode"]["values"] == ["CurrentHueAndCurrentSaturation", "ColorTemperatureMireds"]
+
+
+def test_door_lock_operating_mode_uses_the_door_lock_enum():
+    feats = {f["name"]: f for f in records()["matter:115f:0001"]["features"]}
+    assert feats["Door Lock.OperatingMode"]["values"] == ["Normal", "Vacation"]

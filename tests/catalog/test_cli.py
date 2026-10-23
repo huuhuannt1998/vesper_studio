@@ -9,7 +9,7 @@ from vesper.catalog.errors import IngestError
 def test_build_command(raw_root, tmp_path, capsys):
     out = tmp_path / "vds"
     assert cli.main(["catalog", "build", "--raw-root", str(raw_root), "--out", str(out)]) == 0
-    assert "built 20 records" in capsys.readouterr().out
+    assert "built 21 records" in capsys.readouterr().out
     assert len(json.loads((out / "zigbee.json").read_text())) == 11
 
 

@@ -54,6 +54,7 @@ ZAP_FILES = {
   <type id="0x10" name="boolean" size="1" discrete="true"/>
   <type id="0x18" name="bitmap8" size="1" discrete="true"/>
   <type id="0x20" name="int8u" size="1"/>
+  <type id="0x21" name="int16u" size="2"/>
   <type id="0x29" name="int16s" size="2" signed="true"/>
   <type id="0x30" name="enum8" size="1" discrete="true"/>
   <type name="temperature" size="2" signed="true"/>
@@ -71,9 +72,12 @@ ZAP_FILES = {
   <bitmap name="DlSupportedOperatingModes" type="bitmap16">
     <field name="Normal" mask="0x1"/><field name="Vacation" mask="0x2"/></bitmap>
   <struct name="CredentialStruct"><item name="CredentialType" type="enum8"/></struct>
+  <enum name="OperatingModeEnum" type="enum8"><cluster code="0x0101"/>
+    <item name="Normal" value="0x0"/><item name="Vacation" value="0x1"/></enum>
   <cluster><name>Door Lock</name><code>0x0101</code>
     <attribute side="server" code="0x0000" name="LockState" type="DlLockState" isNullable="true"/>
     <attribute side="server" code="0x0026" name="SupportedOperatingModes" type="DlSupportedOperatingModes"/>
+    <attribute side="server" code="0x0025" name="OperatingMode" type="OperatingModeEnum" writable="true"/>
     <attribute side="server" code="0x0024" name="Language" type="char_string" writable="true" optional="true"/>
     <attribute side="client" code="0x0001" name="ClientOnly" type="boolean"/>
   </cluster></configurator>""").encode(),
@@ -87,21 +91,47 @@ ZAP_FILES = {
     <attribute side="server" code="0x0000" name="SupportedModes" type="array"/>
     <attribute side="server" code="0x0001" name="CurrentMode" type="int8u"/>
   </cluster></configurator>""").encode(),
+    "icd-management-cluster.xml": (APACHE_HEADER + """<configurator>
+  <enum name="OperatingModeEnum" type="enum8"><cluster code="0x0046"/>
+    <item name="SIT" value="0x0"/><item name="LIT" value="0x1"/></enum>
+</configurator>""").encode(),
+    "on-off-cluster.xml": (APACHE_HEADER + """<configurator>
+  <cluster><name>On/Off</name><code>0x0006</code>
+    <attribute side="server" code="0x0000" name="OnOff" define="ON_OFF" type="boolean"/>
+  </cluster></configurator>""").encode(),
+    "color-control-cluster.xml": (APACHE_HEADER + """<configurator>
+  <enum name="ColorModeEnum" type="enum8"><cluster code="0x0300"/>
+    <item name="CurrentHueAndCurrentSaturation" value="0x0"/><item name="ColorTemperatureMireds" value="0x2"/></enum>
+  <cluster><name>Color Control</name><code>0x0300</code>
+    <attribute side="server" code="0x0008" name="ColorMode" define="COLOR_CONTROL_COLOR_MODE" type="ColorModeEnum"/>
+    <attribute side="server" code="0x0007" name="ColorTemperatureMireds" define="COLOR_CONTROL_COLOR_TEMPERATURE"
+               type="int16u" min="0" max="0xfeff" optional="true"/>
+    <attribute side="server" code="0x0003" name="CurrentX" define="COLOR_CONTROL_CURRENT_X" type="int16u"
+               optional="true"/>
+  </cluster></configurator>""").encode(),
     "matter-devices.xml": (APACHE_HEADER + """<configurator>
   <deviceType><name>MA-contactsensor</name><domain>CHIP</domain><typeName>Contact Sensor</typeName>
     <deviceId editable="false">0x0015</deviceId><class>Simple</class><scope>Endpoint</scope>
-    <clusters><include cluster="Identify" client="false" server="true"/>
-      <include cluster="Descriptor" client="false" server="true"/>
-      <include cluster="Boolean State" client="false" server="true"/>
-      <include cluster="Fixed Label" client="false" server="false"/></clusters></deviceType>
+    <clusters><include cluster="Identify" client="false" server="true" clientLocked="true" serverLocked="true"/>
+      <include cluster="Descriptor" client="false" server="true" clientLocked="true" serverLocked="true"/>
+      <include cluster="Boolean State" client="false" server="true" clientLocked="true" serverLocked="true">
+        <requireAttribute>STATE_VALUE</requireAttribute></include>
+      <include cluster="Fixed Label" client="false" server="false" serverLocked="false"/></clusters></deviceType>
   <deviceType><typeName>Door Lock</typeName><deviceId>0x000A</deviceId>
-    <clusters><include cluster="Door Lock" server="true"/></clusters></deviceType>
+    <clusters><include cluster="Door Lock" server="true" serverLocked="true"/></clusters></deviceType>
   <deviceType><typeName>Temperature Sensor</typeName><deviceId>0x0302</deviceId>
-    <clusters><include cluster="Temperature Measurement" server="true"/></clusters></deviceType>
+    <clusters><include cluster="Temperature Measurement" server="true" serverLocked="true"/></clusters></deviceType>
   <deviceType><typeName>Robotic Vacuum Cleaner</typeName><deviceId>0x0074</deviceId>
-    <clusters><include cluster="RVC Run Mode" server="true"/></clusters></deviceType>
+    <clusters><include cluster="RVC Run Mode" server="true" serverLocked="true"/></clusters></deviceType>
   <deviceType><typeName>Aggregator</typeName><deviceId>0x000E</deviceId>
-    <clusters><include cluster="Descriptor" server="true"/></clusters></deviceType>
+    <clusters><include cluster="Descriptor" server="true" serverLocked="true"/></clusters></deviceType>
+  <deviceType><typeName>Color Temperature Light</typeName><deviceId>0x010C</deviceId>
+    <clusters><include cluster="On/Off" server="true" serverLocked="true">
+        <requireAttribute>ON_OFF</requireAttribute></include>
+      <include cluster="Color Control" server="true" serverLocked="true">
+        <requireAttribute>COLOR_CONTROL_COLOR_TEMPERATURE</requireAttribute>
+        <requireAttribute>COLOR_CONTROL_COLOR_MODE</requireAttribute></include>
+      <include cluster="Temperature Measurement" server="true" serverLocked="false"/></clusters></deviceType>
 </configurator>""").encode(),
 }
 
@@ -111,6 +141,7 @@ DCL_MODELS = [
     {"vid": 4447, "pid": 1, "deviceTypeId": 10, "productName": "Lock Pro", "productLabel": ""},
     {"vid": 4447, "pid": 2, "deviceTypeId": 116, "productName": "Vac", "productLabel": ""},
     {"vid": 4447, "pid": 3, "deviceTypeId": 770, "productName": "Thermo", "productLabel": ""},
+    {"vid": 4107, "pid": 24, "deviceTypeId": 268, "productName": "White Ambiance", "productLabel": "Hue bulb"},
     {"vid": 65521, "pid": 32768, "deviceTypeId": 999, "productName": "", "productLabel": ""},
 ]
 DCL_VENDORS = [{"vendorID": 4107, "vendorName": "Signify", "companyPreferredName": "Philips Hue"},
