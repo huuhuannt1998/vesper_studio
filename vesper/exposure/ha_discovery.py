@@ -80,9 +80,11 @@ def _component(f: dict, ieee: str, state_topic: str, set_topic: str):
         if f["type"] == "numeric" and cls != "enum":
             cfg["state_class"] = "total_increasing" if cls == "energy" else "measurement"
     elif platform == "switch":
+        # HA's switch is on when the rendered state equals `state_on or payload_on` (mqtt/switch.py), and the
+        # payloads here are JSON commands, so the rendered ON/OFF needs state_on/state_off of its own.
         cfg |= {"command_topic": set_topic, "value_template": _on_off_template(f),
                 "payload_on": json.dumps(_nested(name, f["value_on"])),
-                "payload_off": json.dumps(_nested(name, f["value_off"]))}
+                "payload_off": json.dumps(_nested(name, f["value_off"])), "state_on": "ON", "state_off": "OFF"}
     elif platform == "number":
         cfg |= {"command_topic": set_topic, "value_template": value, "command_template": _command_template(name, False)}
         if "range" in f:
