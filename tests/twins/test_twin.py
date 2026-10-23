@@ -1,0 +1,50 @@
+import pytest
+
+from vesper.twins.twin import Twin, TwinError, stable_seed
+
+
+def test_initial_state_follows_each_feature_type(vds):
+    t = Twin.from_vds(vds["MCCGQ11LM"])
+    assert t.state["contact"] is True  # value_off: closed
+    assert t.state["battery"] == 0
+
+
+def test_binary_values_are_matched_like_zigbee2mqtt_and_toggle_flips(vds):
+    t = Twin.from_vds(vds["LED1545G12"])
+    assert t.coerce("state", "on") == "ON"
+    t.state["state"] = "ON"
+    assert t.coerce("state", "TOGGLE") == "OFF"
+    with pytest.raises(TwinError, match="is not 'ON' or 'OFF'"):
+        t.coerce("state", "blink")
+
+
+def test_numeric_range_and_type_are_enforced(vds):
+    t = Twin.from_vds(vds["LED1545G12"])
+    assert t.coerce("brightness", 254) == 254
+    with pytest.raises(TwinError, match="outside"):
+        t.coerce("brightness", 300)
+    with pytest.raises(TwinError, match="not a number"):
+        t.coerce("brightness", True)
+
+
+def test_unknown_feature_and_unmodeled_type_are_rejected(vds):
+    t = Twin.from_vds(vds["TRV-1"])
+    with pytest.raises(TwinError, match="unknown feature"):
+        t.coerce("nope", 1)
+    with pytest.raises(TwinError, match="not modeled"):
+        t.coerce("schedule", [])
+
+
+def test_physical_values_saturate_at_the_measuring_range(vds):
+    t = Twin.from_vds(vds["MCCGQ11LM"])
+    assert t.clamp("battery", 140) == 100
+
+
+def test_payload_is_nested_and_skips_duplicate_exposes(vds):
+    light = Twin.from_vds(vds["LED1545G12"]).payload()
+    assert light["color"] == {"x": 0, "y": 0} and light["state"] == "OFF"
+    assert Twin.from_vds(vds["TWIN-1"]).payload() == {"contact": True}
+
+
+def test_seeds_are_stable_across_processes():
+    assert stable_seed(0, "zigbee:a:b") == stable_seed(0, "zigbee:a:b") != stable_seed(1, "zigbee:a:b")
