@@ -40,7 +40,7 @@ def sync_zigbee(
     major = re.match(r"v(\d+)\.", found)
     if not major or int(major.group(1)) < MIN_NODE:
         raise IngestError(f"Node.js >= {MIN_NODE} required, found {found!r}")
-    pkg = Path(cache_root) / f"zhc-{version}"
+    pkg = (Path(cache_root) / f"zhc-{version}").resolve()  # node's require() needs an absolute path
     pkg.mkdir(parents=True, exist_ok=True)
     _run(run, [npm, "install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", str(pkg),
                f"{PACKAGE}@{version}"])

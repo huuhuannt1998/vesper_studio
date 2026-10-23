@@ -75,3 +75,12 @@ def test_version_mismatch_is_refused(tmp_path):
 def test_export_script_ships_with_the_package():
     text = EXPORT_SCRIPT.read_text()
     assert "prepareDefinition" in text and "isDummyDevice" in text
+
+
+def test_a_relative_cache_root_reaches_node_as_an_absolute_path(tmp_path, monkeypatch):
+    # Node's require() treats "catalog/cache/..." as a package name, not a path.
+    monkeypatch.chdir(tmp_path)
+    run, calls = fake_run()
+    sync_zigbee(Path("raw"), Path("catalog/cache"), run=run, which=which)
+    export = next(c for c in calls if c[1].endswith("zhc_export.cjs"))
+    assert Path(export[2]).is_absolute() and Path(export[3]).is_absolute()
