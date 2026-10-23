@@ -76,7 +76,7 @@ def test_contact_button_load_and_unknown_stimuli(vds):
 
 
 def test_latency_separates_physical_and_observed_time(vds):
-    rt, events, (tid,) = runtime(vds["PLUG-1"], latency=lambda twin, feature: 0.25)
+    rt, events, (tid,) = runtime(vds["PLUG-1"], latency=lambda twin, feature, cause: 0.25)
     rt.platform_set(tid, "state", "ON")
     assert events == []
     rt.clock.advance(0.25)
@@ -127,7 +127,7 @@ def test_a_malformed_stimulus_is_rejected_without_faulting_the_twin(vds):
 
 
 def test_a_failing_latency_model_faults_only_its_own_twin(vds):
-    def latency(twin, feature):
+    def latency(twin, feature, cause):
         if twin.vds["identity"]["model"] == "PLUG-1":
             raise ZeroDivisionError("bad model")
         return 0.0

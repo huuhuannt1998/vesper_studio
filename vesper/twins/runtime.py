@@ -50,7 +50,7 @@ class Action:
 class Runtime:
     clock: object = field(default_factory=LogicalClock)
     seed: int = 0
-    latency: Callable[[Twin, str], float] | None = None  # seconds from report to observation; default 0
+    latency: Callable[[Twin, str, str], float] | None = None  # (twin, feature, cause) -> seconds; default 0
     twins: dict[str, Twin] = field(default_factory=dict)
     faulted: dict[str, str] = field(default_factory=dict)
     actions: list[Action] = field(default_factory=list)
@@ -210,7 +210,7 @@ class Runtime:
 
     def _emit(self, twin: Twin, name: str, value, physical_t: float, cause: str) -> None:
         try:
-            delay = max(0.0, self.latency(twin, name)) if self.latency else 0.0
+            delay = max(0.0, self.latency(twin, name, cause)) if self.latency else 0.0
         except Exception as e:  # a broken latency model faults this twin only
             self.faulted[twin.id] = f"{type(e).__name__}: {e}"
             return
