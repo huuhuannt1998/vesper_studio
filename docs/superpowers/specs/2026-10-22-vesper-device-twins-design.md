@@ -41,7 +41,7 @@ This spec covers #1. It also defines the interface that #2 and #3 use to drive d
 | L1 Configuration | features, states, ranges, units, Home Assistant mapping | zigbee-herdsman-converters `exposes`; Matter clusters and device types from the SDK's Apache-2.0 ZAP XML; Z-Wave JS params |
 | L2 Protocol-faithful | an interface that real platforms accept as the product | Zigbee2MQTT MQTT API (scale tier); real Matter nodes via matter.js (Matter tier) |
 | L3 Behavior/timing | reporting rules, latency, battery/sleep, power draw | Zigbee2MQTT/ZCL reporting defaults; Matter ICD/subscription timing; published latency data; REFIT and UK-DALE profiles |
-| L4 Firmware anchor | the same firmware code on an emulated SoC | Renode (nRF52840), Espressif QEMU (ESP32) |
+| L4 Firmware anchor | the same firmware code on an emulated SoC | Espressif QEMU (ESP32-C3, ESP32); Renode (nRF52840, EFR32MG24) as a stretch goal |
 | L5 Stock vendor firmware | out of scope (not feasible at scale on a laptop) | — |
 
 **In scope**
@@ -83,7 +83,7 @@ This spec covers #1. It also defines the interface that #2 and #3 use to drive d
    API: operate / stimulate / subscribe   ◄── #2, #3 (Habitat, residents)
         │                                   │
   scale tier: Zigbee2MQTT-compatible       Matter tier: matter.js nodes
-  MQTT bridge (Mosquitto)                  (commissioned by HA Matter server)
+  MQTT bridge (Mosquitto)                  (commissioned by the matter.js Matter Server)
         └──────────────► unmodified Home Assistant Core (own Python env)
 ```
 
@@ -101,7 +101,7 @@ This spec covers #1. It also defines the interface that #2 and #3 use to drive d
 
 **Processes**
 - Twin runtime and bridge: Python ≥3.11.
-- matter.js: Node ≥20.
+- matter.js and the Matter Server: Node ≥22.13 (amended 2026-10-23; the Home Assistant 2026.10 Matter Server, npm `matter-server`, requires it).
 - Home Assistant Core: its own Python 3.13 environment.
 - Mosquitto: native install.
 - (Later) Habitat: the existing Python 3.9 conda environment.
@@ -161,14 +161,22 @@ fidelity:
 |---|---|---|
 | L0/L1 | Round trip: the bridge republishes each twin's definition, diffed against the source record | 0 diffs for every product counted at L1 |
 | L2, scale tier | Start a pinned Home Assistant Core, Mosquitto and the bridge. Through Home Assistant's own API, check the expected entities (platform, device class, unit) and that commands round-trip | 100% of a stratified sample per category; the full catalog in background batches |
-| L2, Matter tier | The Home Assistant Matter server commissions each matter.js node; same entity and command checks; official Matter certification test scripts where buildable for laptops | All sampled types pair and control correctly; conformance pass rate per test case |
+| L2, Matter tier | The Matter Server Home Assistant uses (OHF `matter-server`, the matter.js-based successor of python-matter-server) commissions each matter.js node; same entity and command checks; official Matter certification test scripts where buildable for laptops | All sampled types pair and control correctly; conformance pass rate per test case |
 | L3 | Emitted intervals and latencies from the broker log, tested against the VDS rules and, where public traffic data exists, real-device measurements | Pre-registered statistical tolerances; failures reported |
 | L4 | Differential test: identical stimulus and command scripts on the emulated-firmware device and its twin | Same state sequence; timing within tolerance |
 
 **Anchors** (all emulated, no hardware). They are compared at the attribute and report level through the emulator's serial/RPC harness, not by commissioning over an emulated Thread network.
-1. Matter light: the Matter SDK `lighting-app` on an emulated nRF52840 (Renode).
-2. Matter door lock: the Matter SDK `lock-app` on an emulated nRF52840 (Renode).
-3. Smart plug: an ESPHome or ESP-IDF build on an emulated ESP32 (Espressif QEMU), MQTT over virtual Ethernet (no Wi-Fi emulation exists).
+
+Amended 2026-10-23 (RKA `jrn_01M5KBS89SB1CKVZDH6QMJH435`): all three anchors run on Espressif QEMU.
+- Renode's nRF52840 model lacks the flash controller (NVMC) and the CryptoCell, and reports show Nordic's radio stack failing on it. No public example of a Matter app booting there was found.
+- connectedhomeip itself runs `lighting-app` on an emulated ESP32-C3 over OpenCores Ethernet (PR #40349).
+
+The anchors run the same Matter application code as on hardware. Only the network layer differs: Ethernet instead of Wi-Fi or Thread.
+1. Matter light: the Matter SDK `lighting-app` on an emulated ESP32-C3 (Espressif QEMU, OpenCores Ethernet).
+2. Matter door lock: the Matter SDK `lock-app` on an emulated ESP32-C3 (same).
+3. Smart plug: an ESPHome build (fallback: an ESP-IDF MQTT build) on an emulated ESP32 (Espressif QEMU), MQTT over virtual Ethernet (no Wi-Fi emulation exists).
+
+A Thread-SoC anchor (Renode nRF52840 or EFR32MG24) stays a stretch goal behind a probe.
 
 No Zigbee firmware emulator was found, so there is no Zigbee anchor (a stated limitation).
 
@@ -179,7 +187,7 @@ No Zigbee firmware emulator was found, so there is no Zigbee anchor (a stated li
 **Packaging (laptop only)**
 - `pip install vesper` (Python ≥3.11, CPU only).
 - Extras:
-  - `[matter]` needs Node ≥20;
+  - `[matter]` needs Node ≥22.13;
   - `[ha]` sets up a pinned Home Assistant Core in its own environment;
   - `[habitat]` is the conda environment with habitat-sim 0.3.3, for #2 and #3.
 - Platforms: macOS (Apple Silicon) and Linux. Windows via WSL2. Docker optional, never required.
@@ -187,7 +195,7 @@ No Zigbee firmware emulator was found, so there is no Zigbee anchor (a stated li
 
 **Licensing**
 - Release the derived VDS catalog. Every VDS record carries its sources' licenses, and the release build includes only records whose sources permit redistribution. Its sources are MIT or Apache-2.0; check the DCL's reuse terms before release.
-- Matter semantics come only from Apache-2.0 sources: connectedhomeip's ZAP XML (`src/app/zap-templates/zcl/data-model/chip/`, including `matter-devices.xml`) and, where needed, matter.js. Never ingest connectedhomeip's `data_model/<version>/` XML. Its CSA license allows only internal use and forbids publishing it or creating derivative works, which covers converting it to VDS (decision 2026-10-22).
+- Matter semantics come only from Apache-2.0 sources: connectedhomeip's ZAP XML (`src/app/zap-templates/zcl/data-model/chip/`, including `matter-devices.xml`) and, where needed, matter.js. matter.js is used as a runtime library only: its model is generated from the Matter specification documents, so no matter.js model or resource text is ever exported into VDS (amended 2026-10-23). Never ingest connectedhomeip's `data_model/<version>/` XML. Its CSA license allows only internal use and forbids publishing it or creating derivative works, which covers converting it to VDS (decision 2026-10-22).
 - Never redistribute:
   - the Zigbee2MQTT application (GPL-3.0): VESPER only implements its public MQTT interface;
   - firmware binaries: publish URL plus hash only;
@@ -206,10 +214,16 @@ No Zigbee firmware emulator was found, so there is no Zigbee anchor (a stated li
 
 ## 6. Risks to verify first, in the plan
 
-1. The official Matter certification test scripts and the Home Assistant Matter server controller build on macOS/arm64. Fallback: report conformance through matter.js's own test suite plus HA pairing and control.
+1. The official Matter certification test scripts build on macOS/arm64. Fallback: report conformance through matter.js's own test suite plus HA pairing and control.
+   - Checked 2026-10-23 (RKA `jrn_01M5KBT1YRHSKZ5NZ3KTXVCDS9`):
+     - The Matter Server runs natively (npm, Node ≥22.13).
+     - chip-tool YAML tests run on macOS arm64 in connectedhomeip's CI, but no binaries are prebuilt. A build is >10 GB and takes hours, so it needs the SSD and the PI's go.
+     - The Python `TC_*` tests are build-only on macOS.
 2. matter.js runs tens of nodes per process on a laptop. Measure it.
+   - Matter cannot use loopback: matter.js skips internal interfaces. Nodes therefore advertise by mDNS on a real interface, visible to other machines and to other projects' Home Assistant instances on the shared lab network. Every Matter run needs a slot agreed with those projects.
 3. Zigbee2MQTT `exposes` that depend on device options or firmware version are evaluated with defaults and recorded as such.
-4. Build time for the Renode and QEMU firmware. Cross-compiling is real compute and needs the PI's go under the shared-Mac rules.
+4. Build time for the anchor firmware. Cross-compiling is real compute and needs the PI's go under the shared-Mac rules.
+   - Estimate (2026-10-23): ESP-IDF v5.5.1 plus connectedhomeip need ~10–14 GB, all on the SSD, plus ~1.5–2 h of compiling at 2 cores.
 5. Habitat itself has been frozen since v0.3.4 (Meta ended official maintenance). VESPER pins 0.3.3. This matters for #2 and #3.
    - Checked 2026-10-23: v0.3.4 (2026-05-07) is the final upstream version of both habitat-sim and habitat-lab, but only 0.3.3 has prebuilt packages (conda, Python 3.9, linux-64 and osx-arm64). habitat-sim 0.3.4 needs a source build and changes the agent/sensor API.
    - Before the demo plan, run a spike after another project's experiment: build habitat-sim 0.3.4 for Python 3.12 on macOS arm64 and port `e2_embodied.py`. Move to 0.3.4 only if both succeed; otherwise stay on the prebuilt 0.3.3, which is what other researchers can install without compiling.
