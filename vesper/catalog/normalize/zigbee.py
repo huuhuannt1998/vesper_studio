@@ -21,6 +21,11 @@ L3_REASON = "reporting uses zigbee-herdsman-converters static defaults (assumed)
 L4_REASON = "no firmware anchor for Zigbee (no Zigbee SoC emulator exists)"
 
 
+def _identifies(fingerprint: dict) -> bool:
+    """True if a zigbee-herdsman-converters fingerprint carries at least one matching value."""
+    return any(v not in (None, "", [], {}) for k, v in fingerprint.items() if k != "priority")
+
+
 def _access(bits: int) -> list[str]:
     return [name for bit, name in ((STATE, "state"), (SET, "set"), (GET, "get")) if bits & bit]
 
@@ -118,8 +123,9 @@ def _record(d, vendor, model, description, zigbee_model, fingerprint, white_labe
     fid["provenance"] = {"identity": prov, "features": prov}
     if d["exposes_dynamic"]:
         fid["assumed"].append("features")
-    l0_ok = bool(zigbee_model or fingerprint)
-    finalize_levels(rec, l0_ok=l0_ok, l0_reason=None if l0_ok else "no zigbee model id or fingerprint")
+    l0_ok = bool(zigbee_model) or any(_identifies(f) for f in fingerprint)
+    finalize_levels(rec, l0_ok=l0_ok,
+                    l0_reason=None if l0_ok else "no zigbee model id or fingerprint with an identifying value")
     if d.get("error"):
         fid["reached"]["L1"] = False
         fid["reasons"]["L1"] = f"exposes evaluation failed: {d['error']}"

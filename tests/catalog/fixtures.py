@@ -28,11 +28,13 @@ SCHEDULE = {"name": "schedule", "access": 7, "type": "list", "property": "schedu
 ZIGBEE_DOC = {"package": "zigbee-herdsman-converters", "version": "26.123.0", "definitions": [
     zdef("MCCGQ11LM", "Aqara", [BATTERY, CONTACT], zigbee_model=["lumi.sensor_magnet.aq2"],
          description="Door and window sensor"),
-    zdef("LED1545G12", "IKEA", [LIGHT], zigbee_model=["TRADFRI bulb E27 WS opal 980lm"], ota=True),
+    zdef("LED1545G12", "IKEA", [LIGHT], zigbee_model=["TRADFRI bulb E27 WS opal 980lm"], ota=True,
+         options=[{"name": "transition", "label": "Transition", "access": 2, "type": "numeric", "property": "transition",
+                   "value_min": 0}]),
     zdef("TS011F_plug_1", "Tuya", [SWITCH, POWER], zigbee_model=["TS011F"], white_label=[
         {"vendor": "BlitzWolf", "model": "BW-SHP13", "description": None, "fingerprint": []},
         {"vendor": "BSEED", "model": "TS011F_plug_1_2", "description": "Wall socket",
-         "fingerprint": [{"model_id": "TS011F", "manufacturer_name": "_TZ3000_x"}]},
+         "fingerprint": [{"modelID": "TS011F", "manufacturerName": "_TZ3000_x"}]},
         {"model": "TS011F_plug_EU", "description": None, "fingerprint": []}]),
     zdef("DYN-1", "Acme", [CONTACT], dynamic=True),
     zdef("ERR-1", "Acme", None, error="boom"),
@@ -41,6 +43,8 @@ ZIGBEE_DOC = {"package": "zigbee-herdsman-converters", "version": "26.123.0", "d
         SCHEDULE]),
     zdef("TWIN-1", "Acme", [CONTACT, CONTACT]),
     zdef("NOID-1", "Acme", [CONTACT], zigbee_model=()),
+    zdef("NULLFP-1", "Acme", [CONTACT], zigbee_model=(), fingerprint=[{"modelID": None, "manufacturerName": None}]),
+    zdef("EPONLY-1", "Acme", [CONTACT], zigbee_model=(), fingerprint=[{"endpoints": [{"ID": 1, "inputClusters": [6]}]}]),
 ]}
 
 APACHE_HEADER = """<?xml version="1.0"?>

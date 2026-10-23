@@ -9,8 +9,8 @@ from vesper.catalog.errors import IngestError
 def test_build_command(raw_root, tmp_path, capsys):
     out = tmp_path / "vds"
     assert cli.main(["catalog", "build", "--raw-root", str(raw_root), "--out", str(out)]) == 0
-    assert "built 21 records" in capsys.readouterr().out
-    assert len(json.loads((out / "zigbee.json").read_text())) == 11
+    assert "built 23 records" in capsys.readouterr().out
+    assert len(json.loads((out / "zigbee.json").read_text())) == 13
 
 
 def test_build_fails_loudly_when_a_source_was_never_synced(tmp_path, capsys):

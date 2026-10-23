@@ -24,9 +24,7 @@
           "additionalProperties": false,
           "properties": {
             "zigbee_model": {"type": "array", "items": {"type": "string"}},
-            "zigbee_fingerprint": {"type": "array", "items": {
-              "type": "object", "additionalProperties": false, "required": ["model_id", "manufacturer_name"],
-              "properties": {"model_id": {"type": ["string", "null"]}, "manufacturer_name": {"type": ["string", "null"]}}}},
+            "zigbee_fingerprint": {"type": "array", "items": {"type": "object"}},
             "matter_vid_pid": {"type": "array", "items": {
               "type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0, "maximum": 65535}}},
             "zwave": {"type": "array", "items": {

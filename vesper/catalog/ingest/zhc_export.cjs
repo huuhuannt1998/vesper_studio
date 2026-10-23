@@ -7,8 +7,10 @@ const zhc = require(pkgPath);
 const defs = require(pkgPath + "/dist/devices/index").default;
 const version = require(pkgPath + "/package.json").version;
 
-const fingerprints = (list) =>
-  (list || []).map((f) => ({model_id: f.modelID || null, manufacturer_name: f.manufacturerName || null}));
+// Every matching field exactly as zigbee-herdsman-converters defines it (modelID, manufacturerName,
+// endpoints, hardwareVersion, ...): later plans must re-identify devices and round-trip definitions.
+const plain = (value) => JSON.parse(JSON.stringify(value));
+const fingerprints = (list) => (list || []).map(plain);
 
 const out = [];
 for (const raw of defs) {
@@ -34,7 +36,7 @@ for (const raw of defs) {
     rec.exposes_dynamic = typeof d.exposes === "function";
     const ex = rec.exposes_dynamic ? d.exposes({isDummyDevice: true}, {}) : d.exposes;
     rec.exposes = JSON.parse(JSON.stringify(ex));
-    rec.options = (d.options || []).map((o) => o.name);
+    rec.options = (d.options || []).map(plain); // full option exposes, as Zigbee2MQTT publishes them
     rec.ota = Boolean(d.ota);
   } catch (e) {
     rec.error = String((e && e.message) || e);

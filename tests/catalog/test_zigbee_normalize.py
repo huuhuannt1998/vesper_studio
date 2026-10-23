@@ -43,7 +43,7 @@ def test_plug_and_its_white_labels():
     assert same["identity"]["ids"]["zigbee_model"] == ["TS011F"]
     own = recs["TS011F_plug_1_2"]
     assert own["identity"]["ids"] == {"zigbee_model": [],
-                                      "zigbee_fingerprint": [{"model_id": "TS011F", "manufacturer_name": "_TZ3000_x"}]}
+                                      "zigbee_fingerprint": [{"modelID": "TS011F", "manufacturerName": "_TZ3000_x"}]}
     assert own["identity"]["description"] == "Wall socket"
 
 
@@ -73,9 +73,22 @@ def test_duplicate_feature_names_are_made_unique():
 
 def test_product_without_any_id_does_not_reach_l0():
     r = by_model()["NOID-1"]
-    assert r["fidelity"]["reasons"]["L0"] == "no zigbee model id or fingerprint"
+    assert r["fidelity"]["reasons"]["L0"] == "no zigbee model id or fingerprint with an identifying value"
 
 
 def test_white_label_without_vendor_inherits_the_parent_vendor():
     r = by_model()["TS011F_plug_EU"]
     assert r["identity"]["vendor"] == "Tuya" and r["id"] == "zigbee:tuya:ts011f_plug_eu"
+
+
+def test_a_fingerprint_without_any_identifying_value_does_not_reach_l0():
+    r = by_model()["NULLFP-1"]
+    assert r["fidelity"]["reasons"]["L0"] == "no zigbee model id or fingerprint with an identifying value"
+
+
+def test_an_endpoints_only_fingerprint_identifies_the_product():
+    assert by_model()["EPONLY-1"]["fidelity"]["reached"]["L0"] is True
+
+
+def test_options_are_kept_as_full_exposes_for_the_round_trip():
+    assert by_model()["LED1545G12"]["binding"]["zigbee"]["options"][0]["property"] == "transition"

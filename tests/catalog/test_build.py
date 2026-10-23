@@ -19,7 +19,7 @@ def test_build_writes_catalog_coverage_and_report(raw_root, tmp_path):
     out = tmp_path / "vds"
     report = build_catalog(raw_root, out)
     assert report["skipped_sources"] == {} and report["release"] is False
-    assert len(load(out, "zigbee")) == 11 and len(load(out, "matter")) == 7 and len(load(out, "zwave")) == 3
+    assert len(load(out, "zigbee")) == 13 and len(load(out, "matter")) == 7 and len(load(out, "zwave")) == 3
     assert sorted(x["file"].rsplit("/", 1)[1] for x in report["rejected"]) == ["broken.json", "nolabel.json"]
     assert report["merged"] == []
     cov = json.loads((out / "coverage.json").read_text())
@@ -48,7 +48,7 @@ def test_release_build_keeps_only_redistributable_records(raw_root, tmp_path):
     report = build_catalog(raw_root, tmp_path / "vds", release=True)
     assert report["release"] is True
     assert load(tmp_path / "vds", "matter") == []  # DCL reuse terms are not verified yet
-    assert len(load(tmp_path / "vds", "zigbee")) == 11
+    assert len(load(tmp_path / "vds", "zigbee")) == 13
 
 
 def test_an_invalid_record_is_rejected_with_its_reason(raw_root, tmp_path, monkeypatch):

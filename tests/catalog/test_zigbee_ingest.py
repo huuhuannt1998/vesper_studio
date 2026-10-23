@@ -84,3 +84,8 @@ def test_a_relative_cache_root_reaches_node_as_an_absolute_path(tmp_path, monkey
     sync_zigbee(Path("raw"), Path("catalog/cache"), run=run, which=which)
     export = next(c for c in calls if c[1].endswith("zhc_export.cjs"))
     assert Path(export[2]).is_absolute() and Path(export[3]).is_absolute()
+
+
+def test_export_keeps_raw_fingerprints_and_full_options():
+    text = EXPORT_SCRIPT.read_text()
+    assert "model_id" not in text and "o.name" not in text  # no renaming, no reduction to names
