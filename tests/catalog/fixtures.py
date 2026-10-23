@@ -115,3 +115,38 @@ DCL_MODELS = [
 ]
 DCL_VENDORS = [{"vendorID": 4107, "vendorName": "Signify", "companyPreferredName": "Philips Hue"},
                {"vendorID": 4447, "vendorName": "Aqara", "companyPreferredName": ""}]
+
+
+def zwave_tarball(devices: dict[str, str],
+                  manufacturers: str = '{"0x0086": "AEON Labs", "0x0063": "GE/Jasco"}') -> bytes:
+    """An npm-style @zwave-js/config tarball holding `devices` (path under config/devices/ -> text)."""
+    import io
+    import tarfile
+
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        for path, text in {"config/manufacturers.json": manufacturers,
+                           **{f"config/devices/{p}": t for p, t in devices.items()}}.items():
+            data = text.encode()
+            info = tarfile.TarInfo("package/" + path)
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+ZWAVE_DEVICES = {
+    "0x0086/zw096.json": """{
+    // JSON5: comments and trailing commas occur in real files
+    "manufacturer": "AEON Labs", "manufacturerId": "0x0086", "label": "ZW096",
+    "description": "Smart Switch 6", "devices": [{"productType": "0x0003", "productId": "0x0060"},
+                                               {"productType": "0x0103", "productId": "0x0060"},],
+    "paramInformation": [{"#": "3"}, {"#": "20"}],
+}""",
+    "0x0063/zw4002.json": '{"manufacturerId": "0x63", "label": "ZW4002", "description": "In-Wall Smart Door Lock", '
+                          '"devices": [{"productType": "0x4952", "productId": "0x3233"}]}',
+    "0x0063/nodev.json": '{"manufacturerId": "0x0063", "label": "Mystery", "devices": []}',
+    "0x0086/templates/master_template.json": '{"base_enable": {}}',
+    "0x0086/_notes.json": '{"x": 1}',
+    "0x0086/broken.json": '{"label": ',
+    "0x0086/nolabel.json": '{"manufacturerId": "0x0086"}',
+}
