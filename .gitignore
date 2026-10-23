@@ -134,3 +134,5 @@ paper_rewriting_output/
 
 # vesper 0.2
 catalog/raw/
+catalog/cache/
+catalog/vds/
