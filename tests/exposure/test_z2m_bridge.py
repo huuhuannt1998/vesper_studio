@@ -77,7 +77,9 @@ def test_button_events_go_to_their_topic_and_are_not_retained_state(vds):
                    {"device": "btn-1", "stimulus": {"type": "button_press", "action": "hold"}})
     topic = event_topic("zigbee2mqtt/btn-1", "action")
     assert client.last(topic) == {"event_type": "hold"} and client.retained(topic) is False
-    assert "action" not in client.last("zigbee2mqtt/btn-1")
+    # Zigbee2MQTT also puts the action in a device message, which is never retained
+    assert client.last("zigbee2mqtt/btn-1")["action"] == "hold" and client.retained("zigbee2mqtt/btn-1") is False
+    assert all("action" not in m for t, m, r in client.published if t == "zigbee2mqtt/btn-1" and r)
 
 
 def test_control_channel_stimulate_operate_and_bad_messages(vds):
@@ -143,3 +145,98 @@ def test_commands_on_the_network_thread_and_reports_on_the_clock_thread_do_not_d
 
 def test_flatten():
     assert flatten({"state": "ON", "color": {"x": 1, "y": 2}}) == [("state", "ON"), ("color.x", 1), ("color.y", 2)]
+
+
+def test_only_reported_values_reach_the_wire(vds):
+    """The reporting gate holds on MQTT too: another publish must not leak a withheld value (spec §3.3)."""
+    b, rt, client = bridge(vds, "PLUG-1")
+    twin_id = b.placements[0].twin_id
+    rt.stimulate(twin_id, {"type": "load", "watts": 60})  # power: min_s 5, so this report waits
+    client.deliver("zigbee2mqtt/plug-1/set", {"state": "ON"})
+    assert client.last("zigbee2mqtt/plug-1") == {"state": "ON", "power": 0}
+    assert b.reported(twin_id)["power"] == 0
+    rt.clock.advance(5)
+    assert client.last("zigbee2mqtt/plug-1")["power"] == 60.0
+
+
+def test_control_stimuli_publish_only_what_the_twin_reports(vds):
+    b, rt, client = bridge(vds, "PLUG-1")
+    client.deliver("vesper/control/stimulate", {"device": "plug-1", "stimulus": {"type": "load", "watts": 60}})
+    assert client.last("zigbee2mqtt/plug-1")["power"] == 0
+
+
+def test_a_multi_feature_command_publishes_one_state(vds):
+    b, rt, client = bridge(vds, "LED1545G12")
+    before = len(client.published)
+    client.deliver("zigbee2mqtt/led1545g12/set", {"state": "ON", "brightness": 10})
+    assert [t for t, _, _ in client.published[before:]] == ["zigbee2mqtt/led1545g12"]
+
+
+def test_color_mode_follows_the_last_color_command():
+    from tests.catalog.fixtures import LIGHT, zdef
+    from vesper.catalog.normalize.zigbee import zigbee_records
+
+    ct = {"name": "color_temp", "property": "color_temp", "type": "numeric", "access": 7, "value_min": 250,
+          "value_max": 454, "unit": "mired"}
+    record = zigbee_records({"version": "26.123.0", "definitions": [
+        zdef("CT-1", "Acme", [{"type": "light", "features": LIGHT["features"] + [ct]}])]})[0]
+    b, rt, client = bridge({"CT-1": record}, "CT-1")
+    client.deliver("zigbee2mqtt/ct-1/set", {"color": {"x": 0.3, "y": 0.4}})
+    assert client.last("zigbee2mqtt/ct-1")["color_mode"] == "xy"
+    client.deliver("zigbee2mqtt/ct-1/set", {"color_temp": 300})
+    assert client.last("zigbee2mqtt/ct-1")["color_mode"] == "color_temp"
+
+
+@pytest.mark.parametrize("name", ["a/set/b", "a/get/b", "a/event/action"])
+def test_a_command_or_event_level_inside_a_name_is_refused(vds, name):
+    rt = Runtime(clock=LogicalClock())
+    with pytest.raises(ValueError, match="friendly name"):
+        Bridge(rt, [Placement(rt.add(vds["PLUG-1"]).id, name)], FakeClient())
+
+
+def test_an_unexpected_error_on_a_message_is_recorded_not_raised(vds, monkeypatch):
+    b, rt, client = bridge(vds, "PLUG-1")
+
+    def boom(*a, **k):
+        raise RuntimeError("bug")
+
+    monkeypatch.setattr(rt, "platform_set", boom)
+    client.deliver("zigbee2mqtt/plug-1/set", {"state": "ON"})  # must not raise into paho's network loop
+    assert "internal error" in b.rejections[-1]["reason"]
+
+
+def test_subscriptions_are_restored_after_a_reconnect(vds):
+    b, rt, client = bridge(vds, "PLUG-1")
+    client.subscriptions.clear()
+    client.on_connect(client, None, {}, 0, None)  # paho calls this again after an automatic reconnect
+    assert set(client.subscriptions) == {"zigbee2mqtt/#", "vesper/control/#"}
+
+
+def test_flush_waits_for_every_queued_message(vds):
+    class Info:
+        def __init__(self):
+            self.waited = False
+
+        def wait_for_publish(self, timeout=None):
+            self.waited = True
+
+        def is_published(self):
+            return self.waited
+
+    class SlowClient(FakeClient):
+        def __init__(self):
+            super().__init__()
+            self.infos = []
+
+        def publish(self, topic, payload, qos=0, retain=False):
+            super().publish(topic, payload, qos, retain)
+            self.infos.append(Info())
+            return self.infos[-1]
+
+    rt = Runtime(clock=LogicalClock())
+    client = SlowClient()
+    b = Bridge(rt, [Placement(rt.add(vds["PLUG-1"]).id, "plug")], client)
+    b.start()
+    b.retract()
+    b.flush(timeout=1)
+    assert client.infos and all(i.waited for i in client.infos)

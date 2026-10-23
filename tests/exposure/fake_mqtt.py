@@ -86,12 +86,28 @@ class FakeBroker:
             self._delivering = False
 
 
+class Delivery:
+    """paho's MQTTMessageInfo, reduced to what callers use: it records whether anyone waited for it."""
+
+    def __init__(self):
+        self.waited = False
+
+    def wait_for_publish(self, timeout=None):
+        self.waited = True
+
+    def is_published(self):
+        return self.waited
+
+
 class BrokerClient:
     def __init__(self, broker):
         self.broker, self.subscriptions, self.on_message, self.connected = broker, [], None, True
+        self.deliveries: list[Delivery] = []
 
     def publish(self, topic, payload, qos=0, retain=False):
         self.broker._publish(topic, payload, retain)
+        self.deliveries.append(Delivery())
+        return self.deliveries[-1]
 
     def subscribe(self, topic):
         self.subscriptions.append(topic)

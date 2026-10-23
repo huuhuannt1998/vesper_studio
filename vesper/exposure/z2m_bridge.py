@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
+import time
 from dataclasses import dataclass, field
 
 from vesper import __version__
@@ -51,11 +52,15 @@ def device_entry(vds: dict, *, ieee: str, friendly_name: str) -> dict:
             "interview_state": "SUCCESSFUL", "interviewing": False, "interview_completed": True, "endpoints": {}}
 
 
+_RESERVED_LEVELS = ("set", "get", "event")  # command topics and the event topics of `ha_discovery`
+
+
 def topic_safe(name: str) -> bool:
-    """A friendly name usable as an MQTT topic level path without colliding with the bridge's own topics."""
+    """A friendly name usable as an MQTT topic path without colliding with the bridge's own topics or with
+    another device's command and event topics."""
     parts = name.split("/")
     return (bool(name) and "+" not in name and "#" not in name and all(parts) and parts[0] != "bridge"
-            and parts[-1] not in ("set", "get", "availability"))
+            and not any(part in _RESERVED_LEVELS for part in parts) and parts[-1] != "availability")
 
 
 def flatten(payload: dict, prefix: str = "") -> list[tuple[str, object]]:
@@ -90,19 +95,29 @@ class Bridge:
                 raise ValueError(f"{p.twin_id} has no Zigbee binding; it cannot be exposed through this bridge")
             if not topic_safe(p.friendly_name):
                 raise ValueError(f"friendly name {p.friendly_name!r} cannot be an MQTT topic here: no '+', '#', "
-                                 "empty levels, leading 'bridge' or trailing set/get/availability")
+                                 "empty levels, leading 'bridge', set/get/event levels or trailing availability")
             if p.friendly_name in self._by_name:
                 raise ValueError(f"duplicate friendly name {p.friendly_name!r}")
             self._by_name[p.friendly_name] = self._by_twin[p.twin_id] = p
         self._lock = threading.Lock()
+        self._reported: dict[str, dict] = {}  # per twin: the values it has reported, as Zigbee2MQTT caches them
+        self._color_mode: dict[str, str] = {}
+        self._pending: list = []  # QoS 1 deliveries paho may still hold
+        self._local = threading.local()
         self.client.on_message = self._on_message
+        self.client.on_connect = self._on_connect
         self.runtime.subscribe(self._on_event)
 
     # -- lifecycle -----------------------------------------------------------------------------
     def start(self) -> None:
         b = self.base_topic
-        self.client.subscribe(f"{b}/#")
-        self.client.subscribe(f"{CONTROL}/#")
+        for p in self.placements:
+            twin = self.runtime.twins[p.twin_id]
+            self._reported[p.twin_id] = dict(twin.state)
+            light = {n for n, f in twin.features.items() if f.get("path") == "light"}
+            if "color_temp" in light or "color.x" in light:
+                self._color_mode[p.twin_id] = "color_temp" if "color_temp" in light else "xy"
+        self._subscribe()
         self._publish(f"{b}/bridge/state", {"state": "online"}, retain=True)
         self._publish(f"{b}/bridge/info", {
             "version": f"vesper-{__version__}", "commit": None, "permit_join": False,
@@ -132,31 +147,51 @@ class Bridge:
         for p in self.placements:
             for topic in (f"homeassistant/device/{ieee_address(p.twin_id)}/config", f"{b}/{p.friendly_name}",
                           f"{b}/{p.friendly_name}/availability"):
-                self.client.publish(topic, "", qos=1, retain=True)
+                self._track(self.client.publish(topic, "", qos=1, retain=True))
         for topic in ("bridge/devices", "bridge/info", "bridge/state"):
-            self.client.publish(f"{b}/{topic}", "", qos=1, retain=True)
+            self._track(self.client.publish(f"{b}/{topic}", "", qos=1, retain=True))
 
     def stop(self) -> None:
         for p in self.placements:
             self._publish(f"{self.base_topic}/{p.friendly_name}/availability", {"state": "offline"}, retain=True)
         self._publish(f"{self.base_topic}/bridge/state", {"state": "offline"}, retain=True)
 
+    def flush(self, timeout: float = 30.0) -> None:
+        """Wait until paho has delivered every queued message; call before disconnecting, which drops them."""
+        deadline = time.monotonic() + timeout
+        for info in self._pending:
+            try:
+                info.wait_for_publish(max(0.0, deadline - time.monotonic()))
+            except (RuntimeError, ValueError):  # not queued (connection gone); nothing left to wait for
+                pass
+        self._pending = [i for i in self._pending if not i.is_published()]
+
+    def reported(self, twin_id: str) -> dict:
+        """The values the twin has reported so far: what a platform can know."""
+        return dict(self._reported.get(twin_id, {}))
+
     # -- outgoing ------------------------------------------------------------------------------
     def _vds(self, p: Placement) -> dict:
         return self.runtime.twins[p.twin_id].vds
 
     def _publish(self, topic: str, obj, retain: bool = False) -> None:
-        self.client.publish(topic, json.dumps(obj, ensure_ascii=False), qos=1, retain=retain)
+        self._track(self.client.publish(topic, json.dumps(obj, ensure_ascii=False), qos=1, retain=retain))
+
+    def _track(self, info) -> None:
+        if hasattr(info, "wait_for_publish"):
+            self._pending.append(info)
+            if len(self._pending) > 5000:
+                self._pending = [i for i in self._pending if not i.is_published()]
 
     def state_payload(self, p: Placement) -> dict:
+        """The device's state message: the reported values only (the reporting gate holds on the wire)."""
         twin = self.runtime.twins[p.twin_id]
-        payload = twin.payload()
+        payload = twin.payload(self._reported[p.twin_id])
         for name, f in twin.features.items():  # events are not state: they go to their own topic
             if f.get("ha") == "event":
                 payload.pop(name.split(".")[0], None)
-        light = {n for n, f in twin.features.items() if f.get("path") == "light"}
-        if "color_temp" in light or "color.x" in light:
-            payload["color_mode"] = "color_temp" if "color_temp" in light else "xy"
+        if p.twin_id in self._color_mode:
+            payload["color_mode"] = self._color_mode[p.twin_id]
         return payload
 
     def _publish_state(self, p: Placement) -> None:
@@ -168,14 +203,32 @@ class Bridge:
             return
         f = self.runtime.twins[event.twin_id].features[event.feature]
         if f.get("ha") == "event":
-            topic = event_topic(f"{self.base_topic}/{p.friendly_name}", event.feature)
-            self._publish(topic, {"event_type": str(event.value)})
-        else:
+            topic = f"{self.base_topic}/{p.friendly_name}"
+            self._publish(event_topic(topic, event.feature), {"event_type": str(event.value)})
+            # Zigbee2MQTT also carries the action in a device message; it is never part of retained state
+            self._publish(topic, {**self.state_payload(p), event.feature: event.value})
+            return
+        self._reported[event.twin_id][event.feature] = event.value
+        if not getattr(self._local, "quiet", False):  # a command publishes once, after all its features
             self._publish_state(p)
 
     # -- incoming ------------------------------------------------------------------------------
+    def _subscribe(self) -> None:
+        self.client.subscribe(f"{self.base_topic}/#")
+        self.client.subscribe(f"{CONTROL}/#")
+
+    def _on_connect(self, client, userdata, flags, reason, properties=None) -> None:
+        """paho reconnects by itself, but with a clean session: subscribe again."""
+        self._subscribe()
+
     def _on_message(self, client, userdata, msg) -> None:
         topic, raw = msg.topic, msg.payload.decode("utf-8", "replace")
+        try:
+            self._handle(topic, raw)
+        except Exception as e:  # an exception here would stop paho's network loop for every twin
+            self.rejections.append({"topic": topic, "payload": raw[:200], "reason": f"internal error: {e!r}"})
+
+    def _handle(self, topic: str, raw: str) -> None:
         with self._lock:
             if topic.startswith(f"{CONTROL}/"):
                 self._control(topic[len(CONTROL) + 1:], raw)
@@ -192,7 +245,7 @@ class Bridge:
             elif rest.endswith("/set"):
                 self._set(rest[:-4], self._parse(raw), raw)
             elif rest.endswith("/get") and rest[:-4] in self._by_name:
-                self._publish_state(self._by_name[rest[:-4]])
+                self._get(self._by_name[rest[:-4]], self._parse(raw))
 
     @staticmethod
     def _parse(raw: str):
@@ -208,11 +261,36 @@ class Bridge:
         if not isinstance(command, dict):
             self.rejections.append({"device": name, "payload": raw, "reason": "payload is not a JSON object"})
             return
-        for feature, value in flatten(command):
-            if not self.runtime.platform_set(p.twin_id, feature, value):
-                self.rejections.append({"device": name, "feature": feature, "value": value,
-                                        "reason": self.runtime.actions[-1].reason
-                                        if self.runtime.actions else "rejected"})
+        accepted = []
+        self._local.quiet = True
+        try:
+            for feature, value in flatten(command):
+                if self.runtime.platform_set(p.twin_id, feature, value):
+                    accepted.append(feature)
+                else:
+                    self.rejections.append({"device": name, "feature": feature, "value": value,
+                                            "reason": self.runtime.actions[-1].reason
+                                            if self.runtime.actions else "rejected"})
+        finally:
+            self._local.quiet = False
+        state = self.runtime.state(p.twin_id)
+        for feature in accepted:  # like Zigbee2MQTT, publish a successful command's result at once
+            self._reported[p.twin_id][feature] = state[feature]
+        if p.twin_id in self._color_mode:
+            if any(f.startswith("color.") for f in accepted):
+                self._color_mode[p.twin_id] = "xy"
+            elif "color_temp" in accepted:
+                self._color_mode[p.twin_id] = "color_temp"
+        self._publish_state(p)
+
+    def _get(self, p: Placement, command) -> None:
+        """Like Zigbee2MQTT's /get: read the attributes from the device, then publish its state."""
+        state = self.runtime.state(p.twin_id)
+        names = [f for f, _ in flatten(command)] if isinstance(command, dict) and command else list(state)
+        events = {n for n, f in self.runtime.twins[p.twin_id].features.items() if f.get("ha") == "event"}
+        for name in names:
+            if name in state and name not in events:
+                self._reported[p.twin_id][name] = state[name]
         self._publish_state(p)
 
     def _control(self, action: str, raw: str) -> None:
@@ -228,4 +306,4 @@ class Bridge:
             if not self.runtime.operate(p.twin_id, msg.get("feature"), msg.get("value"), msg.get("actor", "resident")):
                 self.rejections.append({"device": p.friendly_name, "control": "operate", "reason":
                                         self.runtime.actions[-1].reason if self.runtime.actions else "rejected"})
-        self._publish_state(p)
+        # nothing is published here: the twin's own reports (through the gate) reach MQTT via _on_event

@@ -90,10 +90,11 @@ class Twin:
             value = min(max(value, lo), hi)
         return self.coerce(name, value)
 
-    def payload(self) -> dict:
-        """Current state as nested JSON (Zigbee2MQTT style); duplicate exposes (`name#2`) are not repeated."""
+    def payload(self, state: dict | None = None) -> dict:
+        """`state` (default: the current state) as nested JSON (Zigbee2MQTT style); duplicate exposes
+        (`name#2`) are not repeated."""
         out: dict = {}
-        for name, value in self.state.items():
+        for name, value in (self.state if state is None else state).items():
             if "#" in name or self.features[name]["type"] == "unsupported":
                 continue
             *parents, leaf = name.split(".")
