@@ -109,3 +109,12 @@ def test_definitions_whose_names_slug_alike_stay_separate_with_stable_ids():
     assert recs["H-PLUS"]["identity"]["white_label_of"] == plus["id"]
     again = {r["identity"]["model"]: r["id"] for r in zigbee_records(halo_doc(reverse=True))}
     assert again["HALO"] == halo["id"] and again["HALO+"] == plus["id"]
+
+
+def test_reporting_change_is_in_the_feature_units_not_raw_zcl():
+    doc = {"version": "26.123.0", "definitions": [zdef("TH-1", "Acme", [
+        {"name": "temperature", "access": 5, "type": "numeric", "property": "temperature", "unit": "°C"},
+        {"name": "illuminance", "access": 5, "type": "numeric", "property": "illuminance", "unit": "lx"}])]}
+    reporting = zigbee_records(doc)[0]["behavior"]["reporting"]
+    assert reporting["temperature"] == {"min_s": 10, "max_s": 3600, "change": 1.0}  # 100 raw = 1.0 °C
+    assert reporting["illuminance"]["change"] == 0

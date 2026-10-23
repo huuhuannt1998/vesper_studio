@@ -9,10 +9,12 @@ from vesper.catalog.sources import source_entry
 
 LEAF_TYPES = frozenset({"binary", "numeric", "enum", "text"})
 # Static defaults of zigbee-herdsman-converters lib/reporting at 26.123.0: (min_s, max_s, change).
+# `change` is converted from raw ZCL units to the feature's own units: temperature and humidity report
+# in 0.01 units (100 raw = 1.0); illuminance is logarithmic (10000*log10(lux)+1), so any change counts.
 # A device's own configure() may differ, so every use is listed in `assumed` (spec §3.2).
 REPORTING_DEFAULTS = {
     "state": (0, 3600, 0), "brightness": (1, 3600, 1), "occupancy": (0, 3600, 0),
-    "temperature": (10, 3600, 100), "humidity": (10, 3600, 100), "illuminance": (10, 3600, 5),
+    "temperature": (10, 3600, 1.0), "humidity": (10, 3600, 1.0), "illuminance": (10, 3600, 0),
     "power": (5, 3600, 1), "battery": (3600, 65000, 0), "lock_state": (0, 3600, 0),
 }
 REPORTING_PARENT = {"state": {"light", "switch"}, "brightness": {"light"}}

@@ -29,3 +29,10 @@ packages = ["vesper"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["network: hits real upstream sources (opt-in: VESPER_NETWORK_TESTS=1)"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# Pinned: newer ruff releases enable far more rules by default, so an unpinned "ruff clean" drifts.
+select = ["E4", "E7", "E9", "E501", "F"]
