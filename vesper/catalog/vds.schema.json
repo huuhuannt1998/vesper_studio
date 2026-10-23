@@ -35,7 +35,8 @@
           }
         },
         "protocols": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["zigbee", "matter", "zwave"]}},
-        "white_label_of": {"type": ["string", "null"]}
+        "white_label_of": {"type": ["string", "null"]},
+        "same_product_as": {"type": "array", "items": {"type": "string"}}
       }
     },
     "features": {"type": "array", "items": {"$ref": "#/$defs/feature"}},

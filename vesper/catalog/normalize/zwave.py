@@ -13,7 +13,7 @@ from pathlib import PurePosixPath
 
 import json5
 
-from vesper.catalog.normalize.common import finalize_levels, new_record, slug
+from vesper.catalog.normalize.common import finalize_levels, new_record, slug, unique_ids
 from vesper.catalog.sources import source_entry
 
 DEVICES = "package/config/devices/"
@@ -93,4 +93,5 @@ def zwave_records(tarball: bytes, version: str) -> tuple[list[dict], list[dict]]
             fid["reasons"].update({"L1": L1_REASON, "L2": "zwave-mock tier reserved for later",
                                    "L3": "no timing source yet", "L4": "no firmware anchor"})
             records.append(rec)
+    unique_ids(records)  # several config files can carry one label (firmware ranges, regional variants)
     return records, rejected

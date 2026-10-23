@@ -4,7 +4,7 @@ import pytest
 
 from tests.catalog.conftest import write_all
 from vesper.catalog import build as build_mod
-from vesper.catalog.build import build_catalog, dedupe
+from vesper.catalog.build import build_catalog, link_products
 from vesper.catalog.errors import CatalogError
 from vesper.catalog.normalize.common import new_record
 from vesper.catalog.snapshot import write_snapshot
@@ -21,7 +21,7 @@ def test_build_writes_catalog_coverage_and_report(raw_root, tmp_path):
     assert report["skipped_sources"] == {} and report["release"] is False
     assert len(load(out, "zigbee")) == 13 and len(load(out, "matter")) == 7 and len(load(out, "zwave")) == 3
     assert sorted(x["file"].rsplit("/", 1)[1] for x in report["rejected"]) == ["broken.json", "nolabel.json"]
-    assert report["merged"] == []
+    assert report["linked"] == []
     cov = json.loads((out / "coverage.json").read_text())
     assert cov["matter"]["total"] == 7 and cov["matter"]["by_category"]["contact_sensor"]["L1"] == 2
     assert (out / "coverage.csv").read_text().startswith("protocol,category,total,L0,L1,L2,L3,L4\n")
@@ -73,38 +73,43 @@ def test_a_crosswalk_class_missing_from_home_assistant_fails_the_build(raw_root,
         build_catalog(raw_root, tmp_path / "vds")
 
 
-def rec(protocol, vendor, model, *, l1=True, ids=None, record_id=None):
+def rec(protocol, vendor, model, *, ids=None, record_id=None):
     r = new_record(protocol=protocol, vendor=vendor, model=model, description="", category="light",
                    ids=ids or {}, sources=[source_entry("zigbee", "1")], record_id=record_id)
-    r["fidelity"]["reached"].update({"L0": True, "L1": l1})
+    r["fidelity"]["reached"].update({"L0": True, "L1": True})
     return r
 
 
-def test_dedupe_merges_the_same_product_across_protocols():
-    zig = rec("zigbee", "IKEA", "LED2201", l1=False, ids={"zigbee_model": ["a"]})
+def test_the_same_product_in_two_protocols_is_linked_not_merged():
+    zig = rec("zigbee", "IKEA", "LED2201", ids={"zigbee_model": ["a"]})
     mat = rec("matter", "ikea", "led2201", ids={"matter_vid_pid": [[4476, 1]]}, record_id="matter:117c:0001")
-    out, merges = dedupe([zig, mat])
-    assert len(out) == 1 and merges == [{"kept": "matter:117c:0001", "merged": "zigbee:ikea:led2201"}]
-    identity = out[0]["identity"]
-    assert identity["protocols"] == ["matter", "zigbee"]
-    assert identity["ids"] == {"matter_vid_pid": [[4476, 1]], "zigbee_model": ["a"]}
-    assert out[0]["fidelity"]["provenance"]["merged_from"] == "zigbee:ikea:led2201"
+    features = [dict(f) for f in zig["features"]]
+    links = link_products([zig, mat])
+    assert links == [["matter:117c:0001", "zigbee:ikea:led2201"]]
+    assert zig["identity"]["same_product_as"] == ["matter:117c:0001"]
+    assert mat["identity"]["same_product_as"] == ["zigbee:ikea:led2201"]
+    assert zig["identity"]["ids"] == {"zigbee_model": ["a"]} and zig["features"] == features
 
 
-def test_dedupe_makes_colliding_ids_unique():
-    a = rec("zwave", "AEON Labs", "ZW096", record_id="zwave:0x0086:zw096")
-    b = rec("zwave", "Aeotec", "ZW096", record_id="zwave:0x0086:zw096")
-    out, merges = dedupe([a, b])
-    assert merges == [] and [r["id"] for r in out] == ["zwave:0x0086:zw096", "zwave:0x0086:zw096-2"]
+def test_names_must_match_exactly_to_link():
+    a = rec("zigbee", "HALO Smart Labs", "HALO")
+    b = rec("matter", "HALO Smart Labs", "HALO+", record_id="matter:1111:0001")
+    assert link_products([a, b]) == [] and "same_product_as" not in a["identity"]
 
 
-def test_dedupe_keeps_distinct_certified_matter_models_that_share_a_name():
-    a = rec("matter", "Hisense", "Air Conditioner", ids={"matter_vid_pid": [[4384, 1]]}, record_id="matter:1120:0001")
-    b = rec("matter", "Hisense", "Air Conditioner", ids={"matter_vid_pid": [[4384, 2]]}, record_id="matter:1120:0002")
-    zig = rec("zigbee", "Hisense", "Air Conditioner", l1=False, ids={"zigbee_model": ["x"]})
-    out, merges = dedupe([a, b, zig])
-    assert [r["id"] for r in out] == ["matter:1120:0001", "matter:1120:0002"]
-    assert merges == [{"kept": "matter:1120:0001", "merged": "zigbee:hisense:air-conditioner"}]
+def test_release_keeps_a_zigbee_product_linked_to_a_dcl_record(raw_root, tmp_path):
+    from tests.catalog.fixtures import DCL_MODELS, DCL_VENDORS
+    models = DCL_MODELS + [{"vid": 4447, "pid": 4, "deviceTypeId": 21, "productName": "MCCGQ11LM", "productLabel": ""}]
+    write_snapshot(raw_root, "dcl", "height-2", {"models.json": json.dumps(models).encode(),
+                                                 "vendors.json": json.dumps(DCL_VENDORS).encode()},
+                   license="DCL-terms-unverified", origin="fixture")
+    report = build_catalog(raw_root, tmp_path / "full")
+    zig = next(r for r in load(tmp_path / "full", "zigbee") if r["id"] == "zigbee:aqara:mccgq11lm")
+    assert zig["identity"]["same_product_as"] == ["matter:115f:0004"] and report["linked"]
+    released = build_catalog(raw_root, tmp_path / "release", release=True)
+    zig = next(r for r in load(tmp_path / "release", "zigbee") if r["id"] == "zigbee:aqara:mccgq11lm")
+    assert "same_product_as" not in zig["identity"] and released["linked"] == []
+    assert not any(str(x.get("id", "")).startswith("matter:") for x in released["rejected"])
 
 
 def test_a_corrupt_snapshot_fails_the_build_and_keeps_the_previous_catalog(raw_root, tmp_path):

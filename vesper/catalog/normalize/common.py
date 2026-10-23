@@ -1,6 +1,8 @@
 """Helpers shared by the normalizers: ids, record skeletons and the fidelity ladder (spec §3.1, §3.2)."""
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 
 from vesper.catalog.schema import VDS_VERSION
@@ -23,6 +25,25 @@ def slug(text: str) -> str:
 
 def make_id(protocol: str, vendor: str, model: str) -> str:
     return f"{protocol}:{slug(vendor)}:{slug(model)}"
+
+
+def unique_ids(records: list[dict]) -> None:
+    """Give records that share an id a suffix derived from their own identity, never from their order,
+    so ids stay stable across catalog builds. Records are never merged or dropped."""
+    groups: dict[str, list[dict]] = {}
+    for r in records:
+        groups.setdefault(r["id"], []).append(r)
+    for rid, group in groups.items():
+        if len(group) < 2:
+            continue
+        seen: dict[str, int] = {}
+        for r in group:
+            identity = r["identity"]
+            key = json.dumps({k: identity[k] for k in ("vendor", "model", "ids", "white_label_of")}, sort_keys=True)
+            digest = hashlib.sha1(key.encode()).hexdigest()[:8]
+            n = seen.get(digest, 0)
+            seen[digest] = n + 1
+            r["id"] = f"{rid}-{digest}" if n == 0 else f"{rid}-{digest}-{n + 1}"
 
 
 def new_record(

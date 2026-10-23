@@ -29,8 +29,8 @@ ZIGBEE_DOC = {"package": "zigbee-herdsman-converters", "version": "26.123.0", "d
     zdef("MCCGQ11LM", "Aqara", [BATTERY, CONTACT], zigbee_model=["lumi.sensor_magnet.aq2"],
          description="Door and window sensor"),
     zdef("LED1545G12", "IKEA", [LIGHT], zigbee_model=["TRADFRI bulb E27 WS opal 980lm"], ota=True,
-         options=[{"name": "transition", "label": "Transition", "access": 2, "type": "numeric", "property": "transition",
-                   "value_min": 0}]),
+         options=[{"name": "transition", "label": "Transition", "access": 2, "type": "numeric",
+                   "property": "transition", "value_min": 0}]),
     zdef("TS011F_plug_1", "Tuya", [SWITCH, POWER], zigbee_model=["TS011F"], white_label=[
         {"vendor": "BlitzWolf", "model": "BW-SHP13", "description": None, "fingerprint": []},
         {"vendor": "BSEED", "model": "TS011F_plug_1_2", "description": "Wall socket",
@@ -44,7 +44,8 @@ ZIGBEE_DOC = {"package": "zigbee-herdsman-converters", "version": "26.123.0", "d
     zdef("TWIN-1", "Acme", [CONTACT, CONTACT]),
     zdef("NOID-1", "Acme", [CONTACT], zigbee_model=()),
     zdef("NULLFP-1", "Acme", [CONTACT], zigbee_model=(), fingerprint=[{"modelID": None, "manufacturerName": None}]),
-    zdef("EPONLY-1", "Acme", [CONTACT], zigbee_model=(), fingerprint=[{"endpoints": [{"ID": 1, "inputClusters": [6]}]}]),
+    zdef("EPONLY-1", "Acme", [CONTACT], zigbee_model=(),
+         fingerprint=[{"endpoints": [{"ID": 1, "inputClusters": [6]}]}]),
 ]}
 
 APACHE_HEADER = """<?xml version="1.0"?>

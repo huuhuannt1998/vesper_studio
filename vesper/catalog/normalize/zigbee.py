@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import copy
 
-from vesper.catalog.normalize.common import finalize_levels, new_record
+from vesper.catalog.normalize.common import finalize_levels, new_record, unique_ids
 from vesper.catalog.normalize.ha_map import COMPOSITE_PLATFORM, GET, SET, STATE, zigbee_ha
 from vesper.catalog.sources import source_entry
 
@@ -138,15 +138,21 @@ def zigbee_records(doc: dict) -> list[dict]:
     version = doc["version"]
     prov = f"zigbee-herdsman-converters@{version}"
     sources = [source_entry("zigbee", version)]
-    out = []
+    out, bases = [], []
     for d in doc["definitions"]:
         base = _record(d, d["vendor"], d["model"], d["description"], d["zigbee_model"], d["fingerprint"],
                        None, prov, sources)
         out.append(base)
+        bases.append(None)
         for w in d["white_label"]:
             own = bool(w.get("fingerprint"))  # a rebrand with its own fingerprint is identified by it alone
             out.append(_record(d, w.get("vendor") or d["vendor"], w.get("model"),
                                w.get("description") or d["description"],
                                [] if own else d["zigbee_model"], w.get("fingerprint") if own else d["fingerprint"],
                                base["id"], prov, sources))
+            bases.append(base)
+    unique_ids(out)  # e.g. "HALO" and "HALO+" share a slug but are different products
+    for rec, base in zip(out, bases, strict=True):
+        if base is not None:
+            rec["identity"]["white_label_of"] = base["id"]
     return out

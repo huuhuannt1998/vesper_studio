@@ -1,4 +1,4 @@
-from tests.catalog.fixtures import ZIGBEE_DOC
+from tests.catalog.fixtures import BATTERY, CONTACT, ZIGBEE_DOC, zdef
 from vesper.catalog.normalize.zigbee import zigbee_records
 from vesper.catalog.schema import validate_vds
 
@@ -92,3 +92,20 @@ def test_an_endpoints_only_fingerprint_identifies_the_product():
 
 def test_options_are_kept_as_full_exposes_for_the_round_trip():
     assert by_model()["LED1545G12"]["binding"]["zigbee"]["options"][0]["property"] == "transition"
+
+
+def halo_doc(reverse=False):
+    defs = [zdef("HALO", "HALO Smart Labs", [CONTACT], zigbee_model=["halo"]),
+            zdef("HALO+", "HALO Smart Labs", [CONTACT, BATTERY], zigbee_model=["haloplus"],
+                 white_label=[{"vendor": "Acme", "model": "H-PLUS", "description": None, "fingerprint": []}])]
+    return {"version": "26.123.0", "definitions": defs[::-1] if reverse else defs}
+
+
+def test_definitions_whose_names_slug_alike_stay_separate_with_stable_ids():
+    recs = {r["identity"]["model"]: r for r in zigbee_records(halo_doc())}
+    halo, plus = recs["HALO"], recs["HALO+"]
+    assert halo["id"] != plus["id"] and halo["id"].startswith("zigbee:halo-smart-labs:halo-")
+    assert halo["identity"]["ids"]["zigbee_model"] == ["halo"] and len(plus["features"]) == 2
+    assert recs["H-PLUS"]["identity"]["white_label_of"] == plus["id"]
+    again = {r["identity"]["model"]: r["id"] for r in zigbee_records(halo_doc(reverse=True))}
+    assert again["HALO"] == halo["id"] and again["HALO+"] == plus["id"]

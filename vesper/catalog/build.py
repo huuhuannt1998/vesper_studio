@@ -1,4 +1,4 @@
-"""`vesper catalog build`: snapshots -> validated, deduplicated VDS catalog plus coverage (spec §2).
+"""`vesper catalog build`: snapshots -> validated VDS catalog, cross-protocol links and coverage (spec §2).
 
 Reads snapshots only, never the network, so the same snapshots always give byte-identical output.
 A source that was never synced is skipped and reported; a snapshot that fails its hash check fails the
@@ -6,7 +6,6 @@ whole build before any output is written.
 """
 from __future__ import annotations
 
-import copy
 import hashlib
 import json
 import os
@@ -16,7 +15,6 @@ from vesper.catalog.coverage import coverage, coverage_csv
 from vesper.catalog.errors import CatalogError
 from vesper.catalog.ingest.ha import load_vocabulary
 from vesper.catalog.ingest.matter_zap import parse_zap
-from vesper.catalog.normalize.common import slug
 from vesper.catalog.normalize.ha_map import unknown_device_classes
 from vesper.catalog.normalize.matter import matter_records
 from vesper.catalog.normalize.zigbee import zigbee_records
@@ -62,59 +60,43 @@ def _write(path: Path, text: str) -> None:
     os.replace(tmp, path)
 
 
-def _rank(r: dict) -> tuple[bool, bool]:
-    reached = r["fidelity"]["reached"]
-    return reached["L1"], reached["L0"]
+def _protocol(r: dict) -> str:
+    return r["id"].split(":", 1)[0]
 
 
-def _merge(primary: dict, secondary: dict) -> dict:
-    """`primary` plus the other record's protocols, ids, bindings and sources."""
-    m = copy.deepcopy(primary)
-    identity = m["identity"]
-    for p in secondary["identity"]["protocols"]:
-        if p not in identity["protocols"]:
-            identity["protocols"].append(p)
-    for key, values in secondary["identity"]["ids"].items():
-        current = identity["ids"].setdefault(key, [])
-        current.extend(copy.deepcopy(v) for v in values if v not in current)
-    for key, binding in secondary["binding"].items():
-        m["binding"].setdefault(key, copy.deepcopy(binding))
-    for s in secondary["sources"]:
-        if s not in m["sources"]:
-            m["sources"].append(dict(s))
-    prov = m["fidelity"]["provenance"]
-    prov["merged_from"] = ", ".join(filter(None, [prov.get("merged_from"), secondary["id"]]))
-    return m
+def link_products(records: list[dict]) -> list[list[str]]:
+    """Cross-reference records of one product in different protocols (exact, case-folded vendor and model).
 
-
-def _mergeable(a: dict, b: dict) -> bool:
-    """Two certified Matter models (distinct vid/pid) stay separate even when they share a name:
-    vendors reuse names such as "Air Conditioner" across many different models."""
-    return not ("matter_vid_pid" in a["identity"]["ids"] and "matter_vid_pid" in b["identity"]["ids"])
-
-
-def dedupe(records: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Merge records for the same (vendor, model); then make every id unique. Returns (records, merges)."""
-    by_key: dict[tuple[str, str], list[int]] = {}
-    out: list[dict] = []
-    merges = []
+    Records are never merged: each keeps its own definition, features, ids and sources, so a
+    redistributable record is never tainted by a non-redistributable one (spec §5).
+    """
+    groups: dict[tuple[str, str], list[dict]] = {}
     for r in records:
-        slots = by_key.setdefault((slug(r["identity"]["vendor"]), slug(r["identity"]["model"])), [])
-        i = next((j for j in slots if _mergeable(out[j], r)), None)
-        if i is None:
-            slots.append(len(out))
-            out.append(r)
+        identity = r["identity"]
+        groups.setdefault((identity["vendor"].strip().casefold(), identity["model"].strip().casefold()), []).append(r)
+    links = []
+    for group in groups.values():
+        if len({_protocol(r) for r in group}) < 2:
             continue
-        keep, drop = (out[i], r) if _rank(out[i]) >= _rank(r) else (r, out[i])
-        out[i] = _merge(keep, drop)
-        merges.append({"kept": keep["id"], "merged": drop["id"]})
-    seen: dict[str, int] = {}
-    for r in out:
-        n = seen.get(r["id"], 0)
-        seen[r["id"]] = n + 1
-        if n:
-            r["id"] = f"{r['id']}-{n + 1}"
-    return out, merges
+        for r in group:
+            r["identity"]["same_product_as"] = sorted(o["id"] for o in group if _protocol(o) != _protocol(r))
+        links.append(sorted(r["id"] for r in group))
+    return sorted(links)
+
+
+def _release_only(records: list[dict], links: list[list[str]], rejected: list[dict]):
+    """Drop records that use a non-redistributable source, and every reference to them."""
+    records = [r for r in records if all(s["redistributable"] for s in r["sources"])]
+    kept = {r["id"]: _protocol(r) for r in records}
+    for r in records:
+        others = [i for i in r["identity"].get("same_product_as", []) if i in kept]
+        if others:
+            r["identity"]["same_product_as"] = others
+        else:
+            r["identity"].pop("same_product_as", None)
+    links = [g for g in ([i for i in g if i in kept] for g in links) if len({kept[i] for i in g}) > 1]
+    rejected = [x for x in rejected if x.get("redistributable", True)]
+    return records, links, rejected
 
 
 def build_catalog(raw_root: Path, out_dir: Path, *, release: bool = False) -> dict:
@@ -136,12 +118,13 @@ def build_catalog(raw_root: Path, out_dir: Path, *, release: bool = False) -> di
         for r in recs:
             errors = validate_vds(r)
             if errors:
-                rejected.append({"id": r.get("id"), "errors": errors[:5]})
+                rejected.append({"id": r.get("id"), "errors": errors[:5],
+                                 "redistributable": all(s.get("redistributable") for s in r.get("sources", []))})
             else:
                 records.append(r)
-    records, merges = dedupe(records)
+    links = link_products(records)
     if release:
-        records = [r for r in records if all(s["redistributable"] for s in r["sources"])]
+        records, links, rejected = _release_only(records, links, rejected)
     out_dir.mkdir(parents=True, exist_ok=True)
     for protocol in PROTOCOLS:  # always rewrite every file, so a skipped source never leaves a stale one
         group = sorted((r for r in records if r["id"].startswith(protocol + ":")), key=lambda r: r["id"])
@@ -149,7 +132,7 @@ def build_catalog(raw_root: Path, out_dir: Path, *, release: bool = False) -> di
     cov = coverage(records)
     _write(out_dir / "coverage.json", json.dumps(cov, indent=2, sort_keys=True) + "\n")
     _write(out_dir / "coverage.csv", coverage_csv(cov))
-    report = {"records": len(records), "rejected": rejected, "skipped_sources": skipped, "merged": merges,
+    report = {"records": len(records), "rejected": rejected, "skipped_sources": skipped, "linked": links,
               "release": release, "inputs": inputs}
     _write(out_dir / "build_report.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
     return report

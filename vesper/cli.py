@@ -45,7 +45,7 @@ def _build(args) -> int:
         print(f"FAILED build: {e}", file=sys.stderr)
         return 1
     print(f"built {report['records']} records into {args.out} "
-          f"({len(report['rejected'])} rejected, {len(report['merged'])} merged)")
+          f"({len(report['rejected'])} rejected, {len(report['linked'])} linked across protocols)")
     for source, why in report["skipped_sources"].items():
         print(f"SKIPPED {source}: {why}", file=sys.stderr)
     return 1 if report["skipped_sources"] else 0
