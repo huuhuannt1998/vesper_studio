@@ -19,7 +19,6 @@ def test_build_writes_catalog_coverage_and_report(raw_root, tmp_path):
     out = tmp_path / "vds"
     report = build_catalog(raw_root, out)
     assert report["skipped_sources"] == {} and report["release"] is False
-    assert report["inputs"] == {"zigbee": "26.123.0", "dcl": "height-1", "matter_zap": "v1.6.1.0", "zwave": "15.31.2"}
     assert len(load(out, "zigbee")) == 11 and len(load(out, "matter")) == 6 and len(load(out, "zwave")) == 3
     assert sorted(x["file"].rsplit("/", 1)[1] for x in report["rejected"]) == ["broken.json", "nolabel.json"]
     assert report["merged"] == []
@@ -106,3 +105,20 @@ def test_dedupe_keeps_distinct_certified_matter_models_that_share_a_name():
     out, merges = dedupe([a, b, zig])
     assert [r["id"] for r in out] == ["matter:1120:0001", "matter:1120:0002"]
     assert merges == [{"kept": "matter:1120:0001", "merged": "zigbee:hisense:air-conditioner"}]
+
+
+def test_a_corrupt_snapshot_fails_the_build_and_keeps_the_previous_catalog(raw_root, tmp_path):
+    out = tmp_path / "vds"
+    build_catalog(raw_root, out)
+    before = (out / "zigbee.json").read_bytes()
+    (raw_root / "zigbee" / "26.123.0" / "definitions.json").write_text("[]")
+    with pytest.raises(CatalogError, match="changed since sync"):
+        build_catalog(raw_root, out)
+    assert (out / "zigbee.json").read_bytes() == before
+
+
+def test_inputs_record_every_snapshot_version_and_manifest_digest(raw_root, tmp_path):
+    inputs = build_catalog(raw_root, tmp_path / "vds")["inputs"]
+    assert {k: v["version"] for k, v in inputs.items()} == {
+        "ha": "2026.10.2", "zigbee": "26.123.0", "dcl": "height-1", "matter_zap": "v1.6.1.0", "zwave": "15.31.2"}
+    assert all(len(v["manifest_sha256"]) == 64 for v in inputs.values())

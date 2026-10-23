@@ -63,3 +63,13 @@ def test_matter_comes_only_from_the_apache_zap_xml():
 def test_dcl_is_not_redistributable_until_its_terms_are_checked():
     assert source_entry("dcl", "height-1") == {
         "source": "dcl", "version": "height-1", "license": "DCL-terms-unverified", "redistributable": False}
+
+
+def test_an_interrupted_resync_of_the_same_version_keeps_the_last_good_snapshot(tmp_path):
+    write_snapshot(tmp_path, "zigbee", "1.0.0", {"a.json": b"good-a", "b.json": b"good-b"}, license="MIT", origin="t")
+    with pytest.raises(TypeError):  # the second file fails after the first was written
+        write_snapshot(tmp_path, "zigbee", "1.0.0", {"a.json": b"new-a", "b.json": None}, license="MIT", origin="t")
+    assert load_snapshot(tmp_path, "zigbee")[1] == {"a.json": b"good-a", "b.json": b"good-b"}
+    write_snapshot(tmp_path, "zigbee", "1.0.0", {"a.json": b"new-a"}, license="MIT", origin="t")
+    assert load_snapshot(tmp_path, "zigbee")[1] == {"a.json": b"new-a"}
+    assert sorted(p.name for p in (tmp_path / "zigbee").iterdir()) == ["1.0.0", "CURRENT"]
