@@ -240,3 +240,12 @@ def test_flush_waits_for_every_queued_message(vds):
     b.retract()
     b.flush(timeout=1)
     assert client.infos and all(i.waited for i in client.infos)
+
+
+def test_a_bridge_without_discovery_never_touches_home_assistant_topics(vds):
+    rt = Runtime(clock=LogicalClock())
+    client = FakeClient()
+    b = Bridge(rt, [Placement(rt.add(vds["PLUG-1"]).id, "plug")], client, discovery=False)
+    b.start()
+    b.retract()
+    assert not any(t.startswith("homeassistant/") for t, _, _ in client.published)

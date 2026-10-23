@@ -55,3 +55,34 @@ def test_the_rule_run_is_reproducible():
     a = run_rules(list(records().values()), seed=1, duration_s=3600)
     b = run_rules(list(records().values()), seed=1, duration_s=3600)
     assert a == b and a["reports"] > 0
+
+
+def test_an_occupancy_that_never_clears_is_flagged():
+    c = checker()
+    c.on_presence("t", 20.0)
+    c.on_event(ev(20, "occupancy", True))
+    r4 = [v for v in c.finish()["violations"] if v["rule"].startswith("R4")]
+    assert [v["rule"] for v in r4] == ["R4 occupancy never cleared"]
+
+
+def test_presence_without_a_reporting_rule_is_still_checked():
+    c = RuleChecker(end_t=150.0, rules={}, initial={("t", "presence"): False}, added={"t": 0.0},
+                    presence_values={("t", "presence"): (True, False)})
+    c.on_presence("t", 10.0)
+    c.on_event(ev(10, "presence", True))
+    c.on_event(ev(40, "presence", False))  # 30 s, not 90 s
+    result = c.finish()
+    assert [v["rule"] for v in result["violations"]] == ["R4 occupancy timeout"] and result["r4_checked"] == 1
+
+
+def test_a_run_that_checks_nothing_does_not_pass():
+    lights_only = [r for r in records().values() if r["identity"]["model"] == "DIM-1"]
+    for r in lights_only:
+        r["behavior"]["reporting"] = {}
+    report = run_rules(lights_only, seed=0, duration_s=600)
+    assert report["features_checked"] == 0 and report["passed"] is False
+
+
+def test_rejected_stimuli_are_counted_not_hidden():
+    report = run_rules(list(records().values()), seed=0, duration_s=3600)
+    assert "stimulus_rejections" in report and "r4_checked" in report and report["r4_checked"] > 0

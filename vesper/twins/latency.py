@@ -40,13 +40,16 @@ class Path:
     def cdf(self, x: float) -> float:
         if self.kind == "lognormal":
             return _N.cdf((math.log(x) - math.log(self.a)) / self.b) if x > 0 else 0.0
+        if self.b == self.a:  # a constant delay
+            return 1.0 if x >= self.a else 0.0
         return min(1.0, max(0.0, (x - self.a) / (self.b - self.a)))
 
 
 PATHS = {
     "local": Path("local", "lognormal", 0.1145, 0.17, "Zhan, Li, Zhang, Haddadi, arXiv:2602.22525 (2026)",
                   "MQTT -> Home Assistant REST -> Hue -> confirmation, N=150: median 114.5 ms, P95 152 ms; "
-                  "sigma = ln(152/114.5)/1.645"),
+                  "sigma = ln(152/114.5)/1.645. Borrowed: measured on an actuation round trip, applied here to "
+                  "sensor reports as well, so for reports it counts as assumed"),
     "vendor_cloud": Path("vendor_cloud", "lognormal", 1.369, 0.212,
                          "Goksel et al., IEEE SafeThings 2021, Table III (from Lee, Mun, Lee, ICCE 2020)",
                          "device <-> vendor cloud 1.4 +/- 0.3 s; lognormal moment-matched to that mean and sd"),

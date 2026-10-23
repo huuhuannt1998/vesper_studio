@@ -44,6 +44,7 @@ class RuleChecker:
     presence_values: dict[tuple[str, str], tuple] = field(default_factory=dict)  # (value_on, value_off)
     violations: list[dict] = field(default_factory=list)
     reports: int = 0
+    r4_checked: int = 0
 
     def __post_init__(self):
         self._last: dict[tuple[str, str], tuple[float, object]] = {}
@@ -57,21 +58,22 @@ class RuleChecker:
 
     def on_event(self, e: Event) -> None:
         key = (e.twin_id, e.feature)
-        rule = self.rules.get(key)
-        if rule is None:
+        rule, values = self.rules.get(key), self.presence_values.get(key)
+        if rule is None and values is None:
             return
-        self.reports += 1
         t = e.observed_t
         prev_t, prev_value = self._last.get(key, (None, self.initial.get(key)))
-        since = self.added.get(e.twin_id, 0.0) if prev_t is None else prev_t
-        if prev_t is not None and t - prev_t < rule["min_s"] - EPS:
-            self._flag("R1 min_s", key, t, f"{t - prev_t:.3f} s after the last report; min_s {rule['min_s']}")
-        if e.cause != "periodic" and not _significant(prev_value, e.value, rule["change"]):
-            self._flag("R3 change", key, t, f"{prev_value!r} -> {e.value!r}; change {rule['change']}")
-        if t - since > rule["max_s"] + EPS:
-            self._flag("R2 max_s", key, t, f"{t - since:.3f} s of silence; max_s {rule['max_s']}")
-        values = self.presence_values.get(key)
+        if rule is not None:
+            self.reports += 1
+            since = self.added.get(e.twin_id, 0.0) if prev_t is None else prev_t
+            if prev_t is not None and t - prev_t < rule["min_s"] - EPS:
+                self._flag("R1 min_s", key, t, f"{t - prev_t:.3f} s after the last report; min_s {rule['min_s']}")
+            if e.cause != "periodic" and not _significant(prev_value, e.value, rule["change"]):
+                self._flag("R3 change", key, t, f"{prev_value!r} -> {e.value!r}; change {rule['change']}")
+            if t - since > rule["max_s"] + EPS:
+                self._flag("R2 max_s", key, t, f"{t - since:.3f} s of silence; max_s {rule['max_s']}")
         if values and e.cause != "periodic" and e.value == values[1] and prev_value == values[0]:
+            self.r4_checked += 1
             shown = self._presence.get(e.twin_id)
             if shown is None or abs(t - shown - OCCUPANCY_TIMEOUT_S) > EPS:
                 self._flag("R4 occupancy timeout", key, t,
@@ -85,7 +87,13 @@ class RuleChecker:
             if self.end_t - last_t > rule["max_s"] + EPS:
                 self._flag("R2 max_s", key, self.end_t, f"{self.end_t - last_t:.3f} s of silence at the end; "
                                                         f"max_s {rule['max_s']}")
-        return {"reports": self.reports, "violations": self.violations}
+        for key, (on, _) in self.presence_values.items():
+            shown = self._presence.get(key[0])
+            last = self._last.get(key, (None, self.initial.get(key)))[1]
+            if last == on and shown is not None and shown + OCCUPANCY_TIMEOUT_S <= self.end_t - EPS:
+                self._flag("R4 occupancy never cleared", key, self.end_t,
+                           f"still on {self.end_t - shown:.3f} s after the last presence")
+        return {"reports": self.reports, "violations": self.violations, "r4_checked": self.r4_checked}
 
 
 def _script(rt: Runtime, twin, rng: random.Random, duration_s: float, checker: RuleChecker) -> None:
@@ -159,14 +167,19 @@ def run_rules(records: list[dict], *, seed: int, duration_s: float) -> dict:
     """R1-R4 over every L1 twin with reporting rules, on the logical clock; exact, so the pass bar is 100%."""
     rt = Runtime(clock=LogicalClock(), seed=seed)
     twins = [rt.add(r) for r in sorted(records, key=lambda r: r["id"]) if r["fidelity"]["reached"]["L1"]]
-    rules, initial, presence = {}, {}, {}
+    rules, initial, presence, dropped = {}, {}, {}, 0
     for twin in twins:
         for name, rule in twin.vds.get("behavior", {}).get("reporting", {}).items():
             if name in twin.features:
                 rules[(twin.id, name)] = rule
                 initial[(twin.id, name)] = twin.state[name]
-                if name in PRESENCE and twin.features[name]["type"] == "binary":
-                    presence[(twin.id, name)] = (twin.features[name]["value_on"], twin.features[name]["value_off"])
+            else:
+                dropped += 1  # a rule for a feature the twin does not have: counted, not silently lost
+        for name in PRESENCE:  # R4 holds whether or not the feature has a reporting rule
+            f = twin.features.get(name)
+            if f and f["type"] == "binary":
+                presence[(twin.id, name)] = (f["value_on"], f["value_off"])
+                initial[(twin.id, name)] = twin.state[name]
     checker = RuleChecker(end_t=duration_s, rules=rules, initial=initial, added={t.id: 0.0 for t in twins},
                           presence_values=presence)
     rt.subscribe(checker.on_event)
@@ -174,34 +187,49 @@ def run_rules(records: list[dict], *, seed: int, duration_s: float) -> dict:
         _script(rt, twin, random.Random(stable_seed(seed, twin.id, "rules")), duration_s, checker)
     rt.clock.advance_to(duration_s)
     result = checker.finish()
-    return {"products": len(twins), "features_checked": len(rules), "reports": result["reports"],
+    checked = len(rules) + len(presence)
+    return {"products": len(twins), "products_with_rules": len({k[0] for k in rules}),
+            "features_checked": len(rules), "presence_features": len(presence), "rules_dropped": dropped,
+            "reports": result["reports"], "r4_checked": result["r4_checked"],
             "violations": result["violations"][:200], "violation_count": len(result["violations"]),
-            "faulted": dict(rt.faulted), "passed": not result["violations"] and not rt.faulted,
+            "stimulus_rejections": sum("rejected" in n for n in rt.notes), "faulted": dict(rt.faulted),
+            "passed": checked > 0 and not result["violations"] and not rt.faulted,
             "seed": seed, "duration_s": duration_s}
 
 
-def measure_latency(record: dict, bridge_client, observer, *, n: int, path: Path | None, overhead_s: float,
-                    spacing_s: float, timeout_s: float, seed: int) -> list[float]:
-    """Seconds from opening each of n contact-sensor twins of `record` to `observer` receiving the report.
+BASE_TOPIC = "vesper-latency"  # its own topics: never another bridge's (a real Zigbee2MQTT's included)
 
-    Contact has no reporting rule, so each report leaves at once and only the latency model (or, with no
-    path, VESPER's own pipeline: runtime, bridge, broker, client) separates stimulus and receipt.
+
+def measure_latency(record: dict, bridge_client, observer, *, n: int, path: Path, overhead_s: float,
+                    spacing_s: float, timeout_s: float, seed: int) -> list[dict]:
+    """Open each of n contact-sensor twins of `record` once; per sample, the latency the model injected
+    and the latency `observer` saw (stimulus to receipt, monotonic clock).
+
+    Contact has no reporting rule, so a report leaves at once and is delayed only by the injected latency
+    plus VESPER's own pipeline and scheduling; `observed_s - injected_s` is that residual. Each path gets
+    its own twin ids and seed, so paths never share draws.
     """
     clock = WallClock()
-    latency = None if path is None else LatencyModel(default=path.name, paths={path.name: path},
-                                                     overhead_s=overhead_s)
-    rt = Runtime(clock=clock, seed=seed, latency=latency)
-    placements = [Placement(rt.add(record, twin_id=f"{record['id']}@lat{i:04d}").id, f"vesper_lat_{i:04d}")
-                  for i in range(n)]
-    bridge = Bridge(rt, placements, bridge_client, discovery=False)
+    model = LatencyModel(default=path.name, paths={path.name: path}, overhead_s=overhead_s)
+    rt = Runtime(clock=clock, seed=stable_seed(seed, path.name), latency=model)
+    placements = [Placement(rt.add(record, twin_id=f"{record['id']}@lat-{path.name}-{i:04d}").id,
+                            f"lat_{path.name}_{i:04d}") for i in range(n)]
+    bridge = Bridge(rt, placements, bridge_client, base_topic=BASE_TOPIC, discovery=False)
     opened = rt.twins[placements[0].twin_id].features["contact"]["value_on"]
-    topics = {f"{bridge.base_topic}/{p.friendly_name}": p.twin_id for p in placements}
+    topics = {f"{BASE_TOPIC}/{p.friendly_name}": p.twin_id for p in placements}
     sent: dict[str, float] = {}
     got: dict[str, float] = {}
+    injected: dict[str, float] = {}
     done = threading.Event()
+
+    def on_event(e: Event) -> None:
+        if e.feature == "contact" and e.value == opened:
+            injected[e.twin_id] = e.observed_t - e.physical_t
 
     def on_message(client, userdata, msg):
         received = time.monotonic()
+        if getattr(msg, "retain", False):  # a retained copy is not a live report
+            return
         twin_id = topics.get(msg.topic)
         if twin_id in sent and twin_id not in got and msg.payload:
             if json.loads(msg.payload).get("contact") == opened:
@@ -209,8 +237,9 @@ def measure_latency(record: dict, bridge_client, observer, *, n: int, path: Path
                 if len(got) == n:
                     done.set()
 
+    rt.subscribe(on_event)
     observer.on_message = on_message
-    observer.subscribe(f"{bridge.base_topic}/+")
+    observer.subscribe(f"{BASE_TOPIC}/+")
     try:
         bridge.start()
         for p in placements:
@@ -220,7 +249,7 @@ def measure_latency(record: dict, bridge_client, observer, *, n: int, path: Path
         if not done.wait(timeout_s):
             raise TimeoutError(f"{len(got)} of {n} reports arrived within {timeout_s:.0f} s")
     finally:
+        clock.close()  # first, so no late delivery republishes a state after the retraction
         bridge.retract()
         bridge.flush()
-        clock.close()
-    return [got[t] - sent[t] for t in sorted(got)]
+    return [{"twin": t, "injected_s": injected[t], "observed_s": got[t] - sent[t]} for t in sorted(got)]

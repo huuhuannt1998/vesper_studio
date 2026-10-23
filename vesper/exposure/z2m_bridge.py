@@ -145,8 +145,10 @@ class Bridge:
         """Remove every retained message this bridge published, so Home Assistant forgets the twins."""
         b = self.base_topic
         for p in self.placements:
-            for topic in (f"homeassistant/device/{ieee_address(p.twin_id)}/config", f"{b}/{p.friendly_name}",
-                          f"{b}/{p.friendly_name}/availability"):
+            topics = [f"{b}/{p.friendly_name}", f"{b}/{p.friendly_name}/availability"]
+            if self.discovery:  # only what this bridge published: never another tool's discovery topics
+                topics.insert(0, f"homeassistant/device/{ieee_address(p.twin_id)}/config")
+            for topic in topics:
                 self._track(self.client.publish(topic, "", qos=1, retain=True))
         for topic in ("bridge/devices", "bridge/info", "bridge/state"):
             self._track(self.client.publish(f"{b}/{topic}", "", qos=1, retain=True))
