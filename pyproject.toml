@@ -28,3 +28,4 @@ packages = ["vesper"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["network: hits real upstream sources (opt-in: VESPER_NETWORK_TESTS=1)"]
