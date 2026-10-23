@@ -18,3 +18,10 @@ def fetch(client: httpx.Client, url: str, params: dict | None = None) -> httpx.R
     except httpx.HTTPError as e:
         raise IngestError(f"download failed: {url}: {e}") from e
     return response
+
+
+def fetch_json(client: httpx.Client, url: str, params: dict | None = None):
+    try:
+        return fetch(client, url, params).json()
+    except ValueError as e:
+        raise IngestError(f"{url}: response is not JSON: {e}") from e

@@ -50,3 +50,18 @@ def test_unknown_source_is_a_usage_error():
     with pytest.raises(SystemExit) as e:
         cli.main(["catalog", "sync", "--source", "data_model"])
     assert e.value.code == 2
+
+
+def test_an_unexpected_error_in_one_source_does_not_stop_the_others(tmp_path, monkeypatch, capsys):
+    ran = []
+
+    def fake(source, raw_root, cache_root, client):
+        ran.append(source)
+        if source == "matter_zap":
+            raise KeyError("download_url")
+        return raw_root / source
+
+    monkeypatch.setattr(cli, "_sync_one", fake)
+    assert cli.main(["catalog", "sync", "--raw-root", str(tmp_path)]) == 1
+    assert ran == ["ha", "zigbee", "matter_zap", "dcl", "zwave"]
+    assert "FAILED matter_zap: KeyError: 'download_url'" in capsys.readouterr().err

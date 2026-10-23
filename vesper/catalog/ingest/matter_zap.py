@@ -13,7 +13,7 @@ from pathlib import Path
 import httpx
 
 from vesper.catalog.errors import IngestError
-from vesper.catalog.ingest._http import fetch
+from vesper.catalog.ingest._http import fetch, fetch_json
 from vesper.catalog.snapshot import write_snapshot
 from vesper.catalog.sources import SOURCES
 
@@ -155,7 +155,7 @@ def resolve_type(m: ZapModel, type_name: str, cluster_code: int | None = None) -
 
 def sync_matter_zap(raw_root: Path, client: httpx.Client, tag: str | None = None) -> Path:
     tag = tag or SOURCES["matter_zap"].version
-    listing = fetch(client, LISTING, params={"ref": tag}).json()
+    listing = fetch_json(client, LISTING, params={"ref": tag})
     entries = [e for e in listing if e.get("type") == "file" and e.get("name", "").endswith(".xml")]
     if not entries:
         raise IngestError(f"no ZAP XML listed at {tag}")

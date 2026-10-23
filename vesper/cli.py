@@ -35,6 +35,9 @@ def _sync(args) -> int:
             except CatalogError as e:
                 failed.append(source)
                 print(f"FAILED {source}: {e}", file=sys.stderr)
+            except Exception as e:  # an unexpected reply from one source must not stop the others
+                failed.append(source)
+                print(f"FAILED {source}: {type(e).__name__}: {e}", file=sys.stderr)
     return 1 if failed else 0
 
 

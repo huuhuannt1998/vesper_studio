@@ -11,7 +11,7 @@ from pathlib import Path
 import httpx
 
 from vesper.catalog.errors import IngestError
-from vesper.catalog.ingest._http import fetch
+from vesper.catalog.ingest._http import fetch_json
 from vesper.catalog.snapshot import write_snapshot
 from vesper.catalog.sources import SOURCES
 
@@ -32,27 +32,35 @@ def fetch_all(client: httpx.Client, path: str, list_key: str, *, page_size: int 
             params["pagination.key"] = key
         else:
             params["pagination.count_total"] = "true"
-        page = fetch(client, BASE + path, params=params).json()
+        page = fetch_json(client, BASE + path, params=params)
         pagination = page.get("pagination") or {}
         if total is None:
-            total = int(pagination.get("total") or 0)
+            if "total" not in pagination:
+                raise IngestError(f"{path}: the ledger did not report a total; refusing a possibly partial read")
+            total = int(pagination["total"])
         items.extend(page.get(list_key) or [])
         key = pagination.get("next_key")
         if not key:
             break
     else:
         raise IngestError(f"{path}: pagination did not end after {max_pages} pages")
-    if total and len(items) != total:
+    if len(items) != total:
         raise IngestError(f"{path}: received {len(items)} records but the ledger reports {total}")
     return items
 
 
 def sync_dcl(raw_root: Path, client: httpx.Client) -> Path:
-    height = int(fetch(client, BASE + LATEST_BLOCK).json()["block"]["header"]["height"])
+    block = fetch_json(client, BASE + LATEST_BLOCK)
+    try:
+        height = int(block["block"]["header"]["height"])
+    except (KeyError, TypeError, ValueError) as e:
+        raise IngestError(f"{BASE + LATEST_BLOCK}: unexpected reply, no block height ({e!r})") from e
     models = fetch_all(client, MODELS, "model")
     vendors = fetch_all(client, VENDORS, "vendorInfo")
     if not models:
         raise IngestError("the DCL returned no models")
+    if not vendors:  # without vendor names every Matter product would silently fall below L0
+        raise IngestError("the DCL returned no vendors")
     files = {"models.json": json.dumps(models, sort_keys=True).encode(),
              "vendors.json": json.dumps(vendors, sort_keys=True).encode()}
     return write_snapshot(raw_root, "dcl", f"height-{height}", files, license=SOURCES["dcl"].license,
