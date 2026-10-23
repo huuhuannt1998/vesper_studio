@@ -328,29 +328,61 @@ def test_rules_command_checks_every_twin_offline(tmp_path, catalog, capsys):
     assert "0 violations" in capsys.readouterr().out
 
 
-def test_latency_command_measures_overhead_then_each_path(monkeypatch, tmp_path, broker, mosquitto, catalog, capsys):
+def test_latency_command_calibrates_then_measures_each_path(monkeypatch, tmp_path, broker, mosquitto, catalog, capsys):
     import random
 
     import vesper.validation.timing as timing_mod
-    from vesper.twins.latency import PATHS
+
 
     calls = []
 
     def fake_measure(record, bridge_client, observer, *, n, path, overhead_s, spacing_s, timeout_s, seed):
-        calls.append((path.name if path else None, overhead_s, n))
+        calls.append((path.name, overhead_s, n, timeout_s))
         rng = random.Random(seed)
-        return [0.004] * n if path is None else [path.sample(rng) for _ in range(n)]
+        out = []
+        for i in range(n):
+            injected = max(0.0, path.sample(rng) - overhead_s)
+            out.append({"twin": f"t{i}", "injected_s": injected, "observed_s": injected + 0.004})
+        return out
 
     monkeypatch.setattr(timing_mod, "measure_latency", fake_measure)
     out = tmp_path / "lat.json"
     code = cli.main(["validate", "latency", "--catalog", str(catalog), "--root", str(tmp_path / ".vesper"),
-                     "--paths", "local,vendor_cloud", "--n", "200", "--out", str(out)])
+                     "--paths", "local,vendor_cloud", "--out", str(out)])
     report = json.loads(out.read_text())
-    assert [c[0] for c in calls] == [None, "local", "vendor_cloud"] and calls[1][1] == 0.004
-    assert report["overhead"]["median_s"] == 0.004 and set(report["paths"]) == {"local", "vendor_cloud"}
-    assert report["preregistration"]["margin"] == 0.10 and report["paths"]["local"]["source"] == PATHS["local"].source
-    assert code == (0 if report["passed"] else 1) and mosquitto[0].events == ["start", "stop"]
+    assert [c[0] for c in calls] == ["calibration", "local", "vendor_cloud"] and calls[0][2] == 200
+    assert calls[1][1] == pytest.approx(0.004)  # overhead = the median calibration residual
+    assert calls[2][3] > calls[1][3]  # the slower path waits longer
+    assert report["calibration"]["passed"] and report["overhead_s"] == pytest.approx(0.004)
+    generator = report["generator"]
+    assert set(generator) == {"local", "vendor_cloud"} and all(g["passed"] for g in generator.values())
+    assert report["paths"]["local"]["residual"]["passed"] and "described" in report["paths"]["local"]
+    assert code == 0 and report["passed"] and mosquitto[0].events == ["start", "stop"]
+    assert report["run"]["parameters"]["paths"] == "local,vendor_cloud" and "git_commit" in report["run"]
     assert "local:" in capsys.readouterr().out
+
+
+def test_a_failed_latency_run_still_leaves_a_result(monkeypatch, tmp_path, broker, mosquitto, catalog, capsys):
+    import vesper.validation.timing as timing_mod
+
+    def lost(*a, **k):
+        raise TimeoutError("120 of 200 reports arrived within 360 s")
+
+    monkeypatch.setattr(timing_mod, "measure_latency", lost)
+    out = tmp_path / "lat.json"
+    code = cli.main(["validate", "latency", "--catalog", str(catalog), "--root", str(tmp_path / ".vesper"),
+                     "--out", str(out)])
+    report = json.loads(out.read_text())
+    assert code == 1 and report["passed"] is False and "120 of 200" in report["error"]
+    assert "FAILED latency" in capsys.readouterr().err
+
+
+def test_every_result_records_how_it_was_produced(tmp_path, catalog):
+    out = tmp_path / "rules.json"
+    cli.main(["validate", "rules", "--catalog", str(catalog), "--hours", "1", "--out", str(out)])
+    run = json.loads(out.read_text())["run"]
+    assert run["parameters"]["hours"] == 1.0 and run["parameters"]["seed"] == 0
+    assert run["catalog_inputs"]["zigbee"]["version"] == "26.123.0" and "git_dirty" in run
 
 
 def test_report_command_writes_markdown_and_json(tmp_path, catalog, capsys):

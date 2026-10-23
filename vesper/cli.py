@@ -58,9 +58,33 @@ def _build(args) -> int:
     return 1 if report["skipped_sources"] else 0
 
 
-def _write_report(out: str | None, kind: str, report: dict) -> Path:
+def _git(*cmd: str) -> str | None:
+    import subprocess
+    try:
+        r = subprocess.run(["git", *cmd], capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return r.stdout.strip() if r.returncode in (0, 1) else None
+
+
+def _run_info(args) -> dict:
+    """How a result was produced: the parameters, the code version and the catalog it read."""
+    parameters = {k: v for k, v in vars(args).items() if k not in ("out", "command", "action")}
+    catalog = Path(getattr(args, "catalog", "") or "catalog/vds") / "build_report.json"
+    inputs = json.loads(catalog.read_text()).get("inputs", {}) if catalog.is_file() else None
+    dirty = _git("status", "--porcelain", "--ignore-submodules=all", "--", "vesper", "tests", "pyproject.toml",
+                 "docs/experiments")
+    return {"command": f"{args.command} {getattr(args, 'action', '')}".strip(), "parameters": parameters,
+            "git_commit": _git("rev-parse", "HEAD"), "git_dirty": None if dirty is None else bool(dirty),
+            "catalog_inputs": inputs, "vesper_version": __import__("vesper").__version__,
+            "finished_utc": f"{datetime.now(UTC):%Y-%m-%dT%H:%M:%SZ}"}
+
+
+def _write_report(out: str | None, kind: str, report: dict, args=None) -> Path:
     path = Path(out) if out else Path("results/device-twins") / f"{kind}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
+    if args is not None:
+        report = {**report, "run": _run_info(args)}
     path.write_text(json.dumps(report, indent=2, sort_keys=True, default=str) + "\n")
     return path
 
@@ -160,7 +184,7 @@ def _validate_roundtrip(args) -> int:
     l1 = {r["id"] for r in records if r["fidelity"]["reached"]["L1"]}
     report |= {"zhc_version": doc["version"], "l1_products": len(l1),
                "l1_with_diffs": sorted(set(report["different"]) & l1)}
-    path = _write_report(args.out, "roundtrip", report)
+    path = _write_report(args.out, "roundtrip", report, args)
     print(f"round trip: {report['identical']}/{report['checked']} definitions identical "
           f"({len(report['different'])} with diffs, {len(report['unmatched'])} unmatched, "
           f"{len(report['missing'])} missing, {len(report['duplicates'])} duplicated); report {path}")
@@ -184,21 +208,35 @@ def _validate_rules(args) -> int:
     from vesper.validation.timing import run_rules
     records = [r for r in load_catalog(Path(args.catalog)).values() if r["id"].startswith("zigbee:")]
     report = run_rules(records, seed=args.seed, duration_s=args.hours * 3600)
-    path = _write_report(args.out, "rules", report)
+    path = _write_report(args.out, "rules", report, args)
     print(f"rules: {report['products']} products, {report['features_checked']} reporting features, "
           f"{report['reports']} reports, {report['violation_count']} violations; report {path}")
     return 0 if report["passed"] else 1
 
 
 def _validate_latency(args) -> int:
+    """L3 latency (docs/experiments/l3-timing-design.md): G offline, then calibration and P on the wall clock."""
     from statistics import median
 
     from vesper.exposure.mqtt import connect, disconnect
     from vesper.twins.home import load_catalog
-    from vesper.twins.latency import PATHS
+    from vesper.twins.latency import PATHS, Path as LatencyPath
+    from vesper.twins.twin import stable_seed
     from vesper.validation import stats, timing
     from vesper.validation.stack import Mosquitto, StackError
+    names = args.paths.split(",")
+    generator = {n: stats.generator_check(PATHS[n], seed=stable_seed(args.seed, n, "generator")) for n in names}
+    calibration_path = LatencyPath("calibration", "uniform", stats.CALIBRATION_DELAY, stats.CALIBRATION_DELAY,
+                                   None, "a constant injected delay, through the same timer path as every model")
     record = load_catalog(Path(args.catalog))[args.product]
+    report: dict = {"product": args.product, "seed": args.seed, "generator": generator,
+                    "preregistration": {"design": "docs/experiments/l3-timing-design.md", "n": args.n,
+                                        "generator_n": stats.GENERATOR_N,
+                                        "generator_tolerances": [stats.GENERATOR_MEDIAN_TOL,
+                                                                 stats.GENERATOR_QUANTILE_TOL],
+                                        "residual_median_max_s": stats.RESIDUAL_MEDIAN_MAX,
+                                        "residual_p95_max_s": stats.RESIDUAL_P95_MAX,
+                                        "calibration_delay_s": stats.CALIBRATION_DELAY}}
     broker = None if args.external_broker else Mosquitto(Path(args.root), port=args.mqtt_port)
     try:
         if broker:
@@ -206,38 +244,45 @@ def _validate_latency(args) -> int:
         bridge_client = connect("127.0.0.1", args.mqtt_port, "vesper-latency-bridge")
         observer = connect("127.0.0.1", args.mqtt_port, "vesper-latency-observer")
         try:
-            def run(path, overhead_s):
-                timeout = 60.0 + (path.quantile(0.999) if path else 0.0)
+            def measure(path, overhead_s):
+                timeout = 60.0 + path.quantile(1 - 0.001 / args.n)  # a spurious timeout stays below 0.1%
                 return timing.measure_latency(record, bridge_client, observer, n=args.n, path=path,
                                               overhead_s=overhead_s, spacing_s=args.spacing, timeout_s=timeout,
                                               seed=args.seed)
-            overhead = run(None, 0.0)
-            overhead_s = median(overhead)
-            results = {}
-            for name in args.paths.split(","):
-                xs = run(PATHS[name], overhead_s)
-                results[name] = stats.assess_path(xs, PATHS[name], seed=args.seed) | {"samples_s": xs}
+            calibration = measure(calibration_path, 0.0)
+            residuals = [s["observed_s"] - s["injected_s"] for s in calibration]
+            report["calibration"] = stats.residual_check(residuals) | {"samples": calibration}
+            report["overhead_s"] = median(residuals)
+            report["paths"] = {}
+            for name in names:
+                samples = measure(PATHS[name], report["overhead_s"])
+                report["paths"][name] = {
+                    "residual": stats.residual_check([s["observed_s"] - s["injected_s"] for s in samples]),
+                    "described": stats.describe_path([s["observed_s"] for s in samples], PATHS[name],
+                                                     seed=stable_seed(args.seed, name, "bootstrap")),
+                    "samples": samples}
         finally:
             disconnect(bridge_client)
             disconnect(observer)
-    except (StackError, TimeoutError) as e:
-        print(f"FAILED latency: {e}", file=sys.stderr)
+    except (StackError, TimeoutError, OSError) as e:
+        report |= {"error": str(e), "passed": False}
+        path = _write_report(args.out, "latency", report, args)
+        print(f"FAILED latency: {e}; partial result {path}", file=sys.stderr)
         return 1
     finally:
         if broker:
             broker.stop()
-    report = {"product": args.product, "seed": args.seed,
-              "overhead": {"n": len(overhead), "median_s": overhead_s, "max_s": max(overhead), "samples_s": overhead},
-              "paths": results, "passed": all(r["passed"] for r in results.values()),
-              "preregistration": {"design": "docs/experiments/l3-timing-design.md", "margin": stats.MARGIN,
-                                  "n": args.n, "bootstrap": stats.N_BOOT, "ad_critical": stats.AD_CRITICAL_05,
-                                  "coverage_min": stats.COVERAGE_MIN}}
-    path = _write_report(args.out, "latency", report)
-    for name, r in results.items():
-        print(f"{name}: median {r['median_s'] * 1000:.1f} ms vs published {r['published_median_s'] * 1000:.1f} ms; "
-              f"ratio 90% CI [{r['ratio_ci90'][0]:.3f}, {r['ratio_ci90'][1]:.3f}]; coverage {r['T3_coverage']:.2f}; "
-              f"{'PASS' if r['passed'] else 'FAIL'}")
-    print(f"overhead median {overhead_s * 1000:.2f} ms; report {path}")
+    report["passed"] = (all(g["passed"] for g in generator.values()) and report["calibration"]["passed"]
+                        and all(r["residual"]["passed"] for r in report["paths"].values()))
+    path = _write_report(args.out, "latency", report, args)
+    for name, r in report["paths"].items():
+        res, d = r["residual"], r["described"]
+        print(f"{name}: residual median {res['median_s'] * 1000:.1f} ms, P95 {res['p95_s'] * 1000:.1f} ms "
+              f"({'PASS' if res['passed'] else 'FAIL'}); end-to-end median {d['median_s'] * 1000:.1f} ms vs "
+              f"published {d['published_median_s'] * 1000:.1f} ms; generator "
+              f"{'PASS' if generator[name]['passed'] else 'FAIL'}")
+    print(f"overhead {report['overhead_s'] * 1000:.2f} ms (calibration "
+          f"{'PASS' if report['calibration']['passed'] else 'FAIL'}); report {path}")
     return 0 if report["passed"] else 1
 
 
@@ -254,7 +299,7 @@ def _validate_discovery(args) -> int:
     summary = ha_schema.summarize_schema(results)
     report = {"summary": summary, "rejected": [r for r in results if not r["ok"]],
               "ha_version": HA_VERSION}
-    path = _write_report(args.out, "discovery", report)
+    path = _write_report(args.out, "discovery", report, args)
     print(f"discovery: {summary['accepted']}/{summary['components']} components accepted by Home Assistant's "
           f"schemas; {summary['devices_fully_accepted']}/{summary['devices']} devices fully; report {path}")
     return 0 if summary["accepted"] == summary["components"] else 1
@@ -308,13 +353,14 @@ def _validate_acceptance(args) -> int:
     report = {"summary": summary, "products": results, "ha_version": HA_VERSION, "seed": args.seed,
               "per_category": args.per_category, "rejections": bridge.rejections, "faulted": runtime.faulted,
               "notes": runtime.notes[:500]}
-    path = _write_report(args.out, "acceptance", report)
+    path = _write_report(args.out, "acceptance", report, args)
     print(f"acceptance: {summary['passed']}/{summary['products']} products passed; "
           f"{len(summary['categories_passing'])} categories fully passing; report {path}")
     return 0 if summary["passed"] == summary["products"] else 1
 
 
 def main(argv: list[str] | None = None) -> int:
+    from vesper.validation.stats import N_SAMPLES
     parser = argparse.ArgumentParser(prog="vesper")
     commands = parser.add_subparsers(dest="command", required=True)
     catalog = commands.add_parser("catalog", help="real-product device catalog")
@@ -355,7 +401,7 @@ def main(argv: list[str] | None = None) -> int:
     lat.add_argument("--catalog", default="catalog/vds")
     lat.add_argument("--product", default="zigbee:aqara:mccgq11lm", help="a contact sensor to replicate")
     lat.add_argument("--paths", default="local,vendor_cloud,trigger_action_cloud")
-    lat.add_argument("--n", type=int, default=200)
+    lat.add_argument("--n", type=int, default=N_SAMPLES, help="samples per path (the pre-registered value)")
     lat.add_argument("--spacing", type=float, default=0.05, help="seconds between stimuli")
     lat.add_argument("--seed", type=int, default=0)
     lat.add_argument("--root", default=".vesper")
