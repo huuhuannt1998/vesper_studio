@@ -29,7 +29,10 @@ packages = ["vesper"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["network: hits real upstream sources (opt-in: VESPER_NETWORK_TESTS=1)"]
+markers = [
+  "network: hits real upstream sources (opt-in: VESPER_NETWORK_TESTS=1)",
+  "stack: starts a real Mosquitto on a free local port (opt-in: VESPER_STACK_TESTS=1)",
+]
 
 [tool.ruff]
 line-length = 120
