@@ -119,9 +119,14 @@ def test_real_device_results_count_as_preregistered_only_on_the_pinned_dataset_c
     results = tmp_path / "results"
     base = {"passed": True, "judged": 7, "judged_passed": 7, "eligible": 9, "decryption_ok": True,
             "rule_window_ok": True, "run": {"parameters": {"dataset": "x"}}}
-    write_result(results, "realdata-20261025T100000Z.json", {**base, "dataset_commit": ZIOTP_COMMIT})
+    write_result(results, "realdata-20261025T100000Z.json", {**base, "dataset_commit": ZIOTP_COMMIT,
+                                                              "dataset_dirty": False})
     row = build_report(catalog, results)["checks"]["realdata"]
     assert row["passed"] and not row["exploratory"] and row["judged_passed"] == 7
     assert "7/7 judged streams reproduced" in render_markdown(build_report(catalog, results))
-    write_result(results, "realdata-20261025T110000Z.json", {**base, "dataset_commit": "f" * 40})
+    write_result(results, "realdata-20261025T110000Z.json", {**base, "dataset_commit": "f" * 40,
+                                                              "dataset_dirty": False})
+    assert build_report(catalog, results)["checks"]["realdata"]["exploratory"]
+    write_result(results, "realdata-20261025T120000Z.json", {**base, "dataset_commit": ZIOTP_COMMIT,
+                                                              "dataset_dirty": True})  # a changed checkout
     assert build_report(catalog, results)["checks"]["realdata"]["exploratory"]

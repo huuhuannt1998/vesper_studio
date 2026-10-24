@@ -39,6 +39,12 @@ def _take(data: bytes, at: int, n: int) -> bytes:
     return data[at:at + n]
 
 
+def manufacturer_code(payload: bytes) -> int | None:
+    """The manufacturer code of a manufacturer-specific frame (whose attribute ids are that vendor's own), or None."""
+    fc = _take(payload, 0, 1)[0]
+    return int.from_bytes(_take(payload, 1, 2), "little") if fc & 0x04 else None
+
+
 def parse_report(payload: bytes) -> list[tuple[int, int, object]] | None:
     """The attribute records of a global Report Attributes frame; None for any other ZCL frame."""
     fc = _take(payload, 0, 1)[0]

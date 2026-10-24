@@ -8,7 +8,16 @@
   3. Its overhead calibration missed the host's timer lateness, which reaches 80–200 ms at background QoS on macOS.
 - The commit that adds this amendment is the one to cite. Changing a number below after the first L3 run requires a new, disclosed commit.
 
-**Amendment 2 (2026-10-23), before any L3 run.** It adds E2, the real-device test (section "E2" below). Nothing in amendment 1 changes, and its commit 7050263 remains the citation for R, G and P. The commit that adds amendment 2 is the citation for E2. PI decisions behind it: RKA `jrn_01M5MZ2ZNCK1WG5D3628NNWNYY`.
+**Amendment 2 (2026-10-23, revised 2026-10-24), before any L3 run.** It adds E2, the real-device test (section "E2" below). Nothing in amendment 1 changes, and its commit 7050263 remains the citation for R, G and P. PI decisions behind it: RKA `jrn_01M5MZ2ZNCK1WG5D3628NNWNYY`.
+- Revised before any E2 run, and before the dataset was fetched, after a whole-branch code review. The first version (commit f851fc4) was never used and must not be cited. Its flaws:
+  1. It replayed each segment as one continuous run, so a device whose clock runs a few seconds off per heartbeat drifted out of the matching window and failed while following its rule.
+  2. It counted change-driven intervals, which agree by construction, as evidence.
+  3. It keyed streams without the source endpoint.
+  4. It missed rejoins (address changes) and undecodable frames as possible loss.
+  5. It let manufacturer-specific attributes into standard streams.
+  6. It counted other networks' frames against the decryption gate.
+  7. Its ZHA rule table omitted the lighting, HVAC and closure handlers.
+- The commit that adds this revision is the citation for E2.
 
 **Spec.** This file implements:
 - §1 criterion 4: "Reporting intervals and latencies match the VDS rules and the published measurements, within tolerances fixed before running";
@@ -104,35 +113,57 @@ The latency result passes when G, the calibration's P and every path's P all pas
 - Each capture file is a session; no interval spans two files.
 
 **Rule.** The ZIOTP hub was Home Assistant's ZHA, so streams are judged against ZHA's default attribute-reporting configuration.
-- Source: zigpy/zha 0.0.70 (2025-08-26, `ebc3cbf`), `zha/zigbee/cluster_handlers/`. The constants are identical in 0.0.50 (2025-02-26) and 1.0.0 (2026-02-25), and zha 2.0.0 (2026-06-24) postdates the dataset.
-- Values (min_s / max_s / change, raw ZCL units): default 30/900/1; level 1/900/1; on/off and occupancy 0/900/1; power 5/900/1; battery 3600/10800/1; temperature 30/900/50; humidity 30/900/100. The full table is `ZHA_RULES` in `vesper/validation/realdata.py`.
+- Source: zigpy/zha 0.0.70 (2025-08-26, `ebc3cbf`), `zha/zigbee/cluster_handlers/{const,general,measurement,homeautomation,smartenergy,lighting,hvac,closures}.py`. The reporting configuration is identical in 0.0.50 (2025-02-26) and 1.0.0 (2026-02-25), and zha 2.0.0 (2026-06-24) postdates the dataset. Cluster and attribute ids were checked against zigpy.
+- Values (min_s / max_s / change, raw ZCL units):
+  - default 30/900/1; level 1/900/1; on/off, occupancy, lock state and covering position 0/900/1; power 5/900/1; battery 3600/10800/1;
+  - temperature 30/900/50; humidity 30/900/100; colour 30/900/1;
+  - thermostat 30/900/25, with its demands 30/900/5.
+- The full table (76 attributes) is `ZHA_RULES` in `vesper/validation/realdata.py`.
 - The result records the capture dates. Dates outside 2025-02-26 – 2026-02-25 are flagged; the rule is not changed.
 
 **Firmware-governed devices (classified before the data is read).** zigbee-herdsman-converters 26.123.0 configures no attribute reporting for the four Aqara models (MCCGQ11LM, DJT11LM, WB-R02D, MS-S02) and gives each a one-hour check-in quirk: their report timing is set by firmware, not by the hub. Their streams are reported but not judged. Every other device in `Device_Name.txt` is judged. A device name outside the pre-registered table stops the run.
 
 **Procedure.**
-1. tshark decrypts each file with its topology's key and verifies every frame's MIC. The key is tried in the byte order printed, then reversed; the order that decrypts is recorded. A wrong key cannot pass the MIC check, so this choice is not a free parameter.
-2. Frames are keyed on the NWK source, which is the originating device, not the relaying hop. Relayed copies and APS retries are dropped: a repeat of the same (source, APS counter) within 10 s.
-3. A gap in a device's APS counter marks possible sniffer loss. An interval that spans a gap is cut out.
-4. Each ZCL Report Attributes record becomes one report of one (device, cluster, attribute) stream.
-5. **Replay.** Each clean segment is replayed through VESPER's runtime (`vesper/twins/runtime.py`) on the logical clock. The twin starts in the segment's first reported state, and each later real value is applied as a `measured` stimulus at its real time.
-6. **Matching.** A twin report matches the nearest unclaimed real report: within 1 s for a change-driven report; for a heartbeat, from 1 s before to 10% of `max_s` after it, since a real heartbeat may come late.
+1. **Decryption.** tshark decrypts each file with its topology's key and verifies every frame's MIC.
+   - The key is tried in the byte order printed, then reversed, and the order that decrypts is recorded. A wrong key cannot pass the MIC check, so this choice is not a free parameter.
+   - The file's network is the PAN with the most decrypted frames. Secured frames of other PANs on the channel are counted and reported, but not used.
+   - Frames whose FCS check failed are counted and never used.
+   - A file without secured frames fails D, because the key cannot be verified on it.
+2. **Keying and duplicates.** Frames are keyed on the NWK source, which is the originating device, not the relaying hop, and mapped to the device through `Device_Name.txt`, earlier addresses included.
+   - Relayed copies and APS retries are dropped: a repeat of the same (source, APS counter) within 10 s. The first copy seen is kept.
+3. **Possible loss is cut out.** Any of these marks possible sniffer loss: a step other than +1 in a device's APS counter, a change of its short address (a rejoin), or a report frame of the cluster that cannot be decoded exactly. An interval that spans any of them is cut out.
+4. **Streams.** Each ZCL Report Attributes record becomes one report of one (device, source endpoint, cluster, attribute) stream.
+   - Manufacturer-specific reports are counted and left out, because their attribute ids are the vendor's own.
+5. **Prediction, interval by interval.** For each pair of consecutive real reports (a, b) in a stream, VESPER's runtime (`vesper/twins/runtime.py`) runs on the logical clock:
+   - the twin is installed in a's state, as just reported at a's time;
+   - b's value is applied as a `measured` stimulus at b's time;
+   - the twin's first report after a is its prediction of the device's next report.
+   - Every interval is anchored at a real report, so a device clock's drift does not accumulate.
+6. **Classes.** An interval is a `change` interval when b carries a reportable change between `min_s` and `max_s` after a. There the twin agrees by construction, because it is given b's value at b's time; such intervals are reported as a check of the runtime, never as evidence. Every other interval is informative:
+   - `steady`: no reportable change, so the heartbeat is due;
+   - `early_change`: a change before `min_s`;
+   - `late_change`: a change after a silence longer than `max_s`.
+7. **Verdict.** The prediction matches b if it lies within 1 s of b (change-driven) or within ±10% of `max_s` of it (heartbeat).
+   - Otherwise the interval is `extra` when the twin would have reported first, and `missed` when the device reported first.
 
 **Criteria (fixed before running).**
 
 | Check | Statistic | Pass |
 |---|---|---|
-| D | MIC-verified decryption, per file | ≥ 99% of secured frames, every file |
-| E | a stream is judged if its device is not firmware-governed and it has ≥ 20 clean intervals | at least one judged stream |
-| A | per judged stream: real reports the twin reproduces | ≥ 95% |
-| X | per judged stream: twin reports with no real counterpart | ≤ 5% |
-| Descriptive | per stream: intervals ≥ `min_s` − 1 s; silences ≤ 1.1 × `max_s`; median steady interval ÷ `max_s`; early reports carrying a reportable change; the replay under VESPER's catalog rule (Zigbee2MQTT defaults, converted to raw units) | reported, not pass/fail |
+| D | MIC-verified decryption, per file, on the file's network | ≥ 99% of its secured frames, every file |
+| E | a stream is judged if its device is not firmware-governed and it has ≥ 20 informative intervals | at least one judged stream |
+| A | per judged stream: informative intervals in which the twin's prediction matches the device's next report | ≥ 95% |
+| Descriptive | per stream: the classes; agreement on `change` intervals (a runtime check); `extra` and `missed`; intervals ≥ `min_s` − 1 s; silences ≤ 1.1 × `max_s`; median `steady` interval ÷ `max_s`; early intervals carrying a reportable change; the same prediction under VESPER's catalog rule (Zigbee2MQTT defaults, converted to raw units). Per file: foreign and bad-FCS frames, undecodable and manufacturer-specific reports | reported, not pass/fail |
 
-E2 passes when D holds for every file, at least one stream is judged, and every judged stream passes A and X. A result from another dataset commit is labelled exploratory by `vesper report`. Failures are reported, not tuned away.
+E2 passes when D holds for every file, at least one stream is judged, and every judged stream passes A.
+- A result from another dataset commit, or from a checkout with local changes, is labelled exploratory by `vesper report`.
+- Failures are reported, not tuned away.
 
-**What E2 claims.** VESPER's reporting runtime reproduces the report timing of real devices whose firmware follows the hub's reporting configuration.
-- It does not validate the catalog's default rules: Zigbee2MQTT and ZHA configure the same devices differently (for example, a heartbeat of 3600 s against 900 s), and the descriptive row shows by how much.
-- The replay sees only the values a device reported. A change the device measured but never sent is invisible to it, so E2 cannot show that a twin reports no more often than the real device would under the same physical input.
+**What E2 claims.** A pass certifies that, on the informative intervals of devices whose firmware follows the hub's reporting configuration, VESPER's runtime predicts each next report as the device made it. That covers the heartbeat at `max_s`, the deferral to `min_s` and the reportable-change gate.
+- It does not validate the catalog's default rules. Zigbee2MQTT and ZHA configure the same devices differently (for example, a heartbeat of 3600 s against 900 s), and the descriptive row shows by how much.
+- The prediction sees only the values a device reported. A change the device measured but never sent is invisible to it, so E2 cannot show that a twin reports no more often than the real device would under the same physical input.
+- Keeping the first copy seen of a report misdates it when the sniffer missed the original transmission and caught an APS retry. This is rare, and it affects only the intervals on either side of that report.
+- A failure is attributed with the descriptive statistics: `missed` with early intervals points to the device; `extra` with silences longer than `max_s` points to missing heartbeats.
 
 ## Context comparisons (no pass/fail)
 

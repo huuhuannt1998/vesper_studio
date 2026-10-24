@@ -164,16 +164,20 @@ It needs tshark from Wireshark (macOS: `brew install wireshark`; tested with 4.6
 
 What it does (pre-registration, section "E2"):
 1. Decrypts every Zigbee capture of both topologies with the network keys the dataset publishes, verifying each frame's MIC.
-2. Turns every ZCL attribute report into a (device, cluster, attribute) stream, drops relayed copies and retries, and cuts out intervals where the sniffer may have lost a frame.
-3. Replays each stream through VESPER's own runtime under the rule ZHA configured, and matches the twin's reports with the real ones.
-4. Repeats the replay under VESPER's catalog rule, as a description only.
+2. Turns every standard ZCL attribute report into a (device, endpoint, cluster, attribute) stream, drops relayed copies and retries, and cuts out intervals where a frame may have been lost (an APS-counter gap, a rejoin, an undecodable report).
+3. For each pair of consecutive real reports, installs a twin in the first report's state in VESPER's own runtime, under the rule ZHA configured, and compares its next report with the device's.
+4. Repeats the prediction under VESPER's catalog rule, as a description only.
 
 - CPU only: seconds to a minute, 1 core, <1 GB. It starts no service and uses no network.
 - Output: `results/device-twins/realdata-<UTC>.json`, holding:
-  - per file: its SHA-256, the decryption rate and the key byte order;
-  - per stream: the rule, the replay agreement and the descriptive statistics;
+  - per file: its SHA-256, its network PAN, the decryption rate, the key byte order, and what was set aside (other networks' and bad-FCS frames, undecodable and manufacturer-specific reports);
+  - per stream: the rule, the interval classes, the agreement on informative intervals and the descriptive statistics;
   - the capture dates, the dataset commit and the run's provenance.
-- Pass: every file decrypts at least 99%, and every judged stream reproduces at least 95% of its real reports with at most 5% unmatched twin reports (exit code 0). A run on another dataset commit is exploratory.
+- Pass (exit code 0):
+  - every file decrypts at least 99% on its own network;
+  - at least one stream is judged;
+  - in every judged stream, the twin's prediction matches the device's next report in at least 95% of the informative intervals.
+- A run on another dataset commit, or on a checkout with local changes, is exploratory.
 
 ## The fidelity report
 

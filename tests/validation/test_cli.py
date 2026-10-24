@@ -416,7 +416,7 @@ def test_realdata_replays_a_dataset_and_records_where_it_came_from(monkeypatch, 
     code = cli.main(["validate", "realdata", "--dataset", str(root), "--catalog", str(catalog), "--out", str(out)])
     data = json.loads(out.read_text())
     assert code == 0 and data["passed"] and data["judged"] == 1
-    assert data["dataset_commit"] is None  # not a git checkout of its own: no commit is claimed
+    assert data["dataset_commit"] is None and data["dataset_dirty"] is None  # not a checkout of its own
     assert data["run"]["parameters"]["dataset"] == str(root)
     assert "1/1 judged streams reproduced" in capsys.readouterr().out
 
@@ -436,3 +436,17 @@ def test_the_dataset_commit_is_the_checkouts_own_head_never_an_enclosing_repo(tm
                     "--allow-empty", "-m", "x"], check=True)
     assert cli._dataset_commit(outer / "data") is None
     assert len(cli._dataset_commit(outer)) == 40
+
+
+def test_the_dataset_status_says_whether_the_checkout_was_changed(tmp_path):
+    import subprocess
+    repo = tmp_path / "ds"
+    (repo / "Data").mkdir(parents=True)
+    (repo / "Data" / "x.txt").write_text("a")
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repo), "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "x"],
+                   check=True)
+    assert cli._dataset_dirty(repo) is False
+    (repo / "Data" / "x.txt").write_text("b")
+    assert cli._dataset_dirty(repo) is True and cli._dataset_dirty(tmp_path) is None

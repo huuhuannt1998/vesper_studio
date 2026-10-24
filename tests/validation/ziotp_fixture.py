@@ -26,7 +26,8 @@ def tree(tmp_path, files: dict[str, list[Frame]], names: str = NAMES):
     return tmp_path
 
 
-def reader_for(files: dict[str, list[Frame]], decrypted: dict | None = None):
+def reader_for(files: dict[str, list[Frame]], decrypted: dict | None = None, foreign: int = 0, bad_fcs: int = 0):
+    """A fake tshark: every frame is secured on PAN 0x1a62; `foreign` secured frames of PAN 0x9999 never decrypt."""
     calls = []
 
     def read(path, key, byte_order="Normal"):
@@ -34,7 +35,10 @@ def reader_for(files: dict[str, list[Frame]], decrypted: dict | None = None):
         calls.append((rel, key, byte_order))
         frames = files[rel]
         rate = (decrypted or {}).get((rel, byte_order), 1.0)
-        return Capture(frames if rate else [], secured=len(frames), decrypted=int(rate * len(frames)))
+        ours = int(rate * len(frames))
+        pans = {0x1A62: [len(frames), ours], **({0x9999: [foreign, 0]} if foreign else {})}
+        return Capture(frames if rate else [], secured=len(frames) + foreign, decrypted=ours, pans=pans,
+                       bad_fcs=bad_fcs)
     read.calls = calls
     return read
 

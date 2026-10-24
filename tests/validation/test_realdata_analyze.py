@@ -1,10 +1,18 @@
 import shutil
+import struct
+from dataclasses import replace
 
 import pytest
 
 from tests.validation.ziotp_fixture import AQARA, GOOD, KEY_A, KEY_B, NAMES, reader_for, temp, tree
 from tests.validation.zigbee_frames import ENCRYPTED_PCAP
+from vesper.validation.capture import Frame
 from vesper.validation.realdata import ZIOTP_DEVICES, analyze
+
+
+def numbered(frames):
+    """The frames in time order with consecutive APS counters, as a sniffer that missed nothing sees them."""
+    return [replace(fr, nwk_seq=i + 1, aps_counter=i + 1) for i, fr in enumerate(sorted(frames, key=lambda x: x.t))]
 
 def test_conforming_streams_pass_and_firmware_governed_ones_are_reported_but_not_judged(tmp_path):
     files = {"Idle/Topology_A/idle1.pcapng": GOOD + AQARA + [temp(1_760_000_050.0, 7, 1, src=0x9999)]}
@@ -62,7 +70,7 @@ def test_vespers_own_catalog_rule_is_replayed_beside_zhas_as_a_description(tmp_p
     (s,) = [s for s in res["streams"] if s["cluster"] == "0x0402"]
     v = s["vesper_rule"]
     assert v["catalog_id"] == "zigbee:sonoff:snzb-02" and v["rule"] == [10, 3600, 100]
-    assert v["matched"] == 6 and v["extra"] == 0  # 900-s heartbeats: the twin reproduces only every fourth
+    assert (v["informative"], v["matched"], v["missed"]) == (24, 0, 24)  # ZHA's 900-s heartbeat, VESPER's 3600 s
 
 
 def test_a_device_name_outside_the_preregistered_table_is_refused(tmp_path):
@@ -80,6 +88,47 @@ def test_a_tree_without_captures_is_an_error(tmp_path):
 def test_every_preregistered_device_has_a_class_and_aqara_is_firmware_governed():
     assert {n for n, d in ZIOTP_DEVICES.items() if d["firmware_governed"]} == {
         "Aqara Door", "Aqara Vibration", "Aqara Mini Switch", "Aqara Motion"}
+
+
+def test_a_device_that_rejoined_under_a_new_address_has_its_stream_cut_there(tmp_path):
+    old = [temp(1_760_000_000.0 + 900 * i, i + 1, 2000, src=0xD8EE) for i in range(13)]
+    new = [temp(1_760_000_000.0 + 900 * i, i + 1, 2000) for i in range(13, 26)]  # the counter runs on
+    files = {"Idle/Topology_A/idle1.pcapng": old + new}
+    res = analyze(tree(tmp_path, files), reader=reader_for(files))
+    (s,) = [s for s in res["streams"] if s["cluster"] == "0x0402"]
+    assert s["device"] == "A:Sonoff Temperature@0x7150" and (s["segments"], s["intervals"]) == (2, 24)
+
+
+def test_an_undecodable_report_frame_cuts_its_clusters_stream(tmp_path):
+    bad = Frame(1_760_000_950.0, 0x7150, 0, 0, 0x0402, b"\x18\x02\x0a\x00\x00\x29\x01\x00\xf7\x00\x4c\x01")
+    files = {"Idle/Topology_A/idle1.pcapng": numbered(GOOD + [bad])}
+    res = analyze(tree(tmp_path, files), reader=reader_for(files))
+    (s,) = [s for s in res["streams"] if s["cluster"] == "0x0402"]
+    assert (s["segments"], s["intervals"]) == (2, 23) and res["files"][0]["undecodable_reports"] == 1
+
+
+def test_manufacturer_specific_reports_are_counted_and_kept_out_of_the_streams(tmp_path):
+    vendor = Frame(1_760_000_450.0, 0x7150, 0, 0, 0x0402, b"\x1c\x5f\x11\x07\x0a" + struct.pack("<HBh", 0, 0x29, 7))
+    files = {"Idle/Topology_A/idle1.pcapng": numbered(GOOD + [vendor])}
+    res = analyze(tree(tmp_path, files), reader=reader_for(files))
+    (s,) = [s for s in res["streams"] if s["cluster"] == "0x0402"]
+    assert s["reports"] == 25 and s["passed"] and res["files"][0]["manufacturer_specific_reports"] == 1
+
+
+def test_two_endpoints_reporting_one_attribute_are_two_streams(tmp_path):
+    ep1 = [replace(temp(1_760_000_000.0 + 900 * i, 0, 2000), endpoint=1) for i in range(25)]
+    ep2 = [replace(temp(1_760_000_450.0 + 900 * i, 0, 2000), endpoint=2) for i in range(25)]
+    files = {"Idle/Topology_A/idle1.pcapng": numbered(ep1 + ep2)}
+    res = analyze(tree(tmp_path, files), reader=reader_for(files))
+    assert [(s["endpoint"], s["passed"]) for s in res["streams"] if s["cluster"] == "0x0402"] == [(1, True), (2, True)]
+
+
+def test_frames_of_another_network_or_with_a_bad_fcs_do_not_count_against_decryption(tmp_path):
+    files = {"Idle/Topology_A/idle1.pcapng": GOOD}
+    res = analyze(tree(tmp_path, files), reader=reader_for(files, foreign=40, bad_fcs=3))
+    f = res["files"][0]
+    assert res["decryption_ok"] and f["decryption_rate"] == 1.0 and f["pan"] == "0x1a62"
+    assert (f["foreign_secured"], f["bad_fcs"]) == (40, 3)
 
 
 @pytest.mark.skipif(shutil.which("tshark") is None, reason="tshark (Wireshark) is not installed")

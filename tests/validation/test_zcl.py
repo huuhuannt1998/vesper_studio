@@ -2,7 +2,7 @@ import struct
 
 import pytest
 
-from vesper.validation.zcl import ZclError, parse_report
+from vesper.validation.zcl import ZclError, manufacturer_code, parse_report
 
 
 def frame(records: bytes, fc: int = 0x18, manufacturer: int | None = None, cmd: int = 0x0A) -> bytes:
@@ -31,6 +31,12 @@ def test_booleans_bitmaps_and_wide_integers_are_numbers():
 def test_a_manufacturer_specific_header_is_skipped():
     payload = struct.pack("<HBh", 0x0000, 0x29, 2150)
     assert parse_report(frame(payload, manufacturer=0x115F)) == [(0x0000, 0x29, 2150)]
+
+
+def test_the_manufacturer_code_of_a_manufacturer_specific_frame_is_read():
+    payload = struct.pack("<HBh", 0x0000, 0x29, 2150)
+    assert manufacturer_code(frame(payload, manufacturer=0x115F)) == 0x115F
+    assert manufacturer_code(frame(payload)) is None
 
 
 def test_a_string_attribute_is_kept_as_bytes_and_parsing_continues():

@@ -26,7 +26,7 @@ PREREGISTERED = {
     "acceptance": {"seed": 0, "per_category": 5},
 }
 # Pre-registered values a result carries in its own fields rather than in its command-line parameters.
-PREREGISTERED_DATA = {"realdata": {"dataset_commit": ZIOTP_COMMIT}}
+PREREGISTERED_DATA = {"realdata": {"dataset_commit": ZIOTP_COMMIT, "dataset_dirty": False}}
 _RESULT_NAME = re.compile(r"^[a-z]+-\d{8}T\d{6}Z\.json$")
 
 

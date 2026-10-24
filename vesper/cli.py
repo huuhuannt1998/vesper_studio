@@ -100,6 +100,14 @@ def _dataset_commit(path: Path) -> str | None:
     return _git("-C", str(path), "rev-parse", "HEAD")
 
 
+def _dataset_dirty(path: Path) -> bool | None:
+    """Whether a dataset that is its own git checkout has local changes; None if it is not one."""
+    if _dataset_commit(path) is None:
+        return None
+    status = _git("-C", str(path), "status", "--porcelain", "--untracked-files=all")
+    return None if status is None else bool(status)
+
+
 def _zhc_version(catalog_dir: Path) -> str:
     report = Path(catalog_dir) / "build_report.json"
     if report.is_file():
@@ -239,6 +247,7 @@ def _validate_realdata(args) -> int:
         print(f"FAILED realdata: {e}", file=sys.stderr)
         return 1
     report["dataset_commit"] = _dataset_commit(Path(args.dataset))
+    report["dataset_dirty"] = _dataset_dirty(Path(args.dataset))
     path = _write_report(args.out, "realdata", report, args)
     print(f"realdata: {report['judged_passed']}/{report['judged']} judged streams reproduced under ZHA's rule "
           f"({report['eligible']} eligible); decryption {'ok' if report['decryption_ok'] else 'FAILED'}; "

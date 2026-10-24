@@ -51,12 +51,23 @@ def test_a_missing_aps_counter_marks_a_loss_gap_and_the_counter_wraps():
     assert loss_gaps(frames) == {0x7150: [(2.0, 5.0)], 0x1111: [(6.0, 9.0)]}
 
 
-def test_reports_are_decoded_per_attribute_and_bad_payloads_are_counted():
+def test_a_device_that_changes_address_is_cut_there_even_if_its_counter_runs_on():
+    frames = [f(0.0, 1, src=0xD8EE), f(1.0, 2, src=0xD8EE), f(5.0, 3, src=0x7150), f(6.0, 4, src=0x7150)]
+    assert loss_gaps(frames, key=lambda fr: "device") == {"device": [(1.0, 5.0)]}
+    assert loss_gaps([f(0.0, 1, src=0xD8EE), f(1.0, 11, src=0x7150)], key=lambda fr: "device") == {
+        "device": [(0.0, 1.0)]}
+
+
+def test_reports_are_decoded_per_endpoint_and_bad_or_vendor_payloads_are_set_apart():
     frames = [f(0.0, 1, zcl=temp_zcl(2150)), f(1.0, 2, zcl=b"\x18\x01\x01\x00\x00"),  # read response: not a report
-              f(2.0, 3, zcl=b"\x18\x02\x0a\xf7\x00\x4c\x01"),  # a Lumi structure: undecodable
-              f(3.0, 4, zcl=None)]
-    reports, undecodable = extract_reports(frames)
-    assert reports == [(0x7150, 0x0402, 0x0000, 0.0, 2150)] and undecodable == 1
+              f(2.0, 3, zcl=b"\x18\x02\x0a\x00\x00\x29\x01\x00\xf7\x00\x4c\x01"),  # a Lumi structure after a reading
+              f(3.0, 4, zcl=None),
+              Frame(4.0, 0x7150, 5, 5, 0x0402, temp_zcl(2200), endpoint=2),
+              f(5.0, 6, zcl=b"\x1c\x5f\x11\x07\x0a" + struct.pack("<HBh", 0x0000, 0x29, 7))]  # manufacturer-specific
+    ex = extract_reports(frames)
+    assert ex.reports == [(0x7150, None, 0x0402, 0x0000, 0.0, 2150), (0x7150, 2, 0x0402, 0x0000, 4.0, 2200)]
+    assert ex.undecodable == [(0x7150, 0x0402, 2.0)] and ex.manufacturer_specific == 1
+    assert extract_reports(frames, key=lambda fr: "device").undecodable == [("device", 0x0402, 2.0)]
 
 
 def test_a_loss_gap_inside_an_interval_splits_the_stream_and_one_at_its_edge_does_not():
@@ -75,4 +86,8 @@ def test_the_zha_rule_table_holds_the_configured_values():
     assert ZHA_RULES[(0x0402, 0x0000)] == (30, 900, 50) and ZHA_RULES[(0x0405, 0x0000)] == (30, 900, 100)
     assert ZHA_RULES[(0x0406, 0x0000)] == (0, 900, 1) and ZHA_RULES[(0x0008, 0x0000)] == (1, 900, 1)
     assert ZHA_RULES[(0x0001, 0x0021)] == (3600, 10800, 1) and ZHA_RULES[(0x0B04, 0x050B)] == (5, 900, 1)
-    assert len(ZHA_RULES) == 58
+    assert ZHA_RULES[(0x0300, 0x0007)] == (30, 900, 1) and ZHA_RULES[(0x0202, 0x0000)] == (5, 900, 1)
+    assert ZHA_RULES[(0x0201, 0x0000)] == (30, 900, 25) and ZHA_RULES[(0x0201, 0x0029)] == (30, 900, 5)
+    assert ZHA_RULES[(0x0201, 0x0002)] == (30, 900, 1) and ZHA_RULES[(0x0101, 0x0000)] == (0, 900, 1)
+    assert ZHA_RULES[(0x0102, 0x0008)] == (0, 900, 1)
+    assert len(ZHA_RULES) == 76

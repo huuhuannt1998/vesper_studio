@@ -13,23 +13,29 @@ def row(*cells: str) -> str:
     return "\t".join(cells)
 
 
-def test_rows_become_frames_and_decryption_is_counted():
+def test_rows_become_frames_and_decryption_is_counted_per_pan():
+    zcl = "18:09:0a:00:00:29:66:08"
     lines = [
-        row("1700000000.250000000", "0x1234", "7", "True", "vesper", "0x00", "40", "0x0402", "18:09:0a:00:00:29:66:08"),
-        row("1700000001.000000000", "0x1234", "8", "True", "", "", "", "", ""),  # secured, not decrypted
-        row("1700000002.000000000", "0x0000", "9", "True", "vesper", "", "", "", ""),  # a NWK command
-        row("1700000003.000000000", "0x1234", "10", "True", "vesper", "0x02", "41", "0x0402", ""),  # APS ack
-        row("1700000004.000000000", "", "", "", "", "", "", "", ""),  # a MAC frame
+        row("1700000000.250000000", "0x1234", "7", "True", "vesper", "0x00", "40", "0x0402", zcl, "1", "0x1a62",
+            "True"),
+        row("1700000001.000000000", "0x1234", "8", "True", "", "", "", "", "", "", "0x1a62", "True"),  # not decrypted
+        row("1700000002.000000000", "0x0000", "9", "True", "vesper", "", "", "", "", "", "0x1a62", ""),  # NWK command
+        row("1700000003.000000000", "0x1234", "10", "True", "vesper", "0x02", "41", "0x0402", "", "1", "0x1a62", ""),
+        row("1700000004.000000000", "", "", "", "", "", "", "", "", "", "", ""),  # a MAC frame
+        row("1700000005.000000000", "0x5678", "3", "True", "", "", "", "", "", "", "0x9999", ""),  # another network
+        row("1700000006.000000000", "0x1234", "11", "True", "vesper", "0x00", "42", "0x0402", zcl, "1", "0x1a62",
+            "False"),  # a corrupted frame: never used
     ]
     cap = parse_fields(lines)
-    assert (cap.secured, cap.decrypted) == (4, 3)
-    assert cap.frames == [Frame(1700000000.25, 0x1234, 7, 40, 0x0402, bytes.fromhex("18090a0000296608"))]
+    assert (cap.secured, cap.decrypted, cap.bad_fcs) == (5, 3, 1)
+    assert cap.pans == {0x1A62: [4, 3], 0x9999: [1, 0]}
+    assert cap.frames == [Frame(1700000000.25, 0x1234, 7, 40, 0x0402, bytes.fromhex("18090a0000296608"), endpoint=1)]
 
 
 def test_the_key_is_checked_and_passed_to_tshark_as_a_uat_entry():
     cmd = tshark_command("x.pcapng", "2fd6b1b929e883d274478f3a2bf8d4ef")
     assert 'uat:zigbee_pc_keys:"2FD6B1B929E883D274478F3A2BF8D4EF","Normal","vesper"' in cmd
-    assert cmd[cmd.index("-e") + 1] == "frame.time_epoch" and cmd[-1] == "@zbee_zcl"
+    assert cmd[cmd.index("-e") + 1] == "frame.time_epoch" and cmd[-1] == "wpan.fcs_ok" and "@zbee_zcl" in cmd
     with pytest.raises(CaptureError, match="32 hex"):
         tshark_command("x.pcapng", "not-a-key")
 
@@ -51,8 +57,8 @@ def test_tshark_reads_plain_reports_and_relayed_copies(tmp_path):
     ])
     cap = read_capture(pcap, ENCRYPTED_KEY)
     assert (cap.secured, cap.decrypted) == (0, 0)
-    assert [(f.t, f.src, f.aps_counter, f.cluster) for f in cap.frames] == [(100.0, 0x1234, 40, 0x0402),
-                                                                             (100.004, 0x1234, 40, 0x0402)]
+    assert [(f.t, f.src, f.aps_counter, f.cluster, f.endpoint) for f in cap.frames] == [
+        (100.0, 0x1234, 40, 0x0402, 1), (100.004, 0x1234, 40, 0x0402, 1)]
     assert cap.frames[0].zcl == bytes.fromhex("18010a0000296608")
 
 
@@ -62,6 +68,7 @@ def test_tshark_decrypts_with_the_network_key_and_only_with_it(tmp_path):
     path.write_bytes(ENCRYPTED_PCAP)
     good = read_capture(path, ENCRYPTED_KEY)
     assert (good.secured, good.decrypted) == (1, 1)
-    assert good.frames == [Frame(1700000100.0, 0x4321, 5, 9, 0x0402, bytes.fromhex("18030a00002983ff"))]
+    assert good.frames == [Frame(1700000100.0, 0x4321, 5, 9, 0x0402, bytes.fromhex("18030a00002983ff"), endpoint=1)]
+    assert good.pans == {0x1A62: [1, 1]}
     bad = read_capture(path, "00112233445566778899AABBCCDDEEFF")
     assert (bad.secured, bad.decrypted, bad.frames) == (1, 0, [])
