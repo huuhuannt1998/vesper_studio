@@ -480,6 +480,101 @@ def _validate_matter(args) -> int:
     return 0 if summary["products"] and summary["passed"] == summary["products"] else 1
 
 
+HOME_TEMPLATE = """\
+# A VESPER Lab home (docs/superpowers/specs/2026-10-24-vesper-lab-design.md §4).
+# Place real products from the catalog (`vesper catalog search`), then check it: vesper lab check home.yaml
+version: 2
+scene: {scene}
+map: map.json
+seed: 0
+start_time: "07:00"
+avatar: {{model: female_0, start: {{room: {room}}}}}
+doors: []
+devices: []
+# devices:
+#   - {{product: "zigbee:aqara:mccgq11lm", name: front_door, at: {{door: {doorway}}}}}
+#   - {{product: "zigbee:philips:9290012607", name: motion, at: {{room: {room}, mount: ceiling}}}}
+#
+# Rooms: {rooms}
+# Doorways: {doorways}
+"""
+
+
+def _lab(args) -> int:
+    from vesper.lab.home import HomeError, load_lab_home
+    from vesper.lab.worldmap import MapError, WorldMap
+    from vesper.twins.home import load_catalog
+    try:
+        if args.action == "new":
+            return _lab_new(args, WorldMap)
+        catalog = load_catalog(Path(args.catalog))
+        if args.action == "check":
+            home = load_lab_home(Path(args.home), catalog)
+            print(f"{home.scene}: {len(home.map.rooms)} rooms, {len(home.map.doorways)} doorways, "
+                  f"{len(home.doors)} doors, {len(home.devices)} devices; the player starts in "
+                  f"{home.map.room_at(*home.avatar['start']).id}")
+            return 0
+        if args.action == "run":
+            return _lab_run(args, load_lab_home(Path(args.home), catalog))
+        return _lab_replay(args, catalog, load_lab_home)
+    except (HomeError, MapError) as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+
+
+def _lab_new(args, world_map_cls) -> int:
+    target = Path(args.dir)
+    if target.exists():
+        print(f"FAILED: {target} already exists", file=sys.stderr)
+        return 1
+    world_map = world_map_cls.load(Path(args.map))
+    indoor = [r for r in world_map.rooms if not r.outdoor] or world_map.rooms
+    start = next((r for word in ("entry", "hall", "living") for r in indoor if word in r.label.lower()), indoor[0])
+    target.mkdir(parents=True)
+    world_map.save(target / "map.json")
+    (target / "home.yaml").write_text(HOME_TEMPLATE.format(
+        scene=world_map.scene, room=start.id, rooms=", ".join(r.id for r in world_map.rooms),
+        doorway=(world_map.doorways[0].id if world_map.doorways else "<doorway>"),
+        doorways=", ".join(d.id for d in world_map.doorways) or "none"))
+    print(f"created {target / 'home.yaml'} on {world_map.scene}; add devices, then `vesper lab check`")
+    return 0
+
+
+def _lab_run(args, home) -> int:
+    import runpy
+
+    from vesper.lab.session import Session
+    namespace = runpy.run_path(str(args.script))
+    if not callable(namespace.get("run")):
+        print(f"FAILED: {args.script} defines no run(lab)", file=sys.stderr)
+        return 1
+    trace = Path(args.trace) if args.trace else home.path.parent / "traces" / \
+        f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}.jsonl"
+    trace.parent.mkdir(parents=True, exist_ok=True)
+    session = Session(home, trace=trace)
+    session.start()
+    try:
+        namespace["run"](session)
+    finally:
+        session.stop()
+    kinds = [r["kind"] for r in session.records]
+    print(f"{kinds.count('input')} inputs, {kinds.count('rule')} rule firings, {kinds.count('report')} reports; "
+          f"trace {trace}")
+    return 0
+
+
+def _lab_replay(args, catalog, load_lab_home) -> int:
+    from vesper.lab.session import compare_reports, read_trace, replay
+    records = read_trace(Path(args.trace))
+    home = load_lab_home(Path(args.home or records[0]["home"]), catalog)
+    diff = compare_reports(records, replay(records, home))
+    if diff:
+        print(f"different: {diff}")
+        return 1
+    print(f"identical: {sum(r['kind'] == 'report' for r in records)} reports reproduced")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     from vesper.validation.stats import N_SAMPLES
     parser = argparse.ArgumentParser(prog="vesper")
@@ -574,8 +669,25 @@ def main(argv: list[str] | None = None) -> int:
     mat.add_argument("--timeout", type=float, default=30.0)
     mat.add_argument("--commission-timeout", type=float, default=120.0)
     mat.add_argument("--out")
+    lab = commands.add_parser("lab", help="VESPER Lab: a game-like virtual smart home")
+    lab_actions = lab.add_subparsers(dest="action", required=True)
+    lab_new = lab_actions.add_parser("new", help="create a home directory from a scene's map file")
+    lab_new.add_argument("dir")
+    lab_new.add_argument("--map", required=True, help="a vesper-map/1 file")
+    lab_check = lab_actions.add_parser("check", help="validate a home file")
+    lab_check.add_argument("home")
+    lab_check.add_argument("--catalog", default="catalog/vds")
+    lab_run = lab_actions.add_parser("run", help="run a scripted session (logical clock) and write its trace")
+    lab_run.add_argument("script", help="a Python file defining run(lab)")
+    lab_run.add_argument("--home", required=True)
+    lab_run.add_argument("--catalog", default="catalog/vds")
+    lab_run.add_argument("--trace")
+    lab_replay = lab_actions.add_parser("replay", help="replay a trace's inputs and compare the device reports")
+    lab_replay.add_argument("trace")
+    lab_replay.add_argument("--home", help="the home file (default: the one the trace names)")
+    lab_replay.add_argument("--catalog", default="catalog/vds")
     args = parser.parse_args(argv)
-    if args.command in ("setup", "twins", "validate"):
+    if args.command in ("setup", "twins", "validate", "lab"):
         _install_sigterm()
     try:
         return _dispatch(args)
@@ -593,6 +705,8 @@ def _dispatch(args) -> int:
         return _report(args)
     if args.command == "twins":
         return _twins_run(args)
+    if args.command == "lab":
+        return _lab(args)
     if args.action == "discovery":
         return _validate_discovery(args)
     if args.action == "rules":
