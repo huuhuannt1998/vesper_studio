@@ -107,7 +107,7 @@ def _matches(state: dict | None, expected) -> bool:
     return state["state"] == expected
 
 
-def _wait(fn: Callable[[], object], timeout: float, poll: float):
+def wait_until(fn: Callable[[], object], timeout: float, poll: float):
     deadline = time.monotonic() + timeout
     while True:
         value = fn()
@@ -145,7 +145,7 @@ def check_product(ha, runtime: Runtime, bridge: Bridge, placement: Placement, *,
     twin = runtime.twins[placement.twin_id]
     entities, wait = [], timeout
     for e in bridge.expected[placement.twin_id]:
-        state = _wait(lambda e=e: ha.state(e.entity_id), wait, poll)
+        state = wait_until(lambda e=e: ha.state(e.entity_id), wait, poll)
         wait = timeout if state is not None else 0
         row = {"entity_id": e.entity_id, "platform": e.platform, "feature": e.feature, "created": state is not None}
         if state is not None:
@@ -153,11 +153,11 @@ def check_product(ha, runtime: Runtime, bridge: Bridge, placement: Placement, *,
             unit = HA_UNIT_REWRITES.get(e.unit, e.unit)
             row["attributes_ok"] = ((e.device_class is None or attrs.get("device_class") == e.device_class)
                                     and (unit is None or attrs.get("unit_of_measurement") == unit))
-            row["state_ok"] = bool(_wait(lambda e=e: _displayed(e, twin, bridge.reported(twin.id),
+            row["state_ok"] = bool(wait_until(lambda e=e: _displayed(e, twin, bridge.reported(twin.id),
                                                                 ha.state(e.entity_id)), timeout, poll))
             probe = _probe(e, twin)
             if probe:
-                row["probe"] = _run_probe(ha, runtime, placement, e, probe, timeout, poll)
+                row["probe"] = run_probe(ha, runtime, placement.twin_id, e.entity_id, probe, timeout, poll)
         else:
             row["state_ok"] = False
         entities.append(row)
@@ -170,27 +170,30 @@ def check_product(ha, runtime: Runtime, bridge: Bridge, placement: Placement, *,
             "core_exposed": not any(reason.endswith("entities are not exposed yet") for _, reason in skipped)}
 
 
-def _run_probe(ha, runtime, placement, e, probe, timeout, poll) -> dict:
+def run_probe(ha, runtime, twin_id: str, entity_id: str, probe: dict, timeout: float, poll: float,
+              matches: Callable[[dict | None, object], bool] = _matches) -> dict:
+    """Carry out a probe: a Home Assistant service call that must reach the twin and come back, or a stimulus
+    that must show in Home Assistant."""
     if "call" in probe:
         domain, service, data = probe["call"]
         try:
-            ha.call(domain, service, {"entity_id": e.entity_id, **data})
+            ha.call(domain, service, {"entity_id": entity_id, **data})
         except StackError as err:  # Home Assistant refused this call; the run goes on (a dead HA still aborts)
             return {"ok": False, "kind": f"{domain}.{service}", "twin_ok": False, "ha_ok": False, "error": str(err)}
         feature, value = probe["twin"]
-        twin_ok = _wait(lambda: runtime.state(placement.twin_id)[feature] == value, timeout, poll)
+        twin_ok = wait_until(lambda: runtime.state(twin_id)[feature] == value, timeout, poll)
         if probe.get("also"):
             f2, v2 = probe["also"]
-            twin_ok = twin_ok and _wait(lambda: runtime.state(placement.twin_id)[f2] == v2, timeout, poll)
-        ha_ok = _wait(lambda: _matches(ha.state(e.entity_id), probe["ha"]), timeout, poll)
+            twin_ok = twin_ok and wait_until(lambda: runtime.state(twin_id)[f2] == v2, timeout, poll)
+        ha_ok = wait_until(lambda: matches(ha.state(entity_id), probe["ha"]), timeout, poll)
         return {"ok": bool(twin_ok and ha_ok), "kind": f"{domain}.{service}", "twin_ok": bool(twin_ok),
                 "ha_ok": bool(ha_ok)}
-    runtime.stimulate(placement.twin_id, probe["stimulus"])
+    runtime.stimulate(twin_id, probe["stimulus"])
     if "event" in probe:
-        ok = _wait(lambda: ((ha.state(e.entity_id) or {}).get("attributes", {}).get("event_type") == probe["event"]),
+        ok = wait_until(lambda: ((ha.state(entity_id) or {}).get("attributes", {}).get("event_type") == probe["event"]),
                    timeout, poll)
     else:
-        ok = _wait(lambda: _matches(ha.state(e.entity_id), probe["ha"]), timeout, poll)
+        ok = wait_until(lambda: matches(ha.state(entity_id), probe["ha"]), timeout, poll)
     return {"ok": bool(ok), "kind": f"stimulus:{probe['stimulus']['type']}"}
 
 

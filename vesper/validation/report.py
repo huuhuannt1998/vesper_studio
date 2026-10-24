@@ -3,7 +3,8 @@
 It combines the catalog (sources, coverage per level and category, every `assumed` field) with the latest
 result of every check under results/. A check that has not run is shown as not run, never as passed; a
 run over nothing does not pass; a run whose parameters differ from the pre-registration, or that does
-not record them, is labelled exploratory; and L2 is credited only to products that passed acceptance.
+not record them, is labelled exploratory; and L2 is credited only to products that passed acceptance
+(Zigbee through the bridge, Matter through `vesper validate matter`).
 """
 from __future__ import annotations
 
@@ -17,13 +18,14 @@ from vesper.exposure.ha_discovery import device_discovery
 from vesper.twins.latency import PATHS
 from vesper.validation.realdata import ZIOTP_COMMIT
 
-KINDS = ("discovery", "roundtrip", "acceptance", "rules", "latency", "realdata")
+KINDS = ("discovery", "roundtrip", "acceptance", "matter", "rules", "latency", "realdata")
 # The pre-registered parameters (docs/experiments/l3-timing-design.md and the run book).
 PREREGISTERED = {
     "rules": {"seed": 0, "hours": 4.0},
     "latency": {"seed": 0, "n": 200, "paths": "local,vendor_cloud,trigger_action_cloud", "spacing": 0.05,
                 "product": "zigbee:aqara:mccgq11lm"},
     "acceptance": {"seed": 0, "per_category": 5},
+    "matter": {"seed": 0, "per_type": 1},
 }
 # Pre-registered values a result carries in its own fields rather than in its command-line parameters.
 PREREGISTERED_DATA = {"realdata": {"dataset_commit": ZIOTP_COMMIT, "dataset_dirty": False}}
@@ -63,6 +65,11 @@ def _summary(kind: str, data: dict) -> dict:
         s = data["summary"]
         return {**{k: s[k] for k in ("products", "categories_passing", "categories_displayed")},
                 "products_passed": s["passed"], "passed": s["products"] > 0 and s["passed"] == s["products"]}
+    if kind == "matter":
+        s = data["summary"]
+        return {**{k: s[k] for k in ("products", "device_types", "device_types_passing", "categories_passing")},
+                "products_passed": s["passed"], "vid_mode": data.get("vid_mode"),
+                "passed": s["products"] > 0 and s["passed"] == s["products"]}
     if kind == "roundtrip":
         return {"passed": bool(data.get("complete")) and not data.get("different") and bool(data.get("checked")),
                 **{k: data.get(k) for k in ("checked", "identical", "l1_with_diffs", "missing", "duplicates")}}
@@ -102,11 +109,14 @@ def build_report(catalog_dir: Path, results_dir: Path) -> dict:
     acceptance = latest(results_dir, "acceptance")
     validated = sorted(p["id"] for p in acceptance[1]["products"] if p["passed"]) if acceptance and acceptance[1] \
         else []
+    matter = latest(results_dir, "matter")
+    matter_validated = sorted(p["id"] for p in matter[1]["products"] if p["passed"]) if matter and matter[1] else []
     eligible = sum(1 for r in records if r["id"].startswith("zigbee:") and r["fidelity"]["reached"]["L1"]
                    and device_discovery(r, ieee="0x" + "0" * 16, friendly_name="x")[2])
     return {"catalog_stale": staleness(catalog_dir), "sources": sources, "coverage": coverage,
             "assumed": dict(assumed.most_common()),
-            "checks": checks, "l2": {"kind": "z2m-api", "eligible_zigbee": eligible, "validated_products": validated},
+            "checks": checks, "l2": {"kind": "z2m-api", "eligible_zigbee": eligible, "validated_products": validated,
+                                     "matter": {"kind": "matter-server", "validated_products": matter_validated}},
             "timing_paths": {n: {"source": p.source, "basis": p.basis, "median_s": p.median()}
                              for n, p in PATHS.items()}}
 
@@ -135,6 +145,10 @@ def _details(kind: str, c: dict) -> str:
     if kind == "acceptance":
         return (f"{c.get('products_passed')}/{c.get('products')} products; categories passing "
                 f"{len(c.get('categories_passing') or [])}")
+    if kind == "matter":
+        ids = "Matter's test vendor id" if c.get("vid_mode") == "test" else "product vendor ids"
+        return (f"{c.get('products_passed')}/{c.get('products')} products; device types fully passing "
+                f"{len(c.get('device_types_passing') or [])}/{c.get('device_types')}; {ids}")
     if kind == "roundtrip":
         return f"{c.get('identical')}/{c.get('checked')} identical"
     return f"{c.get('accepted')}/{c.get('components')} components accepted"
@@ -151,11 +165,14 @@ def render_markdown(report: dict) -> str:
         lines.append(f"| {name} | {s.get('version', '')} | {str(s.get('manifest_sha256', ''))[:16]}… |")
     lines += ["", "## Coverage", "", "| Protocol | L0 | L1 | L2 (validated) | L3 | L4 |", "|---|---|---|---|---|---|"]
     for proto, c in sorted(report["coverage"].items()):
-        l2 = len(report["l2"]["validated_products"]) if proto == "zigbee" else 0
+        l2 = {"zigbee": len(report["l2"]["validated_products"]),
+              "matter": len(report["l2"]["matter"]["validated_products"])}.get(proto, 0)
         lines.append(f"| {proto} | {c['L0']} | {c['L1']} | {l2} | {c['L3']} | {c['L4']} |")
     lines += ["", f"L2 ({report['l2']['kind']}) is credited only to products that passed acceptance; "
                   f"{report['l2']['eligible_zigbee']} L1 Zigbee products are eligible (they expose at least one "
-                  "Home Assistant entity through the bridge).", "", "## Assumed fields", "",
+                  "Home Assistant entity through the bridge). Matter L2 (matter-server) is credited only to "
+                  "products whose node Home Assistant commissioned, displayed and controlled.", "",
+              "## Assumed fields", "",
               "Counted out of coverage (spec §3.2). Most frequent:", "", "| Field | Records |", "|---|---|"]
     lines += [f"| `{k}` | {v} |" for k, v in list(report["assumed"].items())[:15]]
     lines += ["", "## Checks", "", "| Check | Result | Details | File |", "|---|---|---|---|"]

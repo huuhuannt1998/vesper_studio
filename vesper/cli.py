@@ -405,6 +405,71 @@ def _validate_acceptance(args) -> int:
     return 0 if summary["passed"] == summary["products"] else 1
 
 
+def _validate_matter(args) -> int:
+    from vesper.exposure import matter_tier
+    from vesper.twins.clock import WallClock
+    from vesper.twins.home import load_catalog
+    from vesper.twins.runtime import Runtime
+    from vesper.validation import matter_acceptance as macc
+    from vesper.validation import stack
+    from vesper.validation.acceptance import EMPTY_HA_PRODUCTS_LIMIT
+    root = Path(args.root)
+    paths = stack.Paths(root)
+    records = [r for r in load_catalog(Path(args.catalog)).values() if r["id"].startswith("matter:")]
+    products = macc.select_matter_products(records, per_type=args.per_type, seed=args.seed,
+                                           categories=args.category or None)
+    run_dir = paths.matter_runs / f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+    server = stack.MatterServer(root, run_dir / "server", port=args.server_port, interface=args.interface)
+    ha = stack.HomeAssistant(root, port=args.ha_port)
+    host = matter_tier.Host(run_dir / "nodes", interface=args.interface,
+                            command=["node", str(paths.matter_host / "host.mjs")], log=run_dir / "matter-host.log")
+    runtime = Runtime(clock=WallClock(), seed=args.seed)
+    tier, results = None, []
+    try:
+        if not (paths.matter_host / "host.mjs").exists():
+            raise stack.StackError("the Matter host is not installed; run `vesper setup matter` first")
+        server.start()
+        ha.start()
+        ha.onboard()
+        ha.ensure_matter(server.url)
+        specs = {}
+        for i, r in enumerate(products):
+            tid = runtime.add(r, state=macc.initial_state(r)).id
+            specs[tid] = matter_tier.node_spec(r, tid, i, vid_mode=args.vid_mode)
+        host.start()
+        tier = matter_tier.MatterTier(runtime, host, specs)
+        tier.start()
+        for tid in specs:
+            results.append(macc.check_matter_product(ha, runtime, tier, tid, server.url, timeout=args.timeout,
+                                                     poll=0.25, commission_timeout=args.commission_timeout))
+            if len(results) == EMPTY_HA_PRODUCTS_LIMIT and all(r["node_id"] is None for r in results):
+                raise stack.StackError(f"the Matter Server commissioned none of the first {EMPTY_HA_PRODUCTS_LIMIT} "
+                                       f"nodes; check {run_dir / 'matter-server.log'} and the interface "
+                                       f"{args.interface!r}")
+    except (stack.StackError, matter_tier.HostError) as e:
+        print(f"FAILED matter: {e}", file=sys.stderr)
+        return 1
+    finally:
+        if tier is not None:
+            tier.stop()
+        host.stop()
+        runtime.clock.close()
+        ha.stop()
+        server.stop()
+    summary = macc.summarize_matter(results)
+    pins_file = paths.matter_host / "package.json"
+    report = {"summary": summary, "products": results, "ha_version": stack.HA_VERSION,
+              "matter_packages": json.loads(pins_file.read_text()).get("dependencies", {}),
+              "seed": args.seed, "per_type": args.per_type, "vid_mode": args.vid_mode, "interface": args.interface,
+              "run_dir": str(run_dir), "faulted": runtime.faulted,
+              "notes": (tier.notes + host.notes + runtime.notes)[:500]}
+    path = _write_report(args.out, "matter", report, args)
+    print(f"matter: {summary['passed']}/{summary['products']} products passed; "
+          f"{len(summary['device_types_passing'])}/{summary['device_types']} device types fully passing; "
+          f"report {path}")
+    return 0 if summary["products"] and summary["passed"] == summary["products"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     from vesper.validation.stats import N_SAMPLES
     parser = argparse.ArgumentParser(prog="vesper")
@@ -484,6 +549,21 @@ def main(argv: list[str] | None = None) -> int:
     acc.add_argument("--timeout", type=float, default=20.0)
     acc.add_argument("--keep", action="store_true", help="leave the twins discovered in Home Assistant")
     acc.add_argument("--out")
+    mat = checks.add_parser("matter", help="Home Assistant commissions, displays and controls Matter twins (L2)")
+    mat.add_argument("--catalog", default="catalog/vds")
+    mat.add_argument("--root", default=".vesper")
+    mat.add_argument("--interface", required=True,
+                     help="the network interface the nodes advertise on (Matter cannot use loopback), e.g. en0")
+    mat.add_argument("--per-type", type=int, default=1, help="products per Matter device type")
+    mat.add_argument("--category", action="append", help="limit to a category (repeatable)")
+    mat.add_argument("--seed", type=int, default=0)
+    mat.add_argument("--vid-mode", choices=("product", "test"), default="product",
+                     help="present each product's vendor id, or Matter's test vendor id")
+    mat.add_argument("--ha-port", type=int, default=18123)
+    mat.add_argument("--server-port", type=int, default=15580)
+    mat.add_argument("--timeout", type=float, default=30.0)
+    mat.add_argument("--commission-timeout", type=float, default=120.0)
+    mat.add_argument("--out")
     args = parser.parse_args(argv)
     if args.command in ("setup", "twins", "validate"):
         _install_sigterm()
@@ -511,6 +591,8 @@ def _dispatch(args) -> int:
         return _validate_latency(args)
     if args.action == "realdata":
         return _validate_realdata(args)
+    if args.action == "matter":
+        return _validate_matter(args)
     return _validate_roundtrip(args) if args.action == "roundtrip" else _validate_acceptance(args)
 
 

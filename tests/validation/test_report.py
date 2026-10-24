@@ -130,3 +130,42 @@ def test_real_device_results_count_as_preregistered_only_on_the_pinned_dataset_c
     write_result(results, "realdata-20261025T120000Z.json", {**base, "dataset_commit": ZIOTP_COMMIT,
                                                               "dataset_dirty": True})  # a changed checkout
     assert build_report(catalog, results)["checks"]["realdata"]["exploratory"]
+
+
+def matter_result(products, *, per_type=1, vid_mode="product"):
+    from vesper.validation.matter_acceptance import summarize_matter
+    return {"summary": summarize_matter(products), "products": products, "vid_mode": vid_mode,
+            "run": {"parameters": {"seed": 0, "per_type": per_type, "vid_mode": vid_mode}}}
+
+
+MATTER_PRODUCTS = [
+    {"id": "matter:100b:0016", "device_type": "Contact Sensor", "category": "contact_sensor", "passed": True,
+     "exercised": True},
+    {"id": "matter:115f:0001", "device_type": "Door Lock", "category": "lock", "passed": False, "exercised": True}]
+
+
+def test_matter_l2_counts_only_matter_products_that_passed(tmp_path):
+    catalog, _ = write_catalog(tmp_path)
+    cov = json.loads((catalog / "coverage.json").read_text())
+    cov["matter"] = {"L0": 5, "L1": 4, "L2": 0, "L3": 0, "L4": 0, "by_category": {}}
+    (catalog / "coverage.json").write_text(json.dumps(cov))
+    r = tmp_path / "results"
+    write_result(r, "matter-20261025T100000Z.json", matter_result(MATTER_PRODUCTS))
+    report = build_report(catalog, r)
+    assert report["l2"]["matter"]["validated_products"] == ["matter:100b:0016"]
+    assert report["l2"]["validated_products"] == []  # Zigbee's credit is untouched
+    c = report["checks"]["matter"]
+    assert (c["passed"], c["products"], c["products_passed"]) == (False, 2, 1)
+    assert c["device_types_passing"] == ["Contact Sensor"] and c["exploratory"] is False
+    md = render_markdown(report)
+    assert "| matter | 5 | 4 | 1 | 0 | 0 |" in md
+    assert "| matter | FAIL | 1/2 products; device types fully passing 1/2; product vendor ids |" in md
+
+
+def test_a_matter_run_with_other_parameters_is_exploratory_and_test_vendor_ids_are_named(tmp_path):
+    catalog, _ = write_catalog(tmp_path)
+    r = tmp_path / "results"
+    write_result(r, "matter-20261025T100000Z.json", matter_result(MATTER_PRODUCTS[:1], per_type=2, vid_mode="test"))
+    report = build_report(catalog, r)
+    assert report["checks"]["matter"]["exploratory"] is True and report["checks"]["matter"]["passed"] is True
+    assert "Matter's test vendor id" in render_markdown(report)
