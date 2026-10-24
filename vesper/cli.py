@@ -127,10 +127,15 @@ def _install_sigterm() -> None:
 
 
 def _setup(args) -> int:
-    from vesper.validation.stack import StackError, setup_ha
+    from vesper.validation import stack
     try:
-        requirements = setup_ha(Path(args.root))
-    except StackError as e:
+        if args.action == "matter":
+            pins = stack.setup_matter(Path(args.root))
+            print(f"Matter host ready in {stack.Paths(Path(args.root)).matter_host} "
+                  f"({', '.join(f'{k} {v}' for k, v in pins.items())})")
+            return 0
+        requirements = stack.setup_ha(Path(args.root))
+    except stack.StackError as e:
         print(f"FAILED setup: {e}", file=sys.stderr)
         return 1
     print(f"Home Assistant ready in {Path(args.root) / 'ha' / 'venv'} (extra packages: {', '.join(requirements)})")
@@ -419,6 +424,8 @@ def main(argv: list[str] | None = None) -> int:
     setup_actions = setup.add_subparsers(dest="action", required=True)
     setup_ha_cmd = setup_actions.add_parser("ha", help="Home Assistant Core in its own venv (needs uv)")
     setup_ha_cmd.add_argument("--root", default=".vesper")
+    setup_matter_cmd = setup_actions.add_parser("matter", help="the Matter host and Matter Server (needs Node.js)")
+    setup_matter_cmd.add_argument("--root", default=".vesper")
 
     rep = commands.add_parser("report", help="the fidelity report: coverage, assumptions and every check's result")
     rep.add_argument("--catalog", default="catalog/vds")

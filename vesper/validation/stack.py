@@ -1,10 +1,10 @@
-"""VESPER's own Mosquitto and Home Assistant Core, for acceptance tests (spec §4 L2; §5 `[ha]`).
+"""VESPER's own Mosquitto, Matter Server and Home Assistant Core, for acceptance tests (spec §4 L2; §5 `[ha]`).
 
-Only VESPER's instances are used, on loopback ports that differ from the defaults (MQTT 18830, HA 18123),
-so a machine already running Mosquitto or Home Assistant is never touched. Home Assistant runs from its
-own Python 3.14 venv with `--skip-pip`: `setup_ha` installs the pinned release and exactly the
-requirements of the integrations VESPER needs. If Home Assistant falls into recovery mode, which would
-make it bind the default port 8123, it is stopped and the run fails.
+Only VESPER's instances are used, on loopback ports that differ from the defaults (MQTT 18830, HA 18123,
+Matter Server 15580), so a machine already running Mosquitto, a Matter Server or Home Assistant is never
+touched. Home Assistant runs from its own Python 3.14 venv with `--skip-pip`: `setup_ha` installs the
+pinned release and exactly the requirements of the integrations VESPER needs. If Home Assistant falls into
+recovery mode, which would make it bind the default port 8123, it is stopped and the run fails.
 """
 from __future__ import annotations
 
@@ -21,8 +21,10 @@ import httpx
 
 HA_VERSION = "2026.10.2"
 HA_PYTHON = "3.14"
-NEEDED_INTEGRATIONS = ("frontend", "mqtt", "hassio")  # bootstrap needs frontend; mqtt's flow imports hassio
-MQTT_PORT, HA_PORT = 18830, 18123
+# bootstrap needs frontend; mqtt's flow imports hassio; matter talks to VESPER's Matter Server
+NEEDED_INTEGRATIONS = ("frontend", "mqtt", "hassio", "matter")
+MQTT_PORT, HA_PORT, MATTER_SERVER_PORT = 18830, 18123, 15580
+NODE_MIN = (22, 13)  # the pinned matter-server needs Node 22.13 (spec §3, amended 2026-10-23)
 RECOVERY_MARK = "Activating recovery mode"
 _REQS_SCRIPT = """
 import json, sys, importlib.resources as r, importlib.metadata as md
@@ -38,6 +40,14 @@ while todo:
     todo.extend(m.get("dependencies", []))
 print(json.dumps(sorted(reqs)))
 """
+
+
+# Rendered by Home Assistant's /api/template: [entity_id, the serial number of its device] for every Matter entity
+_MATTER_ENTITIES = """{%- set ns = namespace(rows=[]) -%}
+{%- for e in integration_entities('matter') -%}
+{%- set ns.rows = ns.rows + [[e, device_attr(device_id(e), 'serial_number')]] -%}
+{%- endfor -%}
+{{ ns.rows | to_json }}"""
 
 
 class StackError(RuntimeError):
@@ -76,6 +86,21 @@ class Paths:
     def mqtt_conf(self) -> Path:
         return self.root / "mqtt" / "mosquitto.conf"
 
+    @property
+    def matter_host(self) -> Path:
+        """The installed copy of the Matter host and its pinned Node packages (`vesper setup matter`)."""
+        return self.root / "matter" / "host"
+
+    @property
+    def matter_server_js(self) -> Path:
+        """The Matter Server's entry point; the npm package declares no executable, so Node runs this file."""
+        return self.matter_host / "node_modules" / "matter-server" / "dist" / "esm" / "MatterServer.js"
+
+    @property
+    def matter_runs(self) -> Path:
+        """One directory per Matter run: the server's fabric, the nodes' storage and both logs."""
+        return self.root / "matter" / "runs"
+
 
 def port_free(port: int, host: str = "127.0.0.1") -> bool:
     with socket.socket() as s:
@@ -112,6 +137,38 @@ def setup_ha(root: Path, *, run=subprocess.run, which=shutil.which) -> list[str]
     return requirements
 
 
+def setup_matter(root: Path, *, run=subprocess.run, which=shutil.which, source: Path | None = None) -> dict:
+    """Copy the Matter host into VESPER's root and install its Node packages exactly as locked.
+
+    The host runs from the copy, not from the installed Python package, so `npm ci` never writes into
+    site-packages. Returns the pinned dependencies from package.json.
+    """
+    from vesper.exposure.matter_tier import HOST_DIR
+    source = Path(source or HOST_DIR)
+    node, npm = which("node"), which("npm")
+    if not node or not npm:
+        raise StackError("setting up the Matter tier needs Node.js and npm on PATH (https://nodejs.org/)")
+    if not (source / "package-lock.json").exists():
+        raise StackError(f"{source} has no package-lock.json; the Node packages would not be pinned")
+    try:
+        version = run([node, "--version"], check=True, capture_output=True, text=True).stdout.strip()
+        major, minor = (int(x) for x in version.lstrip("v").split(".")[:2])
+    except (subprocess.CalledProcessError, OSError, ValueError) as e:
+        raise StackError(f"cannot read the Node.js version: {e}") from e
+    if (major, minor) < NODE_MIN:
+        raise StackError(f"the Matter tier needs Node.js {NODE_MIN[0]}.{NODE_MIN[1]} or newer, found {version}")
+    host = Paths(Path(root)).matter_host
+    host.mkdir(parents=True, exist_ok=True)
+    for f in source.iterdir():
+        if f.is_file() and (f.name.startswith("package") or f.suffix == ".mjs") and ".test." not in f.name:
+            shutil.copy2(f, host / f.name)
+    try:
+        run([npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund"], check=True, cwd=host)
+    except (subprocess.CalledProcessError, OSError) as e:
+        raise StackError(f"installing the Matter host's Node packages failed: {e}") from e
+    return json.loads((host / "package.json").read_text()).get("dependencies", {})
+
+
 def mosquitto_binary(which=shutil.which) -> str:
     for candidate in (which("mosquitto"), "/opt/homebrew/sbin/mosquitto", "/usr/local/sbin/mosquitto",
                       "/usr/sbin/mosquitto"):
@@ -139,6 +196,60 @@ class Mosquitto:
         self.proc = self.popen([self.binary or mosquitto_binary(), "-c", str(conf)])
         try:
             wait_for_port(self.port, 10)
+        except StackError:
+            self.stop()
+            raise
+
+    def stop(self) -> None:
+        if self.proc is not None:
+            self.proc.terminate()
+            try:
+                self.proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.wait(timeout=10)
+            self.proc = None
+
+
+@dataclass
+class MatterServer:
+    """VESPER's own Matter Server (the matter.js `matter-server`), on loopback for Home Assistant's WebSocket.
+
+    `storage` holds its fabric. Each run gets a new directory, so no node from an earlier run is remembered;
+    the log goes beside it. `interface` is the network interface its Matter traffic and mDNS use.
+    """
+    root: Path
+    storage: Path
+    port: int = MATTER_SERVER_PORT
+    interface: str | None = None
+    popen: object = subprocess.Popen
+    start_timeout: float = 60.0
+    proc: object = None
+
+    @property
+    def url(self) -> str:
+        return f"ws://127.0.0.1:{self.port}/ws"
+
+    def command(self) -> list[str]:
+        # --enable-test-net-dcl: matter.js nodes carry test attestation certificates (a test PAA signs a PAI and
+        # DAC for the product's own vendor and product id), which the server refuses without the test DCL.
+        # --disable-thread-diagnostics: no mDNS probing of the lab's Thread Border Routers.
+        cmd = ["node", str(Paths(Path(self.root)).matter_server_js), "--storage-path", str(self.storage),
+               "--port", str(self.port), "--listen-address", "127.0.0.1", "--enable-test-net-dcl",
+               "--disable-dashboard", "--disable-ota", "--disable-thread-diagnostics"]
+        return cmd + (["--primary-interface", self.interface] if self.interface else [])
+
+    def start(self) -> None:
+        if not Paths(Path(self.root)).matter_server_js.exists():
+            raise StackError("the Matter Server is not installed; run `vesper setup matter` first")
+        if not port_free(self.port):
+            raise StackError(f"port {self.port} is already in use; refusing to share a Matter Server")
+        storage = Path(self.storage)
+        storage.mkdir(parents=True, exist_ok=True)
+        with (storage.parent / "matter-server.log").open("w") as log:
+            self.proc = self.popen(self.command(), stdout=log, stderr=subprocess.STDOUT)
+        try:
+            wait_for_port(self.port, self.start_timeout)
         except StackError:
             self.stop()
             raise
@@ -284,12 +395,7 @@ class HomeAssistant:
         data), so every existing MQTT entry is removed and one is created. Removing an entry also removes
         the devices and entities it discovered, so no entity from an earlier run survives as a ghost.
         """
-        entries = self.api("GET", "/api/config/config_entries/entry", params={"domain": "mqtt"}).json()
-        for e in entries:
-            if e.get("domain", "mqtt") == "mqtt":
-                r = self.api("DELETE", f"/api/config/config_entries/entry/{e['entry_id']}")
-                if r.status_code >= 400:
-                    raise StackError(f"could not remove the old MQTT entry ({r.status_code}): {r.text[:200]}")
+        self._remove_entries("mqtt")
         flow = self.api("POST", "/api/config/config_entries/flow", json={"handler": "mqtt"}).json()
         if flow.get("step_id") != "broker":
             raise StackError(f"unexpected MQTT config flow step: {flow}")
@@ -301,6 +407,40 @@ class HomeAssistant:
                                                    "transport": "tcp"}}).json()
         if result.get("type") != "create_entry":
             raise StackError(f"the MQTT integration was not configured: {result}")
+
+    def ensure_matter(self, url: str) -> None:
+        """Point the Matter integration at VESPER's Matter Server, freshly on every run (as `ensure_mqtt`).
+
+        Without a Supervisor, Home Assistant's Matter flow asks only for the server's WebSocket URL.
+        """
+        self._remove_entries("matter")
+        flow = self.api("POST", "/api/config/config_entries/flow", json={"handler": "matter"}).json()
+        if flow.get("step_id") != "manual":
+            raise StackError(f"unexpected Matter config flow step: {flow}")
+        result = self.api("POST", f"/api/config/config_entries/flow/{flow['flow_id']}", json={"url": url}).json()
+        if result.get("type") != "create_entry":
+            raise StackError(f"the Matter integration was not configured: {result}")
+
+    def matter_entities(self) -> dict[str, list[str]]:
+        """Home Assistant's Matter entities, grouped by their device's serial number (the twin's node serial)."""
+        r = self.api("POST", "/api/template", json={"template": _MATTER_ENTITIES})
+        if r.status_code != 200:
+            raise StackError(f"listing the Matter entities failed ({r.status_code}): {r.text[:200]}")
+        out: dict[str, list[str]] = {}
+        for entity_id, serial in json.loads(r.text):
+            if serial:
+                out.setdefault(serial, []).append(entity_id)
+        return out
+
+    def _remove_entries(self, domain: str) -> None:
+        """Remove every config entry of `domain`, with the devices and entities it created, so none survives
+        from an earlier run as a ghost."""
+        entries = self.api("GET", "/api/config/config_entries/entry", params={"domain": domain}).json()
+        for e in entries:
+            if e.get("domain", domain) == domain:
+                r = self.api("DELETE", f"/api/config/config_entries/entry/{e['entry_id']}")
+                if r.status_code >= 400:
+                    raise StackError(f"could not remove the old {domain} entry ({r.status_code}): {r.text[:200]}")
 
     def state(self, entity_id: str) -> dict | None:
         """The entity's state, None if Home Assistant has no such entity; any other answer is an error."""

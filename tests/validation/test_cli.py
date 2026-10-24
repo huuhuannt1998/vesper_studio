@@ -79,6 +79,22 @@ def test_setup_ha_failure_exits_nonzero(monkeypatch, tmp_path, capsys):
     assert "FAILED setup: uv not found" in capsys.readouterr().err
 
 
+def test_setup_matter_reports_the_pinned_node_packages(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(stack_mod, "setup_matter", lambda root: {"@matter/main": "0.17.9", "matter-server": "1.4.0"})
+    assert cli.main(["setup", "matter", "--root", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "@matter/main 0.17.9" in out and "matter-server 1.4.0" in out and str(tmp_path / "matter" / "host") in out
+
+
+def test_setup_matter_failure_exits_nonzero(monkeypatch, tmp_path, capsys):
+    def fail(root):
+        raise stack_mod.StackError("needs Node.js")
+
+    monkeypatch.setattr(stack_mod, "setup_matter", fail)
+    assert cli.main(["setup", "matter", "--root", str(tmp_path)]) == 1
+    assert "FAILED setup: needs Node.js" in capsys.readouterr().err
+
+
 def test_twins_run_exposes_the_home_and_goes_offline_on_ctrl_c(monkeypatch, tmp_path, broker, catalog):
     home = tmp_path / "home.yaml"
     home.write_text("broker: {host: 127.0.0.1, port: 18830}\nseed: 3\ndevices:\n"
