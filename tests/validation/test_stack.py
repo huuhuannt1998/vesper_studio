@@ -145,6 +145,9 @@ class FakeServer:
             return httpx.Response(200, json={"flow_id": "f1", "type": "form", "step_id": self.flow_step})
         if path == "/api/config/config_entries/flow/f1":
             body = json.loads(request.content)
+            if "other_settings" not in body:  # Home Assistant 2026.10's broker step requires this section
+                return httpx.Response(200, json={"type": "form", "step_id": "broker",
+                                                 "errors": {"other_settings": "required key not provided"}})
             self.entries.append({"domain": "mqtt", "data": body})
             return httpx.Response(200, json={"type": self.flow_result})
         return httpx.Response(404)
@@ -180,7 +183,9 @@ def test_each_run_recreates_the_mqtt_entry_for_vespers_broker(tmp_path):
     ha = onboarded(tmp_path, server)
     ha.ensure_mqtt(18830)
     ha.ensure_mqtt(18831)
-    assert server.entries == [{"domain": "mqtt", "data": {"broker": "127.0.0.1", "port": 18831}}]
+    assert server.entries == [{"domain": "mqtt", "data": {
+        "broker": "127.0.0.1", "port": 18831,
+        "other_settings": {"set_client_cert": False, "set_ca_cert": "off", "transport": "tcp"}}}]
 
 
 def test_an_mqtt_entry_for_another_broker_is_replaced(tmp_path):
@@ -188,7 +193,7 @@ def test_an_mqtt_entry_for_another_broker_is_replaced(tmp_path):
     server = FakeServer(entries=[{"domain": "mqtt", "data": {"broker": "127.0.0.1", "port": 1883}}])
     ha = onboarded(tmp_path, server)
     ha.ensure_mqtt(18830)
-    assert server.entries == [{"domain": "mqtt", "data": {"broker": "127.0.0.1", "port": 18830}}]
+    assert [e["data"]["port"] for e in server.entries] == [18830]
     assert ("DELETE", "/api/config/config_entries/entry/e0") in server.requests
 
 

@@ -274,8 +274,12 @@ class HomeAssistant:
         flow = self.api("POST", "/api/config/config_entries/flow", json={"handler": "mqtt"}).json()
         if flow.get("step_id") != "broker":
             raise StackError(f"unexpected MQTT config flow step: {flow}")
+        # Home Assistant 2026.10's broker step nests TLS and transport under a required `other_settings`
+        # section (mqtt/config_flow.py, OTHER_SETTINGS_SCHEMA): plain TCP, no client or CA certificate.
         result = self.api("POST", f"/api/config/config_entries/flow/{flow['flow_id']}",
-                          json={"broker": "127.0.0.1", "port": broker_port}).json()
+                          json={"broker": "127.0.0.1", "port": broker_port,
+                                "other_settings": {"set_client_cert": False, "set_ca_cert": "off",
+                                                   "transport": "tcp"}}).json()
         if result.get("type") != "create_entry":
             raise StackError(f"the MQTT integration was not configured: {result}")
 
