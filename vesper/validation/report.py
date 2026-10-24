@@ -25,7 +25,7 @@ PREREGISTERED = {
     "latency": {"seed": 0, "n": 200, "paths": "local,vendor_cloud,trigger_action_cloud", "spacing": 0.05,
                 "product": "zigbee:aqara:mccgq11lm"},
     "acceptance": {"seed": 0, "per_category": 5},
-    "matter": {"seed": 0, "per_type": 1},
+    "matter": {"seed": 0, "per_type": 1, "vid_mode": "product", "category": None},
 }
 # Pre-registered values a result carries in its own fields rather than in its command-line parameters.
 PREREGISTERED_DATA = {"realdata": {"dataset_commit": ZIOTP_COMMIT, "dataset_dirty": False}}

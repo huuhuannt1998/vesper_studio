@@ -21,7 +21,11 @@ from pathlib import Path
 HOST_DIR = Path(__file__).parent / "matter_host"
 TEST_VENDOR_ID = 0xFFF1  # the Matter test vendor, for a commissioner that refuses test attestation under a real VID
 NODE_PORT_BASE = 25540  # VESPER's nodes listen on UDP 25540 + i; Matter's default 5540 stays free for others
-DISCRIMINATOR_BASE, MAX_NODES = 0x400, 0xC00  # node i uses discriminator 0x400 + i: distinct 12-bit values
+# Node i of a run uses discriminator (0x400 + salt + i) mod 4096 and setup code 20000001 + (salt + i) mod
+# 2222221: distinct within a run, valid (no forbidden code lies in 20000001..22222221), and different between
+# runs, because the caller draws `salt` at random for each run.
+DISCRIMINATOR_BASE, MAX_NODES = 0x400, 0xC00
+PASSCODE_LO, PASSCODE_SPAN = 20000001, 2222221
 COMMISSION_MARGIN_S = 15.0  # how much longer VESPER waits than the host gives the Matter Server
 _INVALID_PASSCODES = {0, 11111111, 22222222, 33333333, 44444444, 55555555, 66666666, 77777777, 88888888,
                       99999999, 12345678, 87654321}  # forbidden setup codes (Matter Core §5.1.7.1)
@@ -46,7 +50,7 @@ class NodeSpec:
     discriminator: int
 
 
-def node_spec(record: dict, twin_id: str, index: int, *, vid_mode: str = "product") -> NodeSpec:
+def node_spec(record: dict, twin_id: str, index: int, *, vid_mode: str = "product", salt: int = 0) -> NodeSpec:
     """The identity a twin presents as a Matter node: the product's vendor and product ids and names, or the
     test vendor id when the commissioner refuses test attestation under a real one (`vid_mode="test"`)."""
     device_type = ((record.get("binding") or {}).get("matter") or {}).get("device_type")
@@ -57,14 +61,15 @@ def node_spec(record: dict, twin_id: str, index: int, *, vid_mode: str = "produc
         vid, pid = TEST_VENDOR_ID, 0x8000 + index % 0x8000
     elif vid_mode != "product":
         raise ValueError(f"vid_mode is 'product' or 'test', got {vid_mode!r}")
-    passcode = 20000001 + index
-    if passcode in _INVALID_PASSCODES or not 0 <= index < MAX_NODES:
+    if not 0 <= index < MAX_NODES:
         raise ValueError(f"no valid setup code for node {index}")
+    passcode = PASSCODE_LO + (salt + index) % PASSCODE_SPAN
+    assert passcode not in _INVALID_PASSCODES
     digest = hashlib.sha256(twin_id.encode()).hexdigest()
     model = record["identity"]["model"]
     return NodeSpec(twin_id, device_type, vid, pid, record["identity"]["vendor"][:32], model[:32],
                     "VSP-" + digest[:16].upper(), f"VESPER {index:04d} {model}"[:32], NODE_PORT_BASE + index,
-                    passcode, DISCRIMINATOR_BASE + index)
+                    passcode, (DISCRIMINATOR_BASE + salt + index) % 0x1000)
 
 
 @dataclass
@@ -222,7 +227,21 @@ class MatterTier:
             self.resolved[tid] = set(reply["resolved"])
             self.pairing[tid] = reply["pairing"]
             self.notes += [f"{tid}: {n} has no matter.js attribute; it is not exposed" for n in reply["unresolved"]]
+            self._adopt_refused(tid, reply.get("initial_errors") or [])
         self.runtime.subscribe(self._on_report)
+
+    def _adopt_refused(self, tid: str, errors: list[str]) -> None:
+        """Where the node refused a twin's initial value (a default no real device has, such as 0 mireds), the
+        twin takes the node's value, so twin and node agree; each refusal is noted."""
+        refused = {n: e for n in self.resolved[tid] for e in errors if e.startswith(n + ": ")}
+        self.notes += [f"{tid}: {e}" for e in errors if e not in refused.values()]
+        if not refused:
+            return
+        values = self.host.request("get", twin=tid)["values"]
+        for n, e in refused.items():
+            self.runtime.stimulate(tid, {"type": "measured", "feature": n, "value": values[n]})
+            self.notes.append(f"{tid}: the node refused the twin's {n} ({e[len(n) + 2:]}); "
+                              f"the twin takes the node's {values[n]!r}")
 
     def commission(self, twin_id: str, url: str, timeout: float) -> int:
         """Have the Matter Server at `url` commission the twin's node, by its QR code: the code carries the
@@ -252,6 +271,11 @@ class MatterTier:
         if tid not in self.resolved or feature not in self.runtime.twins[tid].features:
             self.notes.append(f"change for unknown twin {tid!r} ignored" if tid not in self.resolved
                               else f"{tid}: change of unknown feature {feature!r} ignored")
+            return
+        if "set" not in self.runtime.twins[tid].features[feature]["access"]:
+            # A controller cannot write a read-only attribute, so this change is the device's own side effect of
+            # a command (matter.js's OnOffServer.on() sets GlobalSceneControl): the twin follows it.
+            self.runtime.stimulate(tid, {"type": "measured", "feature": feature, "value": event.get("value")})
             return
         if not self.runtime.platform_set(tid, feature, event.get("value")):
             self.host.request("set", wait=False, twin=tid, feature=feature, value=self.runtime.state(tid)[feature])

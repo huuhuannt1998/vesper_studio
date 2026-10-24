@@ -74,11 +74,12 @@ class World:
     """Plays the Matter host (nodes keep the values VESPER sets) and Home Assistant (one entity per expected
     mapping, showing its node's values the way Home Assistant's Matter integration converts them)."""
 
-    def __init__(self, rids, *, missing=(), deaf=(), unpaired=()):
+    def __init__(self, rids, *, missing=(), deaf=(), unpaired=(), dies=()):
         self.runtime = Runtime(clock=LogicalClock())
         recs = matter_records()
         self.specs, self.nodes, self.handler = {}, {}, None
         self.missing, self.deaf, self.unpaired = set(missing), set(deaf), set(unpaired)
+        self.dies, self.dead = set(dies), None
         for i, rid in enumerate(rids):
             tid = self.runtime.add(recs[rid], state=initial_state(recs[rid])).id
             self.specs[tid] = node_spec(recs[rid], tid, i)
@@ -95,6 +96,10 @@ class World:
             self.nodes[a["twin"]][a["feature"]] = a["value"]
         if op == "commission":
             tid = a["code"][3:]
+            if tid in self.dies:
+                from vesper.exposure.matter_tier import HostError
+                self.dead = "the Matter host exited (1)"
+                raise HostError(self.dead)
             if tid in self.unpaired:
                 from vesper.exposure.matter_tier import HostError
                 raise HostError("commission: no commissionable node answered")
@@ -188,6 +193,19 @@ def test_a_node_the_server_cannot_commission_fails_without_stopping_the_run():
     door, lamp = checked(world)
     assert not door["passed"] and "no commissionable node" in door["commission_error"] and door["node_id"] is None
     assert lamp["passed"]
+
+
+def test_a_host_that_dies_ends_the_run_instead_of_failing_each_product():
+    import pytest
+
+    from vesper.exposure.matter_tier import HostError
+    world = World([DOOR, LAMP], dies={LAMP})
+    door, lamp = world.specs
+    assert check_matter_product(world, world.runtime, world.tier, door, "ws://x", timeout=0.2, poll=0.01,
+                                commission_timeout=5)["passed"]
+    with pytest.raises(HostError, match="exited"):
+        check_matter_product(world, world.runtime, world.tier, lamp, "ws://x", timeout=0.2, poll=0.01,
+                             commission_timeout=5)
 
 
 def test_probes_pick_a_target_different_from_the_current_value():

@@ -43,6 +43,16 @@ def test_pairing_codes_are_valid_and_distinct_and_long_names_are_cut_to_matters_
     assert all(len(s.product_name) <= 32 and len(s.label) <= 32 for s in specs)
 
 
+def test_setup_codes_and_discriminators_are_drawn_per_run_and_stay_distinct_and_valid():
+    rec = matter_records()["matter:100b:0016"]
+    a = [node_spec(rec, f"t{i}", i, salt=12345) for i in range(300)]
+    b = [node_spec(rec, f"t{i}", i, salt=987654) for i in range(300)]
+    assert len({s.passcode for s in a}) == 300 and len({s.discriminator for s in a}) == 300
+    assert all(20000001 <= s.passcode <= 22222221 and 0 <= s.discriminator <= 0xFFF for s in a + b)
+    assert [s.passcode for s in a] != [s.passcode for s in b]
+    assert [s.discriminator for s in a] != [s.discriminator for s in b]
+
+
 def test_a_record_without_a_matter_device_type_cannot_be_a_node():
     with pytest.raises(ValueError, match="device type"):
         node_spec(matter_records()["matter:fff1:8000"], "t", 0)
@@ -107,8 +117,9 @@ def test_stop_shuts_the_host_down(tmp_path):
 
 # -- the tier ----------------------------------------------------------------------------------------------------
 class FakeHost:
-    def __init__(self, unresolved=(), refuse=()):
+    def __init__(self, unresolved=(), refuse=(), initial_errors=(), values=None):
         self.calls, self.handlers, self.unresolved, self.refuse = [], [], set(unresolved), set(refuse)
+        self.initial_errors, self.values = list(initial_errors), values or {}
 
     def request(self, op, wait=True, **args):
         self.calls.append((op, args))
@@ -117,8 +128,10 @@ class FakeHost:
         if op == "add":
             names = [f["name"] for f in args["features"]]
             return {"resolved": [n for n in names if n not in self.unresolved],
-                    "unresolved": [n for n in names if n in self.unresolved],
+                    "unresolved": [n for n in names if n in self.unresolved], "initial_errors": self.initial_errors,
                     "pairing": {"manual": "34970112332", "qr": "MT:Y.K90AFN00KA0648G00"}}
+        if op == "get":
+            return {"values": self.values}
         if op == "commission":
             return {"node_id": 7}
         return {}
@@ -134,14 +147,14 @@ class FakeHost:
         return [(a["twin"], a["feature"], a["value"]) for op, a in self.calls if op == "set"]
 
 
-def tier(*rids, unresolved=(), refuse=()):
+def tier(*rids, unresolved=(), refuse=(), initial_errors=(), values=None):
     rt = Runtime(clock=LogicalClock())
     recs = matter_records()
     specs = {}
     for i, rid in enumerate(rids):
         tid = rt.add(recs[rid], twin_id=f"{rid}@{i}").id
         specs[tid] = node_spec(recs[rid], tid, i)
-    host = FakeHost(unresolved, refuse)
+    host = FakeHost(unresolved, refuse, initial_errors, values)
     t = MatterTier(rt, host, specs)
     t.start()
     return t, rt, host, list(specs)
@@ -214,10 +227,26 @@ def test_a_controllers_change_becomes_a_platform_command_and_its_report_follows(
 
 
 def test_a_change_the_device_would_refuse_is_rejected_and_the_node_put_back():
+    t, rt, host, (lock,) = tier("matter:115f:0001")
+    host.emit(twin=lock, feature="Door Lock.OperatingMode", value="Bogus")  # writable, but not a valid mode
+    assert rt.state(lock)["Door Lock.OperatingMode"] == "Normal" and rt.actions[-1].accepted is False
+    assert host.sets() == [(lock, "Door Lock.OperatingMode", "Normal")]
+
+
+def test_a_change_to_a_read_only_attribute_is_the_device_s_own_and_the_twin_follows_it():
+    # A controller cannot write a read-only attribute, so a change there is a side effect of a command
+    # (matter.js's OnOffServer.on() sets GlobalSceneControl): the twin takes it; no platform command is logged.
     t, rt, host, (door,) = tier("matter:100b:0016")
-    host.emit(twin=door, feature="Boolean State.StateValue", value=True)  # read-only on a real contact sensor
-    assert rt.state(door)["Boolean State.StateValue"] is False and rt.actions[-1].accepted is False
-    assert host.sets() == [(door, "Boolean State.StateValue", False)]
+    host.emit(twin=door, feature="Boolean State.StateValue", value=True)
+    assert rt.state(door)["Boolean State.StateValue"] is True and rt.actions == []
+
+
+def test_a_value_the_node_refuses_at_start_is_replaced_by_the_node_s_own_and_noted():
+    error = "Color Control.ColorTemperatureMireds: Value 0 is not within bounds defined by constraint (135)"
+    t, rt, host, (lamp,) = tier("matter:100b:0018", initial_errors=[error],
+                                values={"Color Control.ColorTemperatureMireds": 250, "On/Off.OnOff": False})
+    assert rt.state(lamp)["Color Control.ColorTemperatureMireds"] == 250 and rt.actions == []
+    assert any("ColorTemperatureMireds" in n and "250" in n and "constraint" in n for n in t.notes)
 
 
 def test_an_event_for_an_unknown_twin_is_noted_not_fatal():

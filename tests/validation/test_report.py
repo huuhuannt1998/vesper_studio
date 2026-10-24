@@ -162,6 +162,17 @@ def test_matter_l2_counts_only_matter_products_that_passed(tmp_path):
     assert "| matter | FAIL | 1/2 products; device types fully passing 1/2; product vendor ids |" in md
 
 
+def test_a_matter_run_with_test_vendor_ids_or_a_category_subset_is_exploratory(tmp_path):
+    catalog, _ = write_catalog(tmp_path)
+    r = tmp_path / "results"
+    write_result(r, "matter-20261025T100000Z.json", matter_result(MATTER_PRODUCTS[:1], vid_mode="test"))
+    assert build_report(catalog, r)["checks"]["matter"]["exploratory"] is True
+    sub = matter_result(MATTER_PRODUCTS[:1])
+    sub["run"]["parameters"]["category"] = ["lock"]
+    write_result(r, "matter-20261025T110000Z.json", sub)
+    assert build_report(catalog, r)["checks"]["matter"]["exploratory"] is True
+
+
 def test_a_matter_run_with_other_parameters_is_exploratory_and_test_vendor_ids_are_named(tmp_path):
     catalog, _ = write_catalog(tmp_path)
     r = tmp_path / "results"

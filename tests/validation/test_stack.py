@@ -335,6 +335,20 @@ def test_setup_matter_refuses_unpinned_node_packages(tmp_path):
     assert not any(cmd[1:2] == ["ci"] for cmd, _ in calls)
 
 
+def test_home_assistant_s_environment_is_checked_for_the_matter_packages(tmp_path):
+    from vesper.validation.stack import ha_has_matter
+    seen = []
+
+    def run(cmd, **kw):
+        seen.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0 if seen[0] else 1)
+
+    assert ha_has_matter(tmp_path, run=run)
+    assert seen[0][0] == str(Paths(tmp_path).ha_python) and "import matter_server.client" in seen[0][-1]
+    assert not ha_has_matter(tmp_path, run=lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1))
+    assert not ha_has_matter(tmp_path, run=lambda cmd, **kw: (_ for _ in ()).throw(FileNotFoundError(cmd[0])))
+
+
 def installed_matter_server(tmp_path):
     binary = Paths(tmp_path).matter_server_js
     binary.parent.mkdir(parents=True, exist_ok=True)

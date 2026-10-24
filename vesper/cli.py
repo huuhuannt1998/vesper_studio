@@ -413,6 +413,7 @@ def _validate_matter(args) -> int:
     from vesper.validation import matter_acceptance as macc
     from vesper.validation import stack
     from vesper.validation.acceptance import EMPTY_HA_PRODUCTS_LIMIT
+    import secrets
     root = Path(args.root)
     paths = stack.Paths(root)
     records = [r for r in load_catalog(Path(args.catalog)).values() if r["id"].startswith("matter:")]
@@ -428,14 +429,17 @@ def _validate_matter(args) -> int:
     try:
         if not (paths.matter_host / "host.mjs").exists():
             raise stack.StackError("the Matter host is not installed; run `vesper setup matter` first")
+        if not stack.ha_has_matter(root):
+            raise stack.StackError("Home Assistant's environment lacks the Matter integration's packages "
+                                   "(matter-python-client); run `vesper setup ha` again")
         server.start()
         ha.start()
         ha.onboard()
         ha.ensure_matter(server.url)
-        specs = {}
+        specs, salt = {}, secrets.randbelow(matter_tier.PASSCODE_SPAN)  # setup codes differ in every run
         for i, r in enumerate(products):
             tid = runtime.add(r, state=macc.initial_state(r)).id
-            specs[tid] = matter_tier.node_spec(r, tid, i, vid_mode=args.vid_mode)
+            specs[tid] = matter_tier.node_spec(r, tid, i, vid_mode=args.vid_mode, salt=salt)
         host.start()
         tier = matter_tier.MatterTier(runtime, host, specs)
         tier.start()
@@ -446,6 +450,12 @@ def _validate_matter(args) -> int:
                 raise stack.StackError(f"the Matter Server commissioned none of the first {EMPTY_HA_PRODUCTS_LIMIT} "
                                        f"nodes; check {run_dir / 'matter-server.log'} and the interface "
                                        f"{args.interface!r}")
+            paired = [r for r in results if r["node_id"] is not None]
+            if (results[-1]["node_id"] is not None and len(paired) == EMPTY_HA_PRODUCTS_LIMIT
+                    and not any(e["created"] for r in paired for e in r["entities"])):
+                raise stack.StackError(f"Home Assistant showed no entity for the first {EMPTY_HA_PRODUCTS_LIMIT} "
+                                       f"commissioned nodes; check its Matter integration entry and "
+                                       f"{paths.ha_log}")
     except (stack.StackError, matter_tier.HostError) as e:
         print(f"FAILED matter: {e}", file=sys.stderr)
         return 1

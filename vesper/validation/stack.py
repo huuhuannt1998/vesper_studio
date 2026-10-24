@@ -169,6 +169,16 @@ def setup_matter(root: Path, *, run=subprocess.run, which=shutil.which, source: 
     return json.loads((host / "package.json").read_text()).get("dependencies", {})
 
 
+def ha_has_matter(root: Path, *, run=subprocess.run) -> bool:
+    """Whether VESPER's Home Assistant can load its Matter integration under `--skip-pip`. An environment set up
+    before the Matter tier lacks matter-python-client, and Home Assistant's config flow then fails obscurely."""
+    try:
+        return run([str(Paths(Path(root)).ha_python), "-c", "import matter_server.client"],
+                   capture_output=True).returncode == 0
+    except OSError:
+        return False
+
+
 def mosquitto_binary(which=shutil.which) -> str:
     for candidate in (which("mosquitto"), "/opt/homebrew/sbin/mosquitto", "/usr/local/sbin/mosquitto",
                       "/usr/sbin/mosquitto"):

@@ -82,17 +82,18 @@ def fake_check(ha, runtime, tier, twin_id, server_url, *, timeout, poll, commiss
     return {"id": twin_id, "twin_id": twin_id, "device_type": spec.device_type,
             "category": runtime.twins[twin_id].vds["identity"]["category"], "serial": spec.serial,
             "node_id": 1 if paired else None, "passed": paired and twin_id not in Events.failing, "exercised": True,
-            "entities": []}
+            "entities": [{"created": paired and not Events.no_entities}]}
 
 
 @pytest.fixture
 def matter(monkeypatch, tmp_path):
     Events.log, Events.servers, Events.hosts, Events.checked, Events.adds = [], [], [], [], []
-    Events.fail, Events.failing = None, set()
+    Events.fail, Events.failing, Events.no_entities = None, set(), False
     monkeypatch.setattr(stack_mod, "MatterServer", FakeServer)
     monkeypatch.setattr(stack_mod, "HomeAssistant", FakeHA)
     monkeypatch.setattr(tier_mod, "Host", FakeHost)
     monkeypatch.setattr(macc_mod, "check_matter_product", fake_check)
+    monkeypatch.setattr(stack_mod, "ha_has_matter", lambda root: True)
 
     class Clock(clock_mod.LogicalClock):
         def close(self):
@@ -165,6 +166,29 @@ def test_an_uninstalled_host_is_reported_before_anything_starts(matter, tmp_path
     (matter.host_dir / "host.mjs").unlink()
     assert run(matter, tmp_path) == 1
     assert "vesper setup matter" in capsys.readouterr().err and "server.start" not in Events.log
+
+
+def test_the_run_stops_when_home_assistant_shows_nothing_for_commissioned_nodes(matter, tmp_path, capsys):
+    Events.no_entities = True
+    assert run(matter, tmp_path) == 1
+    err = capsys.readouterr().err
+    assert "Home Assistant showed no entity for the first 3 commissioned nodes" in err and "hass.log" in err
+    assert len(Events.checked) == 3 and Events.log[-1] == "server.stop"
+
+
+def test_home_assistant_without_the_matter_packages_is_reported_before_anything_starts(matter, tmp_path, capsys,
+                                                                                         monkeypatch):
+    monkeypatch.setattr(stack_mod, "ha_has_matter", lambda root: False)
+    assert run(matter, tmp_path) == 1
+    assert "run `vesper setup ha` again" in capsys.readouterr().err and "server.start" not in Events.log
+
+
+def test_setup_codes_differ_between_runs(matter, tmp_path):
+    assert run(matter, tmp_path) == 0
+    first = sorted(a["passcode"] for a in Events.adds)
+    Events.adds.clear()
+    assert run(matter, tmp_path) == 0
+    assert sorted(a["passcode"] for a in Events.adds) != first
 
 
 def test_test_vendor_mode_is_passed_to_every_node(matter, tmp_path):

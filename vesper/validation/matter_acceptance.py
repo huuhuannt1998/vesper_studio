@@ -154,6 +154,8 @@ def check_matter_product(ha, runtime, tier, twin_id: str, server_url: str, *, ti
     try:
         out["node_id"] = tier.commission(twin_id, server_url, commission_timeout)
     except HostError as e:
+        if getattr(tier.host, "dead", None):  # the host is gone: no later product can pass; end the run
+            raise
         out["commission_error"] = str(e)
     if out["node_id"] is None:
         rows = [{"platform": e.platform, "device_class": e.device_class, "features": list(e.features),

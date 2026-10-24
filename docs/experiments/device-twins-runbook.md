@@ -207,7 +207,7 @@ What it does:
 
 Options: `--category <name>` (repeatable) restricts the sample; `--vid-mode test` presents Matter's test vendor id (0xFFF1) instead, for a server that refuses test certificates under a real vendor id. The report then says so.
 
-**Network.** Matter cannot use loopback: matter.js skips internal interfaces. So the nodes announce themselves by mDNS on the lab network, visible to other machines, to other projects' Home Assistant instances and to Apple and Google home hubs, which may offer to add them. Commissioning needs the node's setup code, so nobody else can take a node over. On the shared lab Mac, every Matter run needs a slot agreed with the other projects in the ledger. The nodes are gone when the run ends.
+**Network.** Matter cannot use loopback: matter.js skips internal interfaces. So the nodes announce themselves by mDNS on the lab network, visible to other machines, to other projects' Home Assistant instances and to Apple and Google home hubs, which may offer to add them. Each run draws its nodes' setup codes and discriminators at random and never prints them, so another controller would have to guess one of about 2.2 million setup codes while the nodes are commissionable (the commissioning phase, about 15–30 min). On the shared lab Mac, every Matter run needs a slot agreed with the other projects in the ledger. The nodes are gone when the run ends.
 
 Budget (estimate): 18 nodes in one Node process, ~0.5 GB; commissioning takes seconds to a minute per node, so ~15–30 min in all; 1–2 cores.
 
@@ -265,6 +265,8 @@ This runs until Ctrl-C or SIGTERM. The bridge registers an MQTT Last Will, so a 
 | `the Matter host is not installed` / `the Matter Server is not installed` | `vesper setup matter` has not run | run it (Node.js 22.13+, npm) |
 | `the Matter Server commissioned none of the first 3 nodes` | mDNS does not reach the nodes on `--interface`, or the server refuses their certificates | check the interface (`ifconfig`); read `matter-server.log` and `matter-host.log` in the run directory; try `--vid-mode test` |
 | a Matter product fails with `commission_error` | the server could not commission that node | the reason is in the run directory's `matter-server.log`; report it |
+| `Home Assistant's environment lacks the Matter integration's packages` | `.vesper/ha/venv` was set up before the Matter tier | run `vesper setup ha` again; it now installs matter-python-client |
+| `Home Assistant showed no entity for the first 3 commissioned nodes` | the Matter integration entry is missing or broken | read `.vesper/ha/hass.log`; check the Matter entry in Home Assistant |
 
 ## Afterwards
 
