@@ -111,3 +111,17 @@ def test_a_report_over_a_stale_catalog_says_so_first(tmp_path):
     report = build_report(catalog, tmp_path / "results")
     assert "predates" in report["catalog_stale"]
     assert render_markdown(report).splitlines()[2].startswith("**Warning: the catalog is stale")
+
+
+def test_real_device_results_count_as_preregistered_only_on_the_pinned_dataset_commit(tmp_path):
+    from vesper.validation.realdata import ZIOTP_COMMIT
+    catalog, _ = write_catalog(tmp_path)
+    results = tmp_path / "results"
+    base = {"passed": True, "judged": 7, "judged_passed": 7, "eligible": 9, "decryption_ok": True,
+            "rule_window_ok": True, "run": {"parameters": {"dataset": "x"}}}
+    write_result(results, "realdata-20261025T100000Z.json", {**base, "dataset_commit": ZIOTP_COMMIT})
+    row = build_report(catalog, results)["checks"]["realdata"]
+    assert row["passed"] and not row["exploratory"] and row["judged_passed"] == 7
+    assert "7/7 judged streams reproduced" in render_markdown(build_report(catalog, results))
+    write_result(results, "realdata-20261025T110000Z.json", {**base, "dataset_commit": "f" * 40})
+    assert build_report(catalog, results)["checks"]["realdata"]["exploratory"]

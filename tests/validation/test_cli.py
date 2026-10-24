@@ -403,3 +403,36 @@ def test_a_result_records_the_code_that_built_its_catalog(tmp_path, catalog):
     cli.main(["validate", "rules", "--catalog", str(catalog), "--hours", "1", "--out", str(out)])
     from vesper.catalog.fingerprint import code_fingerprint
     assert json.loads(out.read_text())["run"]["catalog_code_sha256"] == code_fingerprint()
+
+
+def test_realdata_replays_a_dataset_and_records_where_it_came_from(monkeypatch, tmp_path, catalog, capsys):
+    import vesper.validation.capture as capture_mod
+    from tests.validation.ziotp_fixture import GOOD, tree
+    from vesper.validation.capture import Capture
+    root = tree(tmp_path, {"Idle/Topology_A/idle1.pcapng": GOOD})
+    monkeypatch.setattr(capture_mod, "read_capture", lambda path, key, byte_order="Normal", tshark="tshark":
+                        Capture(list(GOOD), secured=len(GOOD), decrypted=len(GOOD)))
+    out = tmp_path / "realdata.json"
+    code = cli.main(["validate", "realdata", "--dataset", str(root), "--catalog", str(catalog), "--out", str(out)])
+    data = json.loads(out.read_text())
+    assert code == 0 and data["passed"] and data["judged"] == 1
+    assert data["dataset_commit"] is None  # not a git checkout of its own: no commit is claimed
+    assert data["run"]["parameters"]["dataset"] == str(root)
+    assert "1/1 judged streams reproduced" in capsys.readouterr().out
+
+
+def test_realdata_without_tshark_or_data_fails_cleanly(tmp_path, catalog, capsys):
+    code = cli.main(["validate", "realdata", "--dataset", str(tmp_path / "absent"), "--catalog", str(catalog),
+                     "--out", str(tmp_path / "r.json")])
+    assert code == 1 and "FAILED realdata" in capsys.readouterr().err and not (tmp_path / "r.json").exists()
+
+
+def test_the_dataset_commit_is_the_checkouts_own_head_never_an_enclosing_repo(tmp_path):
+    import subprocess
+    outer = tmp_path / "outer"
+    (outer / "data").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(outer)], check=True)
+    subprocess.run(["git", "-C", str(outer), "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q",
+                    "--allow-empty", "-m", "x"], check=True)
+    assert cli._dataset_commit(outer / "data") is None
+    assert len(cli._dataset_commit(outer)) == 40

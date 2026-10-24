@@ -9,6 +9,7 @@ These experiments produce the paper's success criteria 2 and 3 for Zigbee-style 
 | Platform acceptance | L2, scale tier | `vesper validate acceptance` | see "Pass" under Experiment 2; at least 8 categories in `categories_passing` |
 | Reporting rules | L3 (offline) | `vesper validate rules` | 0 violations of R1–R4 (`docs/experiments/l3-timing-design.md`) |
 | Latency | L3 (live Mosquitto, default QoS) | `vesper validate latency` | G and the residual checks P, as pre-registered |
+| Real devices (E2) | L3 (offline, real captures) | `vesper validate realdata` | D, A and X, as pre-registered (amendment 2) |
 
 `vesper report` then writes the fidelity report from the catalog and the latest result of each check.
 
@@ -149,6 +150,30 @@ Output: `results/device-twins/latency-<UTC>.json`, holding:
 A run that fails, for example on a timeout, still writes its result with the error.
 
 Pass: G, the calibration's residual check and every path's residual check all pass (exit code 0).
+
+## Experiment 5: real devices (E2, L3, offline)
+
+Fetch the dataset once (network, ~95 MB), at the pre-registered commit:
+
+    git clone https://github.com/antonio-boiano/ZIOTP2026 .vesper/datasets/ZIOTP2026
+    git -C .vesper/datasets/ZIOTP2026 checkout c3481e8073f40bdbc1bee4a24e05a0a13a9545ba
+
+It needs tshark from Wireshark (macOS: `brew install wireshark`; tested with 4.6.3). Then:
+
+    nice -n 19 .venv/bin/vesper validate realdata
+
+What it does (pre-registration, section "E2"):
+1. Decrypts every Zigbee capture of both topologies with the network keys the dataset publishes, verifying each frame's MIC.
+2. Turns every ZCL attribute report into a (device, cluster, attribute) stream, drops relayed copies and retries, and cuts out intervals where the sniffer may have lost a frame.
+3. Replays each stream through VESPER's own runtime under the rule ZHA configured, and matches the twin's reports with the real ones.
+4. Repeats the replay under VESPER's catalog rule, as a description only.
+
+- CPU only: seconds to a minute, 1 core, <1 GB. It starts no service and uses no network.
+- Output: `results/device-twins/realdata-<UTC>.json`, holding:
+  - per file: its SHA-256, the decryption rate and the key byte order;
+  - per stream: the rule, the replay agreement and the descriptive statistics;
+  - the capture dates, the dataset commit and the run's provenance.
+- Pass: every file decrypts at least 99%, and every judged stream reproduces at least 95% of its real reports with at most 5% unmatched twin reports (exit code 0). A run on another dataset commit is exploratory.
 
 ## The fidelity report
 

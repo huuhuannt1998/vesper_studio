@@ -91,6 +91,15 @@ def _write_report(out: str | None, kind: str, report: dict, args=None) -> Path:
     return path
 
 
+def _dataset_commit(path: Path) -> str | None:
+    """The HEAD of a dataset that is its own git checkout; None otherwise, because an enclosing
+    repository's HEAD would misstate where the data came from."""
+    top = _git("-C", str(path), "rev-parse", "--show-toplevel")
+    if not top or Path(top).resolve() != Path(path).resolve():
+        return None
+    return _git("-C", str(path), "rev-parse", "HEAD")
+
+
 def _zhc_version(catalog_dir: Path) -> str:
     report = Path(catalog_dir) / "build_report.json"
     if report.is_file():
@@ -213,6 +222,27 @@ def _validate_rules(args) -> int:
     path = _write_report(args.out, "rules", report, args)
     print(f"rules: {report['products']} products, {report['features_checked']} reporting features, "
           f"{report['reports']} reports, {report['violation_count']} violations; report {path}")
+    return 0 if report["passed"] else 1
+
+
+def _validate_realdata(args) -> int:
+    """E2 (docs/experiments/l3-timing-design.md, amendment 2): real Zigbee reports replayed through the twins."""
+    from functools import partial
+
+    from vesper.twins.home import load_catalog
+    from vesper.validation import capture
+    from vesper.validation.realdata import analyze
+    catalog = load_catalog(Path(args.catalog))
+    try:
+        report = analyze(Path(args.dataset), catalog, reader=partial(capture.read_capture, tshark=args.tshark))
+    except (capture.CaptureError, OSError, ValueError) as e:
+        print(f"FAILED realdata: {e}", file=sys.stderr)
+        return 1
+    report["dataset_commit"] = _dataset_commit(Path(args.dataset))
+    path = _write_report(args.out, "realdata", report, args)
+    print(f"realdata: {report['judged_passed']}/{report['judged']} judged streams reproduced under ZHA's rule "
+          f"({report['eligible']} eligible); decryption {'ok' if report['decryption_ok'] else 'FAILED'}; "
+          f"report {path}")
     return 0 if report["passed"] else 1
 
 
@@ -410,6 +440,12 @@ def main(argv: list[str] | None = None) -> int:
     lat.add_argument("--mqtt-port", type=int, default=18830)
     lat.add_argument("--external-broker", action="store_true")
     lat.add_argument("--out")
+    real = checks.add_parser("realdata", help="L3: the twins' reporting runtime against real Zigbee devices")
+    real.add_argument("--dataset", default=".vesper/datasets/ZIOTP2026",
+                      help="a git checkout of ZIOTP2025 at the pinned commit")
+    real.add_argument("--catalog", default="catalog/vds")
+    real.add_argument("--tshark", default="tshark")
+    real.add_argument("--out")
     disc = checks.add_parser("discovery", help="Home Assistant's own schemas over every discovery message")
     disc.add_argument("--catalog", default="catalog/vds")
     disc.add_argument("--root", default=".vesper")
@@ -457,6 +493,8 @@ def _dispatch(args) -> int:
         return _validate_rules(args)
     if args.action == "latency":
         return _validate_latency(args)
+    if args.action == "realdata":
+        return _validate_realdata(args)
     return _validate_roundtrip(args) if args.action == "roundtrip" else _validate_acceptance(args)
 
 

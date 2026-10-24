@@ -15,8 +15,9 @@ from pathlib import Path
 from vesper.catalog.fingerprint import staleness
 from vesper.exposure.ha_discovery import device_discovery
 from vesper.twins.latency import PATHS
+from vesper.validation.realdata import ZIOTP_COMMIT
 
-KINDS = ("discovery", "roundtrip", "acceptance", "rules", "latency")
+KINDS = ("discovery", "roundtrip", "acceptance", "rules", "latency", "realdata")
 # The pre-registered parameters (docs/experiments/l3-timing-design.md and the run book).
 PREREGISTERED = {
     "rules": {"seed": 0, "hours": 4.0},
@@ -24,6 +25,8 @@ PREREGISTERED = {
                 "product": "zigbee:aqara:mccgq11lm"},
     "acceptance": {"seed": 0, "per_category": 5},
 }
+# Pre-registered values a result carries in its own fields rather than in its command-line parameters.
+PREREGISTERED_DATA = {"realdata": {"dataset_commit": ZIOTP_COMMIT}}
 _RESULT_NAME = re.compile(r"^[a-z]+-\d{8}T\d{6}Z\.json$")
 
 
@@ -39,10 +42,11 @@ def latest(results_dir: Path, kind: str) -> tuple[str, dict | None] | None:
 
 
 def _exploratory(kind: str, data: dict) -> bool:
-    if kind not in PREREGISTERED:
+    if kind not in PREREGISTERED and kind not in PREREGISTERED_DATA:
         return False
     params = (data.get("run") or {}).get("parameters")
-    return params is None or any(params.get(k) != v for k, v in PREREGISTERED[kind].items())
+    return (params is None or any(params.get(k) != v for k, v in PREREGISTERED.get(kind, {}).items())
+            or any(data.get(k) != v for k, v in PREREGISTERED_DATA.get(kind, {}).items()))
 
 
 def _records(catalog_dir: Path) -> list[dict]:
@@ -65,6 +69,9 @@ def _summary(kind: str, data: dict) -> dict:
     if kind == "discovery":
         s = data["summary"]
         return {**s, "passed": s["components"] > 0 and s["accepted"] == s["components"]}
+    if kind == "realdata":
+        return {"passed": bool(data.get("passed")), **{k: data.get(k) for k in (
+            "judged", "judged_passed", "eligible", "decryption_ok", "rule_window_ok", "dataset_commit")}}
     if kind == "rules":
         return {k: data.get(k) for k in ("passed", "products", "features_checked", "reports", "violation_count",
                                           "r4_checked")}
@@ -118,6 +125,13 @@ def _details(kind: str, c: dict) -> str:
             r = p["residual"]
             parts.append(f"{name}: residual median {1000 * r['median_s']:.1f} ms, P95 {1000 * r['p95_s']:.1f} ms")
         return "; ".join(parts) + "; sleepy_downlink not measured (assumed)"
+    if kind == "realdata":
+        text = (f"{c.get('judged_passed')}/{c.get('judged')} judged streams reproduced under ZHA's rule "
+                f"({c.get('eligible')} eligible; firmware-governed devices described only); decryption "
+                f"{'ok' if c.get('decryption_ok') else 'FAILED'}")
+        if not c.get("rule_window_ok"):
+            text += "; capture outside the dates over which ZHA's rule was verified"
+        return text
     if kind == "acceptance":
         return (f"{c.get('products_passed')}/{c.get('products')} products; categories passing "
                 f"{len(c.get('categories_passing') or [])}")
