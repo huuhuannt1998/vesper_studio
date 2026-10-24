@@ -29,7 +29,13 @@ def _initial(f: dict):
 
 
 def _same(a, b) -> bool:
-    return a == b or (isinstance(a, str) and isinstance(b, str) and a.lower() == b.lower())
+    if a == b and isinstance(a, bool) == isinstance(b, bool):
+        return True
+    if isinstance(a, str) and isinstance(b, str):
+        return a.lower() == b.lower()
+    # Home Assistant's select sends every option as a string, so "38400" picks the numeric option 38400
+    num, text = (a, b) if isinstance(b, str) else (b, a)
+    return isinstance(text, str) and isinstance(num, (int, float)) and not isinstance(num, bool) and text == str(num)
 
 
 class Twin:

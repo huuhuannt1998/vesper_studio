@@ -48,3 +48,14 @@ def test_payload_is_nested_and_skips_duplicate_exposes(vds):
 
 def test_seeds_are_stable_across_processes():
     assert stable_seed(0, "zigbee:a:b") == stable_seed(0, "zigbee:a:b") != stable_seed(1, "zigbee:a:b")
+
+
+def test_a_numeric_enum_option_accepts_the_string_home_assistants_select_sends():
+    vds = {"id": "zigbee:acme:meter", "features": [
+        {"name": "baud_rate", "type": "enum", "access": ["state", "set"], "values": [2400, 9600, 38400]}]}
+    t = Twin.from_vds(vds)
+    assert t.coerce("baud_rate", "38400") == 38400 and t.coerce("baud_rate", 9600) == 9600
+    with pytest.raises(TwinError, match="not one of"):
+        t.coerce("baud_rate", "3840")
+    with pytest.raises(TwinError, match="not one of"):
+        t.coerce("baud_rate", True)
