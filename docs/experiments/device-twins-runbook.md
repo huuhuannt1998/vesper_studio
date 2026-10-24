@@ -1,6 +1,6 @@
-# Run book: device-twin experiments (scale tier)
+# Run book: device-twin experiments (scale and Matter tiers)
 
-These experiments produce the paper's success criteria 2 and 3 for Zigbee-style twins (spec §1, §4). All are software-only and laptop-sized, and need no Docker:
+These experiments produce the paper's success criteria 2 and 3: for Zigbee-style twins (scale tier) and for Matter twins hosted as real matter.js nodes (Matter tier; spec §1, §4). All are software-only and laptop-sized, and need no Docker:
 
 | Experiment | Level | Command | Pass criterion (spec §4) |
 |---|---|---|---|
@@ -10,6 +10,7 @@ These experiments produce the paper's success criteria 2 and 3 for Zigbee-style 
 | Reporting rules | L3 (offline) | `vesper validate rules` | 0 violations of R1–R4 (`docs/experiments/l3-timing-design.md`) |
 | Latency | L3 (live Mosquitto, default QoS) | `vesper validate latency` | G and the residual checks P, as pre-registered |
 | Real devices (E2) | L3 (offline, real captures) | `vesper validate realdata` | D, A and X, as pre-registered (amendment 2) |
+| Matter acceptance | L2, Matter tier (LAN mDNS) | `vesper validate matter` | every sampled device type pairs, shows and obeys (Experiment 6) |
 
 `vesper report` then writes the fidelity report from the catalog and the latest result of each check.
 
@@ -26,7 +27,12 @@ Every resource figure below is an estimate until the first run measures it. The 
 
        .venv/bin/vesper setup ha
 
-   This needs `uv` and network access to PyPI. It creates `.vesper/ha/venv` (~1 GB) with Python 3.14, Home Assistant Core 2026.10.2 and the requirements of the `frontend`, `mqtt` and `hassio` integrations. Home Assistant later runs with `--skip-pip`, so it never installs anything itself.
+   This needs `uv` and network access to PyPI. It creates `.vesper/ha/venv` (~1 GB) with Python 3.14, Home Assistant Core 2026.10.2 and the requirements of the `frontend`, `mqtt`, `hassio` and `matter` integrations. Home Assistant later runs with `--skip-pip`, so it never installs anything itself.
+4. For the Matter tier only, set up the Matter host once:
+
+       .venv/bin/vesper setup matter
+
+   This needs Node.js 22.13 or newer, npm and network access to the npm registry. It copies `vesper/exposure/matter_host/` to `.vesper/matter/host/` and runs `npm ci --ignore-scripts` there: @matter/main and @matter/nodejs 0.17.9 and matter-server 1.4.0, exactly as `package-lock.json` pins them (198 packages, ~330 MB). No package's install script runs.
 
 ### On the shared lab Mac only
 
@@ -35,7 +41,8 @@ Every resource figure below is an estimate until the first run measures it. The 
 - The PI has said go for this run, in this session.
 - Add a ledger row (start, session, command, cores, memory, Docker: no) and message the peer sessions.
 - Run every command under `taskpolicy -b`, and stop if memory pressure (`sysctl -n kern.memorystatus_vm_pressure_level`) stays at 2 or more.
-- VESPER uses only 127.0.0.1:18830 (Mosquitto) and 127.0.0.1:18123 (Home Assistant). Never pass `--mqtt-port 1883` or `--ha-port 8123`: those belong to another project on this Mac.
+- VESPER uses only 127.0.0.1:18830 (Mosquitto) and 127.0.0.1:18123 (Home Assistant), plus, for the Matter tier, 127.0.0.1:15580 (its Matter Server) and UDP 25540 and up (its nodes). Never pass `--mqtt-port 1883` or `--ha-port 8123`: those belong to another project on this Mac.
+- A Matter run also announces its nodes by mDNS on the lab network (Experiment 6): book that slot with the other projects explicitly.
 
 ## Experiment 0: discovery pre-screen (offline, no server)
 
@@ -179,6 +186,40 @@ What it does (pre-registration, section "E2"):
   - in every judged stream, the twin's prediction matches the device's next report in at least 95% of the informative intervals.
 - A run on another dataset commit, or on a checkout with local changes, is exploratory.
 
+## Experiment 6: Matter acceptance (L2, Matter tier)
+
+    taskpolicy -b .venv/bin/vesper validate matter --interface en0 --per-type 1 --seed 0
+
+Pre-registered: `--per-type 1 --seed 0`, with each product's own vendor and product id (`--vid-mode product`, the default).
+
+What it does:
+1. Starts VESPER's own Matter Server (the matter.js `matter-server` Home Assistant 2026.10 uses) with a new fabric under `.vesper/matter/runs/<UTC>/server`. It serves its WebSocket on 127.0.0.1:15580 only. Its controller uses a random UDP port.
+   - `--enable-test-net-dcl` is required: matter.js nodes carry test attestation certificates (a test PAA signs a PAI and DAC for the product's own vendor and product id), which the server otherwise refuses.
+   - `--disable-thread-diagnostics` keeps it from probing the network's Thread border routers.
+2. Starts Home Assistant (18123), removes every Matter integration entry and adds a fresh one for the server's URL.
+3. Samples one L1 product per Matter device type in the spec's categories (sensors, plugs, lights, locks, thermostats; 18 device types in the current catalog), seeded.
+4. Starts one Node process that hosts every sampled twin as a matter.js node. Node *i* listens on UDP 25540 + *i*, announces itself by mDNS on `--interface`, and carries the product's vendor and product id and names, a serial number "VSP-…" and a distinct 12-bit discriminator.
+5. For each product in turn, asks the server to commission the node by its QR code, then waits for its entities in Home Assistant, found by the node's serial number.
+   - Each expected entity, one per Home Assistant mapping of the twin's features, must exist with the right platform and device class and be available.
+   - One probe per entity, aimed at a value different from the current one: a service call through Home Assistant that must reach the twin and come back (light and plug on/off, lock, thermostat mode), or a stimulus on the twin that must show in Home Assistant (contact, presence, temperature, humidity, illuminance).
+   - A node the server cannot commission fails its product, and the run goes on. If none of the first 3 nodes can be commissioned, the run stops.
+6. Removes every node and stops the Node process, Home Assistant and the server, also after an error, Ctrl-C or SIGTERM.
+
+Options: `--category <name>` (repeatable) restricts the sample; `--vid-mode test` presents Matter's test vendor id (0xFFF1) instead, for a server that refuses test certificates under a real vendor id. The report then says so.
+
+**Network.** Matter cannot use loopback: matter.js skips internal interfaces. So the nodes announce themselves by mDNS on the lab network, visible to other machines, to other projects' Home Assistant instances and to Apple and Google home hubs, which may offer to add them. Commissioning needs the node's setup code, so nobody else can take a node over. On the shared lab Mac, every Matter run needs a slot agreed with the other projects in the ledger. The nodes are gone when the run ends.
+
+Budget (estimate): 18 nodes in one Node process, ~0.5 GB; commissioning takes seconds to a minute per node, so ~15–30 min in all; 1–2 cores.
+
+Output: `results/device-twins/matter-<UTC>.json`, holding:
+- `summary`: `products`, `passed`, `device_types`, `device_types_passing` (every product passed and was exercised), `device_types_displayed`, `categories_passing`, `by_device_type`, `by_category`;
+- per product: its node id or commissioning error, its serial, the features the host could not expose (`unresolved`), each expected entity's `created`, `available` and `probe`, and the Home Assistant entities no expectation used (`extra_entities`);
+- `matter_packages`, `ha_version`, `vid_mode`, `interface`, `seed`, `per_type`, `run_dir` (the server's and the host's logs) and `notes`.
+
+Pass: `passed == products > 0` (exit code 0). The paper reports `device_types_passing` and `device_types_displayed`: leak, rain, smoke and air-quality sensors have no stimulus yet, so they can only be displayed.
+
+L2 (matter-server) is credited only to products whose node passed. All products of a device type share its certified mandatory features, but a product that was not sampled is not credited.
+
 ## The fidelity report
 
     .venv/bin/vesper report
@@ -190,7 +231,7 @@ This writes `results/device-twins/fidelity-<UTC>.md` and `.json`. They contain:
 - each check's latest result: a check that never ran is shown as "not run yet", never as passed. A run over nothing does not pass. A run whose parameters differ from the pre-registration, or that records none, is marked exploratory;
 - the timing paths with their sources.
 
-L2 is credited only to products that passed acceptance.
+L2 is credited only to products that passed acceptance: Zigbee products through the bridge (Experiment 2), Matter products through the Matter Server (Experiment 6).
 
 ## Running twins for your own Home Assistant
 
@@ -221,6 +262,9 @@ This runs until Ctrl-C or SIGTERM. The bridge registers an MQTT Last Will, so a 
 | `Home Assistant created no entity for the first 3 products` | the MQTT integration is not receiving VESPER's broker, or the discovery messages are rejected | read `.vesper/ha/hass.log`; run `vesper validate discovery` |
 | `Home Assistant entered recovery mode (it would bind port 8123)` | an integration failed to load, usually a missing requirement; VESPER stops it at once | rerun `vesper setup ha`; read `.vesper/ha/hass.log` |
 | a product fails with `created: false` | Home Assistant rejected its discovery message | the reason is in `.vesper/ha/hass.log`; this is a real finding: report it |
+| `the Matter host is not installed` / `the Matter Server is not installed` | `vesper setup matter` has not run | run it (Node.js 22.13+, npm) |
+| `the Matter Server commissioned none of the first 3 nodes` | mDNS does not reach the nodes on `--interface`, or the server refuses their certificates | check the interface (`ifconfig`); read `matter-server.log` and `matter-host.log` in the run directory; try `--vid-mode test` |
+| a Matter product fails with `commission_error` | the server could not commission that node | the reason is in the run directory's `matter-server.log`; report it |
 
 ## Afterwards
 
