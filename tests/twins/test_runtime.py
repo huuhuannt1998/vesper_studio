@@ -252,3 +252,39 @@ def test_a_measured_stimulus_with_a_bad_value_or_feature_is_rejected_with_a_note
     assert len(rt.notes) == 3 and all(": stimulus rejected" in n for n in rt.notes)
     assert "not a number" in rt.notes[0] and "unknown feature 'pressure'" in rt.notes[1]
     assert "KeyError('feature')" in rt.notes[2]
+
+
+def matter_vds(device_type, *features):
+    return {"id": "matter:fff1:" + device_type.lower().replace(" ", "-"),
+            "binding": {"matter": {"device_type": device_type}},
+            "features": [dict(name=n, type=t, access=["state", "get"], **extra) for n, t, extra in features]}
+
+
+def test_presence_sets_and_clears_the_matter_occupied_bit():
+    rt, events, (tid,) = runtime(matter_vds("Occupancy Sensor", ("Occupancy Sensing.Occupancy", "bitmap", {})))
+    assert rt.stimulate(tid, {"type": "presence"}) == ["Occupancy Sensing.Occupancy"]
+    assert rt.state(tid)["Occupancy Sensing.Occupancy"] == 1
+    rt.clock.advance(OCCUPANCY_TIMEOUT_S + 1)
+    assert rt.state(tid)["Occupancy Sensing.Occupancy"] == 0 and [e.value for e in events] == [1, 0]
+
+
+def test_a_matter_contact_sensor_is_true_while_closed_and_a_leak_detector_ignores_contact(vds):
+    from tests.catalog.test_matter_normalize import records as matter_records
+    rt, events, (door,) = runtime(matter_records()["matter:100b:0016"])
+    leak = rt.add(matter_vds("Water Leak Detector", ("Boolean State.StateValue", "binary",
+                                                     {"value_on": True, "value_off": False}))).id
+    assert rt.stimulate(door, {"type": "contact", "state": "closed"}) == ["Boolean State.StateValue"]
+    assert rt.state(door)["Boolean State.StateValue"] is True
+    rt.stimulate(door, {"type": "contact", "state": "opened"})
+    assert rt.state(door)["Boolean State.StateValue"] is False
+    assert rt.stimulate(leak, {"type": "contact", "state": "closed"}) == []
+
+
+def test_ambient_readings_reach_matter_attributes_in_their_raw_units():
+    from tests.catalog.test_matter_normalize import records as matter_records
+    rt, events, (tid,) = runtime(matter_records()["matter:115f:0003"])
+    light = rt.add(matter_vds("Light Sensor", ("Illuminance Measurement.MeasuredValue", "numeric", {}))).id
+    rt.stimulate(tid, {"type": "ambient", "temperature": 21.5})
+    rt.stimulate(light, {"type": "ambient", "illuminance": 300})
+    assert rt.state(tid)["Temperature Measurement.MeasuredValue"] == 2150
+    assert rt.state(light)["Illuminance Measurement.MeasuredValue"] == 24772  # 10000 log10(lux) + 1

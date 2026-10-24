@@ -6,6 +6,7 @@ unexpected error is marked faulted and isolated; the others keep running.
 """
 from __future__ import annotations
 
+import math
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -14,6 +15,14 @@ from vesper.twins.clock import LogicalClock
 from vesper.twins.twin import Twin, TwinError
 
 OCCUPANCY_TIMEOUT_S = 90.0  # assumed: Zigbee2MQTT's common occupancy_timeout default; real devices vary
+# Matter twins name features by cluster and attribute (spec §3.1); a physical stimulus drives them with Matter's
+# own semantics and units.
+MATTER_PRESENCE = {"Occupancy Sensing.Occupancy": (1, 0)}  # the Occupied bit: set, clear
+MATTER_CONTACT = "Boolean State.StateValue"  # true while a Contact Sensor's contact is closed
+MATTER_AMBIENT = {"temperature": ("Temperature Measurement.MeasuredValue", "Thermostat.LocalTemperature"),
+                  "humidity": ("Relative Humidity Measurement.MeasuredValue",),
+                  "illuminance": ("Illuminance Measurement.MeasuredValue",)}
+MATTER_LUX = "Illuminance Measurement.MeasuredValue"  # 10000 * log10(lux) + 1, 0 for darkness
 
 
 @dataclass(frozen=True)
@@ -252,10 +261,15 @@ class Runtime:
         if kind == "presence":
             for name in ("occupancy", "presence"):
                 binary(name, s.get("present", True))
+            for name, (on, off) in MATTER_PRESENCE.items():
+                if name in feats:
+                    out.append((name, on if s.get("present", True) else off))
         elif kind == "contact":
             if s.get("state") not in ("opened", "closed"):
                 raise TwinError(f"contact stimulus needs state 'opened' or 'closed', got {s.get('state')!r}")
             binary("contact", s["state"] == "opened")  # Zigbee2MQTT's contact is "on" (value_on) when open
+            if _matter_type(twin) == "Contact Sensor" and MATTER_CONTACT in feats:
+                out.append((MATTER_CONTACT, s["state"] == "closed"))
         elif kind == "button_press":
             f = feats.get("action")
             if f and f["type"] == "enum" and f.get("values"):
@@ -272,6 +286,10 @@ class Runtime:
                                ("illuminance", ("illuminance", "illuminance_lux"))):
                 if key in s:
                     out.extend((n, s[key]) for n in names if n in feats and feats[n]["type"] == "numeric")
+            for key, names in MATTER_AMBIENT.items():
+                if key in s:
+                    out.extend((n, _matter_raw(n, feats[n], s[key])) for n in names
+                               if n in feats and feats[n]["type"] == "numeric")
         else:
             raise TwinError(f"unknown stimulus type {kind!r}")
         return out
@@ -285,5 +303,18 @@ class Runtime:
             with self._lock:
                 if self._last_presence.get(twin.id) == stamp and twin.id not in self.faulted:
                     for name in names:
-                        self._change(twin, name, twin.features[name]["value_off"], "stimulus")
+                        off = MATTER_PRESENCE[name][1] if name in MATTER_PRESENCE else twin.features[name]["value_off"]
+                        self._change(twin, name, off, "stimulus")
         self.clock.call_at(stamp + OCCUPANCY_TIMEOUT_S, self._guarded(twin, clear))
+
+
+def _matter_type(twin: Twin) -> str | None:
+    return ((twin.vds.get("binding") or {}).get("matter") or {}).get("device_type")
+
+
+def _matter_raw(name: str, feature: dict, value: float):
+    """A reading in the stimulus's unit (°C, %, lx) as the Matter attribute's raw value."""
+    if name == MATTER_LUX:
+        return round(10000 * math.log10(value) + 1) if value > 0 else 0
+    scale = feature.get("scale")
+    return round(value / scale) if scale else value
