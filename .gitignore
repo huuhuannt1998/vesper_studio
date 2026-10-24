@@ -137,3 +137,6 @@ catalog/raw/
 catalog/cache/
 catalog/vds/
 .vesper/
+
+# npm, if run in the Matter host sources (`vesper setup matter` installs into .vesper/matter/host)
+node_modules/

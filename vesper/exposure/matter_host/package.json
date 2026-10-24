@@ -1,0 +1,18 @@
+{
+  "name": "vesper-matter-host",
+  "private": true,
+  "type": "module",
+  "description": "VESPER's Matter tier: twins as matter.js nodes, and the Matter Server Home Assistant uses",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@matter/main": "0.17.9",
+    "@matter/nodejs": "0.17.9",
+    "matter-server": "1.4.0"
+  }
+}
