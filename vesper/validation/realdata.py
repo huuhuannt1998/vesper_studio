@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from statistics import median
 
+from vesper.twins.clock import LogicalClock
+from vesper.twins.runtime import Runtime
 from vesper.validation.capture import Frame
 from vesper.validation.zcl import ZclError, parse_report
 
@@ -34,6 +37,12 @@ ZHA_RULES: dict[tuple[int, int], tuple[float, float, float]] = {
     (0x0702, 0x0200): _ASAP, (0x0702, 0x0400): _OP,
 }
 DEDUPE_WINDOW_S = 10.0  # a relayed copy or APS retry of a frame arrives within this
+# Pre-registered (amendment 2): matching windows and pass criteria.
+CHANGE_TOL_S = 1.0  # a change-driven twin report matches a real report within this
+PERIODIC_LATE = 0.10  # a real heartbeat may come up to this fraction of max_s after the twin's
+MIN_INTERVALS = 20  # clean intervals a stream needs before it is judged
+MATCH_MIN = 0.95  # fraction of real reports the twin must reproduce
+EXTRA_MAX = 0.05  # fraction of the twin's reports that may have no real counterpart
 
 
 @dataclass(frozen=True)
@@ -129,3 +138,81 @@ def segments(reports: list[Report], gaps: list[tuple[float, float]]) -> list[lis
                 continue
         out.append([r])
     return out
+
+
+def replay(segment: list[Report], rule: tuple[float, float, float]) -> list[tuple[float, str]]:
+    """The twin's reports, (time, cause), when VESPER's runtime is fed the segment's values at their real times.
+
+    The twin starts in the first report's state, as if it had just sent it; the replay ends at the last report.
+    """
+    min_s, max_s, change = rule
+    t0 = segment[0].t
+    clock = LogicalClock()
+    rt = Runtime(clock=clock)
+    vds = {"id": "replay", "features": [{"name": "value", "type": "numeric", "access": ["state"]}],
+           "behavior": {"reporting": {"value": {"min_s": min_s, "max_s": max_s, "change": change}}}}
+    out: list[tuple[float, str]] = []
+    rt.subscribe(lambda e: out.append((t0 + e.observed_t, e.cause)))
+    rt.add(vds, state={"value": segment[0].value})
+    for r in segment[1:]:
+        clock.advance_to(r.t - t0)
+        rt.stimulate("replay", {"type": "measured", "feature": "value", "value": r.value})
+    if rt.faulted or rt.notes:
+        raise RuntimeError(f"replay failed: {rt.faulted or rt.notes}")
+    return out
+
+
+def match(real: list[float], twin: list[tuple[float, str]], max_s: float) -> tuple[int, int]:
+    """(real reports reproduced, twin reports with no real counterpart).
+
+    Each twin report claims the nearest unclaimed real report in its window: within CHANGE_TOL_S of a
+    change-driven report; for a heartbeat, from CHANGE_TOL_S before to PERIODIC_LATE * max_s after it.
+    """
+    free = sorted(real)
+    matched = extra = 0
+    for t, cause in sorted(twin):
+        hi = t + (PERIODIC_LATE * max_s if cause == "periodic" else CHANGE_TOL_S)
+        candidates = [x for x in free if t - CHANGE_TOL_S <= x <= hi]
+        if candidates:
+            free.remove(min(candidates, key=lambda x: abs(x - t)))
+            matched += 1
+        else:
+            extra += 1
+    return matched, extra
+
+
+def _numeric(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def evaluate_stream(segs: list[list[Report]], rule: tuple[float, float, float]) -> dict:
+    """Replay agreement (the pre-registered criterion) and descriptive conformance of one attribute stream."""
+    if not all(_numeric(r.value) for s in segs for r in s):
+        raise TypeError("only numeric attribute values can be replayed")
+    min_s, max_s, change = rule
+    intervals, steady, early_ok, matched, twin_n, extra = [], [], [], 0, 0, 0
+    for s in segs:
+        for a, b in zip(s, s[1:]):
+            dt = b.t - a.t
+            intervals.append(dt)
+            if b.value == a.value:
+                steady.append(dt)
+            if dt < max_s - CHANGE_TOL_S:  # before the heartbeat was due: only a reportable change may be sent
+                early_ok.append(abs(b.value - a.value) >= change if change else b.value != a.value)
+        if len(s) > 1:
+            twin = replay(s, rule)
+            m, x = match([r.t for r in s[1:]], twin, max_s)
+            matched, twin_n, extra = matched + m, twin_n + len(twin), extra + x
+    n = len(intervals)
+    eligible = n >= MIN_INTERVALS
+    mf = matched / n if n else None
+    xf = extra / twin_n if twin_n else 0.0
+    return {
+        "segments": len(segs), "intervals": n, "matched": matched, "twin_reports": twin_n, "extra": extra,
+        "matched_fraction": mf, "extra_fraction": xf, "eligible": eligible,
+        "passed": (mf >= MATCH_MIN and xf <= EXTRA_MAX) if eligible else None,
+        "min_interval_ok": sum(dt >= min_s - CHANGE_TOL_S for dt in intervals) / n if n else None,
+        "max_silence_ok": sum(dt <= max_s * (1 + PERIODIC_LATE) for dt in intervals) / n if n else None,
+        "heartbeat_ratio": median(steady) / max_s if steady else None,
+        "early_change_ok": sum(early_ok) / len(early_ok) if early_ok else None,
+    }
