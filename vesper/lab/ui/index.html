@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VESPER Lab</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>VESPER Lab</h1>
+    <span id="scene" class="muted"></span>
+    <span id="clock" class="clock">--:--:--</span>
+    <span id="status" class="status">connecting…</span>
+  </header>
+  <main>
+    <section id="map-panel" class="panel" tabindex="0" aria-label="Map of the home">
+      <canvas id="map"></canvas>
+      <div id="hint" class="hint" aria-live="polite"></div>
+      <div id="toast" class="toast" role="status"></div>
+      <div id="tip" class="tip" hidden></div>
+    </section>
+    <aside>
+      <section id="view-panel" class="panel" tabindex="0">
+        <h2>3D view</h2>
+        <p class="placeholder">The 3D view needs the Habitat world service (plan W1). The map shows the same world.</p>
+      </section>
+      <section id="hub-panel" class="panel" tabindex="0">
+        <h2>Home Assistant</h2>
+        <div id="hub" class="hub"></div>
+      </section>
+      <section id="console-panel" class="panel" tabindex="0">
+        <h2>Console</h2>
+        <ol id="log" class="log"></ol>
+      </section>
+    </aside>
+  </main>
+  <footer>WASD or arrows: walk · E: use · Q: next thing in reach · click the map: walk there · Tab: next panel</footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
