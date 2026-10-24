@@ -94,7 +94,7 @@ class MapWorld:
         if path is None:
             return None
         token = self._walk[actor] = self._walk.get(actor, 0) + 1
-        self._schedule_walk(actor, token, path, 1)
+        self._schedule_walk(actor, token, path, 1, self.clock.now() + STEP_S)
         return path
 
     def stop(self, actor: str) -> None:
@@ -186,7 +186,9 @@ class MapWorld:
                 return False
         return True
 
-    def _schedule_walk(self, actor: str, token: int, path: list[Point], k: int) -> None:
+    def _schedule_walk(self, actor: str, token: int, path: list[Point], k: int, due: float) -> None:
+        """The next step at `due`, on the walk's planned timeline: a step that fires late on a busy wall clock
+        does not delay the ones after it, so a walk takes as long as on the logical clock."""
         def step():
             if self._walk.get(actor) != token:
                 return  # replaced or stopped
@@ -210,8 +212,8 @@ class MapWorld:
             if idx >= len(path):
                 self._emit({"event": "arrived", "actor": actor})
             else:
-                self._schedule_walk(actor, token, path, idx)
-        self.clock.call_at(self.clock.now() + STEP_S, step)
+                self._schedule_walk(actor, token, path, idx, due + STEP_S)
+        self.clock.call_at(due, step)
 
     def _plan(self, start: Point, target: Point) -> list[Point] | None:
         """A* over free cells (8-connected, no corner cutting), then straightened along free lines of sight."""

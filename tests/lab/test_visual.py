@@ -4,7 +4,7 @@ import pytest
 
 from vesper.lab.browser import BrowserError
 from vesper.lab.png import Image, decode, encode
-from vesper.lab.visual import READY, LookError, load_steps, run_look
+from vesper.lab.visual import CONNECTED, READY, LookError, load_steps, run_look
 
 
 def picture(seed=0, size=(40, 30)):
@@ -16,7 +16,7 @@ class FakeBrowser:
     """Answers what the page would: `values` maps an expression to its value (or a callable)."""
 
     def __init__(self, values=None, shots=None, problems=()):
-        self.values = {READY: True, "vesper.canvasColors()": 40, **(values or {})}
+        self.values = {READY: True, CONNECTED: True, "vesper.canvasColors()": 40, **(values or {})}
         self.shots = list(shots or [picture()])
         self.problems, self.calls = list(problems), []
 
@@ -62,7 +62,7 @@ def test_the_steps_run_in_order_and_every_shot_is_saved(tmp_path):
     assert decode((tmp_path / "out" / "lamp_on.png").read_bytes()).width == 40
     names = [c.name for c in report.checks]
     assert names == ["the page is ready", "the map is drawn", "vesper.lamp", "the hint names the lamp",
-                     "lamp_on is not blank", "no page errors"]
+                     "lamp_on is not blank", "the page stayed connected", "no page errors"]
     saved = json.loads((tmp_path / "out" / "report.json").read_text())
     assert saved["ok"] is True and saved["shots"] == ["lamp_on.png"]
     assert "lamp_on.png" in (tmp_path / "out" / "report.md").read_text()
@@ -125,3 +125,17 @@ def test_a_bad_steps_file_names_the_step(tmp_path, text, words):
     f.write_text(text)
     with pytest.raises(LookError, match=words.replace("[", r"\[")):
         load_steps(f)
+
+
+def test_a_page_that_lost_its_session_fails_the_look(tmp_path):
+    report = run_look(FakeBrowser({CONNECTED: False}), "http://x/", [{"shot": "start"}], tmp_path)
+    check = next(c for c in report.checks if c.name == "the page stayed connected")
+    assert not check.ok and not report.ok
+
+
+def test_errors_inside_the_session_fail_the_look(tmp_path):
+    ok = run_look(FakeBrowser(), "http://x/", [], tmp_path / "a", session_errors=lambda: [])
+    assert ok.ok and any(c.name == "the session raised no errors" for c in ok.checks)
+    bad = run_look(FakeBrowser(), "http://x/", [], tmp_path / "b", session_errors=lambda: ["RuntimeError: boom"])
+    check = next(c for c in bad.checks if c.name == "the session raised no errors")
+    assert not check.ok and "boom" in check.detail and not bad.ok

@@ -22,8 +22,9 @@ def test_the_page_loads_only_its_own_files():
     page = (UI_DIR / "index.html").read_text()
     local = re.findall(r'(?:src|href)="([^"]+)"', page)
     assert {"style.css", "app.js"} <= set(local)
+    assert '<link rel="icon" href="data:,">' in page  # else Chrome fetches /favicon.ico
     for name in local:
-        assert (UI_DIR / name).is_file(), name
+        assert name.startswith("data:") or (UI_DIR / name).is_file(), name  # data: is inline, not fetched
     for f in UI_DIR.iterdir():
         text = f.read_text()
         assert not re.search(r"https?://(?!127\.0\.0\.1|localhost)", text), f"{f.name} loads from the internet"

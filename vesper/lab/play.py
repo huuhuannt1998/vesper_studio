@@ -19,6 +19,7 @@ import concurrent.futures
 import http
 import json
 import math
+import sys
 import threading
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -108,6 +109,7 @@ class PlayServer:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stop: asyncio.Event | None = None
         self._error: Exception | None = None
+        self.errors: list[str] = []  # failures inside the session while a page used it (a look checks these)
         self._thread: threading.Thread | None = None
         session.world.on_event(self._on_world)
         session.rules.on_effect(lambda key, effect: self._emit({"type": "effect", "target": key, "effect": effect}))
@@ -162,6 +164,8 @@ class PlayServer:
     # -- HTTP: the page's files ---------------------------------------------------------------
     def _http(self, connection, request):
         path = unquote(urlsplit(request.path).path)
+        if path == "/favicon.ico" and not (self.ui_dir / "favicon.ico").is_file():
+            return _response(204, "image/x-icon", b"")  # browsers ask for it; a 404 would be a page error
         if path == "/ws":
             origin = request.headers.get("Origin")
             if origin is not None and origin not in (f"http://127.0.0.1:{self.port}", f"http://localhost:{self.port}"):
@@ -179,7 +183,12 @@ class PlayServer:
         self._pages[queue] = ws  # before the snapshot, so nothing after it is missed
         sender = None
         try:
-            await ws.send(json.dumps(await self._on_clock(lambda: hello(self.session, self.hub_url))))
+            try:
+                snapshot = await self._on_clock(lambda: hello(self.session, self.hub_url))
+            except Exception as e:  # noqa: BLE001 - kept for the look, then the page is closed
+                self._fail(f"hello: {type(e).__name__}: {e}")
+                return
+            await ws.send(json.dumps(snapshot))
             sender = asyncio.create_task(self._send_queued(ws, queue))
             async for raw in ws:
                 reply = await self._input(raw)
@@ -213,8 +222,8 @@ class PlayServer:
     async def _input(self, raw) -> dict | None:
         try:
             msg = json.loads(raw)
-        except ValueError:
-            return {"type": "error", "message": "an input that is not JSON"}
+        except (ValueError, RecursionError):
+            return {"type": "error", "message": "an input that is not JSON (or is nested too deeply)"}
         if not isinstance(msg, dict):
             return {"type": "error", "message": "an input must be a JSON object"}
         kind, s = msg.get("type"), self.session
@@ -225,6 +234,8 @@ class PlayServer:
                 return None
             if kind == "walk_to":
                 x, z = _number(msg, "x"), _number(msg, "z")
+                if not self._on_map(x, z):
+                    raise ValueError(f"walk_to: ({x:g}, {z:g}) is outside the map")
                 path = await self._on_clock(lambda: s.walk_to((x, z)))
                 return {"type": "walk", "ok": path is not None, "x": x, "z": z}
             if kind == "interact":
@@ -234,7 +245,22 @@ class PlayServer:
                 return {"type": "result", **await self._on_clock(lambda: s.interact(target))}
         except (ValueError, WorldError) as e:
             return {"type": "error", "message": str(e)}
+        except TimeoutError:
+            self._fail(f"{kind}: the session did not answer within 10 s")
+            return {"type": "error", "message": "the session did not answer within 10 s"}
+        except Exception as e:  # noqa: BLE001 - a bug in the rules or the twins: the page is told, a look sees it
+            self._fail(f"{kind}: {type(e).__name__}: {e}")
+            return {"type": "error", "message": f"the session failed: {type(e).__name__}: {e}"}
         return {"type": "error", "message": f"unknown input {kind!r}; the inputs are move, walk_to and interact"}
+
+    def _on_map(self, x: float, z: float) -> bool:
+        g = self.session.home.map.grid
+        return (g.origin[0] <= x <= g.origin[0] + g.width * g.cell and
+                g.origin[1] <= z <= g.origin[1] + g.height * g.cell)
+
+    def _fail(self, text: str) -> None:
+        self.errors.append(text)
+        print(f"vesper lab: {text}", file=sys.stderr)
 
     # -- the session, heard (on the clock thread) -----------------------------------------------
     def _on_world(self, event: dict) -> None:

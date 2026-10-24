@@ -132,3 +132,43 @@ def test_a_session_never_overwrites_an_existing_trace(tmp_path):
     with pytest.raises(TraceError, match="already exists"):
         session(tmp_path)
     assert (tmp_path / "trace.jsonl").read_text() == "precious\n"
+
+
+def test_an_interaction_is_traced_at_the_moment_it_began(tmp_path):
+    s = session(tmp_path, trace=False)
+    s.walk_to((5.0, 4.4))
+    s.wait(30)
+    real = s.rules.interact
+
+    def slow(actor, target):  # on the wall clock, time passes while the rules work
+        out = real(actor, target)
+        s.clock._now += 0.01
+        return out
+    s.rules.interact = slow
+    began = s.clock.now()
+    s.interact()
+    assert [r for r in s.records if r["kind"] == "input" and r["op"] == "interact"][-1]["t"] == began
+
+
+def test_a_wall_clock_trace_replays_within_its_tolerance(tmp_path):
+    import random
+
+    from vesper.lab.session import WALL_TOLERANCE_S
+    from vesper.twins.clock import LogicalClock
+
+    class Jittery(LogicalClock):  # the wall clock on a busy machine: callbacks fire up to 80 ms late
+        kind = "wall"
+
+        def __init__(self):
+            super().__init__()
+            self.rng = random.Random(7)
+
+        def call_at(self, when, fn):
+            super().call_at(when + self.rng.uniform(0, 0.08), fn)
+    home = load_lab_home(write_home(tmp_path, HOME), catalog())
+    s = Session(home, clock=Jittery())
+    s.start()
+    script(s)
+    s.stop()
+    assert s.records[0]["clock"] == "wall" and WALL_TOLERANCE_S == 0.5
+    assert compare_reports(s.records, replay(s.records, home)) is None

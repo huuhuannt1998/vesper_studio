@@ -18,6 +18,7 @@ from vesper.twins.runtime import Runtime
 
 TRACE_FORMAT = "vesper-trace/1"
 PLAYER = "player"
+WALL_TOLERANCE_S = 0.5  # a wall-clock trace's report times are compared within this: its callbacks fire late
 
 
 class TraceError(ValueError):
@@ -28,6 +29,7 @@ class Session:
     def __init__(self, home, *, clock=None, world=None, trace: Path | None = None):
         self.home = home
         self.clock = clock or LogicalClock()
+        self.clock_kind = getattr(self.clock, "kind", "logical" if hasattr(self.clock, "advance") else "wall")
         self.runtime = Runtime(clock=self.clock, seed=home.seed)
         self.twin_ids = {d.name: self.runtime.add(d.record, twin_id=f"{d.product}@{d.name}", state=d.state).id
                          for d in home.devices}
@@ -46,7 +48,8 @@ class Session:
 
     # -- life cycle ---------------------------------------------------------------------------
     def start(self, spawn_player: bool = True) -> None:
-        self._write({"kind": "meta", "format": TRACE_FORMAT, "home": str(self.home.path), "scene": self.home.scene,
+        self._write({"kind": "meta", "format": TRACE_FORMAT, "clock": self.clock_kind, "home": str(self.home.path),
+                     "scene": self.home.scene,
                      "seed": self.home.seed, "start_time": self.home.start_time,
                      "devices": {d.name: d.product for d in self.home.devices}})
         self.runtime.subscribe(self._on_report)
@@ -80,8 +83,9 @@ class Session:
         return self.world.walk_to(actor, tuple(point))
 
     def interact(self, target: str | None = None, actor: str = PLAYER) -> dict:
+        began = self.clock.now()  # on the wall clock, time passes while the rules work: replay starts it here
         outcome = self.rules.interact(actor, target)
-        self._input(actor, "interact", {"target": target}, outcome=outcome)
+        self._input(actor, "interact", {"target": target}, outcome=outcome, t=began)
         return outcome
 
     def wait(self, seconds: float) -> None:
@@ -154,11 +158,36 @@ def replay(records: list[dict], home) -> list[dict]:
     return s.records
 
 
+def _compare_wall(original: list[dict], again: list[dict]) -> str | None:
+    """A wall-clock trace: each device's reports in the same order, with the same values and causes, at times
+    within WALL_TOLERANCE_S (two devices' reports may swap places when their callbacks ran late)."""
+    def streams(records):
+        out: dict[tuple[str, str], list[dict]] = {}
+        for r in records:
+            if r["kind"] == "report":
+                out.setdefault((r["device"], r["feature"]), []).append(r)
+        return out
+    a, b = streams(original), streams(again)
+    for key in sorted(set(a) | set(b)):
+        x, y = a.get(key, []), b.get(key, [])
+        for k, (p, q) in enumerate(zip(x, y)):
+            if p["value"] != q["value"] or p["cause"] != q["cause"] or \
+                    abs(p["observed_t"] - q["observed_t"]) > WALL_TOLERANCE_S:
+                return (f"{key[0]} {key[1]} report {k}: the trace has {p['value']!r} at {p['observed_t']:.3f} s "
+                        f"({p['cause']}), the replay {q['value']!r} at {q['observed_t']:.3f} s ({q['cause']}); "
+                        f"a wall-clock trace matches within {WALL_TOLERANCE_S} s")
+        if len(x) != len(y):
+            return f"{key[0]} {key[1]}: the trace has {len(x)} reports, the replay {len(y)}"
+    return None
+
+
 def compare_reports(original: list[dict], again: list[dict]) -> str | None:
     """None if both traces hold the same device reports in the same order; else the first difference."""
     divergence = next((r for r in again if r["kind"] == "divergence"), None)
     if divergence is not None:
         return divergence["message"]
+    if original and original[0].get("kind") == "meta" and original[0].get("clock") == "wall":
+        return _compare_wall(original, again)
     keys = ("device", "feature", "value", "observed_t", "cause")
     a = [tuple(r[k] for k in keys) for r in original if r["kind"] == "report"]
     b = [tuple(r[k] for k in keys) for r in again if r["kind"] == "report"]

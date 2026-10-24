@@ -645,7 +645,8 @@ def _lab_look(args, home) -> int:
             return 1
         try:
             report = run_look(browser, server.url, steps, out, golden=Path(args.golden) if args.golden else None,
-                              update_golden=args.update_golden)
+                              update_golden=args.update_golden,
+                              session_errors=lambda: server.errors + list(getattr(session.clock, "errors", [])))
         finally:
             browser.close()
     finally:

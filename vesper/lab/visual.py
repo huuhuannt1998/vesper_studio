@@ -10,7 +10,8 @@ A steps file is a YAML list, one action per step:
     - {shot: lamp_on}                                         # a screenshot, lamp_on.png
 
 Every look also checks that the page got ready, that the map is drawn, that no shot is blank, that each shot
-matches its reference image when references are given, and that the page raised no error. The result is
+matches its reference image when references are given, that the page stayed connected to the session, that the
+session raised no error (when the caller can tell), and that the page raised no error. The result is
 `report.json`, `report.md` and the screenshots, in the output directory.
 """
 from __future__ import annotations
@@ -28,6 +29,7 @@ from vesper.lab.browser import BrowserError
 from vesper.lab.png import PngError, decode, diff, distinct_colors, encode
 
 READY = "window.vesper !== undefined && window.vesper.ready === true"
+CONNECTED = "window.vesper !== undefined && window.vesper.connected === true"
 ACTIONS = ("shot", "press", "click_world", "wait", "until", "expect")
 OPTIONS = {"press": {"times"}, "until": {"timeout", "label"}, "expect": {"label"}}
 MIN_COLOURS = 8  # fewer colours than this in a shot of the play page means nothing was drawn
@@ -101,7 +103,8 @@ def _check_step(k: int, step) -> None:
 
 def run_look(browser, url: str, steps: list[dict], out: Path, *, golden: Path | None = None,
              update_golden: bool = False, tolerance: int = 16, max_diff: float = 0.002,
-             ready_timeout: float = 15.0) -> Report:
+             ready_timeout: float = 15.0, session_errors=None) -> Report:
+    """`session_errors()`, when given, lists failures inside the session the page drove."""
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     report = Report(url, out)
@@ -112,21 +115,21 @@ def run_look(browser, url: str, steps: list[dict], out: Path, *, golden: Path | 
         checks.append(Check("the page is ready", True))
     except BrowserError as e:
         checks.append(Check("the page is ready", False, str(e)))
-        _finish(browser, report, skipped=(1, len(steps)) if steps else None)
+        _finish(browser, report, session_errors, skipped=(1, len(steps)) if steps else None)
         return report
     colours = browser.evaluate("vesper.canvasColors()") or 0
     checks.append(Check("the map is drawn", colours >= MIN_COLOURS, f"{colours} colours on the map"))
     for k, step in enumerate(steps, 1):
         try:
             if not _step(browser, step, report, golden, update_golden, tolerance, max_diff):
-                _finish(browser, report, skipped=(k + 1, len(steps)) if k < len(steps) else None)
+                _finish(browser, report, session_errors, skipped=(k + 1, len(steps)) if k < len(steps) else None)
                 return report
         except (BrowserError, PngError) as e:
             action = next(a for a in step if a in ACTIONS)
             checks.append(Check(f"step {k} ({action})", False, str(e)))
-            _finish(browser, report, skipped=(k + 1, len(steps)) if k < len(steps) else None)
+            _finish(browser, report, session_errors, skipped=(k + 1, len(steps)) if k < len(steps) else None)
             return report
-    _finish(browser, report)
+    _finish(browser, report, session_errors)
     return report
 
 
@@ -186,11 +189,20 @@ def _shot(browser, name: str, report: Report, golden, update_golden, tolerance, 
     report.checks.append(Check(f"{name} matches its reference", d.fraction <= max_diff, detail))
 
 
-def _finish(browser, report: Report, skipped: tuple[int, int] | None = None) -> None:
+def _finish(browser, report: Report, session_errors=None, skipped: tuple[int, int] | None = None) -> None:
     if skipped is not None:
         a, b = skipped
         report.checks.append(Check(f"step {a}" if a == b else f"steps {a}-{b}", False, "skipped after a failed step"))
     browser.pump(0.1)
+    try:
+        connected = bool(browser.evaluate(CONNECTED))
+        detail = "" if connected else "the page lost its connection to the session"
+    except BrowserError as e:
+        connected, detail = False, str(e)
+    report.checks.append(Check("the page stayed connected", connected, detail))
+    if session_errors is not None:
+        errors = list(session_errors())
+        report.checks.append(Check("the session raised no errors", not errors, "; ".join(errors)))
     problems = list(browser.problems)
     report.checks.append(Check("no page errors", not problems, "; ".join(problems)))
     _write(report)

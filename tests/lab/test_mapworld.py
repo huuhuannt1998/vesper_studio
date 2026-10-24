@@ -1,7 +1,9 @@
+import math
+
 import pytest
 
 from tests.lab.maps import house, two_rooms
-from vesper.lab.mapworld import SPEED_M_S, MapWorld, WorldError
+from vesper.lab.mapworld import SPEED_M_S, STEP_S, MapWorld, WorldError
 from vesper.twins.clock import LogicalClock
 
 
@@ -127,3 +129,27 @@ def test_a_step_cannot_squeeze_between_two_wall_cells_that_meet_at_a_corner():
     w.spawn("p", "female_0", (0.65, 0.55))  # cell (6, 5), below the wall
     w.move("p", -0.1, 0.1)  # through the corner shared by wall cells (5, 5) and (6, 6)
     assert not w.last_move_ok and (w.pose("p").x, w.pose("p").z) == (0.65, 0.55)
+
+
+def test_a_walk_to_a_point_that_is_not_a_finite_place_has_no_path():
+    w = MapWorld(house(), LogicalClock())
+    w.spawn("p", "female_0", (1.5, 3.0))
+    for target in ((1e308, -1e308), (float("nan"), 3.0), (float("inf"), 0.0)):
+        assert w.walk_to("p", target) is None
+    assert w.map.grid.cell_of(1e308, 0.0) is None
+
+
+def test_late_callbacks_do_not_slow_a_walk_down():
+    class LateClock(LogicalClock):  # a busy machine: every callback fires 0.1 s late
+        def call_at(self, when, fn):
+            super().call_at(when + 0.1, fn)
+    clock = LateClock()
+    w = MapWorld(house(), clock)
+    w.add_door("bedroom-hall", True)
+    w.spawn("p", "female_0", (0.4, 3.0))
+    arrived = []
+    w.on_event(lambda e: arrived.append(clock.now()) if e["event"] == "arrived" else None)
+    path = w.walk_to("p", (5.0, 4.4))
+    planned = sum(math.dist(a, b) for a, b in zip(path, path[1:])) / SPEED_M_S
+    clock.advance(20.0)
+    assert arrived and arrived[0] <= planned + STEP_S + 0.1 + 1e-6

@@ -49,6 +49,7 @@ def test_look_runs_the_steps_and_reports_each_check(tmp_path, capsys, monkeypatc
     assert cli.main(["lab", "look", str(home), "--catalog", str(cat), "--steps", str(steps), "--out", str(out)]) == 0
     printed = capsys.readouterr().out
     assert "PASS the page is ready" in printed and "PASS start is not blank" in printed
+    assert "PASS the page stayed connected" in printed and "PASS the session raised no errors" in printed
     assert f"1 shots and the report in {out}" in printed
     assert fake.calls[0][1].startswith("http://127.0.0.1:") and ("press", "e", 1) in fake.calls
     assert (out / "start.png").is_file() and (out / "report.md").is_file()

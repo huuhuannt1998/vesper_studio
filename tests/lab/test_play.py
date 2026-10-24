@@ -145,6 +145,8 @@ def test_a_click_on_the_map_walks_the_player_there(play):
     ('{"type": "move", "dx": NaN, "dz": 0}', "dx"),
     ('{"type": "walk_to", "x": 1}', "z"),
     ('{"type": "interact", "target": "toaster"}', "toaster"),
+    ('{"type": "walk_to", "x": 1e308, "z": -1e308}', "outside the map"),
+    ("[" * 30000 + "]" * 30000, "not JSON"),
 ])
 def test_a_bad_input_gets_an_error_and_the_page_stays_connected(play, raw, words):
     with client(play) as ws:
@@ -159,3 +161,28 @@ def test_a_page_from_another_site_cannot_drive_the_avatar(play):
     with pytest.raises(InvalidStatus) as refused:
         client(play, origin="http://evil.example")
     assert refused.value.response.status_code == 403
+
+
+def test_the_browser_s_icon_request_is_answered_without_an_error(play):
+    assert get(f"http://127.0.0.1:{play.port}/favicon.ico")[0] == 204  # Chrome asks for it; a 404 is a page error
+
+
+def test_a_failure_inside_the_session_is_answered_and_kept_and_the_page_stays(play):
+    def broken(target=None, actor="player"):
+        raise RuntimeError("boom in a rule")
+    play.session.interact = broken
+    with client(play) as ws:
+        until(ws, lambda m: m["type"] == "hello")
+        ws.send(json.dumps({"type": "interact"}))
+        assert "boom in a rule" in until(ws, lambda m: m["type"] == "error")["message"]
+        ws.send(json.dumps({"type": "move", "dx": 0.2, "dz": 0}))
+        until(ws, lambda m: m["type"] == "pose")
+    assert any("boom in a rule" in e for e in play.errors)
+
+
+def test_a_walk_off_the_map_is_refused_before_it_reaches_the_trace(play):
+    with client(play) as ws:
+        until(ws, lambda m: m["type"] == "hello")
+        ws.send(json.dumps({"type": "walk_to", "x": 1e308, "z": -1e308}))
+        until(ws, lambda m: m["type"] == "error")
+    assert not any(r["kind"] == "input" and r["op"] == "walk_to" for r in play.session.records)

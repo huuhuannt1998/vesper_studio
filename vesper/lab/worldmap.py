@@ -11,6 +11,7 @@ import base64
 import binascii
 import difflib
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -53,7 +54,10 @@ class Grid:
         return (self.origin[0] + (i + 0.5) * self.cell, self.origin[1] + (j + 0.5) * self.cell)
 
     def cell_of(self, x: float, z: float) -> tuple[int, int] | None:
-        i, j = int((x - self.origin[0]) // self.cell), int((z - self.origin[1]) // self.cell)
+        fi, fj = (x - self.origin[0]) // self.cell, (z - self.origin[1]) // self.cell
+        if not (math.isfinite(fi) and math.isfinite(fj)):
+            return None  # not a place on any floor
+        i, j = int(fi), int(fj)
         return (i, j) if 0 <= i < self.width and 0 <= j < self.height else None
 
     def is_walkable(self, i: int, j: int) -> bool:
