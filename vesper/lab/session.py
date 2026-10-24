@@ -36,6 +36,7 @@ class Session:
         for door, is_open in home.doors.items():
             self.world.add_door(door, is_open)
         self.records: list[dict] = []
+        self._listeners: list = []
         try:
             self._file = open(trace, "x") if trace else None  # noqa: SIM115 - closed in stop(); never overwrites
         except FileExistsError as e:
@@ -60,6 +61,10 @@ class Session:
             self._file = None
         if hasattr(self.clock, "close"):
             self.clock.close()
+
+    def on_record(self, fn) -> None:
+        """`fn(record)` hears every trace record as it is written (the play view's console)."""
+        self._listeners.append(fn)
 
     # -- inputs (traced) ----------------------------------------------------------------------
     def spawn(self, actor: str, model: str, at) -> None:
@@ -103,6 +108,8 @@ class Session:
         self.records.append(rec)
         if self._file is not None:
             self._file.write(json.dumps(rec) + "\n")
+        for fn in self._listeners:
+            fn(rec)
 
 
 def read_trace(path: Path) -> list[dict]:
