@@ -75,40 +75,50 @@ class LabHome:
 
 def load_lab_home(path: Path, catalog: dict[str, dict]) -> LabHome:
     path = Path(path)
-    spec = yaml.safe_load(path.read_text()) or {}
+    try:
+        spec = yaml.safe_load(path.read_text()) or {}
+    except OSError as e:
+        raise HomeError(f"{path}: cannot read it: {e.strerror}") from e
+    except yaml.YAMLError as e:
+        raise HomeError(f"{path.name}: not valid YAML: {e}") from e
     if not isinstance(spec, dict) or spec.get("version") != 2:
         raise HomeError(f"{path}: a version 1 home file (no `version: 2`); it is for `vesper twins run`. "
                         "A Lab home names a scene, a map and where each device is.")
     try:
-        world_map = WorldMap.load(path.parent / spec.get("map", "map.json"))
+        world_map = WorldMap.load(path.parent / _text(spec.get("map", "map.json"), "map"))
     except MapError as e:
         raise HomeError(f"map: {e}") from e
     doors = {}
-    for k, d in enumerate(spec.get("doors") or []):
-        _doorway(world_map, d.get("doorway"), f"doors[{k}].doorway")
-        doors[d["doorway"]] = bool(d.get("open", True))
+    for k, d in enumerate(_list(spec.get("doors") or [], "doors")):
+        d = _mapping(d, f"doors[{k}]")
+        if d.get("doorway") is None:
+            raise HomeError(f"doors[{k}].doorway: name a doorway; {suggest('', [w.id for w in world_map.doorways])}")
+        _doorway(world_map, _text(d["doorway"], f"doors[{k}].doorway"), f"doors[{k}].doorway")
+        doors[d["doorway"]] = _bool(d.get("open", True), f"doors[{k}].open")
     devices: list[PlacedDevice] = []
-    raw = spec.get("devices") or []
+    raw = [_mapping(d, f"devices[{k}]") for k, d in enumerate(_list(spec.get("devices") or [], "devices"))]
     names = [d.get("name") for d in raw]
     for k, d in enumerate(raw):
         devices.append(_device(k, d, catalog, world_map, doors, names))
-    avatar = spec.get("avatar") or {}
-    start = (avatar.get("start") or {}).get("room")
+    avatar = _mapping(spec.get("avatar") or {}, "avatar")
+    start = _mapping(avatar.get("start") or {}, "avatar.start").get("room")
     if start is None:
         raise HomeError("avatar.start.room: name the room the player starts in")
+    start = _text(start, "avatar.start.room")
     try:
         world_map.room(start)
     except MapError as e:
         raise HomeError(f"avatar.start.room: {e}") from e
-    broker = spec.get("broker") or {}
+    broker = _mapping(spec.get("broker") or {}, "broker")
     automations = spec.get("automations")
     return LabHome(path=path, map=world_map, scene=str(spec.get("scene", world_map.scene)),
-                   seed=int(spec.get("seed", 0)), start_time=_clock(spec.get("start_time", "07:00")),
+                   seed=_int(spec.get("seed", 0), "seed"), start_time=_clock(spec.get("start_time", "07:00")),
                    avatar={"model": avatar.get("model", "female_0"), "start": spawn_point(world_map, start)},
                    devices=devices, doors=doors, residents=list(spec.get("residents") or []),
                    automations=path.parent / automations if automations else None,
-                   defenses=list((spec.get("security") or {}).get("defenses") or []),
-                   broker=(broker.get("host", "127.0.0.1"), int(broker.get("port", 18830))),
+                   defenses=list(_mapping(spec.get("security") or {}, "security").get("defenses") or []),
+                   broker=(_text(broker.get("host", "127.0.0.1"), "broker.host"),
+                           _int(broker.get("port", 18830), "broker.port")),
                    matter_interface=spec.get("matter_interface"))
 
 
@@ -130,7 +140,7 @@ def spawn_point(world_map: WorldMap, room_id: str) -> Point:
 
 def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, names: list) -> PlacedDevice:
     where = f"devices[{k}]"
-    product, name = d.get("product"), d.get("name")
+    product, name = _text(d.get("product"), f"{where}.product"), d.get("name")
     if product not in catalog:
         raise HomeError(f"{where}.product: {product!r} is not in the catalog; {suggest(str(product), list(catalog))}")
     if not isinstance(name, str) or not topic_safe(name):
@@ -138,7 +148,7 @@ def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, na
                         "'event', a leading 'bridge' or a trailing 'availability')")
     if names.index(name) != k:
         raise HomeError(f"{where}.name: {name!r} is used twice")
-    at = d.get("at") or {}
+    at = _mapping(d.get("at") or {}, f"{where}.at")
     door = at.get("door")
     mount = at.get("mount", "door" if door else "table" if "xy" in at else "ceiling")
     if mount not in MOUNTS:
@@ -157,7 +167,7 @@ def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, na
         except MapError as e:
             raise HomeError(f"{where}.at.room: {e}") from e
         if "xy" in at:
-            position = (float(at["xy"][0]), float(at["xy"][1]))
+            position = _point(at["xy"], f"{where}.at.xy")
             if not point_in_polygon(position, polygon):
                 raise HomeError(f"{where}.at.xy: {position} is not in room {room!r}")
         elif mount in ("wall", "table", "floor"):
@@ -167,15 +177,15 @@ def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, na
     facing = None
     if mount == "wall":
         if "facing" in at:
-            facing = float(at["facing"]) % 360
+            facing = _number(at["facing"], f"{where}.at.facing") % 360
         else:
             c = centroid(world_map.room(room).polygon)
             facing = math.degrees(math.atan2(c[1] - position[1], c[0] - position[0])) % 360
-    controls = tuple(d.get("controls") or ())
+    controls = tuple(_list(d.get("controls") or [], f"{where}.controls"))
     for target in controls:
         if target not in names:
             raise HomeError(f"{where}.controls: unknown device {target!r}; {suggest(target, [n for n in names if n])}")
-    state = dict(d.get("state") or {})
+    state = dict(_mapping(d.get("state") or {}, f"{where}.state"))
     twin = Twin.from_vds(catalog[product])
     for feature, value in state.items():
         try:
@@ -194,7 +204,53 @@ def _doorway(world_map: WorldMap, doorway_id, where: str):
 
 def _clock(text) -> float:
     try:
-        hours, minutes = str(text).split(":")
-        return int(hours) * 3600 + int(minutes) * 60
+        hours, minutes = (int(part) for part in str(text).split(":"))
     except ValueError as e:
         raise HomeError(f"start_time: {text!r} is not HH:MM") from e
+    if not (0 <= hours < 24 and 0 <= minutes < 60):
+        raise HomeError(f"start_time: {text!r} is not HH:MM")
+    return hours * 3600 + minutes * 60
+
+
+# -- field types: every mistake names its field ------------------------------------------------
+def _mapping(value, where: str) -> dict:
+    if not isinstance(value, dict):
+        raise HomeError(f"{where}: {value!r} is not a mapping")
+    return value
+
+
+def _list(value, where: str) -> list:
+    if not isinstance(value, list):
+        raise HomeError(f"{where}: {value!r} is not a list")
+    return value
+
+
+def _text(value, where: str) -> str:
+    if not isinstance(value, str):
+        raise HomeError(f"{where}: {value!r} is not text")
+    return value
+
+
+def _number(value, where: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
+        raise HomeError(f"{where}: {value!r} is not a number")
+    return float(value)
+
+
+def _int(value, where: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise HomeError(f"{where}: {value!r} is not a whole number")
+    return value
+
+
+def _bool(value, where: str) -> bool:
+    if not isinstance(value, bool):
+        raise HomeError(f"{where}: {value!r} is not true or false")
+    return value
+
+
+def _point(value, where: str) -> Point:
+    if not (isinstance(value, list) and len(value) == 2 and all(
+            not isinstance(v, bool) and isinstance(v, int | float) and math.isfinite(v) for v in value)):
+        raise HomeError(f"{where}: {value!r} is not a point [x, z] in metres")
+    return (float(value[0]), float(value[1]))

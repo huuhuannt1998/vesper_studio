@@ -8,6 +8,7 @@ which is why the floor grid is required.
 from __future__ import annotations
 
 import base64
+import binascii
 import difflib
 import json
 from dataclasses import dataclass, field
@@ -121,6 +122,9 @@ class WorldMap:
             raise MapError(f"cannot read the map file {path}: {e}") from e
         if not isinstance(d, dict) or d.get("format") != FORMAT:
             raise MapError(f"{path} is not a VESPER map ({FORMAT})")
+        problem = _schema_problem(d)
+        if problem:
+            raise MapError(f"{path}: {problem}")
         rooms = [Room(r["id"], r["label"], tuple(tuple(p) for p in r["polygon"]), bool(r.get("outdoor")))
                  for r in d["rooms"]]
         return cls(d["scene"], rooms, Grid.from_json(d["grid"]))
@@ -176,6 +180,9 @@ class WorldMap:
             rooms = sorted(self.rooms[k].id for k in touching if k is not None and k >= 0)
             if len(rooms) < 2:
                 continue
+            if len(rooms) > 2 and any(labels[c[1] * w + c[0]] < 0 for c in comp):
+                raise MapError(f"the floor outside every room joins {', '.join(rooms)} in one opening: room polygons "
+                               "must reach the walls, so that each gap through a wall joins two rooms (a doorway)")
             centers = [g.center(i, j) for i, j in comp]
             ext_i = max(i for i, _ in comp) - min(i for i, _ in comp) + 1
             ext_j = max(j for _, j in comp) - min(j for _, j in comp) + 1
@@ -191,6 +198,52 @@ class WorldMap:
             named.append(d if count[d.id] == 1 else Doorway(f"{d.id}-{count[d.id]}", d.rooms, d.center, d.width,
                                                              d.cells, d.outdoor))
         return named
+
+
+def _schema_problem(d: dict) -> str | None:
+    """What is wrong with a parsed map file's fields, or None: a bad file is refused by name, never a traceback."""
+    def number(v):
+        return not isinstance(v, bool) and isinstance(v, int | float)
+    for key in ("scene", "grid", "rooms"):
+        if key not in d:
+            return f"{key}: missing"
+    if not isinstance(d["scene"], str):
+        return f"scene: {d['scene']!r} is not text"
+    g = d["grid"]
+    if not isinstance(g, dict):
+        return "grid: not a mapping"
+    for key in ("origin", "cell", "width", "height", "walkable"):
+        if key not in g:
+            return f"grid.{key}: missing"
+    if not (isinstance(g["origin"], list) and len(g["origin"]) == 2 and all(number(v) for v in g["origin"])):
+        return f"grid.origin: {g['origin']!r} is not a point [x, z]"
+    if not number(g["cell"]) or g["cell"] <= 0:
+        return f"grid.cell: {g['cell']!r} is not a positive number"
+    for key in ("width", "height"):
+        if isinstance(g[key], bool) or not isinstance(g[key], int) or g[key] <= 0:
+            return f"grid.{key}: {g[key]!r} is not a positive whole number"
+    try:
+        bits = base64.b64decode(g["walkable"], validate=True)
+    except (binascii.Error, ValueError, TypeError):
+        return "grid.walkable: not base64"
+    if len(bits) * 8 < g["width"] * g["height"]:
+        return f"grid.walkable: holds {len(bits) * 8} cells, the grid has {g['width'] * g['height']}"
+    if not isinstance(d["rooms"], list):
+        return "rooms: not a list"
+    for k, r in enumerate(d["rooms"]):
+        if not isinstance(r, dict):
+            return f"rooms[{k}]: not a mapping"
+        for key in ("id", "label", "polygon"):
+            if key not in r:
+                return f"rooms[{k}].{key}: missing"
+        if not isinstance(r["id"], str) or not isinstance(r["label"], str):
+            return f"rooms[{k}]: id and label must be text"
+        poly = r["polygon"]
+        if not isinstance(poly, list) or len(poly) < 3:
+            return f"rooms[{k}].polygon: needs at least 3 points"
+        if not all(isinstance(p, list) and len(p) == 2 and all(number(v) for v in p) for p in poly):
+            return f"rooms[{k}].polygon: every point is [x, z]"
+    return None
 
 
 def suggest(name: str, names: list[str]) -> str:

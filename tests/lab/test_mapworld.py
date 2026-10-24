@@ -93,3 +93,37 @@ def test_walks_are_deterministic():
         w.clock.advance(60.0)
         return [(e["x"], e["z"]) for e in events if e["event"] == "pose"]
     assert poses() == poses() and len(poses()) > 10
+
+
+def test_a_door_cannot_close_on_someone_in_its_doorway():
+    w = MapWorld(two_rooms(), LogicalClock())
+    w.add_door("kitchen-living", True)
+    w.spawn("p", "female_0", (4.0, 2.0))  # in the opening
+    with pytest.raises(WorldError, match="p stands in the kitchen-living doorway"):
+        w.set_door("kitchen-living", False)
+    assert w.doors["kitchen-living"] is True
+    w.move("p", 0.5, 0.0)
+    assert w.set_door("kitchen-living", False) and w.doors["kitchen-living"] is False
+
+
+def test_a_planned_walk_is_never_cut_off_at_the_corners_of_its_own_path():
+    clock = LogicalClock()
+    w = MapWorld(house(), clock)
+    w.add_door("bedroom-hall", True)
+    w.spawn("p", "female_0", (0.4, 3.0))
+    events = []
+    w.on_event(lambda e: events.append(e["event"]) if e["event"] in ("arrived", "blocked") else None)
+    assert w.walk_to("p", (5.0, 4.4)) is not None
+    clock.advance(10.0)
+    assert events == ["arrived"] and w.pose("p").room == "bedroom"
+
+
+def test_a_step_cannot_squeeze_between_two_wall_cells_that_meet_at_a_corner():
+    from tests.lab.maps import grid_from
+    from vesper.lab.worldmap import Room, WorldMap
+    m = WorldMap("test/diagonal", [Room("a", "a", ((0, 0), (2, 0), (2, 2), (0, 2)))],
+                 grid_from(2, 2, lambda x, z: int(x * 10) != int(z * 10)))  # a one-cell staircase wall
+    w = MapWorld(m, LogicalClock())
+    w.spawn("p", "female_0", (0.65, 0.55))  # cell (6, 5), below the wall
+    w.move("p", -0.1, 0.1)  # through the corner shared by wall cells (5, 5) and (6, 6)
+    assert not w.last_move_ok and (w.pose("p").x, w.pose("p").z) == (0.65, 0.55)

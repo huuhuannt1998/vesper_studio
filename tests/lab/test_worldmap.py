@@ -57,3 +57,34 @@ def test_a_file_that_is_not_a_vesper_map_is_refused(tmp_path):
         WorldMap.load(bad)
     with pytest.raises(MapError, match="unknown room 'garage'.*kitchen"):
         two_rooms().room("garage")
+
+
+def test_rooms_that_stop_short_of_the_walls_are_refused_rather_than_guessed():
+    from vesper.lab.worldmap import Room
+    m = house()
+
+    def inset(r):
+        xs, zs = [p[0] for p in r.polygon], [p[1] for p in r.polygon]
+        return Room(r.id, r.label, rect(min(xs) + 0.1, min(zs) + 0.1, max(xs) - 0.1, max(zs) - 0.1), r.outdoor)
+    with pytest.raises(MapError, match="reach the walls") as refused:
+        WorldMap(m.scene, [inset(r) for r in m.rooms], m.grid)
+    assert all(name in str(refused.value) for name in ("bedroom", "hall", "kitchen"))
+
+
+@pytest.mark.parametrize("change, message", [
+    (lambda d: d.pop("rooms"), r"rooms: missing"),
+    (lambda d: d.pop("scene"), r"scene: missing"),
+    (lambda d: d["grid"].update(cell=0), r"grid\.cell: 0 is not a positive number"),
+    (lambda d: d["grid"].update(width="ninety"), r"grid\.width: 'ninety' is not a positive whole number"),
+    (lambda d: d["grid"].update(walkable="AAAA"), r"grid\.walkable: holds 24 cells, the grid has"),
+    (lambda d: d["grid"].update(walkable="not base64!"), r"grid\.walkable: not base64"),
+    (lambda d: d["rooms"][0].update(polygon=[[0, 0]]), r"rooms\[0\]\.polygon: needs at least 3 points"),
+    (lambda d: d["rooms"][1].pop("id"), r"rooms\[1\]\.id: missing"),
+])
+def test_a_malformed_map_file_names_the_field_instead_of_crashing(tmp_path, change, message):
+    house().save(tmp_path / "map.json")
+    d = json.loads((tmp_path / "map.json").read_text())
+    change(d)
+    (tmp_path / "map.json").write_text(json.dumps(d))
+    with pytest.raises(MapError, match=message):
+        WorldMap.load(tmp_path / "map.json")

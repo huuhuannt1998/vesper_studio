@@ -11,13 +11,17 @@ import json
 import time
 from pathlib import Path
 
-from vesper.lab.mapworld import MapWorld
+from vesper.lab.mapworld import MapWorld, WorldError
 from vesper.lab.rules import Rules
 from vesper.twins.clock import LogicalClock
 from vesper.twins.runtime import Runtime
 
 TRACE_FORMAT = "vesper-trace/1"
 PLAYER = "player"
+
+
+class TraceError(ValueError):
+    """A file that is not a VESPER trace, or a trace path that would overwrite an existing trace."""
 
 
 class Session:
@@ -32,7 +36,10 @@ class Session:
         for door, is_open in home.doors.items():
             self.world.add_door(door, is_open)
         self.records: list[dict] = []
-        self._file = open(trace, "w") if trace else None  # noqa: SIM115 - closed in stop()
+        try:
+            self._file = open(trace, "x") if trace else None  # noqa: SIM115 - closed in stop(); never overwrites
+        except FileExistsError as e:
+            raise TraceError(f"the trace {trace} already exists; a session never overwrites one") from e
         self.rules = Rules(home, self.runtime, self.world, self.twin_ids,
                            record=lambda r: self._write({**r, "kind": "rule"}))
 
@@ -92,33 +99,48 @@ class Session:
             self._write({"kind": "world", **event})
 
     def _write(self, record: dict) -> None:
-        rec = {"t": round(self.clock.now(), 6), **record}
+        rec = {"t": self.clock.now(), **record}  # exact: JSON keeps a float, and replay needs the same instant
         self.records.append(rec)
         if self._file is not None:
             self._file.write(json.dumps(rec) + "\n")
 
 
 def read_trace(path: Path) -> list[dict]:
-    return [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
+    records = []
+    for k, line in enumerate(Path(path).read_text().splitlines(), 1):
+        if line.strip():
+            try:
+                records.append(json.loads(line))
+            except ValueError as e:
+                raise TraceError(f"{path}: line {k} is not JSON") from e
+    first = records[0] if records else None
+    if not isinstance(first, dict) or first.get("kind") != "meta" or first.get("format") != TRACE_FORMAT:
+        raise TraceError(f"{path}: not a VESPER trace (its first line is not a {TRACE_FORMAT} meta record)")
+    return records
 
 
 def replay(records: list[dict], home) -> list[dict]:
     """Re-apply a trace's inputs at their times to a new session of `home` on the logical clock."""
     s = Session(home, clock=LogicalClock())
     s.start(spawn_player=False)
-    for r in records:
+    for k, r in enumerate(records):
         if r["kind"] != "input":
             continue
         s.clock.advance_to(r["t"])
         a = r["args"]
-        if r["op"] == "spawn":
-            s.spawn(r["actor"], a["model"], a["at"])
-        elif r["op"] == "move":
-            s.move(a["dx"], a["dz"], actor=r["actor"])
-        elif r["op"] == "walk_to":
-            s.walk_to(a["point"], actor=r["actor"])
-        elif r["op"] == "interact":
-            s.interact(a["target"], actor=r["actor"])
+        try:
+            if r["op"] == "spawn":
+                s.spawn(r["actor"], a["model"], a["at"])
+            elif r["op"] == "move":
+                s.move(a["dx"], a["dz"], actor=r["actor"])
+            elif r["op"] == "walk_to":
+                s.walk_to(a["point"], actor=r["actor"])
+            elif r["op"] == "interact":
+                s.interact(a["target"], actor=r["actor"])
+        except (ValueError, WorldError) as e:  # the home changed under the trace: that is the difference
+            what = r["op"] + (f" {a['target']}" if r["op"] == "interact" and a.get("target") else "")
+            s._write({"kind": "divergence", "input": k, "message": f"input {k} ({what} at t={r['t']:g}): {e}"})
+            break
     if records:
         s.clock.advance_to(max(r["t"] for r in records))
     s.stop()
@@ -127,6 +149,9 @@ def replay(records: list[dict], home) -> list[dict]:
 
 def compare_reports(original: list[dict], again: list[dict]) -> str | None:
     """None if both traces hold the same device reports in the same order; else the first difference."""
+    divergence = next((r for r in again if r["kind"] == "divergence"), None)
+    if divergence is not None:
+        return divergence["message"]
     keys = ("device", "feature", "value", "observed_t", "cause")
     a = [tuple(r[k] for k in keys) for r in original if r["kind"] == "report"]
     b = [tuple(r[k] for k in keys) for r in again if r["kind"] == "report"]

@@ -1,8 +1,10 @@
 import json
 
+import pytest
+
 from tests.lab.homes import HOME, catalog, write_home
 from vesper.lab.home import load_lab_home
-from vesper.lab.session import Session, compare_reports, read_trace, replay
+from vesper.lab.session import Session, TraceError, compare_reports, read_trace, replay
 
 
 def session(tmp_path, text=HOME, trace=True):
@@ -49,7 +51,7 @@ def test_replaying_the_inputs_reproduces_the_same_device_reports(tmp_path):
     home = load_lab_home(tmp_path / "home.yaml", catalog())
     again = replay(original, home)
     assert compare_reports(original, again) is None
-    assert len([r for r in again if r["kind"] == "report"]) > 5
+    assert {r["device"] for r in again if r["kind"] == "report"} >= {"hall_motion", "front_door", "bedroom_lamp"}
 
 
 def test_a_replay_on_a_changed_home_names_the_first_difference(tmp_path):
@@ -87,3 +89,46 @@ def test_an_interaction_is_traced_as_a_rule_with_its_target_kind(tmp_path):
     s.stop()
     door = [r for r in s.records if r.get("rule") == "interact" and r["target"] == "hall-porch"]
     assert door and door[0]["kind"] == "rule" and door[0]["target_kind"] == "door" and door[0]["result"] == "opened"
+
+
+def test_a_session_of_small_steps_and_fractional_waits_replays_exactly(tmp_path):
+    s = session(tmp_path, trace=False)
+    for k in range(300):  # a keyboard player: a short step every tenth of a second
+        s.move(0.1 if k % 2 else -0.1, 0)
+        s.wait(0.1)
+    s.wait(100)
+    s.stop()
+    assert any(r["kind"] == "rule" and r["rule"] == "presence" for r in s.records)
+    assert compare_reports(s.records, replay(s.records, s.home)) is None
+
+
+def test_a_replay_names_the_input_its_home_can_no_longer_apply(tmp_path):
+    s = session(tmp_path)
+    s.walk_to((5.0, 4.4))
+    s.wait(30)
+    s.interact("bedroom_lamp")
+    s.wait(10)
+    s.stop()
+    original = read_trace(tmp_path / "trace.jsonl")
+    other = tmp_path / "other"
+    other.mkdir()
+    home = load_lab_home(write_home(other, HOME.replace("bedroom_lamp", "reading_lamp")), catalog())
+    diff = compare_reports(original, replay(original, home))
+    assert diff is not None and "interact bedroom_lamp at t=30" in diff and "unknown door or device" in diff
+
+
+@pytest.mark.parametrize("text, words", [("", "not a VESPER trace"), ('{"kind": "input"}\n', "not a VESPER trace"),
+                                         ('{"t": 0, "kind": "meta", "format": "vesper-trace/1"}\nnot json\n',
+                                          "line 2 is not JSON")])
+def test_a_file_that_is_not_a_trace_is_refused_by_name(tmp_path, text, words):
+    f = tmp_path / "t.jsonl"
+    f.write_text(text)
+    with pytest.raises(TraceError, match=words):
+        read_trace(f)
+
+
+def test_a_session_never_overwrites_an_existing_trace(tmp_path):
+    (tmp_path / "trace.jsonl").write_text("precious\n")
+    with pytest.raises(TraceError, match="already exists"):
+        session(tmp_path)
+    assert (tmp_path / "trace.jsonl").read_text() == "precious\n"

@@ -106,6 +106,8 @@ class MapWorld:
             self.map.doorway(doorway_id)
         except MapError as e:
             raise WorldError(str(e)) from e
+        if not open:
+            self._refuse_if_occupied(doorway_id)
         self.doors[doorway_id] = open
         self._recompute_blocked()
 
@@ -113,10 +115,21 @@ class MapWorld:
         if doorway_id not in self.doors:
             raise WorldError(f"no door on doorway {doorway_id!r}; add it to the home's doors first")
         if self.doors[doorway_id] != open:
+            if not open:
+                self._refuse_if_occupied(doorway_id)
             self.doors[doorway_id] = open
             self._recompute_blocked()
             self._emit({"event": "door", "id": doorway_id, "open": open})
         return True
+
+    def occupants(self, doorway_id: str) -> list[str]:
+        """The actors standing in a doorway: a door cannot close on them."""
+        cells = set(self.map.doorway(doorway_id).cells)
+        return [a for a, p in self._poses.items() if self.map.grid.cell_of(p.x, p.z) in cells]
+
+    def _refuse_if_occupied(self, doorway_id: str) -> None:
+        if who := self.occupants(doorway_id):
+            raise WorldError(f"{', '.join(who)} stands in the {doorway_id} doorway; the door cannot close on them")
 
     # -- internals ----------------------------------------------------------------------------
     def _emit(self, event: dict) -> None:
@@ -148,8 +161,30 @@ class MapWorld:
         return c is not None and self._cell_free(*c)
 
     def _segment_free(self, a: Point, b: Point) -> bool:
-        n = max(1, math.ceil(distance(a, b) / (self.map.grid.cell / 2)))
-        return all(self._free(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n) for k in range(n + 1))
+        """Every cell the segment touches is free, and it never squeezes between two blocked cells that meet at
+        a corner (A*'s rule). Exact, so the walker accepts every segment the planner straightened."""
+        g = self.map.grid
+        if not (self._free(*a) and self._free(*b)):
+            return False
+        x0, z0 = (a[0] - g.origin[0]) / g.cell, (a[1] - g.origin[1]) / g.cell
+        dx, dz = (b[0] - a[0]) / g.cell, (b[1] - a[1]) / g.cell
+        i, j = math.floor(x0), math.floor(z0)
+        si, sj = (1 if dx > 0 else -1), (1 if dz > 0 else -1)
+        step_x, step_z = (abs(1 / dx) if dx else math.inf), (abs(1 / dz) if dz else math.inf)
+        tx = ((i + 1 - x0) if dx > 0 else (x0 - i)) * step_x if dx else math.inf  # when the line crosses into
+        tz = ((j + 1 - z0) if dz > 0 else (z0 - j)) * step_z if dz else math.inf  # the next column / row
+        while min(tx, tz) <= 1.0:
+            if abs(tx - tz) < 1e-12:  # exactly through a corner
+                if not (self._cell_free(i + si, j) and self._cell_free(i, j + sj)):
+                    return False
+                i, j, tx, tz = i + si, j + sj, tx + step_x, tz + step_z
+            elif tx < tz:
+                i, tx = i + si, tx + step_x
+            else:
+                j, tz = j + sj, tz + step_z
+            if not self._cell_free(i, j):
+                return False
+        return True
 
     def _schedule_walk(self, actor: str, token: int, path: list[Point], k: int) -> None:
         def step():

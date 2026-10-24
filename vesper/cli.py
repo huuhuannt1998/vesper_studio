@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import signal
 import sys
 import time
@@ -502,6 +503,7 @@ devices: []
 
 def _lab(args) -> int:
     from vesper.lab.home import HomeError, load_lab_home
+    from vesper.lab.session import TraceError
     from vesper.lab.worldmap import MapError, WorldMap
     from vesper.twins.home import load_catalog
     try:
@@ -517,9 +519,18 @@ def _lab(args) -> int:
         if args.action == "run":
             return _lab_run(args, load_lab_home(Path(args.home), catalog))
         return _lab_replay(args, catalog, load_lab_home)
-    except (HomeError, MapError) as e:
+    except (HomeError, MapError, TraceError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
         return 1
+
+
+def _new_trace(directory: Path, label: str) -> Path:
+    """A trace path no other run uses: the time, the script and the process, and a counter for a repeat."""
+    stem = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}-{label}-{os.getpid()}"
+    n = 1
+    while (path := directory / (f"{stem}.jsonl" if n == 1 else f"{stem}-{n}.jsonl")).exists():
+        n += 1
+    return path
 
 
 def _lab_new(args, world_map_cls) -> int:
@@ -548,9 +559,9 @@ def _lab_run(args, home) -> int:
     if not callable(namespace.get("run")):
         print(f"FAILED: {args.script} defines no run(lab)", file=sys.stderr)
         return 1
-    trace = Path(args.trace) if args.trace else home.path.parent / "traces" / \
-        f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}.jsonl"
-    trace.parent.mkdir(parents=True, exist_ok=True)
+    traces = home.path.parent / "traces"
+    traces.mkdir(parents=True, exist_ok=True)
+    trace = Path(args.trace) if args.trace else _new_trace(traces, Path(args.script).stem)
     session = Session(home, trace=trace)
     session.start()
     try:
@@ -565,7 +576,11 @@ def _lab_run(args, home) -> int:
 
 def _lab_replay(args, catalog, load_lab_home) -> int:
     from vesper.lab.session import compare_reports, read_trace, replay
-    records = read_trace(Path(args.trace))
+    try:
+        records = read_trace(Path(args.trace))
+    except OSError as e:
+        print(f"FAILED: cannot read {args.trace}: {e.strerror}", file=sys.stderr)
+        return 1
     home = load_lab_home(Path(args.home or records[0]["home"]), catalog)
     diff = compare_reports(records, replay(records, home))
     if diff:

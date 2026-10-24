@@ -3,10 +3,13 @@
 World → devices:
 - presence: a ceiling motion sensor covers its room; a wall-mounted one a 7 m, 110° cone in its room. A person
   entering coverage, or moving in it at least every RETRIGGER_S, applies the `presence` stimulus. A person
-  keeping still lets the sensor clear by the twin's own timeout, as a real PIR does. Line of sight is taken to
-  be the sensor's own room;
-- doors: a person within reach opens or closes a door, unless a lock on it is locked; a contact sensor on the
-  door reports the change;
+  keeping still lets a motion (PIR, `occupancy`) sensor clear by the twin's own timeout, as a real PIR does; a
+  presence (mmWave radar, `presence`) sensor keeps seeing them, re-stimulated every RETRIGGER_S while they stay
+  covered. Line of sight is taken to be the sensor's own room;
+- doors: a person within reach opens or closes a door, unless a lock on it is locked or someone stands in the
+  doorway; a contact sensor on the door reports the change, and reads the door's state from the start;
+- reach: within INTERACT_M, and on the same side of the wall: in the device's room (or in a doorway beside it);
+  for a door, or a device on a door, in one of the door's rooms or in its doorway;
 - devices: a person within reach operates a lamp, plug, switch or lock by hand, or presses a button; a device
   with `controls` switches those devices too, as a Zigbee binding does;
 - ambient: every room's temperature, humidity and illuminance follow the time of day and the lamps that are on
@@ -83,6 +86,11 @@ def _is_presence(twin) -> bool:
         n in twin.features for n in MATTER_PRESENCE)
 
 
+def _senses_stillness(twin) -> bool:
+    """An mmWave presence sensor, which sees a person who keeps still (a PIR's `occupancy` does not)."""
+    return twin.features.get("presence", {}).get("type") == "binary"
+
+
 def _is_contact(twin) -> bool:
     return twin.features.get("contact", {}).get("type") == "binary" or MATTER_CONTACT in twin.features
 
@@ -97,19 +105,22 @@ class Rules:
         self._effect_handlers: list[Callable[[str, dict], None]] = []
         self._covered: dict[tuple[str, str], bool] = {}
         self._last_trigger: dict[tuple[str, str], float] = {}
+        self._doorway_at = {c: d.id for d in home.map.doorways for c in d.cells}
+        self._still = {name for name in self.devices if _senses_stillness(self.twin(name))}
 
     # -- set-up -------------------------------------------------------------------------------
     def start(self) -> None:
         self.world.on_event(self._on_world)
         self.runtime.subscribe(self._on_report)
-        for door, is_open in self.world.doors.items():
-            if is_open:
-                self._contact(door, True)
+        for door, is_open in self.world.doors.items():  # closed ones too: a Matter sensor starts out "open"
+            self._contact(door, is_open)
         for name in self.devices:
             self._update_effect(name)
         for door in self.world.doors:
             self._update_effect(door)
         self._ambient_tick()
+        if self._still:
+            self.runtime.clock.call_at(self.now() + RETRIGGER_S, self._presence_tick)
 
     def on_effect(self, fn: Callable[[str, dict], None]) -> None:
         self._effect_handlers.append(fn)
@@ -128,7 +139,8 @@ class Rules:
         out = [(distance(here, self.home.map.doorway(d).center), "door", d) for d in self.world.doors]
         out += [(distance(here, dev.position), "device", name) for name, dev in self.devices.items()
                 if self._operable(name)]
-        return sorted((t for t in out if t[0] <= INTERACT_M), key=lambda t: (round(t[0], 6), t[1] != "door", t[2]))
+        return sorted((t for t in out if t[0] <= INTERACT_M and self._can_touch(actor, t[1], t[2])),
+                      key=lambda t: (round(t[0], 6), t[1] != "door", t[2]))
 
     def interact(self, actor: str, target: str | None = None) -> dict:
         if target is None:
@@ -146,11 +158,13 @@ class Rules:
             raise ValueError(f"unknown door or device {target!r}")
         p = self.world.pose(actor)
         where = self.home.map.doorway(target).center if kind == "door" else self.devices[target].position
-        if distance((p.x, p.z), where) > INTERACT_M:
+        if distance((p.x, p.z), where) > INTERACT_M or not self._can_touch(actor, kind, target):
             return self._done(actor, {"ok": False, "kind": kind, "target": target, "result": "out of reach"})
         if kind == "door":
             if not self.world.doors[target] and self._door_locked(target):
                 return self._done(actor, {"ok": False, "kind": "door", "target": target, "result": "locked"})
+            if self.world.doors[target] and self.world.occupants(target):
+                return self._done(actor, {"ok": False, "kind": "door", "target": target, "result": "obstructed"})
             self.world.set_door(target, not self.world.doors[target])
             result = "opened" if self.world.doors[target] else "closed"
             return self._done(actor, {"ok": True, "kind": "door", "target": target, "result": result})
@@ -186,6 +200,16 @@ class Rules:
                      "target_kind": outcome["kind"], "ok": outcome["ok"], "result": outcome["result"]})
         return outcome
 
+    def _can_touch(self, actor: str, kind: str, target: str) -> bool:
+        """On the same side of the wall as the target: no reaching through a wall."""
+        p = self.world.pose(actor)
+        doorway = self._doorway_at.get(self.home.map.grid.cell_of(p.x, p.z))
+        door = target if kind == "door" else self.devices[target].door
+        if door is not None:
+            return doorway == door or p.room in self.home.map.doorway(door).rooms
+        room = self.devices[target].room
+        return p.room == room or (doorway is not None and room in self.home.map.doorway(doorway).rooms)
+
     def _operable(self, name: str) -> bool:
         return self.devices[name].mount != "ceiling" and toggle_command(self.twin(name)) is not None
 
@@ -211,9 +235,21 @@ class Rules:
             key = (name, actor)
             was, self._covered[key] = self._covered.get(key, False), covered
             if covered and (not was or now - self._last_trigger.get(key, -math.inf) >= RETRIGGER_S):
-                self._last_trigger[key] = now
-                self.runtime.stimulate(self.twin_ids[name], {"type": "presence"})
-                self.record({"t": now, "rule": "presence", "device": name, "actor": actor})
+                self._trigger(name, actor, now)
+
+    def _presence_tick(self) -> None:
+        """A presence (mmWave) sensor keeps seeing a covered person who keeps still."""
+        now = self.now()
+        for (name, actor), covered in self._covered.items():
+            last = self._last_trigger.get((name, actor), -math.inf)
+            if covered and name in self._still and now - last >= RETRIGGER_S:
+                self._trigger(name, actor, now)
+        self.runtime.clock.call_at(now + RETRIGGER_S, self._presence_tick)
+
+    def _trigger(self, name: str, actor: str, now: float) -> None:
+        self._last_trigger[(name, actor)] = now
+        self.runtime.stimulate(self.twin_ids[name], {"type": "presence"})
+        self.record({"t": now, "rule": "presence", "device": name, "actor": actor})
 
     def _contact(self, door: str, is_open: bool) -> None:
         for name, dev in self.devices.items():

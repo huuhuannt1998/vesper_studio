@@ -81,3 +81,31 @@ def test_a_device_may_start_in_a_given_state_checked_against_the_real_product(tm
     unknown = HOME.replace("{\"Door Lock.LockState\": Unlocked}", "{\"Door Lock.Bolt\": 1}")
     with pytest.raises(HomeError, match=r"devices\[1\]\.state: .*unknown feature 'Door Lock.Bolt'"):
         load(tmp_path, unknown)
+
+
+@pytest.mark.parametrize("old, new, message", [
+    ("xy: [5.0, 5.0]", "xy: [5.0]", r"devices\[3\]\.at\.xy: \[5\.0\] is not a point \[x, z\]"),
+    ("xy: [5.0, 5.0]", "xy: '5,5'", r"devices\[3\]\.at\.xy: '5,5' is not a point \[x, z\]"),
+    ("facing: 90", "facing: north", r"devices\[5\]\.at\.facing: 'north' is not a number"),
+    ("seed: 3", "seed: three", r"seed: 'three' is not a whole number"),
+    ("seed: 3", "seed: 3\n    broker: {port: mqtt}", r"broker\.port: 'mqtt' is not a whole number"),
+    ("start: {room: hall}", "start: hall", r"avatar\.start: 'hall' is not a mapping"),
+    ('{product: "zigbee:acme:pir-1", name: hall_motion, at: {room: hall, mount: ceiling}}', "zigbee:acme:pir-1",
+     r"devices\[2\]: 'zigbee:acme:pir-1' is not a mapping"),
+    ("doors:\n      - {doorway: bedroom-hall, open: true}", "doors: {bedroom-hall: true}", r"doors: .* is not a list"),
+    ("at: {room: hall, mount: ceiling}", "at: hall", r"devices\[2\]\.at: 'hall' is not a mapping"),
+    ("{doorway: bedroom-hall, open: true}", "{door: bedroom-hall}", r"doors\[0\]\.doorway: name a doorway"),
+    ('state: {"Door Lock.LockState": Unlocked}', "state: [Unlocked]",
+     r"devices\[1\]\.state: \['Unlocked'\] is not a mapping"),
+    ('product: "zigbee:acme:pir-1"', 'product: ["zigbee:acme:pir-1"]',
+     r"devices\[2\]\.product: \['zigbee:acme:pir-1'\] is not text"),
+    ("open: true}", 'open: "false"}', r"doors\[0\]\.open: 'false' is not true or false"),
+    ("controls: [bedroom_lamp]", "controls: bedroom_lamp", r"devices\[4\]\.controls: 'bedroom_lamp' is not a list"),
+    ('start_time: "07:30"', 'start_time: "25:99"', r"start_time: '25:99' is not HH:MM"),
+    ("version: 2", "version: 2\n    devices: [", r"home\.yaml: not valid YAML"),
+])
+def test_a_malformed_home_file_names_the_field_instead_of_crashing(tmp_path, old, new, message):
+    text = HOME.replace(old, new, 1)
+    assert text != HOME
+    with pytest.raises(HomeError, match=message):
+        load(tmp_path, text)

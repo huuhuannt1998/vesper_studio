@@ -87,3 +87,28 @@ def test_new_creates_a_home_from_a_map_that_check_accepts(tmp_path, capsys):
     assert cli.main(["lab", "check", str(tmp_path / "myhome" / "home.yaml"), "--catalog", str(cat)]) == 0
     assert cli.main(["lab", "new", str(tmp_path / "myhome"), "--map", str(tmp_path / "scene.map.json")]) == 1
     assert "already exists" in capsys.readouterr().err
+
+
+def test_replay_explains_a_missing_or_empty_trace(tmp_path, capsys):
+    cat, home = setup(tmp_path)
+    assert cli.main(["lab", "replay", str(tmp_path / "none.jsonl"), "--home", str(home), "--catalog", str(cat)]) == 1
+    assert "FAILED: cannot read" in capsys.readouterr().err
+    (tmp_path / "empty.jsonl").write_text("")
+    assert cli.main(["lab", "replay", str(tmp_path / "empty.jsonl"), "--catalog", str(cat)]) == 1
+    assert "not a VESPER trace" in capsys.readouterr().err
+
+
+def test_two_runs_in_the_same_second_keep_both_traces(tmp_path, monkeypatch, capsys):
+    from datetime import UTC, datetime
+
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, 24, 12, 0, 0, tzinfo=UTC)
+    monkeypatch.setattr(cli, "datetime", Frozen)
+    cat, home = setup(tmp_path)
+    script = tmp_path / "walk.py"
+    script.write_text(textwrap.dedent(SCRIPT))
+    for _ in range(2):
+        assert cli.main(["lab", "run", str(script), "--home", str(home), "--catalog", str(cat)]) == 0
+    assert len(list((home.parent / "traces").glob("*.jsonl"))) == 2

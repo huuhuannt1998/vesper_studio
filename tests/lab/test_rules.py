@@ -1,17 +1,19 @@
+import copy
 from types import SimpleNamespace
 
 import pytest
 
+from tests.catalog.test_matter_normalize import records as matter_records
 from tests.lab.homes import HOME, catalog, write_home
 from vesper.lab.home import load_lab_home
 from vesper.lab.mapworld import MapWorld
-from vesper.lab.rules import Rules, ambient_at
+from vesper.lab.rules import Rules, ambient_at, is_on
 from vesper.twins.clock import LogicalClock
-from vesper.twins.runtime import OCCUPANCY_TIMEOUT_S, Runtime
+from vesper.twins.runtime import MATTER_CONTACT, OCCUPANCY_TIMEOUT_S, Runtime
 
 
-def lab(tmp_path, text=HOME, at=None):
-    home = load_lab_home(write_home(tmp_path, text), catalog())
+def lab(tmp_path, text=HOME, at=None, cat=None):
+    home = load_lab_home(write_home(tmp_path, text), cat or catalog())
     clock = LogicalClock()
     runtime = Runtime(clock=clock, seed=home.seed)
     ids = {d.name: runtime.add(d.record, twin_id=f"{d.product}@{d.name}", state=d.state).id for d in home.devices}
@@ -103,3 +105,54 @@ def test_the_climate_sensor_follows_the_room(tmp_path):
     morning = t.state("kitchen_climate")["temperature"]
     t.clock.advance(7.5 * 3600)  # 15:00
     assert t.state("kitchen_climate")["temperature"] > morning
+
+
+def test_nothing_is_used_through_a_wall(tmp_path):
+    text = HOME.replace("xy: [3.2, 3.5], mount: wall}", "xy: [5.0, 3.2], mount: wall}")  # on the kitchen | bedroom wall
+    t = lab(tmp_path, text, at=(5.0, 2.75))  # in the kitchen, 0.45 m away through the wall
+    assert "bedroom_button" not in [target for _, _, target in t.rules.reachable("p")]
+    assert t.rules.interact("p", "bedroom_button")["result"] == "out of reach"
+    assert is_on(t.rules.twin("bedroom_lamp")) is False
+
+
+def test_a_door_and_the_lock_on_it_are_used_from_either_side(tmp_path):
+    t = lab(tmp_path, at=(-0.5, 3.0))  # on the porch, outside the front door
+    reach = [target for _, _, target in t.rules.reachable("p")]
+    assert "hall-porch" in reach and "front_lock" in reach
+    assert t.rules.interact("p", "hall-porch")["result"] == "opened"
+
+
+def test_a_door_does_not_close_on_the_person_standing_in_it(tmp_path):
+    t = lab(tmp_path, at=(0.4, 3.0))  # in the hall, by the front door
+    assert t.rules.interact("p", "hall-porch")["result"] == "opened"
+    t.world.move("p", -0.4, 0.0)  # into the doorway
+    out = t.rules.interact("p", "hall-porch")
+    assert (out["ok"], out["result"]) == (False, "obstructed")
+    assert t.world.doors["hall-porch"] is True
+    t.world.move("p", -0.5, 0.0)  # out onto the porch
+    assert t.world.last_move_ok
+
+
+def test_a_matter_contact_sensor_on_a_closed_door_reads_closed_from_the_start(tmp_path):
+    cat = {**catalog(), "matter:100b:0016": matter_records()["matter:100b:0016"]}
+    text = HOME.replace("{doorway: bedroom-hall, open: true}", "{doorway: bedroom-hall, open: false}") + \
+        '      - {product: "matter:100b:0016", name: bedroom_door, at: {door: bedroom-hall}}\n'
+    t = lab(tmp_path, text, cat=cat)
+    assert t.world.doors["bedroom-hall"] is False
+    assert t.state("bedroom_door")[MATTER_CONTACT] is True  # Matter's StateValue: true is closed
+
+
+def test_a_radar_presence_sensor_keeps_seeing_a_person_who_sits_still(tmp_path):
+    cat = catalog()
+    radar = copy.deepcopy(cat["zigbee:acme:pir-1"])
+    radar["id"], radar["identity"]["model"] = "zigbee:acme:radar-1", "RADAR-1"
+    radar["features"][0].update(name="presence", property="presence", ha="binary_sensor/presence")
+    cat[radar["id"]] = radar
+    text = HOME + '      - {product: "zigbee:acme:radar-1", name: hall_radar, at: {room: hall, mount: ceiling}}\n'
+    t = lab(tmp_path, text, at=(1.5, 3.0), cat=cat)  # in the hall
+    t.clock.advance(OCCUPANCY_TIMEOUT_S * 3)  # sitting still
+    assert t.state("hall_radar")["presence"] is True
+    assert t.state("hall_motion")["occupancy"] is False  # a PIR beside it clears, as a real one does
+    go(t, (5.0, 1.5))  # off to the kitchen
+    t.clock.advance(OCCUPANCY_TIMEOUT_S + 15)
+    assert t.state("hall_radar")["presence"] is False
