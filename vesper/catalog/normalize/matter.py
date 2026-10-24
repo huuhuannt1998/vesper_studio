@@ -61,7 +61,8 @@ CATEGORY = {
     "Solar Power": "energy_meter", "Battery Storage": "energy_meter", "Electrical Meter": "energy_meter",
     "Electrical Utility Meter": "energy_meter",
 }
-L2_REASON = "Matter tier not built yet (Plan D)"
+L2_REASON = ("credited per product by validation evidence: `vesper validate matter`, "
+             "summarised by `vesper report`; the catalog itself only knows the sources")
 L3_REASON = "no timing source yet"
 L4_REASON = "no firmware anchor for this product"
 L1_SCOPE = ("the device type's mandatory clusters and required attributes only; "
@@ -107,6 +108,8 @@ def device_type_features(zap: ZapModel, dt: DeviceType, prov: str) -> list[dict]
                 f["values"] = list(extra)
             elif kind == "bitmap":
                 f["flags"] = list(extra)
+            elif kind == "binary":
+                f["value_on"], f["value_off"] = True, False  # a Matter boolean
             else:
                 if kind == "unsupported":
                     f["unsupported_reason"] = f"Matter type {a.type!r} is not modeled"

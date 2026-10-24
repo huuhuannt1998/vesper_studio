@@ -39,13 +39,23 @@ MATTER_SENSOR = {
     ("Power Source", "BatPercentRemaining"): "sensor/battery",
     ("Electrical Power Measurement", "ActivePower"): "sensor/power",
     ("Electrical Energy Measurement", "CumulativeEnergyImported"): "sensor/energy",
-    ("Smoke CO Alarm", "ExpressedState"): "sensor/enum",
+    ("Air Quality", "AirQuality"): "sensor/enum",
+    # Home Assistant 2026.10.2 (matter/binary_sensor.py) shows a smoke alarm's states and alerts as binary
+    # sensors and has no entity for its ExpressedState.
+    ("Smoke CO Alarm", "SmokeState"): "binary_sensor/smoke",
+    ("Smoke CO Alarm", "COState"): "binary_sensor/carbon_monoxide",
+    ("Smoke CO Alarm", "BatteryAlert"): "binary_sensor/battery",
+    ("Smoke CO Alarm", "TestInProgress"): "binary_sensor/running",
+    ("Smoke CO Alarm", "HardwareFaultAlert"): "binary_sensor/problem",
+    ("Smoke CO Alarm", "EndOfServiceAlert"): "binary_sensor/problem",
 }
 MATTER_PLATFORM_CLUSTER = {"Door Lock": "lock", "Thermostat": "climate", "Window Covering": "cover",
                            "Fan Control": "fan"}
 BOOLEAN_STATE_CLASS = {"Contact Sensor": "door", "Water Leak Detector": "moisture", "Rain Sensor": "moisture",
                        "Water Freeze Detector": "cold"}
 LIGHTING_CLUSTERS = frozenset({"On/Off", "Level Control", "Color Control"})
+# Dimmable loads that Home Assistant 2026.10.2 makes lights (matter/light.py claims their On/Off first)
+DIMMABLE_LOADS = frozenset({"Dimmable Plug-in Unit", "Mounted Dimmable Load Control"})
 
 
 def zigbee_ha(leaf: dict, parent: str | None) -> str | None:
@@ -86,7 +96,7 @@ def matter_ha(device_type: str, cluster: str, attribute: str) -> str | None:
         cls = BOOLEAN_STATE_CLASS.get(device_type)
         return f"binary_sensor/{cls}" if cls else "binary_sensor"
     if cluster in LIGHTING_CLUSTERS:
-        if "Light" in device_type and "Switch" not in device_type:
+        if ("Light" in device_type and "Switch" not in device_type) or device_type in DIMMABLE_LOADS:
             return "light"
         if "Plug" in device_type or "Mounted" in device_type:
             return "switch/outlet"

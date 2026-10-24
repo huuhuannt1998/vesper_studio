@@ -59,3 +59,9 @@ def test_a_numeric_enum_option_accepts_the_string_home_assistants_select_sends()
         t.coerce("baud_rate", "3840")
     with pytest.raises(TwinError, match="not one of"):
         t.coerce("baud_rate", True)
+
+
+def test_a_matter_twin_takes_booleans_for_its_boolean_attributes():
+    from tests.catalog.test_matter_normalize import records as matter_records
+    t = Twin.from_vds(matter_records()["matter:100b:0016"])
+    assert t.state["Boolean State.StateValue"] is False and t.coerce("Boolean State.StateValue", True) is True

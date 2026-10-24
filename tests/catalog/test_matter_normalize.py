@@ -69,3 +69,10 @@ def test_required_attributes_are_features_even_where_the_cluster_marks_them_opti
 def test_door_lock_operating_mode_uses_the_door_lock_enum():
     feats = {f["name"]: f for f in records()["matter:115f:0001"]["features"]}
     assert feats["Door Lock.OperatingMode"]["values"] == ["Normal", "Vacation"]
+
+
+def test_a_matter_boolean_is_true_or_false_and_l2_waits_for_validation_evidence():
+    r = records()["matter:100b:0016"]
+    state = r["features"][0]
+    assert (state["type"], state["value_on"], state["value_off"]) == ("binary", True, False)
+    assert "vesper validate matter" in r["fidelity"]["reasons"]["L2"]

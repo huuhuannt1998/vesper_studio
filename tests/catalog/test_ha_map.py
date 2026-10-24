@@ -46,6 +46,19 @@ def test_zigbee_ha(leaf, parent, expected):
     ("Temperature Sensor", "Temperature Measurement", "MeasuredValue", "sensor/temperature"),
     ("Generic Switch", "Switch", "CurrentPosition", "event"),
     ("Robotic Vacuum Cleaner", "RVC Run Mode", "CurrentMode", None),
+    # Home Assistant 2026.10.2 matter/light.py claims On/Off for these before matter/switch.py sees it
+    ("Dimmable Plug-in Unit", "On/Off", "OnOff", "light"),
+    ("Mounted Dimmable Load Control", "Level Control", "CurrentLevel", "light"),
+    ("Mounted On/Off Control", "On/Off", "OnOff", "switch/outlet"),
+    # matter/binary_sensor.py: a Smoke CO Alarm's alerts are binary sensors; ExpressedState has no entity
+    ("Smoke CO Alarm", "Smoke CO Alarm", "ExpressedState", None),
+    ("Smoke CO Alarm", "Smoke CO Alarm", "BatteryAlert", "binary_sensor/battery"),
+    ("Smoke CO Alarm", "Smoke CO Alarm", "TestInProgress", "binary_sensor/running"),
+    ("Smoke CO Alarm", "Smoke CO Alarm", "HardwareFaultAlert", "binary_sensor/problem"),
+    ("Smoke CO Alarm", "Smoke CO Alarm", "EndOfServiceAlert", "binary_sensor/problem"),
+    ("Smoke CO Alarm", "Smoke CO Alarm", "SmokeState", "binary_sensor/smoke"),
+    ("Smoke CO Alarm", "Smoke CO Alarm", "COState", "binary_sensor/carbon_monoxide"),
+    ("Air Quality Sensor", "Air Quality", "AirQuality", "sensor/enum"),  # matter/sensor.py "AirQuality"
 ])
 def test_matter_ha(device_type, cluster, attribute, expected):
     assert matter_ha(device_type, cluster, attribute) == expected
