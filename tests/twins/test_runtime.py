@@ -1,5 +1,8 @@
+import pytest
+
 from vesper.twins.clock import LogicalClock
 from vesper.twins.runtime import OCCUPANCY_TIMEOUT_S, Runtime
+from vesper.twins.twin import TwinError
 
 
 def runtime(*records, latency=None):
@@ -205,3 +208,47 @@ def test_a_deferral_that_drifted_back_and_rearmed_reports_the_new_physical_time(
     rt.clock.advance(20)
     reports = [(e.value, e.physical_t, e.observed_t) for e in events if e.feature == "temperature"]
     assert reports == [(20.0, 60, 60), (23.0, 64, 70)]
+
+
+def test_a_twin_can_be_installed_in_a_given_state_that_counts_as_reported(vds):
+    rt = Runtime(clock=LogicalClock())
+    events = []
+    rt.subscribe(events.append)
+    tid = rt.add(vds["TH-1"], state={"temperature": 21.5}).id  # temperature: min 10 s, change 1.0 °C
+    assert rt.state(tid)["temperature"] == 21.5 and events == []
+    rt.clock.advance(20)
+    rt.stimulate(tid, {"type": "ambient", "temperature": 22.0})  # 0.5 from the installed value: no report
+    rt.stimulate(tid, {"type": "ambient", "temperature": 22.6})
+    assert [(e.value, e.physical_t) for e in events] == [(22.6, 20.0)]
+
+
+def test_an_invalid_installed_state_is_refused_and_no_twin_is_added(vds):
+    rt = Runtime(clock=LogicalClock())
+    with pytest.raises(TwinError, match="not a number"):
+        rt.add(vds["TH-1"], state={"temperature": "warm"})
+    with pytest.raises(TwinError, match="unknown feature"):
+        rt.add(vds["TH-1"], state={"humidity": 40})
+    assert rt.twins == {}
+
+
+def test_a_measured_stimulus_drives_any_feature_through_its_reporting_rule(vds):
+    rt, events, (th, pir) = runtime(vds["TH-1"], vds["PIR-1"])
+    rt.clock.advance(20)
+    assert rt.stimulate(th, {"type": "measured", "feature": "temperature", "value": 3.0}) == ["temperature"]
+    assert rt.stimulate(th, {"type": "measured", "feature": "temperature", "value": 3.5}) == ["temperature"]
+    assert rt.stimulate(pir, {"type": "measured", "feature": "occupancy", "value": True}) == ["occupancy"]
+    assert [(e.twin_id, e.feature, e.value, e.cause) for e in events] == [
+        (th, "temperature", 3.0, "stimulus"), (pir, "occupancy", True, "stimulus")]
+    rt.clock.advance(OCCUPANCY_TIMEOUT_S + 1)
+    assert rt.state(pir)["occupancy"] is True  # a measurement is not presence: nothing clears it
+
+
+def test_a_measured_stimulus_with_a_bad_value_or_feature_is_rejected_with_a_note(vds):
+    rt, events, (th,) = runtime(vds["TH-1"])
+    assert rt.stimulate(th, {"type": "measured", "feature": "temperature", "value": "warm"}) == []
+    assert rt.stimulate(th, {"type": "measured", "feature": "pressure", "value": 1013}) == []
+    assert rt.stimulate(th, {"type": "measured", "value": 3}) == []
+    assert events == [] and th not in rt.faulted
+    assert len(rt.notes) == 3 and all(": stimulus rejected" in n for n in rt.notes)
+    assert "not a number" in rt.notes[0] and "unknown feature 'pressure'" in rt.notes[1]
+    assert "KeyError('feature')" in rt.notes[2]

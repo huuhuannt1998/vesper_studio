@@ -65,11 +65,15 @@ class Runtime:
         self._last_observed: dict[str, float] = {}  # per twin: reports reach the platform in the order they left
 
     # -- set-up -------------------------------------------------------------------------------
-    def add(self, vds: dict, twin_id: str | None = None) -> Twin:
+    def add(self, vds: dict, twin_id: str | None = None, state: dict | None = None) -> Twin:
+        """Install a twin, optionally in a given `state` that counts as already reported (a replay starts
+        a twin where the real device was)."""
         with self._lock:
             if (twin_id or vds["id"]) in self.twins:
                 raise ValueError(f"twin {twin_id or vds['id']} already added")
             twin = Twin.from_vds(vds, seed=self.seed, twin_id=twin_id)
+            for name, value in (state or {}).items():
+                twin.state[name] = twin.coerce(name, value)
             self.twins[twin.id] = twin
             for name in twin.features:
                 rule = self._rule(twin, name)
@@ -95,7 +99,8 @@ class Runtime:
         return self._command(twin_id, feature, value, "platform", "platform")
 
     def stimulate(self, twin_id: str, stimulus: dict) -> list[str]:
-        """A physical input (spec §3.3): presence, contact, button_press, load or ambient."""
+        """A physical input (spec §3.3): presence, contact, button_press, load, ambient, or `measured` (one
+        feature takes the value the device measured, e.g. a real device's reported value in a replay)."""
         with self._lock:
             twin = self.twins.get(twin_id)
             if twin is None or twin_id in self.faulted:
@@ -259,6 +264,9 @@ class Runtime:
         elif kind == "load":
             if "power" in feats:
                 out.append(("power", float(s["watts"])))
+        elif kind == "measured":
+            name = s["feature"]
+            out.append((name, twin.coerce(name, twin.clamp(name, s["value"]))))
         elif kind == "ambient":
             for key, names in (("temperature", ("temperature", "local_temperature")), ("humidity", ("humidity",)),
                                ("illuminance", ("illuminance", "illuminance_lux"))):
