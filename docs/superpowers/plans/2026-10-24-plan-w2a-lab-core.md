@@ -2240,7 +2240,7 @@ Expected: `49 passed`
 
 Run: `.venv/bin/python -m pytest -q 2>&1 | tail -1`
 
-Expected: `527 passed, 13 skipped` in the repository's working copy (an export without `.git` has one fewer: `test_repo_layout` only runs where the repository's own layout is present)
+Expected: `527 passed, 12 skipped` in the repository's working copy (an export without the local research data reports `526 passed, 13 skipped`: one `test_repo_layout` test skips there)
 
 - [ ] **Step 5: Lint and commit**
 
