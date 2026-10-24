@@ -162,6 +162,7 @@ class HomeAssistant:
     transport: httpx.BaseTransport | None = None
     start_timeout: float = 300.0
     proc: object = None
+    persist_timeout: float = 30.0  # how long onboarding waits for Home Assistant to save the new token
     _access: tuple[str, float] | None = field(default=None, repr=False)
 
     @property
@@ -237,8 +238,26 @@ class HomeAssistant:
             for step, body in (("core_config", {}), ("analytics", {}),
                                ("integration", {"client_id": cid, "redirect_uri": f"{cid}?auth_callback=1"})):
                 c.post(f"/api/onboarding/{step}", json=body, headers=h).raise_for_status()
+        self._wait_until_saved(tokens["refresh_token"])
         auth.write_text(json.dumps({"refresh_token": tokens["refresh_token"], "client_id": cid}))
         auth.chmod(0o600)
+
+    def _wait_until_saved(self, refresh_token: str) -> None:
+        """Home Assistant writes its auth store with a delay, and a token it never wrote is refused after a
+        restart while onboarding counts as done; so onboarding ends only once the token is on disk."""
+        store = Paths(Path(self.root)).ha_config / ".storage" / "auth"
+        deadline = time.monotonic() + self.persist_timeout
+        while True:
+            try:
+                tokens = json.loads(store.read_text())["data"]["refresh_tokens"]
+                if any(t.get("token") == refresh_token for t in tokens):
+                    return
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
+            if time.monotonic() > deadline:
+                raise StackError(f"Home Assistant did not save the new refresh token to {store} within "
+                                 f"{self.persist_timeout:.0f} s; stop it, delete {store.parent} and run again")
+            time.sleep(0.2)
 
     def token(self) -> str:
         if self._access and self._access[1] > time.monotonic() + 30:

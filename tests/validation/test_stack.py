@@ -115,9 +115,10 @@ class FakeServer:
     broker an entry points at is visible only in this fake's own `entries`.
     """
 
-    def __init__(self, entries=None, flow_step="broker", flow_result="create_entry", onboarded=False):
+    def __init__(self, entries=None, flow_step="broker", flow_result="create_entry", onboarded=False, storage=None,
+                 persists=True):
         self.entries, self.flow_step, self.flow_result, self.requests = entries or [], flow_step, flow_result, []
-        self.onboarded = onboarded
+        self.onboarded, self.storage, self.persists = onboarded, storage, persists
 
     def __call__(self, request):
         path = request.url.path
@@ -127,6 +128,9 @@ class FakeServer:
                 return httpx.Response(403, json={"message": "User step already done"})
             return httpx.Response(200, json={"auth_code": "code"})
         if path == "/auth/token":
+            if self.storage is not None and self.persists:  # Home Assistant's own auth store, as written to disk
+                self.storage.mkdir(parents=True, exist_ok=True)
+                (self.storage / "auth").write_text(json.dumps({"data": {"refresh_tokens": [{"token": "refresh"}]}}))
             return httpx.Response(200, json={"access_token": "access", "refresh_token": "refresh",
                                              "expires_in": 1800, "token_type": "Bearer"})
         if path.startswith("/api/onboarding/"):
@@ -154,7 +158,8 @@ class FakeServer:
 
 
 def onboarded(tmp_path, server):
-    ha = HomeAssistant(tmp_path, transport=httpx.MockTransport(server))
+    server.storage = Paths(tmp_path).ha_config / ".storage"
+    ha = HomeAssistant(tmp_path, transport=httpx.MockTransport(server), persist_timeout=0.2)
     (tmp_path / "ha").mkdir(parents=True, exist_ok=True)
     ha.onboard()
     return ha
@@ -240,3 +245,10 @@ def test_an_unexpected_flow_is_refused(tmp_path):
     ha = onboarded(tmp_path, FakeServer(flow_step="addon"))
     with pytest.raises(StackError, match="unexpected MQTT config flow step"):
         ha.ensure_mqtt(18830)
+
+
+def test_onboarding_fails_if_home_assistant_never_saves_the_new_token(tmp_path):
+    """Home Assistant writes its auth store with a delay; a token it never saved is refused on the next start."""
+    with pytest.raises(StackError, match="did not save"):
+        onboarded(tmp_path, FakeServer(persists=False))
+    assert not Paths(tmp_path).auth_file.exists()
