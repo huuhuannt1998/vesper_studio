@@ -15,6 +15,8 @@ from pathlib import Path
 
 import yaml
 
+from vesper.catalog.errors import CatalogError
+from vesper.catalog.fingerprint import staleness
 from vesper.exposure.z2m_bridge import Placement
 
 
@@ -35,6 +37,9 @@ def load_catalog(catalog_dir: Path) -> dict[str, dict]:
             records.update((r["id"], r) for r in json.loads(path.read_text(encoding="utf-8")))
     if not records:
         raise FileNotFoundError(f"no catalog in {catalog_dir}; run `vesper catalog build` first")
+    why = staleness(catalog_dir)
+    if why:
+        raise CatalogError(f"the catalog in {catalog_dir} is stale: {why}; rebuild it with `vesper catalog build`")
     return records
 
 

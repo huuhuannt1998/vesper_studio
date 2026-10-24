@@ -18,7 +18,8 @@ Every resource figure below is an estimate until the first run measures it. The 
 
 ## Before any run
 
-1. The catalog exists. If not, run `vesper catalog sync` (network) then `vesper catalog build`. This gives `catalog/raw/` and `catalog/vds/`.
+1. Build the catalog with the current code: `vesper catalog build` (offline; it reads `catalog/raw/` and writes `catalog/vds/`). If `catalog/raw/` is missing, run `vesper catalog sync` (network) first.
+   - Rebuild after every change under `vesper/catalog/`. Commands that run twins refuse a catalog built by other catalog code (exit code 2, "stale"), because it would feed them old rules.
 2. Mosquitto is installed natively (macOS: `brew install mosquitto`; Debian/Ubuntu: `apt install mosquitto`). VESPER starts its own instance; it does not use a running one.
 3. Home Assistant is set up once, for acceptance only:
 

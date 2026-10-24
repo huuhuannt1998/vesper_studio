@@ -11,7 +11,7 @@ import vesper.validation.acceptance as acceptance_mod
 import vesper.validation.roundtrip as roundtrip_mod
 import vesper.validation.stack as stack_mod
 from tests.catalog.conftest import write_all
-from tests.twins.conftest import records
+from tests.twins.conftest import records, write_catalog
 from tests.exposure.fake_ha import FakeHA
 from tests.exposure.fake_mqtt import FakeBroker
 from vesper import cli
@@ -40,11 +40,7 @@ def broker(monkeypatch):
 
 @pytest.fixture
 def catalog(tmp_path):
-    out = tmp_path / "vds"
-    out.mkdir()
-    (out / "zigbee.json").write_text(json.dumps(list(records().values())))
-    (out / "build_report.json").write_text(json.dumps({"inputs": {"zigbee": {"version": "26.123.0"}}}))
-    return out
+    return write_catalog(tmp_path / "vds", list(records().values()), inputs={"zigbee": {"version": "26.123.0"}})
 
 
 class FakeMosquitto:
@@ -394,3 +390,16 @@ def test_report_command_writes_markdown_and_json(tmp_path, catalog, capsys):
     [js] = out.glob("fidelity-*.json")
     assert "## Checks" in md.read_text() and json.loads(js.read_text())["checks"]["roundtrip"] is None
     assert "fidelity report" in capsys.readouterr().out
+
+
+def test_a_stale_catalog_stops_every_command_that_runs_twins_with_exit_2(tmp_path, catalog, capsys):
+    (catalog / "build_report.json").write_text(json.dumps({"inputs": {}}))
+    assert cli.main(["validate", "rules", "--catalog", str(catalog), "--out", str(tmp_path / "r.json")]) == 2
+    assert "stale" in capsys.readouterr().err and not (tmp_path / "r.json").exists()
+
+
+def test_a_result_records_the_code_that_built_its_catalog(tmp_path, catalog):
+    out = tmp_path / "rules.json"
+    cli.main(["validate", "rules", "--catalog", str(catalog), "--hours", "1", "--out", str(out)])
+    from vesper.catalog.fingerprint import code_fingerprint
+    assert json.loads(out.read_text())["run"]["catalog_code_sha256"] == code_fingerprint()

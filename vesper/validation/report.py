@@ -12,6 +12,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from vesper.catalog.fingerprint import staleness
 from vesper.exposure.ha_discovery import device_discovery
 from vesper.twins.latency import PATHS
 
@@ -96,7 +97,8 @@ def build_report(catalog_dir: Path, results_dir: Path) -> dict:
         else []
     eligible = sum(1 for r in records if r["id"].startswith("zigbee:") and r["fidelity"]["reached"]["L1"]
                    and device_discovery(r, ieee="0x" + "0" * 16, friendly_name="x")[2])
-    return {"sources": sources, "coverage": coverage, "assumed": dict(assumed.most_common()),
+    return {"catalog_stale": staleness(catalog_dir), "sources": sources, "coverage": coverage,
+            "assumed": dict(assumed.most_common()),
             "checks": checks, "l2": {"kind": "z2m-api", "eligible_zigbee": eligible, "validated_products": validated},
             "timing_paths": {n: {"source": p.source, "basis": p.basis, "median_s": p.median()}
                              for n, p in PATHS.items()}}
@@ -125,7 +127,11 @@ def _details(kind: str, c: dict) -> str:
 
 
 def render_markdown(report: dict) -> str:
-    lines = ["# VESPER fidelity report", "", "## Sources", "",
+    lines = ["# VESPER fidelity report", ""]
+    if report.get("catalog_stale"):
+        lines += [f"**Warning: the catalog is stale ({report['catalog_stale']}); rebuild it with "
+                  "`vesper catalog build` before citing these numbers.**", ""]
+    lines += ["## Sources", "",
              "| Source | Version | Manifest SHA-256 |", "|---|---|---|"]
     for name, s in sorted(report["sources"].items()):
         lines.append(f"| {name} | {s.get('version', '')} | {str(s.get('manifest_sha256', ''))[:16]}… |")

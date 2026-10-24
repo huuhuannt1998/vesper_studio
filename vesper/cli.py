@@ -71,12 +71,14 @@ def _run_info(args) -> dict:
     """How a result was produced: the parameters, the code version and the catalog it read."""
     parameters = {k: v for k, v in vars(args).items() if k not in ("out", "command", "action")}
     catalog = Path(getattr(args, "catalog", "") or "catalog/vds") / "build_report.json"
-    inputs = json.loads(catalog.read_text()).get("inputs", {}) if catalog.is_file() else None
+    built = json.loads(catalog.read_text()) if catalog.is_file() else {}
+    inputs = built.get("inputs", {}) if catalog.is_file() else None
     dirty = _git("status", "--porcelain", "--ignore-submodules=all", "--", "vesper", "tests", "pyproject.toml",
                  "docs/experiments")
     return {"command": f"{args.command} {getattr(args, 'action', '')}".strip(), "parameters": parameters,
             "git_commit": _git("rev-parse", "HEAD"), "git_dirty": None if dirty is None else bool(dirty),
-            "catalog_inputs": inputs, "vesper_version": __import__("vesper").__version__,
+            "catalog_inputs": inputs, "catalog_code_sha256": built.get("code_sha256"),
+            "vesper_version": __import__("vesper").__version__,
             "finished_utc": f"{datetime.now(UTC):%Y-%m-%dT%H:%M:%SZ}"}
 
 
@@ -433,6 +435,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command in ("setup", "twins", "validate"):
         _install_sigterm()
+    try:
+        return _dispatch(args)
+    except CatalogError as e:  # a missing or stale catalog: nothing was run
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 2
+
+
+def _dispatch(args) -> int:
     if args.command == "catalog":
         return _sync(args) if args.action == "sync" else _build(args)
     if args.command == "setup":

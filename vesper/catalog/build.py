@@ -13,6 +13,7 @@ from pathlib import Path
 
 from vesper.catalog.coverage import coverage, coverage_csv
 from vesper.catalog.errors import CatalogError
+from vesper.catalog.fingerprint import code_fingerprint
 from vesper.catalog.ingest.ha import load_vocabulary
 from vesper.catalog.ingest.matter_zap import parse_zap
 from vesper.catalog.normalize.ha_map import unknown_device_classes
@@ -133,6 +134,6 @@ def build_catalog(raw_root: Path, out_dir: Path, *, release: bool = False) -> di
     _write(out_dir / "coverage.json", json.dumps(cov, indent=2, sort_keys=True) + "\n")
     _write(out_dir / "coverage.csv", coverage_csv(cov))
     report = {"records": len(records), "rejected": rejected, "skipped_sources": skipped, "linked": links,
-              "release": release, "inputs": inputs}
+              "release": release, "inputs": inputs, "code_sha256": code_fingerprint()}
     _write(out_dir / "build_report.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
     return report

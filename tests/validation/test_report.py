@@ -104,3 +104,10 @@ def test_the_latency_and_rules_rows_carry_their_numbers_and_assumptions(tmp_path
                                                     "reports": 10, "r4_checked": 2})
     md = render_markdown(build_report(catalog, r))
     assert "residual median 6.0 ms" in md and "assumed" in md.split("## Checks")[1]
+
+
+def test_a_report_over_a_stale_catalog_says_so_first(tmp_path):
+    catalog, _ = write_catalog(tmp_path)  # its build report carries no code fingerprint
+    report = build_report(catalog, tmp_path / "results")
+    assert "predates" in report["catalog_stale"]
+    assert render_markdown(report).splitlines()[2].startswith("**Warning: the catalog is stale")

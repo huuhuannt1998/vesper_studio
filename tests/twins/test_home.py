@@ -2,16 +2,14 @@ import json
 
 import pytest
 
-from tests.twins.conftest import records
+from tests.twins.conftest import records, write_catalog
+from vesper.catalog.errors import CatalogError
 from vesper.twins.home import load_catalog, load_home
 
 
 @pytest.fixture
 def catalog(tmp_path):
-    out = tmp_path / "vds"
-    out.mkdir()
-    (out / "zigbee.json").write_text(json.dumps(list(records().values())))
-    return out
+    return write_catalog(tmp_path / "vds", list(records().values()))
 
 
 def test_a_home_places_real_products_under_friendly_names(tmp_path, catalog):
@@ -44,3 +42,9 @@ def test_a_product_missing_from_the_catalog_is_named(tmp_path, catalog):
 def test_an_unbuilt_catalog_says_how_to_build_it(tmp_path):
     with pytest.raises(FileNotFoundError, match="vesper catalog build"):
         load_catalog(tmp_path)
+
+
+def test_a_catalog_built_by_other_catalog_code_is_refused_with_how_to_rebuild(tmp_path, catalog):
+    (catalog / "build_report.json").write_text(json.dumps({"code_sha256": "0" * 64}))
+    with pytest.raises(CatalogError, match="stale.*vesper catalog build"):
+        load_catalog(catalog)
