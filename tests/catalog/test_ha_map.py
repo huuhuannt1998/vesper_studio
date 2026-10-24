@@ -24,6 +24,13 @@ def test_a_missing_class_is_reported():
     ({"type": "enum", "name": "identify", "access": 2}, None, "button"),
     ({"type": "text", "name": "note", "access": 1}, None, "sensor"),
     ({"type": "list", "name": "schedule", "access": 7}, None, None),
+    # Home Assistant ties some classes to units (sensor DEVICE_CLASS_UNITS, 2026.10.2)
+    ({"type": "numeric", "name": "voc", "access": 1, "unit": "ppb"}, None, "sensor/volatile_organic_compounds_parts"),
+    ({"type": "numeric", "name": "voc", "access": 1, "unit": "ppm"}, None, "sensor/volatile_organic_compounds_parts"),
+    ({"type": "numeric", "name": "voc", "access": 1, "unit": "µg/m³"}, None, "sensor/volatile_organic_compounds"),
+    ({"type": "numeric", "name": "illuminance", "access": 1, "unit": "%"}, None, "sensor"),
+    ({"type": "numeric", "name": "illuminance", "access": 1, "unit": "lx"}, None, "sensor/illuminance"),
+    ({"type": "numeric", "name": "illuminance", "access": 1}, None, "sensor/illuminance"),
 ])
 def test_zigbee_ha(leaf, parent, expected):
     assert zigbee_ha(leaf, parent) == expected

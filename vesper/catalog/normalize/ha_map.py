@@ -22,6 +22,13 @@ ZIGBEE_SENSOR_CLASS = {
     "voc": "volatile_organic_compounds", "pressure": "atmospheric_pressure", "ac_frequency": "frequency",
     "soil_moisture": "moisture",
 }
+# Classes that Home Assistant allows only with certain units (sensor DEVICE_CLASS_UNITS, 2026.10.2): for any
+# other unit the reading takes the class named for that unit, or none at all.
+CLASS_UNITS = {
+    "volatile_organic_compounds": ({"µg/m³", "μg/m³", "mg/m³"}, {"ppb": "volatile_organic_compounds_parts",
+                                                                 "ppm": "volatile_organic_compounds_parts"}),
+    "illuminance": ({"lx"}, {}),
+}
 MATTER_SENSOR = {
     ("Temperature Measurement", "MeasuredValue"): "sensor/temperature",
     ("Relative Humidity Measurement", "MeasuredValue"): "sensor/humidity",
@@ -55,7 +62,9 @@ def zigbee_ha(leaf: dict, parent: str | None) -> str | None:
     if kind == "numeric":
         if writable:
             return "number"
-        cls = ZIGBEE_SENSOR_CLASS.get(name)
+        cls, unit = ZIGBEE_SENSOR_CLASS.get(name), leaf.get("unit")
+        if cls in CLASS_UNITS and unit is not None and unit not in CLASS_UNITS[cls][0]:
+            cls = CLASS_UNITS[cls][1].get(unit)
         return f"sensor/{cls}" if cls else "sensor"
     if kind == "enum":
         if name == "action":
@@ -90,5 +99,6 @@ def unknown_device_classes(vocab: dict[str, frozenset[str]]) -> list[str]:
     used = {("binary_sensor", c) for c in ZIGBEE_BINARY_CLASS.values()}
     used |= {("binary_sensor", c) for c in BOOLEAN_STATE_CLASS.values()}
     used |= {("sensor", c) for c in ZIGBEE_SENSOR_CLASS.values()} | {("sensor", "enum")}
+    used |= {("sensor", c) for _, other in CLASS_UNITS.values() for c in other.values()}
     used |= {tuple(v.split("/")) for v in MATTER_SENSOR.values()}
     return sorted(f"{p}/{c}" for p, c in used if c not in vocab.get(p, frozenset()))
