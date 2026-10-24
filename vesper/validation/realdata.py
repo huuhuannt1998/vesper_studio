@@ -6,13 +6,18 @@ the rule ZHA set, and the twin's reports are matched against the real ones.
 """
 from __future__ import annotations
 
+import hashlib
 import re
+from collections import Counter, defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from statistics import median
 
 from vesper.twins.clock import LogicalClock
 from vesper.twins.runtime import Runtime
-from vesper.validation.capture import Frame
+from vesper.validation.capture import Capture, Frame, read_capture
 from vesper.validation.zcl import ZclError, parse_report
 
 # ZHA's default attribute-reporting configuration, (min_s, max_s, change) in raw ZCL units: zigpy/zha 0.0.70
@@ -36,6 +41,7 @@ ZHA_RULES: dict[tuple[int, int], tuple[float, float, float]] = {
     **{(0x0702, a): _DEFAULT for a in (0x0000, 0x0001, 0x0100, 0x0102, 0x0104, 0x0106, 0x0108, 0x010A)},
     (0x0702, 0x0200): _ASAP, (0x0702, 0x0400): _OP,
 }
+ZIOTP_COMMIT = "c3481e8073f40bdbc1bee4a24e05a0a13a9545ba"  # github.com/antonio-boiano/ZIOTP2026, 2026-01-22
 DEDUPE_WINDOW_S = 10.0  # a relayed copy or APS retry of a frame arrives within this
 # Pre-registered (amendment 2): matching windows and pass criteria.
 CHANGE_TOL_S = 1.0  # a change-driven twin report matches a real report within this
@@ -43,6 +49,39 @@ PERIODIC_LATE = 0.10  # a real heartbeat may come up to this fraction of max_s a
 MIN_INTERVALS = 20  # clean intervals a stream needs before it is judged
 MATCH_MIN = 0.95  # fraction of real reports the twin must reproduce
 EXTRA_MAX = 0.05  # fraction of the twin's reports that may have no real counterpart
+DECRYPT_MIN = 0.99  # fraction of a file's secured frames the published key must decrypt
+# The capture must fall in the span over which ZHA_RULES was verified identical (zha 0.0.50 .. 1.0.0).
+RULE_WINDOW_UTC = ("2025-02-26", "2026-02-25")
+
+_LUMI = ("zigbee-herdsman-converters 26.123.0 configures no attribute reporting for this model and gives it a "
+         "one-hour check-in quirk: its report timing is set by firmware, not by the hub")
+# Every name in ZIOTP's Data/Device_Name.txt, classified before the data is read (amendment 2). The catalog id
+# serves only the descriptive comparison with VESPER's own rule; None where the dataset names no model.
+ZIOTP_DEVICES: dict[str, dict] = {
+    "Sonoff Temperature": {"catalog_id": "zigbee:sonoff:snzb-02", "firmware_governed": False},
+    "Sonoff Motion": {"catalog_id": "zigbee:sonoff:snzb-03", "firmware_governed": False},
+    "Sonoff Door": {"catalog_id": "zigbee:sonoff:snzb-04", "firmware_governed": False},
+    "Philips Motion": {"catalog_id": "zigbee:philips:9290012607", "firmware_governed": False},
+    "Philips Lamp": {"catalog_id": "zigbee:philips:9290024691", "firmware_governed": False},
+    "Ledvance Smart+ Plug": {"catalog_id": "zigbee:ledvance:4058075729261", "firmware_governed": False},
+    "Ledvance RGBW Bulb": {"catalog_id": "zigbee:ledvance:4058075208391", "firmware_governed": False},
+    "Ledvance Bulb": {"catalog_id": "zigbee:ledvance:4058075208391", "firmware_governed": False},
+    "Ledvance Plug Z3": {"catalog_id": "zigbee:ledvance:ac10691", "firmware_governed": False},
+    "Ledvance Z3 Plug": {"catalog_id": "zigbee:ledvance:ac10691", "firmware_governed": False},
+    "Smart Socket": {"catalog_id": None, "firmware_governed": False},
+    "Smart Power Plug": {"catalog_id": None, "firmware_governed": False},
+    "Power Plug": {"catalog_id": None, "firmware_governed": False},
+    "Moes Bulb": {"catalog_id": None, "firmware_governed": False},
+    "Aqara Door": {"catalog_id": "zigbee:aqara:mccgq11lm", "firmware_governed": True, "basis": _LUMI},
+    "Aqara Vibration": {"catalog_id": "zigbee:aqara:djt11lm", "firmware_governed": True, "basis": _LUMI},
+    "Aqara Mini Switch": {"catalog_id": "zigbee:aqara:wb-r02d", "firmware_governed": True, "basis": _LUMI},
+    "Aqara Motion": {"catalog_id": "zigbee:aqara:ms-s02", "firmware_governed": True, "basis": _LUMI},
+}
+# (cluster, attribute) -> (VDS reporting feature, raw ZCL units per VDS unit) for the VESPER-rule description;
+# illuminance (logarithmic) and power (device-specific divisor) have no fixed conversion and are left out.
+VESPER_FEATURES = {(0x0402, 0x0000): ("temperature", 100), (0x0405, 0x0000): ("humidity", 100),
+                   (0x0406, 0x0000): ("occupancy", 1), (0x0006, 0x0000): ("state", 1),
+                   (0x0008, 0x0000): ("brightness", 1), (0x0001, 0x0021): ("battery", 2)}
 
 
 @dataclass(frozen=True)
@@ -215,4 +254,106 @@ def evaluate_stream(segs: list[list[Report]], rule: tuple[float, float, float]) 
         "max_silence_ok": sum(dt <= max_s * (1 + PERIODIC_LATE) for dt in intervals) / n if n else None,
         "heartbeat_ratio": median(steady) / max_s if steady else None,
         "early_change_ok": sum(early_ok) / len(early_ok) if early_ok else None,
+    }
+
+
+def _utc(t: float) -> str:
+    return datetime.fromtimestamp(t, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _read_decrypting(reader: Callable, path: Path, key: str) -> tuple[Capture, str]:
+    """The capture under the published key, in whichever byte order decrypts it (MIC-verified, so unambiguous)."""
+    best, order = reader(path, key, byte_order="Normal"), "Normal"
+    if best.secured and best.decrypted / best.secured < DECRYPT_MIN:
+        other = reader(path, key, byte_order="Reverse")
+        if other.decrypted > best.decrypted:
+            best, order = other, "Reverse"
+    return best, order
+
+
+def _vesper_rule(catalog: dict | None, dev: Device, cluster: int, attr: int) -> tuple[str, tuple] | None:
+    cid = ZIOTP_DEVICES[dev.name]["catalog_id"]
+    if not catalog or cid not in catalog or (cluster, attr) not in VESPER_FEATURES:
+        return None
+    feature, raw_per_unit = VESPER_FEATURES[(cluster, attr)]
+    rule = catalog[cid].get("behavior", {}).get("reporting", {}).get(feature)
+    if rule is None:
+        return None
+    return cid, (rule["min_s"], rule["max_s"], rule["change"] * raw_per_unit)
+
+
+def analyze(root: str | Path, catalog: dict | None = None, *, reader: Callable = read_capture) -> dict:
+    """E2 over a ZIOTP2025 checkout: decryption gate, streams, replay agreement under ZHA's rule (judged) and
+    under VESPER's catalog rule (described)."""
+    data = Path(root) / "Data"
+    devices = parse_device_names((data / "Device_Name.txt").read_text())
+    unknown = sorted({d.name for d in devices.values()} - set(ZIOTP_DEVICES))
+    if unknown:
+        raise ValueError(f"devices outside the pre-registered table: {', '.join(unknown)}")
+    keys = {d.topology: d.key for d in devices.values()}
+    if len(keys) != len({(d.topology, d.key) for d in devices.values()}):
+        raise ValueError("a topology lists more than one network key")
+    paths = sorted(data.glob("*/Topology_*/*.pcapng"))
+    if not paths:
+        raise FileNotFoundError(f"no Data/<scenario>/Topology_<X>/*.pcapng under {root}")
+    files, streams, gaps = [], defaultdict(list), defaultdict(list)
+    unknown_sources: Counter = Counter()
+    times: list[float] = []
+    for path in paths:
+        topology = path.parent.name.split("_", 1)[1]
+        cap, order = _read_decrypting(reader, path, keys[topology])
+        frames = dedupe(cap.frames)
+        reports, undecodable = extract_reports(frames)
+        session = path.relative_to(data).as_posix()
+        for src, spans in loss_gaps(frames).items():
+            if (topology, src) in devices:
+                gaps[devices[(topology, src)]].extend(spans)
+        for src, cluster, attr, t, value in reports:
+            dev = devices.get((topology, src))
+            if dev is None:
+                unknown_sources[f"{topology}:0x{src:04x}"] += 1
+                continue
+            streams[(dev, cluster, attr)].append(Report(t, value, session))
+        times += [fr.t for fr in frames]
+        files.append({"file": session, "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                      "byte_order": order, "secured": cap.secured, "decrypted": cap.decrypted,
+                      "decryption_rate": cap.decrypted / cap.secured if cap.secured else None,
+                      "frames": len(cap.frames), "deduplicated": len(frames), "reports": len(reports),
+                      "undecodable_reports": undecodable})
+    decryption_ok = all(f["decryption_rate"] is not None and f["decryption_rate"] >= DECRYPT_MIN for f in files)
+    out_streams = []
+    for (dev, cluster, attr), reports in sorted(streams.items(), key=lambda kv: (kv[0][0].topology, kv[0][0].address,
+                                                                                  kv[0][1], kv[0][2])):
+        info = ZIOTP_DEVICES[dev.name]
+        row = {"device": f"{dev.topology}:{dev.name}@0x{dev.address:04x}", "cluster": f"0x{cluster:04x}",
+               "attribute": f"0x{attr:04x}", "reports": len(reports), "firmware_governed": info["firmware_governed"]}
+        rule = ZHA_RULES.get((cluster, attr))
+        if rule is None or not all(_numeric(r.value) for r in reports):
+            row.update(rule=None, judged=False, excluded="no ZHA reporting rule for this attribute" if rule is None
+                       else "non-numeric values")
+            out_streams.append(row)
+            continue
+        segs = segments(reports, gaps[dev])
+        ev = evaluate_stream(segs, rule)
+        row.update(rule=list(rule), **ev, judged=ev["eligible"] and not info["firmware_governed"])
+        mine = _vesper_rule(catalog, dev, cluster, attr)
+        if mine:
+            v = evaluate_stream(segs, mine[1])
+            row["vesper_rule"] = {"catalog_id": mine[0], "rule": list(mine[1]),
+                                  **{k: v[k] for k in ("matched", "twin_reports", "extra", "matched_fraction",
+                                                       "extra_fraction")}}
+        out_streams.append(row)
+    judged = [s for s in out_streams if s["judged"]]
+    window = [_utc(min(times)), _utc(max(times))] if times else None
+    in_window = bool(window) and RULE_WINDOW_UTC[0] <= window[0][:10] and window[1][:10] <= RULE_WINDOW_UTC[1]
+    return {
+        "dataset": "ZIOTP2025 (Boiano et al., arXiv:2602.03140; Apache-2.0)", "zha_source": ZHA_SOURCE,
+        "criteria": {"match_min": MATCH_MIN, "extra_max": EXTRA_MAX, "min_intervals": MIN_INTERVALS,
+                     "change_tol_s": CHANGE_TOL_S, "periodic_late": PERIODIC_LATE, "decrypt_min": DECRYPT_MIN},
+        "files": files, "decryption_ok": decryption_ok, "unknown_sources": dict(unknown_sources),
+        "capture_window_utc": window,
+        "rule_window_ok": in_window,
+        "streams": out_streams, "eligible": sum(1 for s in out_streams if s.get("eligible")),
+        "judged": len(judged), "judged_passed": sum(1 for s in judged if s["passed"]),
+        "passed": decryption_ok and bool(judged) and all(s["passed"] for s in judged),
     }
