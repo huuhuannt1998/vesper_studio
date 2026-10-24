@@ -14,6 +14,7 @@ import pytest
 
 from tests.catalog.test_matter_normalize import records as matter_records
 from vesper.exposure.matter_tier import Host, HostError, node_spec
+from vesper.twins.twin import Twin
 from vesper.validation.matter_acceptance import select_matter_products
 
 pytestmark = pytest.mark.skipif(not os.environ.get("VESPER_MATTER_HOST_TESTS"),
@@ -90,11 +91,17 @@ def test_every_device_type_the_acceptance_can_sample_builds_and_resolves(host):
     picked = select_matter_products(json.loads(path.read_text()), per_type=1, seed=0)
     problems = {}
     for i, rec in enumerate(picked):
+        twin = Twin.from_vds(rec)  # the twin's real starting state, as MatterTier.start pushes it
+        state = {n: v for n, v in twin.state.items()
+                 if twin.features[n]["type"] != "unsupported" and twin.features[n].get("category") != "diagnostic"}
         try:
-            reply = add(host, rec, 10 + i)
+            reply = add(host, rec, 10 + i, state)
         except HostError as e:
             problems[rec["binding"]["matter"]["device_type"]] = str(e)
             continue
-        if reply["unresolved"] or reply["initial_errors"]:
+        # a refused initial value is allowed (MatterTier adopts the node's value), but it must name a resolved
+        # feature, or the tier could not adopt it
+        orphans = [e for e in reply["initial_errors"] if not any(e.startswith(n + ": ") for n in reply["resolved"])]
+        if reply["unresolved"] or orphans:
             problems[rec["binding"]["matter"]["device_type"]] = reply
     assert len(picked) >= 17 and problems == {}
