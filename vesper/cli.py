@@ -518,6 +518,10 @@ def _lab(args) -> int:
             return 0
         if args.action == "run":
             return _lab_run(args, load_lab_home(Path(args.home), catalog))
+        if args.action == "play":
+            return _lab_play(args, load_lab_home(Path(args.home), catalog))
+        if args.action == "look":
+            return _lab_look(args, load_lab_home(Path(args.home), catalog))
         return _lab_replay(args, catalog, load_lab_home)
     except (HomeError, MapError, TraceError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
@@ -572,6 +576,85 @@ def _lab_run(args, home) -> int:
     print(f"{kinds.count('input')} inputs, {kinds.count('rule')} rule firings, {kinds.count('report')} reports; "
           f"trace {trace}")
     return 0
+
+
+def _lab_play(args, home) -> int:
+    import webbrowser
+
+    from vesper.lab.play import PlayError, PlayServer
+    from vesper.lab.session import Session
+    from vesper.twins.clock import WallClock
+    traces = home.path.parent / "traces"
+    traces.mkdir(parents=True, exist_ok=True)
+    trace = Path(args.trace) if args.trace else _new_trace(traces, "play")
+    session = Session(home, clock=WallClock(), trace=trace)
+    session.start()
+    server = PlayServer(session, port=args.port)
+    try:
+        try:
+            server.start()
+        except PlayError as e:
+            print(f"FAILED: {e}; is another `vesper lab play` running? Choose another --port", file=sys.stderr)
+            return 1
+        print(f"VESPER Lab: {home.scene}, {len(home.devices)} devices, on the wall clock. Open {server.url} "
+              "(Ctrl-C stops)")
+        if not args.no_browser:
+            webbrowser.open(server.url)
+        _wait_for_interrupt()
+    finally:
+        server.stop()
+        session.stop()
+    print(f"trace {trace}")
+    return 0
+
+
+def _wait_for_interrupt() -> None:
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+
+
+def _lab_look(args, home) -> int:
+    from vesper.lab.browser import Browser, BrowserError
+    from vesper.lab.play import PlayServer
+    from vesper.lab.session import Session
+    from vesper.lab.visual import DEFAULT_STEPS, LookError, load_steps, run_look
+    from vesper.twins.clock import WallClock
+    if args.update_golden and not args.golden:
+        print("FAILED: --update-golden needs --golden DIR, the directory of reference shots", file=sys.stderr)
+        return 1
+    try:
+        steps = load_steps(Path(args.steps)) if args.steps else DEFAULT_STEPS
+    except LookError as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    out = Path(args.out) if args.out else home.path.parent / "looks" / f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+    out.mkdir(parents=True, exist_ok=True)
+    session = Session(home, clock=WallClock(), trace=_new_trace(out, "look"))
+    session.start()
+    server = PlayServer(session, port=0)
+    try:
+        server.start()
+        try:
+            browser = Browser.launch(Path(args.browser) if args.browser else None, width=args.width,
+                                     height=args.height)
+        except BrowserError as e:
+            print(f"FAILED: {e}", file=sys.stderr)
+            return 1
+        try:
+            report = run_look(browser, server.url, steps, out, golden=Path(args.golden) if args.golden else None,
+                              update_golden=args.update_golden)
+        finally:
+            browser.close()
+    finally:
+        server.stop()
+        session.stop()
+    for c in report.checks:
+        print(f"{'PASS' if c.ok else 'FAIL'} {c.name}" + (f": {c.detail}" if c.detail else ""))
+    print(f"{'PASS' if report.ok else 'FAIL'}: {len(report.shots)} shots and the report in {out}")
+    return 0 if report.ok else 1
 
 
 def _lab_replay(args, catalog, load_lab_home) -> int:
@@ -697,6 +780,22 @@ def main(argv: list[str] | None = None) -> int:
     lab_run.add_argument("--home", required=True)
     lab_run.add_argument("--catalog", default="catalog/vds")
     lab_run.add_argument("--trace")
+    lab_play = lab_actions.add_parser("play", help="play a home in the browser: the map, the hub and the console")
+    lab_play.add_argument("home")
+    lab_play.add_argument("--catalog", default="catalog/vds")
+    lab_play.add_argument("--port", type=int, default=18080, help="the page's port on 127.0.0.1 (default 18080)")
+    lab_play.add_argument("--trace", help="the trace file (default: traces/<time>.jsonl next to the home)")
+    lab_play.add_argument("--no-browser", action="store_true", help="print the page's address, do not open it")
+    lab_look = lab_actions.add_parser("look", help="drive the play page in a headless browser and check what it shows")
+    lab_look.add_argument("home")
+    lab_look.add_argument("--catalog", default="catalog/vds")
+    lab_look.add_argument("--steps", help="a YAML list of steps (default: one shot of the start)")
+    lab_look.add_argument("--out", help="where the shots and the report go (default: looks/<time> next to the home)")
+    lab_look.add_argument("--golden", help="a directory of reference shots to compare with")
+    lab_look.add_argument("--update-golden", action="store_true", help="save this look's shots as the references")
+    lab_look.add_argument("--browser", help="a Chromium-based browser (default: found, or VESPER_BROWSER)")
+    lab_look.add_argument("--width", type=int, default=1280)
+    lab_look.add_argument("--height", type=int, default=800)
     lab_replay = lab_actions.add_parser("replay", help="replay a trace's inputs and compare the device reports")
     lab_replay.add_argument("trace")
     lab_replay.add_argument("--home", help="the home file (default: the one the trace names)")
