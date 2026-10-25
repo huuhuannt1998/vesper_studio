@@ -288,3 +288,14 @@ def test_ambient_readings_reach_matter_attributes_in_their_raw_units():
     rt.stimulate(light, {"type": "ambient", "illuminance": 300})
     assert rt.state(tid)["Temperature Measurement.MeasuredValue"] == 2150
     assert rt.state(light)["Illuminance Measurement.MeasuredValue"] == 24772  # 10000 log10(lux) + 1
+
+
+def test_every_command_is_heard_as_it_is_logged_accepted_or_not(vds):
+    rt, _, (tid,) = runtime(vds["PLUG-1"])
+    heard = []
+    rt.on_action(heard.append)
+    rt.platform_set(tid, "state", "ON")
+    rt.platform_set(tid, "state", "SIDEWAYS")
+    rt.operate(tid, "state", "OFF", actor="alice")
+    assert heard == rt.actions
+    assert [(a.actor, a.accepted) for a in heard] == [("platform", True), ("platform", False), ("human:alice", True)]

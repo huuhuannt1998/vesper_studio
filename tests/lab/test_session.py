@@ -172,3 +172,20 @@ def test_a_wall_clock_trace_replays_within_its_tolerance(tmp_path):
     s.stop()
     assert s.records[0]["clock"] == "wall" and WALL_TOLERANCE_S == 0.5
     assert compare_reports(s.records, replay(s.records, home)) is None
+
+
+def test_commands_from_the_hub_are_traced_and_replayed_without_it(tmp_path):
+    s = session(tmp_path, trace=False)
+    s.wait(5)
+    assert s.runtime.platform_set(s.twin_ids["bedroom_lamp"], "state", "ON")  # what a bridge does for the hub
+    assert not s.runtime.platform_set(s.twin_ids["hall_motion"], "occupancy", True)  # read-only: refused
+    s.interact()  # a person's use is an interaction, not a hub command
+    s.wait(10)
+    s.stop()
+    commands = [r for r in s.records if r["kind"] == "input" and r["op"] == "command"]
+    assert [(r["actor"], r["args"], r["outcome"]["accepted"]) for r in commands] == [
+        ("hub", {"device": "bedroom_lamp", "feature": "state", "value": "ON"}, True),
+        ("hub", {"device": "hall_motion", "feature": "occupancy", "value": True}, False)]
+    again = replay(s.records, s.home)
+    assert compare_reports(s.records, again) is None
+    assert any(r["kind"] == "report" and r["device"] == "bedroom_lamp" and r["value"] == "ON" for r in again)

@@ -69,6 +69,7 @@ class Runtime:
     def __post_init__(self):
         self._lock = threading.RLock()
         self._subscribers: list[Callable[[Event], None]] = []
+        self._action_listeners: list[Callable[[Action], None]] = []
         self._reporters: dict[tuple[str, str], _Reporter] = {}
         self._last_presence: dict[str, float] = {}
         self._last_observed: dict[str, float] = {}  # per twin: reports reach the platform in the order they left
@@ -93,6 +94,16 @@ class Runtime:
 
     def subscribe(self, fn: Callable[[Event], None]) -> None:
         self._subscribers.append(fn)
+
+    def on_action(self, fn: Callable[[Action], None]) -> None:
+        """`fn(action)` hears every command as it is logged, accepted or refused (a Lab session traces the
+        hub's commands so that a session with Home Assistant replays without it)."""
+        self._action_listeners.append(fn)
+
+    def _log(self, action: Action) -> None:
+        self.actions.append(action)
+        for fn in self._action_listeners:
+            fn(action)
 
     def state(self, twin_id: str) -> dict:
         with self._lock:
@@ -144,7 +155,7 @@ class Runtime:
             if twin is None:
                 raise KeyError(twin_id)
             if twin_id in self.faulted:
-                self.actions.append(Action(self.clock.now(), twin_id, feature, value, actor, False, "twin faulted"))
+                self._log(Action(self.clock.now(), twin_id, feature, value, actor, False, "twin faulted"))
                 return False
             try:
                 f = twin.feature(feature)
@@ -152,12 +163,12 @@ class Runtime:
                     raise TwinError(f"{twin_id}.{feature} is read-only")
                 new = twin.coerce(feature, value)
             except TwinError as e:
-                self.actions.append(Action(self.clock.now(), twin_id, feature, value, actor, False, str(e)))
+                self._log(Action(self.clock.now(), twin_id, feature, value, actor, False, str(e)))
                 return False
             except Exception as e:
                 self.faulted[twin_id] = f"{type(e).__name__}: {e}"
                 return False
-            self.actions.append(Action(self.clock.now(), twin_id, feature, new, actor, True))
+            self._log(Action(self.clock.now(), twin_id, feature, new, actor, True))
             self._change(twin, feature, new, cause)
             return True
 

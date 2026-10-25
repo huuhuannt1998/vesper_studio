@@ -33,6 +33,7 @@ class Session:
         self.runtime = Runtime(clock=self.clock, seed=home.seed)
         self.twin_ids = {d.name: self.runtime.add(d.record, twin_id=f"{d.product}@{d.name}", state=d.state).id
                          for d in home.devices}
+        self.runtime.on_action(self._on_action)
         self._names = {tid: name for name, tid in self.twin_ids.items()}
         self.world = world or MapWorld(home.map, self.clock)
         for door, is_open in home.doors.items():
@@ -98,6 +99,13 @@ class Session:
     def _input(self, actor: str, op: str, args: dict, **extra) -> None:
         self._write({"kind": "input", "actor": actor, "op": op, "args": args, **extra})
 
+    def _on_action(self, a) -> None:
+        """A command from the hub (through a bridge) is an input: replay applies it again, with no hub."""
+        if a.actor == "platform":
+            outcome = {"accepted": a.accepted} if a.accepted else {"accepted": False, "reason": a.reason}
+            self._input("hub", "command", {"device": self._names.get(a.twin_id, a.twin_id), "feature": a.feature,
+                                           "value": a.value}, outcome=outcome)
+
     def _on_report(self, event) -> None:
         self._write({"kind": "report", "device": self._names.get(event.twin_id, event.twin_id),
                      "feature": event.feature, "value": event.value, "physical_t": event.physical_t,
@@ -148,6 +156,10 @@ def replay(records: list[dict], home) -> list[dict]:
                 s.walk_to(a["point"], actor=r["actor"])
             elif r["op"] == "interact":
                 s.interact(a["target"], actor=r["actor"])
+            elif r["op"] == "command":
+                if a["device"] not in s.twin_ids:
+                    raise ValueError(f"unknown device {a['device']!r}")
+                s.runtime.platform_set(s.twin_ids[a["device"]], a["feature"], a["value"])
         except (ValueError, WorldError) as e:  # the home changed under the trace: that is the difference
             what = r["op"] + (f" {a['target']}" if r["op"] == "interact" and a.get("target") else "")
             s._write({"kind": "divergence", "input": k, "message": f"input {k} ({what} at t={r['t']:g}): {e}"})
