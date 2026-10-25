@@ -1,0 +1,21 @@
+# VESPER Lab's example home: the small test house (hall, kitchen, bedroom, porch) with real Zigbee products.
+#   vesper lab check examples/lab/test-house/home.yaml
+#   vesper lab play  examples/lab/test-house/home.yaml          # the map, on the wall clock
+#   vesper lab play  examples/lab/test-house/home.yaml --hub    # with VESPER's Home Assistant in the loop
+version: 2
+scene: test/house
+seed: 0
+start_time: "19:30"
+avatar: {model: female_0, start: {room: kitchen}}
+doors:
+  - {doorway: bedroom-hall, open: true}
+devices:
+  - {product: "zigbee:aqara:mccgq11lm", name: front_door, at: {door: hall-porch}}
+  - {product: "zigbee:philips:9290012607", name: hall_motion, at: {room: hall, mount: ceiling}}
+  - {product: "zigbee:ikea:led1545g12", name: bedroom_lamp, at: {room: bedroom, xy: [5.0, 5.0], mount: table}}
+  - {product: "zigbee:ikea:e1743", name: bedroom_switch, at: {room: bedroom, xy: [3.2, 3.5], mount: wall},
+     controls: [bedroom_lamp]}
+  - {product: "zigbee:aqara:wsdcgq11lm", name: kitchen_climate, at: {room: kitchen, xy: [6.5, 0.5], mount: wall,
+     facing: 90}}
+  - {product: "zigbee:innr:sp-120", name: kitchen_plug, at: {room: kitchen, xy: [4.0, 0.5], mount: floor}}
+automations: automations.yaml

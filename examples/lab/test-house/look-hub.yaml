@@ -1,0 +1,9 @@
+# vesper lab look examples/lab/test-house/home.yaml --hub --steps examples/lab/test-house/look-hub.yaml
+# The hall's motion sensor turns the bedroom lamp on through Home Assistant's automation (automations.yaml).
+- {shot: start}
+- {click_world: [1.5, 1.5]}
+- {until: "vesper.state.actors.player.room === 'hall'", label: "the player walks into the hall", timeout: 15}
+- {until: "vesper.state.effects.bedroom_lamp.on === true", label: "Home Assistant's automation turns the bedroom lamp on",
+   timeout: 15}
+- {wait: 0.5}
+- {shot: lamp_on_by_automation}

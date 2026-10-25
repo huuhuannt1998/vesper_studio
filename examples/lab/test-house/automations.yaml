@@ -1,0 +1,12 @@
+# Home Assistant automations for the example home, loaded into VESPER's instance by `vesper lab play --hub`.
+# Edits made in Home Assistant's automation editor are written back here when play stops.
+- id: vesper_example_hall_lamp
+  alias: Bedroom lamp on when someone is in the hall
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.v3702287e0bbb1e03_occupancy
+      to: "on"
+  actions:
+    - action: light.turn_on
+      target:
+        entity_id: light.v7c530a5e0539de76_light
