@@ -10,10 +10,15 @@ The Lab's unit tests run against an in-memory broker and Home Assistant. These c
 
 ## Lab check 1: Home Assistant in the loop
 
-    taskpolicy -b .venv/bin/vesper lab play examples/lab/test-house/home.yaml --hub
+Work on a copy of the example, so that its traces and an automation edited in Home Assistant land outside the repository:
+
+    mkdir -p ~/vesper-lab && cp -R examples/lab/test-house ~/vesper-lab/test-house
+    taskpolicy -b .venv/bin/vesper lab play ~/vesper-lab/test-house/home.yaml --hub
 
 What it does:
-1. Starts VESPER's Mosquitto on 127.0.0.1:18830 and its Home Assistant on 127.0.0.1:18123. The Lab's configuration differs from the experiments' in two lines only: the play page may frame the dashboard (`use_x_frame_options: false`), and the home's `automations.yaml` is loaded (Home Assistant's automation editor writes to it).
+1. Starts VESPER's Mosquitto on 127.0.0.1:18830 and its Home Assistant on 127.0.0.1:18123.
+   - Home Assistant 2026.10 keeps its HTTP settings in `.storage/http` and reads `http:` from YAML only on a first boot. So VESPER writes that store before every start, for the Lab as for the experiments: bound to 127.0.0.1:18123, and no pending trial, which Home Assistant would otherwise revert after 5 minutes by restarting on 0.0.0.0:8123.
+   - The Lab's settings differ from the experiments' in one HTTP setting, that the play page may frame the dashboard (`use_x_frame_options: false`), and in loading the home's `automations.yaml` (Home Assistant's automation editor writes to it).
 2. Onboards Home Assistant if needed, adds the MQTT integration, and sets the Lab login once (kept in `.vesper/ha/lab-login.json`, readable by its owner only).
 3. Puts the home's Zigbee devices on the broker through the Zigbee2MQTT bridge. Matter devices are not on the hub yet (plan W2d); the list says so.
 4. Opens the page at http://127.0.0.1:18080/ and prints the login and each device's Home Assistant entities.
@@ -24,14 +29,15 @@ Check, each one a pass criterion:
 3. Walking from the kitchen into the hall turns the hall's motion entity on in Home Assistant within about a second. The automation "Bedroom lamp on when someone is in the hall" fires, the bedroom lamp glows on the map, and the console shows `the hub sets bedroom_lamp state = "ON"`.
 4. Switching the kitchen plug on in Home Assistant turns its icon on in the map.
 5. Pressing E at the bedroom switch toggles the lamp through its binding, and Home Assistant shows it.
-6. An automation edited in Home Assistant is written back to `examples/lab/test-house/automations.yaml` when play stops.
+6. An automation edited in Home Assistant is written back to `~/vesper-lab/test-house/automations.yaml` when play stops.
 7. Ctrl-C stops the page, the bridge, Home Assistant and Mosquitto, and frees the ports.
-8. `vesper lab replay <the printed trace> --home examples/lab/test-house/home.yaml` says the reports are identical. A wall-clock trace is compared per device, with report times within 0.5 s.
+8. `vesper lab replay <the printed trace> --home ~/vesper-lab/test-house/home.yaml` says the reports are identical. A wall-clock trace is compared per device, with report times within 0.5 s.
+9. The session is longer than 5 minutes, and Home Assistant is still on 127.0.0.1:18123 at the end (`lsof -nP -iTCP:18123 -sTCP:LISTEN`), never on 8123.
 
 Then, for the record, the same story as an automatic look:
 
-    taskpolicy -b .venv/bin/vesper lab look examples/lab/test-house/home.yaml --hub \
-        --steps examples/lab/test-house/look-hub.yaml --out results/lab/hub-<UTC>
+    taskpolicy -b .venv/bin/vesper lab look ~/vesper-lab/test-house/home.yaml --hub \
+        --steps ~/vesper-lab/test-house/look-hub.yaml --out ~/vesper-lab/looks/hub-<UTC>
 
 Pass: exit code 0, and the shots read: the lamp lit after the walk, by the automation.
 
@@ -42,5 +48,5 @@ Record in the ledger: the time, the trace path, the look's `report.md`, and anyt
 ## When something goes wrong
 
 - **A port is in use:** another VESPER instance, or another project's service. The Lab never shares a broker or a Home Assistant; stop the other one or wait for its slot.
-- **The login fails:** delete `.vesper/ha/lab-login.json`; the next `--hub` sets a new one.
+- **The login fails:** delete `.vesper/ha/lab-login.json`; the next `--hub` sets a new one. A new onboarding deletes it by itself.
 - **Entities are missing in Home Assistant:** check that the MQTT integration points at 127.0.0.1:18830 (Settings, Devices & services).

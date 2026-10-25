@@ -454,7 +454,7 @@ def test_the_lab_s_home_assistant_may_be_framed_and_loads_the_home_s_automations
     lab.write_config()
     cfg = tmp_path / "lab" / "ha" / "config"
     text = (cfg / "configuration.yaml").read_text()
-    assert "http:\n  server_host: 127.0.0.1\n  server_port: 18123\n  use_x_frame_options: false\n" in text
+    assert "use_x_frame_options" not in text  # HA 2026.10 reads http: from YAML once; the store decides (below)
     assert text.endswith("automation: !include automations.yaml\n")
     assert (cfg / "automations.yaml").read_text() == rules == lab.read_automations()
 
@@ -504,3 +504,43 @@ def test_the_lab_login_is_set_once_through_the_admin_api_and_kept_private(tmp_pa
     assert ha.lab_login() == (user, password)  # kept: set once, not on every play
     assert ws.seen.count("config/auth_provider/homeassistant/admin_change_password") == 1
     ws.server.shutdown()
+
+
+def test_every_start_owns_home_assistant_s_http_settings_store(tmp_path):
+    """HA 2026.10 keeps its HTTP settings in .storage/http and reads YAML only on a first boot. A pending trial
+    (what a YAML migration leaves) is reverted after 5 minutes by restarting on 0.0.0.0:8123. So VESPER writes
+    the store before every start: stable = this mode's settings, no pending trial."""
+    installed(tmp_path)
+    store = tmp_path / "ha" / "config" / ".storage" / "http"
+    store.parent.mkdir(parents=True)
+    store.write_text(json.dumps({"version": 2, "minor_version": 2, "key": "http", "data": {
+        "stable": {"server_port": 8123, "use_x_frame_options": True}, "yaml_migration_done": True,
+        "pending": {"server_port": 18123, "server_host": ["127.0.0.1"], "error": None}}}))  # this Mac's, 10-24
+    for frameable in (False, True):
+        port = free_port()
+        ha = HomeAssistant(tmp_path, port=port, popen=lambda cmd, stdout, stderr: FakeProc(), frameable=frameable,
+                           transport=httpx.MockTransport(lambda r: httpx.Response(401)))
+        ha.start()
+        saved = json.loads(store.read_text())
+        assert (saved["version"], saved["minor_version"], saved["key"]) == (2, 2, "http")
+        data = saved["data"]
+        assert data["pending"] is None and data["yaml_migration_done"] is True
+        stable = data["stable"]
+        assert (stable["server_host"], stable["server_port"]) == (["127.0.0.1"], port)
+        assert stable["use_x_frame_options"] is (not frameable)  # the experiments keep the frame protection
+        assert (stable["error"], stable["error_message"], stable["ip_ban_enabled"]) == (None, None, True)
+
+
+def test_a_new_onboarding_forgets_the_old_lab_login(tmp_path):
+    stale = tmp_path / "ha" / "lab-login.json"
+    stale.parent.mkdir(parents=True)
+    stale.write_text(json.dumps({"username": "vesper", "password": "for-an-owner-that-is-gone"}))
+    onboarded(tmp_path, FakeServer())
+    assert not stale.exists()
+
+
+def test_a_lab_login_that_cannot_reach_home_assistant_is_a_stack_error(tmp_path):
+    ha = HomeAssistant(tmp_path, port=free_port())
+    ha.token = lambda: "token-1"
+    with pytest.raises(StackError, match="Lab login"):
+        ha.lab_login()

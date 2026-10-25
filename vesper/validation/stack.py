@@ -16,6 +16,7 @@ import socket
 import subprocess
 import time
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -299,7 +300,6 @@ class HomeAssistant:
     def write_config(self) -> None:
         cfg = Paths(Path(self.root)).ha_config
         cfg.mkdir(parents=True, exist_ok=True)
-        frame = "  use_x_frame_options: false\n" if self.frameable else ""
         automation = ""
         if self.automations is not None:
             (cfg / "automations.yaml").write_text(self.automations)
@@ -307,7 +307,7 @@ class HomeAssistant:
         (cfg / "configuration.yaml").write_text(
             "homeassistant:\n  name: VESPER\n  unit_system: metric\n  time_zone: UTC\n  country: US\n"
             "  currency: USD\n"
-            f"http:\n  server_host: 127.0.0.1\n  server_port: {self.port}\n{frame}"
+            f"http:\n  server_host: 127.0.0.1\n  server_port: {self.port}\n"
             f"api:\nconfig:\nonboarding:\nlogger:\n  default: warning\n{automation}")
 
     def lab_login(self) -> tuple[str, str]:
@@ -319,19 +319,38 @@ class HomeAssistant:
             saved = json.loads(path.read_text())
             return saved["username"], saved["password"]
         from websockets.sync.client import connect
+        from websockets.exceptions import WebSocketException
         password = secrets.token_urlsafe(18)
-        with connect(f"ws://127.0.0.1:{self.port}/api/websocket", proxy=None, open_timeout=30) as ws:
-            json.loads(ws.recv(timeout=30))  # auth_required
-            ws.send(json.dumps({"type": "auth", "access_token": self.token()}))
-            if json.loads(ws.recv(timeout=30)).get("type") != "auth_ok":
-                raise StackError("Home Assistant refused VESPER's token on its WebSocket API")
-            user = _ws_call(ws, 1, "auth/current_user")
-            _ws_call(ws, 2, "config/auth_provider/homeassistant/admin_change_password", user_id=user["id"],
-                     password=password)
+        try:
+            with connect(f"ws://127.0.0.1:{self.port}/api/websocket", proxy=None, open_timeout=30) as ws:
+                json.loads(ws.recv(timeout=30))  # auth_required
+                ws.send(json.dumps({"type": "auth", "access_token": self.token()}))
+                if json.loads(ws.recv(timeout=30)).get("type") != "auth_ok":
+                    raise StackError("Home Assistant refused VESPER's token on its WebSocket API")
+                user = _ws_call(ws, 1, "auth/current_user")
+                _ws_call(ws, 2, "config/auth_provider/homeassistant/admin_change_password", user_id=user["id"],
+                         password=password)
+        except (OSError, TimeoutError, ValueError, WebSocketException) as e:
+            raise StackError(f"could not set the Lab login on Home Assistant: {type(e).__name__}: {e}") from e
         path.parent.mkdir(parents=True, exist_ok=True)
         with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
             json.dump({"username": "vesper", "password": password}, f)
         return "vesper", password
+
+    def write_http_store(self) -> None:
+        """Home Assistant 2026.10 keeps its HTTP settings in .storage/http and reads `http:` from YAML only on a
+        first boot, and the migration leaves them as a pending trial, which Home Assistant reverts after 5 minutes
+        by restarting on 0.0.0.0:8123 (homeassistant/components/http/config.py). So VESPER writes the store before
+        every start: this mode's settings as the stable config, and no trial."""
+        store = Paths(Path(self.root)).ha_config / ".storage" / "http"
+        store.parent.mkdir(parents=True, exist_ok=True)
+        stable = {"server_host": ["127.0.0.1"], "server_port": self.port,
+                  "cors_allowed_origins": ["https://cast.home-assistant.io"], "login_attempts_threshold": -1,
+                  "ip_ban_enabled": True, "ssl_profile": "modern", "use_x_frame_options": not self.frameable,
+                  "created_at": datetime.now(UTC).isoformat(), "error": None, "error_message": None}
+        store.write_text(json.dumps({"version": 2, "minor_version": 2, "key": "http",
+                                     "data": {"stable": stable, "pending": None, "yaml_migration_done": True}},
+                                    indent=2))
 
     def read_automations(self) -> str:
         """automations.yaml as it is now: the home's, plus whatever was edited in Home Assistant's UI."""
@@ -344,6 +363,7 @@ class HomeAssistant:
         if not port_free(self.port):
             raise StackError(f"port {self.port} is already in use; refusing to share a Home Assistant")
         self.write_config()
+        self.write_http_store()
         log = paths.ha_log.open("w")
         self.proc = self.popen([str(paths.hass), "-c", str(paths.ha_config), "--skip-pip"], stdout=log,
                                stderr=subprocess.STDOUT)
@@ -388,6 +408,7 @@ class HomeAssistant:
                                  f"{storage} (VESPER's own instance) and run again")
             if r.status_code != 200:
                 raise StackError(f"onboarding failed ({r.status_code}): {r.text[:200]}")
+            (Path(self.root) / "ha" / "lab-login.json").unlink(missing_ok=True)  # it was the old owner's
             tokens = c.post("/auth/token", data={"grant_type": "authorization_code", "code": r.json()["auth_code"],
                                                  "client_id": cid}).json()
             h = {"Authorization": f"Bearer {tokens['access_token']}"}

@@ -7,8 +7,10 @@ import os
 import signal
 import sys
 import time
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 from vesper.catalog.build import build_catalog
 from vesper.catalog.errors import CatalogError
@@ -579,10 +581,10 @@ def _lab_run(args, home) -> int:
 
 
 def _lab_play(args, home) -> int:
+    import contextlib
     import webbrowser
 
     from vesper.lab.play import PlayError, PlayServer
-    from vesper.validation.stack import StackError
     from vesper.lab.session import Session
     from vesper.twins.clock import WallClock
     traces = home.path.parent / "traces"
@@ -591,19 +593,18 @@ def _lab_play(args, home) -> int:
     if args.hub and home.automations is not None and not home.automations.is_file():
         print(f"FAILED: automations: {home.automations} does not exist", file=sys.stderr)
         return 1
-    session = Session(home, clock=WallClock(), trace=trace)
-    started: list[tuple[str, object]] = []  # the hub's parts, stopped in reverse order
-    server, rules = None, None
-    try:
-        if args.hub:
-            try:
-                rules = _start_hub(args, home, session, started)
-            except StackError as e:
-                print(f"FAILED: {e}", file=sys.stderr)
-                return 1
-        session.start()
-        ha = dict(started).get("ha")
-        server = PlayServer(session, port=args.port, hub_url=ha.url if ha else None)
+    with contextlib.ExitStack() as stack:  # everything started is stopped again, in reverse, whatever happens
+        try:
+            lab = stack.enter_context(_lab_stack(args, home)) if args.hub else None
+            session = Session(home, clock=WallClock(), trace=trace)  # its time starts once the hub is up
+            stack.callback(session.stop)
+            session.start()
+            hub = stack.enter_context(_lab_hub(args, session, lab.port)) if lab else None
+        except Exception as e:  # noqa: BLE001 - starting the hub: a StackError, a refused connection, HTTP
+            print(f"FAILED: {_hub_failure(e)}", file=sys.stderr)
+            return 1
+        server = PlayServer(session, port=args.port, hub_url=lab.ha.url if lab else None)
+        stack.callback(server.stop)
         try:
             server.start()
         except PlayError as e:
@@ -611,72 +612,77 @@ def _lab_play(args, home) -> int:
             return 1
         print(f"VESPER Lab: {home.scene}, {len(home.devices)} devices, on the wall clock. Open {server.url} "
               "(Ctrl-C stops)")
-        if args.hub:
-            user, password = dict(started)["login"]
-            print(f"Home Assistant is in the hub panel ({dict(started)['ha'].url}): log in as {user}, password "
-                  f"{password} (kept in {Path(args.root) / 'ha' / 'lab-login.json'})")
-            _print_entities(home, dict(started)["hub"])
+        if lab:
+            user, password = lab.login
+            print(f"Home Assistant is in the hub panel ({lab.ha.url}): log in as {user}, password {password} "
+                  f"(kept in {Path(args.root) / 'ha' / 'lab-login.json'})")
+            _print_entities(home, hub)
         if not args.no_browser:
             webbrowser.open(server.url)
         _wait_for_interrupt()
-    finally:
-        if server is not None:
-            server.stop()
-        if started:
-            _stop_hub(started, home, rules)
-        session.stop()
     print(f"trace {trace}")
     return 0
 
 
-def _start_hub(args, home, session, started: list) -> str:
-    """VESPER's broker, its Home Assistant (framed by the page, with the home's automations), and the home's
-    Zigbee devices on the broker. Returns the automations Home Assistant started with."""
-    from vesper.exposure import mqtt
-    from vesper.lab.hub import Hub
+def _hub_failure(e: Exception) -> str:
+    from vesper.validation.stack import StackError
+    return str(e) if isinstance(e, StackError) else f"{type(e).__name__}: {e}"
+
+
+@contextmanager
+def _lab_stack(args, home):
+    """VESPER's broker and Home Assistant for a Lab command (the dashboard framed by the page, the home's
+    automations loaded, the Lab login), stopped again whatever happens, a stop signal included."""
     from vesper.validation import stack
     root, port = Path(args.root), home.broker[1]
     rules = home.automations.read_text() if home.automations is not None else "[]\n"
     broker = stack.Mosquitto(root, port=port)
-    started.append(("broker", broker))
-    broker.start()
-    ha = stack.HomeAssistant(root, frameable=True, automations=rules)
-    started.append(("ha", ha))
-    ha.start()
-    ha.onboard()
-    ha.ensure_mqtt(port)
-    started.append(("login", ha.lab_login()))
-    client = mqtt.connect("127.0.0.1", port, "vesper-lab-bridge", will=OFFLINE_WILL)
-    started.append(("client", client))
-    hub = Hub(session, client, zhc_version=_zhc_version(Path(args.catalog)))
-    hub.start()
-    started.append(("hub", hub))
-    return rules
+    try:
+        broker.start()
+        ha = stack.HomeAssistant(root, frameable=True, automations=rules)
+        try:
+            ha.start()
+            ha.onboard()
+            ha.ensure_mqtt(port)
+            yield SimpleNamespace(ha=ha, port=port, login=ha.lab_login())
+        finally:
+            _keep_automations(ha, home, rules)
+            ha.stop()
+    finally:
+        broker.stop()
 
 
-def _stop_hub(started: list, home, rules: str | None) -> None:
+@contextmanager
+def _lab_hub(args, session, port: int):
+    """The session's Zigbee devices on the broker, for as long as the block runs."""
     from vesper.exposure import mqtt
-    for name, part in reversed(started):
-        if name == "hub":
-            part.stop()
-        elif name == "client":
-            mqtt.disconnect(part)
-        elif name == "ha":
-            _keep_automations(part, home, rules)
-            part.stop()
-        elif name == "broker":
-            part.stop()
+    from vesper.lab.hub import Hub
+    client = mqtt.connect("127.0.0.1", port, "vesper-lab-bridge", will=OFFLINE_WILL)
+    try:
+        hub = Hub(session, client, zhc_version=_zhc_version(Path(args.catalog)))
+        hub.start()
+        try:
+            yield hub
+        finally:
+            hub.stop()
+    finally:
+        mqtt.disconnect(client)
 
 
-def _keep_automations(ha, home, rules: str | None) -> None:
-    """Automations edited in Home Assistant's UI go back into the home, which stays self-contained."""
+def _keep_automations(ha, home, rules: str) -> None:
+    """Automations edited in Home Assistant's UI go back into the home, which stays self-contained; a file the
+    home does not name is never overwritten."""
     try:
         now = ha.read_automations()
     except OSError:
         return
-    if rules is None or now == rules:
+    if now == rules:
         return
-    target = home.automations or home.path.parent / "automations.yaml"
+    target = home.automations
+    if target is None:
+        target = home.path.parent / "automations.yaml"
+        if target.exists():
+            target = home.path.parent / "automations-from-home-assistant.yaml"
     target.write_text(now)
     print(f"{target.name} updated from Home Assistant" + ("" if home.automations else
           f"; add `automations: {target.name}` to {home.path.name} to load it next time"))
@@ -700,12 +706,13 @@ def _wait_for_interrupt() -> None:
 
 
 def _lab_look(args, home) -> int:
+    import contextlib
+
     from vesper.lab.browser import Browser, BrowserError
     from vesper.lab.play import PlayServer
     from vesper.lab.session import Session
     from vesper.lab.visual import DEFAULT_STEPS, LookError, load_steps, run_look
     from vesper.twins.clock import WallClock
-    from vesper.validation.stack import StackError
     if args.update_golden and not args.golden:
         print("FAILED: --update-golden needs --golden DIR, the directory of reference shots", file=sys.stderr)
         return 1
@@ -714,25 +721,24 @@ def _lab_look(args, home) -> int:
     except LookError as e:
         print(f"FAILED: {e}", file=sys.stderr)
         return 1
-    out = Path(args.out) if args.out else home.path.parent / "looks" / f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
-    out.mkdir(parents=True, exist_ok=True)
     if args.hub and home.automations is not None and not home.automations.is_file():
         print(f"FAILED: automations: {home.automations} does not exist", file=sys.stderr)
         return 1
-    session = Session(home, clock=WallClock(), trace=_new_trace(out, "look"))
-    started: list[tuple[str, object]] = []
-    rules = None
-    if args.hub:
+    out = Path(args.out) if args.out else home.path.parent / "looks" / f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+    out.mkdir(parents=True, exist_ok=True)
+    with contextlib.ExitStack() as stack:  # everything started is stopped again, in reverse, whatever happens
         try:
-            rules = _start_hub(args, home, session, started)
-        except StackError as e:
-            _stop_hub(started, home, rules)
-            print(f"FAILED: {e}", file=sys.stderr)
+            lab = stack.enter_context(_lab_stack(args, home)) if args.hub else None
+            session = Session(home, clock=WallClock(), trace=_new_trace(out, "look"))
+            stack.callback(session.stop)
+            session.start()
+            if lab:
+                stack.enter_context(_lab_hub(args, session, lab.port))
+        except Exception as e:  # noqa: BLE001 - starting the hub: a StackError, a refused connection, HTTP
+            print(f"FAILED: {_hub_failure(e)}", file=sys.stderr)
             return 1
-    session.start()
-    ha = dict(started).get("ha")
-    server = PlayServer(session, port=0, hub_url=ha.url if ha else None)
-    try:
+        server = PlayServer(session, port=0, hub_url=lab.ha.url if lab else None)
+        stack.callback(server.stop)
         server.start()
         try:
             browser = Browser.launch(Path(args.browser) if args.browser else None, width=args.width,
@@ -740,17 +746,10 @@ def _lab_look(args, home) -> int:
         except BrowserError as e:
             print(f"FAILED: {e}", file=sys.stderr)
             return 1
-        try:
-            report = run_look(browser, server.url, steps, out, golden=Path(args.golden) if args.golden else None,
-                              update_golden=args.update_golden,
-                              session_errors=lambda: server.errors + list(getattr(session.clock, "errors", [])))
-        finally:
-            browser.close()
-    finally:
-        server.stop()
-        if started:
-            _stop_hub(started, home, rules)
-        session.stop()
+        stack.callback(browser.close)
+        report = run_look(browser, server.url, steps, out, golden=Path(args.golden) if args.golden else None,
+                          update_golden=args.update_golden,
+                          session_errors=lambda: server.errors + list(getattr(session.clock, "errors", [])))
     for c in report.checks:
         print(f"{'PASS' if c.ok else 'FAIL'} {c.name}" + (f": {c.detail}" if c.detail else ""))
     print(f"{'PASS' if report.ok else 'FAIL'}: {len(report.shots)} shots and the report in {out}")

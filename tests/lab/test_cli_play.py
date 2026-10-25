@@ -3,6 +3,8 @@ import json
 import re
 import urllib.request
 
+import pytest
+
 from tests.lab.test_cli_lab import setup
 from tests.lab.test_visual import FakeBrowser
 from vesper import cli
@@ -103,7 +105,7 @@ class LabMosquitto:
 
 
 class LabHA:
-    made, fail = [], None
+    made, fail, watch, traces_at_start = [], None, None, None
 
     def __init__(self, root, port=18123, frameable=False, automations=None, **kwargs):
         self.port, self.frameable, self.automations, self.events, self.edited = port, frameable, automations, [], None
@@ -115,6 +117,8 @@ class LabHA:
 
     def start(self):
         self.events.append("start")
+        if LabHA.watch is not None:  # what the session had written when Home Assistant started
+            LabHA.traces_at_start = sorted(LabHA.watch.glob("*.jsonl"))
         if LabHA.fail:
             raise LabHA.fail
 
@@ -139,7 +143,7 @@ def stack_fakes(monkeypatch):
     from tests.exposure.fake_mqtt import FakeClient
     from vesper.exposure import mqtt as mqtt_mod
     from vesper.validation import stack as stack_mod
-    LabMosquitto.made, LabHA.made, LabHA.fail = [], [], None
+    LabMosquitto.made, LabHA.made, LabHA.fail, LabHA.watch, LabHA.traces_at_start = [], [], None, None, None
     monkeypatch.setattr(stack_mod, "Mosquitto", LabMosquitto)
     monkeypatch.setattr(stack_mod, "HomeAssistant", LabHA)
     clients = []
@@ -208,3 +212,55 @@ def test_look_with_the_hub_drives_the_page_with_home_assistant_in_the_loop(tmp_p
                      "--root", str(tmp_path / ".vesper")]) == 0
     assert LabMosquitto.made[0].events == ["start", "stop"] and LabHA.made[0].events[-1] == "stop"
     assert clients[-1][0] == "disconnected" and "PASS the session raised no errors" in capsys.readouterr().out
+
+
+def test_the_session_and_its_clock_start_after_home_assistant_is_up(tmp_path, monkeypatch):
+    cat, home = setup(tmp_path)
+    stack_fakes(monkeypatch)
+    LabHA.watch = home.parent / "traces"
+    monkeypatch.setattr(cli, "_wait_for_interrupt", lambda: None)
+    assert cli.main(["lab", "play", str(home), "--catalog", str(cat), "--port", "0", "--no-browser", "--hub",
+                     "--root", str(tmp_path / ".vesper")]) == 0
+    assert LabHA.traces_at_start == []  # no session yet: its time starts once Home Assistant has started
+    (trace,) = (home.parent / "traces").glob("*.jsonl")
+    assert json.loads(trace.read_text().splitlines()[0])["kind"] == "meta"
+
+
+def test_a_stop_signal_while_home_assistant_starts_stops_the_broker_too(tmp_path, monkeypatch):
+    cat, home = setup(tmp_path)
+    stack_fakes(monkeypatch)
+    LabHA.fail = SystemExit(143)  # what SIGTERM becomes
+    with pytest.raises(SystemExit):
+        cli.main(["lab", "play", str(home), "--catalog", str(cat), "--port", "0", "--no-browser", "--hub",
+                  "--root", str(tmp_path / ".vesper")])
+    assert LabMosquitto.made[0].events == ["start", "stop"] and LabHA.made[0].events == ["start", "stop"]
+
+
+def test_look_with_the_hub_stops_everything_when_the_bridge_cannot_connect(tmp_path, capsys, monkeypatch):
+    from vesper.exposure import mqtt as mqtt_mod
+    cat, home = setup(tmp_path)
+    stack_fakes(monkeypatch)
+
+    def refused(*a, **k):
+        raise ConnectionError("no MQTT connection")
+    monkeypatch.setattr(mqtt_mod, "connect", refused)
+    assert cli.main(["lab", "look", str(home), "--catalog", str(cat), "--out", str(tmp_path / "o"), "--hub",
+                     "--root", str(tmp_path / ".vesper")]) == 1
+    assert "FAILED: ConnectionError: no MQTT connection" in capsys.readouterr().err
+    assert LabMosquitto.made[0].events == ["start", "stop"] and LabHA.made[0].events[-1] == "stop"
+
+
+def test_automations_from_home_assistant_never_overwrite_a_file_the_home_does_not_name(tmp_path, capsys,
+                                                                                       monkeypatch):
+    cat, home = setup(tmp_path)
+    (home.parent / "automations.yaml").write_text("precious\n")
+    stack_fakes(monkeypatch)
+
+    def edited_in_home_assistant():
+        LabHA.made[0].edited = RULES
+    monkeypatch.setattr(cli, "_wait_for_interrupt", edited_in_home_assistant)
+    assert cli.main(["lab", "play", str(home), "--catalog", str(cat), "--port", "0", "--no-browser", "--hub",
+                     "--root", str(tmp_path / ".vesper")]) == 0
+    assert (home.parent / "automations.yaml").read_text() == "precious\n"
+    assert (home.parent / "automations-from-home-assistant.yaml").read_text() == RULES
+    assert "automations-from-home-assistant.yaml" in capsys.readouterr().out
