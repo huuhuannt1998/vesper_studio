@@ -2,6 +2,7 @@
 #   vesper lab check examples/lab/test-house/home.yaml
 #   vesper lab play  examples/lab/test-house/home.yaml          # the map, on the wall clock
 #   vesper lab play  examples/lab/test-house/home.yaml --hub    # with VESPER's Home Assistant in the loop
+#   vesper lab day   examples/lab/test-house/home.yaml          # Alex lives a day, in seconds
 version: 2
 scene: test/house
 seed: 0
@@ -19,3 +20,5 @@ devices:
      facing: 90}}
   - {product: "zigbee:innr:sp-120", name: kitchen_plug, at: {room: kitchen, xy: [4.0, 0.5], mount: floor}}
 automations: automations.yaml
+residents:
+  - {name: alex, avatar: male_1, routine: routines/alex.yaml, profile: {forget_light: 0.2, forget_lock: 0.1}}

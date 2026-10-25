@@ -42,3 +42,23 @@ def test_the_example_s_look_for_the_hub_is_a_valid_steps_file():
     from vesper.lab.visual import load_steps
     steps = load_steps(EXAMPLE / "look-hub.yaml")
     assert [next(iter(s)) for s in steps][-1] == "shot"
+
+
+@pytest.mark.skipif(not CATALOG.is_file(), reason="no local catalog (`vesper catalog build`)")
+def test_the_example_s_resident_lives_a_whole_day_that_replays_exactly():
+    import dataclasses
+
+    from vesper.lab.session import compare_reports, replay
+    records = {r["id"]: r for r in json.loads(CATALOG.read_text())}
+    home = dataclasses.replace(load_lab_home(EXAMPLE / "home.yaml", records), start_time=0)
+    (alex,) = home.residents
+    session = Session(home)
+    session.start(spawn_player=False)
+    session.clock.advance(24 * 3600)
+    session.stop()
+    stuck = [r for r in session.records if r["kind"] == "resident" and r["decision"].startswith("could")]
+    assert not stuck  # every task's room and device was reached
+    uses = {r["args"]["target"] for r in session.records if r["kind"] == "input" and r["op"] == "interact"}
+    assert {"kitchen_plug", "hall-porch", "bedroom_lamp"} <= uses  # cooking, the front door, a dark bedroom
+    assert compare_reports(session.records, replay(session.records, home)) is None
+    assert alex.routine.tasks[-1].category == "SLEEP"
