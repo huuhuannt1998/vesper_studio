@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import shutil
 import socket
 import subprocess
@@ -284,6 +285,8 @@ class HomeAssistant:
     start_timeout: float = 300.0
     proc: object = None
     persist_timeout: float = 30.0  # how long onboarding waits for Home Assistant to save the new token
+    frameable: bool = False  # the Lab's play page frames the dashboard (spec §2); nothing else is relaxed
+    automations: str | None = None  # the Lab's: automations.yaml, loaded and editable in Home Assistant's UI
     _access: tuple[str, float] | None = field(default=None, repr=False)
 
     @property
@@ -296,11 +299,43 @@ class HomeAssistant:
     def write_config(self) -> None:
         cfg = Paths(Path(self.root)).ha_config
         cfg.mkdir(parents=True, exist_ok=True)
+        frame = "  use_x_frame_options: false\n" if self.frameable else ""
+        automation = ""
+        if self.automations is not None:
+            (cfg / "automations.yaml").write_text(self.automations)
+            automation = "automation: !include automations.yaml\n"
         (cfg / "configuration.yaml").write_text(
             "homeassistant:\n  name: VESPER\n  unit_system: metric\n  time_zone: UTC\n  country: US\n"
             "  currency: USD\n"
-            f"http:\n  server_host: 127.0.0.1\n  server_port: {self.port}\n"
-            "api:\nconfig:\nonboarding:\nlogger:\n  default: warning\n")
+            f"http:\n  server_host: 127.0.0.1\n  server_port: {self.port}\n{frame}"
+            f"api:\nconfig:\nonboarding:\nlogger:\n  default: warning\n{automation}")
+
+    def lab_login(self) -> tuple[str, str]:
+        """A login for the Lab's hub panel (Home Assistant's dashboard in the play page). Onboarding gives the
+        owner a random password nobody keeps; the Lab sets one once, through Home Assistant's admin API, and keeps
+        it in ha/lab-login.json, readable by its owner only. Delete that file to set a new one."""
+        path = Path(self.root) / "ha" / "lab-login.json"
+        if path.is_file():
+            saved = json.loads(path.read_text())
+            return saved["username"], saved["password"]
+        from websockets.sync.client import connect
+        password = secrets.token_urlsafe(18)
+        with connect(f"ws://127.0.0.1:{self.port}/api/websocket", proxy=None, open_timeout=30) as ws:
+            json.loads(ws.recv(timeout=30))  # auth_required
+            ws.send(json.dumps({"type": "auth", "access_token": self.token()}))
+            if json.loads(ws.recv(timeout=30)).get("type") != "auth_ok":
+                raise StackError("Home Assistant refused VESPER's token on its WebSocket API")
+            user = _ws_call(ws, 1, "auth/current_user")
+            _ws_call(ws, 2, "config/auth_provider/homeassistant/admin_change_password", user_id=user["id"],
+                     password=password)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+            json.dump({"username": "vesper", "password": password}, f)
+        return "vesper", password
+
+    def read_automations(self) -> str:
+        """automations.yaml as it is now: the home's, plus whatever was edited in Home Assistant's UI."""
+        return (Paths(Path(self.root)).ha_config / "automations.yaml").read_text()
 
     def start(self) -> None:
         paths = Paths(Path(self.root))
@@ -465,3 +500,14 @@ class HomeAssistant:
         r = self.api("POST", f"/api/services/{domain}/{service}", json=data)
         if r.status_code >= 400:
             raise StackError(f"service {domain}.{service} failed ({r.status_code}): {r.text[:200]}")
+
+
+def _ws_call(ws, msg_id: int, kind: str, **fields):
+    """One command on Home Assistant's WebSocket API; its result, or a StackError naming the refusal."""
+    ws.send(json.dumps({"id": msg_id, "type": kind, **fields}))
+    while True:
+        msg = json.loads(ws.recv(timeout=30))
+        if msg.get("id") == msg_id:
+            if not msg.get("success"):
+                raise StackError(f"Home Assistant refused {kind}: {msg.get('error', {}).get('message')}")
+            return msg.get("result")

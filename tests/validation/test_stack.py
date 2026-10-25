@@ -440,3 +440,67 @@ def test_a_template_error_is_not_an_empty_home(tmp_path):
     ha = onboarded(tmp_path, FakeServer(template=(400, "Error rendering template")))
     with pytest.raises(StackError, match="400"):
         ha.matter_entities()
+
+
+def test_the_lab_s_home_assistant_may_be_framed_and_loads_the_home_s_automations(tmp_path):
+    plain = HomeAssistant(tmp_path / "plain", port=18123)
+    plain.write_config()
+    assert (tmp_path / "plain" / "ha" / "config" / "configuration.yaml").read_text() == (  # experiments' config
+        "homeassistant:\n  name: VESPER\n  unit_system: metric\n  time_zone: UTC\n  country: US\n  currency: USD\n"
+        "http:\n  server_host: 127.0.0.1\n  server_port: 18123\n"
+        "api:\nconfig:\nonboarding:\nlogger:\n  default: warning\n")
+    rules = "- alias: lamp on when the hall sees someone\n  triggers: []\n  actions: []\n"
+    lab = HomeAssistant(tmp_path / "lab", port=18123, frameable=True, automations=rules)
+    lab.write_config()
+    cfg = tmp_path / "lab" / "ha" / "config"
+    text = (cfg / "configuration.yaml").read_text()
+    assert "http:\n  server_host: 127.0.0.1\n  server_port: 18123\n  use_x_frame_options: false\n" in text
+    assert text.endswith("automation: !include automations.yaml\n")
+    assert (cfg / "automations.yaml").read_text() == rules == lab.read_automations()
+
+
+class FakeHAWebSocket:
+    """Home Assistant's WebSocket API, as far as the Lab's login uses it (auth, current user, admin password)."""
+
+    def __init__(self):
+        from websockets.sync.server import serve
+        import threading
+        self.passwords, self.seen = {}, []
+        self.server = serve(self._handle, "127.0.0.1", 0)
+        self.port = self.server.socket.getsockname()[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def _handle(self, ws):
+        ws.send(json.dumps({"type": "auth_required"}))
+        auth = json.loads(ws.recv())
+        if auth.get("access_token") != "token-1":
+            ws.send(json.dumps({"type": "auth_invalid", "message": "Invalid access token"}))
+            return
+        ws.send(json.dumps({"type": "auth_ok"}))
+        for raw in ws:
+            msg = json.loads(raw)
+            self.seen.append(msg["type"])
+            if msg["type"] == "auth/current_user":
+                result = {"id": "user-owner", "name": "VESPER", "is_owner": True}
+            elif msg["type"] == "config/auth_provider/homeassistant/admin_change_password":
+                self.passwords[msg["user_id"]] = msg["password"]
+                result = None
+            else:
+                ws.send(json.dumps({"id": msg["id"], "type": "result", "success": False,
+                                    "error": {"code": "unknown_command", "message": "Unknown command."}}))
+                continue
+            ws.send(json.dumps({"id": msg["id"], "type": "result", "success": True, "result": result}))
+
+
+def test_the_lab_login_is_set_once_through_the_admin_api_and_kept_private(tmp_path):
+    ws = FakeHAWebSocket()
+    ha = HomeAssistant(tmp_path, port=ws.port)
+    ha.token = lambda: "token-1"
+    user, password = ha.lab_login()
+    saved = tmp_path / "ha" / "lab-login.json"
+    assert user == "vesper" and len(password) >= 16 and ws.passwords == {"user-owner": password}
+    assert json.loads(saved.read_text()) == {"username": "vesper", "password": password}
+    assert saved.stat().st_mode & 0o777 == 0o600
+    assert ha.lab_login() == (user, password)  # kept: set once, not on every play
+    assert ws.seen.count("config/auth_provider/homeassistant/admin_change_password") == 1
+    ws.server.shutdown()
