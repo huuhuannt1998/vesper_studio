@@ -27,6 +27,8 @@ import yaml
 from vesper.exposure.z2m_bridge import topic_safe
 from vesper.twins.twin import Twin, TwinError
 from vesper.lab.geometry import Point, centroid, distance, point_in_polygon
+from vesper.lab.profile import Profile, ProfileError, load_profile
+from vesper.lab.routine import Routine, RoutineError, load_routine
 from vesper.lab.worldmap import MapError, WorldMap, suggest
 
 MOUNTS = ("ceiling", "wall", "table", "floor", "door")
@@ -50,6 +52,15 @@ class PlacedDevice:
     state: dict = field(default_factory=dict)  # starting values, checked against the product's features
 
 
+@dataclass(frozen=True)
+class ResidentSpec:
+    """A resident of the home (spec §5a): who, how they look, the day they live, and their habits."""
+    name: str
+    model: str
+    routine: Routine
+    profile: Profile
+
+
 @dataclass
 class LabHome:
     path: Path
@@ -60,7 +71,7 @@ class LabHome:
     avatar: dict  # {"model": str, "start": Point}
     devices: list[PlacedDevice]
     doors: dict[str, bool]  # doorway id -> open at the start
-    residents: list[dict] = field(default_factory=list)
+    residents: list[ResidentSpec] = field(default_factory=list)
     automations: Path | None = None
     defenses: list[str] = field(default_factory=list)
     broker: tuple[str, int] = ("127.0.0.1", 18830)
@@ -114,12 +125,41 @@ def load_lab_home(path: Path, catalog: dict[str, dict]) -> LabHome:
     return LabHome(path=path, map=world_map, scene=str(spec.get("scene", world_map.scene)),
                    seed=_int(spec.get("seed", 0), "seed"), start_time=_clock(spec.get("start_time", "07:00")),
                    avatar={"model": avatar.get("model", "female_0"), "start": spawn_point(world_map, start)},
-                   devices=devices, doors=doors, residents=list(spec.get("residents") or []),
+                   devices=devices, doors=doors,
+                   residents=_residents(spec.get("residents") or [], path, world_map, devices),
                    automations=path.parent / automations if automations else None,
                    defenses=list(_mapping(spec.get("security") or {}, "security").get("defenses") or []),
                    broker=(_text(broker.get("host", "127.0.0.1"), "broker.host"),
                            _int(broker.get("port", 18830), "broker.port")),
                    matter_interface=spec.get("matter_interface"))
+
+
+def _residents(raw, path: Path, world_map: WorldMap, devices: list[PlacedDevice]) -> list[ResidentSpec]:
+    out: list[ResidentSpec] = []
+    for k, r in enumerate(_list(raw, "residents")):
+        where = f"residents[{k}]"
+        r = _mapping(r, where)
+        name = r.get("name")
+        if not isinstance(name, str) or not topic_safe(name):
+            raise HomeError(f"{where}.name: name the resident (letters, digits, '_' or '-')")
+        if name == "player":
+            raise HomeError(f"{where}.name: 'player' is the player's name")
+        if any(d.name == name for d in devices):
+            raise HomeError(f"{where}.name: {name!r} is a device's name")
+        if any(s.name == name for s in out):
+            raise HomeError(f"{where}.name: {name!r} is used twice")
+        routine = r.get("routine")
+        if not isinstance(routine, str):
+            raise HomeError(f"{where}.routine: the resident's routine file, such as routines/{name}.yaml")
+        try:
+            day = load_routine(path.parent / routine, world_map)
+            profile = load_profile(r.get("profile"), f"{where}.profile")
+        except RoutineError as e:
+            raise HomeError(f"{where}.routine: {e}") from e
+        except ProfileError as e:
+            raise HomeError(str(e)) from e
+        out.append(ResidentSpec(name, _text(r.get("avatar", "male_0"), f"{where}.avatar"), day, profile))
+    return out
 
 
 def spawn_point(world_map: WorldMap, room_id: str) -> Point:

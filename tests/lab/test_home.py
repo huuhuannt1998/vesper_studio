@@ -109,3 +109,53 @@ def test_a_malformed_home_file_names_the_field_instead_of_crashing(tmp_path, old
     assert text != HOME
     with pytest.raises(HomeError, match=message):
         load(tmp_path, text)
+
+
+ALEX = """\
+version: 1
+tasks:
+  - {at: "07:00", minutes: 30, name: wake up, category: SLEEP, room: bedroom}
+  - {at: "07:30", minutes: 20, name: breakfast, category: EATING, room: kitchen}
+"""
+WITH_ALEX = HOME + """\
+    residents:
+      - {name: alex, avatar: male_1, routine: routines/alex.yaml, profile: {forget_light: 0.3}}
+"""
+
+
+def test_residents_come_with_their_routine_and_profile(tmp_path):
+    (tmp_path / "routines").mkdir()
+    (tmp_path / "routines" / "alex.yaml").write_text(ALEX)
+    home = load(tmp_path, WITH_ALEX)
+    (alex,) = home.residents
+    assert (alex.name, alex.model, alex.profile.forget_light) == ("alex", "male_1", 0.3)
+    assert [t.name for t in alex.routine.tasks] == ["wake up", "breakfast"]
+
+
+@pytest.mark.parametrize("change, message", [
+    (("routines/alex.yaml", "routines/bob.yaml"), r"residents\[0\]\.routine: .*bob\.yaml: cannot read it"),
+    (("name: alex", "name: player"), r"residents\[0\]\.name: 'player' is the player's name"),
+    (("name: alex", "name: front_door"), r"residents\[0\]\.name: 'front_door' is a device's name"),
+    (("forget_light: 0.3", "forget_light: 3"), r"residents\[0\]\.profile\.forget_light: 3 is not a probability"),
+    (("{name: alex, avatar", "{avatar"), r"residents\[0\]\.name: name the resident"),
+])
+def test_a_resident_s_mistakes_are_named(tmp_path, change, message):
+    (tmp_path / "routines").mkdir()
+    (tmp_path / "routines" / "alex.yaml").write_text(ALEX)
+    with pytest.raises(HomeError, match=message):
+        load(tmp_path, WITH_ALEX.replace(*change))
+
+
+def test_a_routine_that_does_not_fit_the_map_is_named_through_the_resident(tmp_path):
+    (tmp_path / "routines").mkdir()
+    (tmp_path / "routines" / "alex.yaml").write_text(ALEX.replace("room: kitchen", "room: attic"))
+    with pytest.raises(HomeError, match=r"residents\[0\]\.routine: tasks\[1\]\.room: unknown room 'attic'"):
+        load(tmp_path, WITH_ALEX)
+
+
+def test_two_residents_may_not_share_a_name(tmp_path):
+    (tmp_path / "routines").mkdir()
+    (tmp_path / "routines" / "alex.yaml").write_text(ALEX)
+    twice = WITH_ALEX + "      - {name: alex, routine: routines/alex.yaml}\n"
+    with pytest.raises(HomeError, match=r"residents\[1\]\.name: 'alex' is used twice"):
+        load(tmp_path, twice)
