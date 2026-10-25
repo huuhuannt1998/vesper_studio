@@ -186,3 +186,11 @@ def test_a_walk_off_the_map_is_refused_before_it_reaches_the_trace(play):
         ws.send(json.dumps({"type": "walk_to", "x": 1e308, "z": -1e308}))
         until(ws, lambda m: m["type"] == "error")
     assert not any(r["kind"] == "input" and r["op"] == "walk_to" for r in play.session.records)
+
+
+def test_a_page_that_joins_late_gets_the_recent_console(play):
+    play.session.note({"resident": "alex", "decision": "forgot the light", "device": "bedroom_lamp"})
+    with client(play) as ws:
+        hello = until(ws, lambda m: m["type"] == "hello")
+    kinds = [r["kind"] for r in hello["records"]]
+    assert kinds[0] == "meta" and kinds[-1] == "resident" and len(hello["records"]) <= 200

@@ -78,3 +78,8 @@ test("a command from the hub is a console line, and a refused one says why", () 
     outcome: { accepted: false, reason: "occupancy is read-only" } }, start),
     "07:00:04 the hub sets hall_motion occupancy = true: refused (occupancy is read-only)");
 });
+
+test("a resident's decision not to act is a console line", () => {
+  assert.equal(recordLine({ t: 1, kind: "resident", resident: "alex", decision: "forgot the light",
+    device: "bedroom_lamp" }, 21 * 3600), "21:00:01 alex: forgot the light (bedroom_lamp)");
+});

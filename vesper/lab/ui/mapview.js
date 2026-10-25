@@ -75,6 +75,7 @@ export function recordLine(r, startSeconds) {
 
 function describe(r) {
   if (r.kind === "meta") return `the session starts on ${r.scene}`;
+  if (r.kind === "resident") return `${r.resident}: ${r.decision}` + (r.device ? ` (${r.device})` : "");
   if (r.kind === "report") return `${r.device} reports ${r.feature} = ${JSON.stringify(r.value)}`;
   if (r.kind === "rule") {
     if (r.rule === "presence") return `presence: ${r.device} sees ${r.actor}`;

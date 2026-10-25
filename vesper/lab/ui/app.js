@@ -74,6 +74,8 @@ function onHello(h) {
   } else {
     $("hub").innerHTML = "<p>No hub in this session. With Home Assistant set up, <code>vesper lab play</code> shows its dashboard here.</p>";
   }
+  $("log").innerHTML = "";
+  for (const r of h.records || []) onRecord(r); // what happened before this page joined
   layout();
   updateHint();
 }

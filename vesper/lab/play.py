@@ -15,6 +15,7 @@ running (the wall clock, as play is).
 from __future__ import annotations
 
 import asyncio
+import collections
 import concurrent.futures
 import http
 import json
@@ -37,13 +38,14 @@ CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; c
                  ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png",
                  ".json": "application/json"}
 QUEUE_MAX = 5000  # messages waiting for one page; a page that falls this far behind is disconnected
+RECENT = 200  # trace records a page gets when it connects: the console of a page that joins late
 
 
 class PlayError(RuntimeError):
     """The play server could not start."""
 
 
-def hello(session, hub_url: str | None = None) -> dict:
+def hello(session, hub_url: str | None = None, recent=()) -> dict:
     home, world, m = session.home, session.world, session.home.map
     return {
         "type": "hello", "scene": home.scene, "player": PLAYER, "hub": hub_url,
@@ -56,7 +58,7 @@ def hello(session, hub_url: str | None = None) -> dict:
         "devices": [_device(session, d) for d in home.devices],
         "doors": [_door(session, door) for door in world.doors],
         "actors": [_pose(world.pose(a)) for a in world.actors()],
-        "reach": reach(session)}
+        "reach": reach(session), "records": list(recent)}
 
 
 def _box(grid, cells) -> list[float]:
@@ -106,6 +108,7 @@ class PlayServer:
         self._want_port = port
         self._pages: dict[asyncio.Queue, object] = {}  # each page's outgoing messages -> its connection
         self._reach = self._reach_key()
+        self._recent = collections.deque(session.records[-RECENT:], maxlen=RECENT)  # written on the clock thread
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stop: asyncio.Event | None = None
         self._error: Exception | None = None
@@ -113,7 +116,7 @@ class PlayServer:
         self._thread: threading.Thread | None = None
         session.world.on_event(self._on_world)
         session.rules.on_effect(lambda key, effect: self._emit({"type": "effect", "target": key, "effect": effect}))
-        session.on_record(lambda rec: self._emit({"type": "record", "record": rec}))
+        session.on_record(self._on_record)
 
     @property
     def url(self) -> str:
@@ -184,7 +187,7 @@ class PlayServer:
         sender = None
         try:
             try:
-                snapshot = await self._on_clock(lambda: hello(self.session, self.hub_url))
+                snapshot = await self._on_clock(lambda: hello(self.session, self.hub_url, self._recent))
             except Exception as e:  # noqa: BLE001 - kept for the look, then the page is closed
                 self._fail(f"hello: {type(e).__name__}: {e}")
                 return
@@ -272,6 +275,10 @@ class PlayServer:
             if key != self._reach:
                 self._reach = key
                 self._emit({"type": "reach", "targets": reach(self.session)})
+
+    def _on_record(self, rec: dict) -> None:
+        self._recent.append(rec)
+        self._emit({"type": "record", "record": rec})
 
     def _reach_key(self) -> tuple:
         return tuple((r["kind"], r["target"]) for r in reach(self.session))
