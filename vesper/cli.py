@@ -524,6 +524,8 @@ def _lab(args) -> int:
             return _lab_play(args, load_lab_home(Path(args.home), catalog))
         if args.action == "look":
             return _lab_look(args, load_lab_home(Path(args.home), catalog))
+        if args.action == "day":
+            return _lab_day(args, load_lab_home(Path(args.home), catalog))
         return _lab_replay(args, catalog, load_lab_home)
     except (HomeError, MapError, TraceError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
@@ -756,6 +758,56 @@ def _lab_look(args, home) -> int:
     return 0 if report.ok else 1
 
 
+def _lab_day(args, home) -> int:
+    """The home's residents live a day on the logical clock, faster than real time (spec §5a, §5b)."""
+    from vesper.lab.routine import RoutineError, _time
+    from vesper.lab.session import Session
+    if not home.residents:
+        print(f"FAILED: {home.path.name} has no residents; add them under `residents:`, each with a routine file",
+              file=sys.stderr)
+        return 1
+    try:
+        home.start_time = _time(args.start, "--from")
+    except RoutineError as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    if not args.hours > 0:
+        print(f"FAILED: --hours: {args.hours} is not a positive number of hours", file=sys.stderr)
+        return 1
+    traces = home.path.parent / "traces"
+    traces.mkdir(parents=True, exist_ok=True)
+    trace = Path(args.trace) if args.trace else _new_trace(traces, "day")
+    if home.automations is not None:
+        print(f"note: {home.automations.name} does not run in a day: Home Assistant is not in the loop")
+    session = Session(home, trace=trace)
+    session.start(spawn_player=False)
+    session.clock.advance(args.hours * 3600)
+    session.stop()
+    for line in _day_summary(session):
+        print(line)
+    kinds = [r["kind"] for r in session.records]
+    print(f"{kinds.count('report')} device reports, {kinds.count('rule')} rule firings; trace {trace}")
+    return 0
+
+
+def _day_summary(session) -> list[str]:
+    from collections import Counter
+    lines = []
+    for spec in session.home.residents:
+        acts = [r for r in session.records if r["kind"] == "input" and r["actor"] == spec.name]
+        walks = sum(r["op"] == "walk_to" for r in acts)
+        uses = Counter(r["why"]["reason"] for r in acts if r["op"] == "interact" and "why" in r)
+        skipped = Counter(r["decision"] for r in session.records if r["kind"] == "resident"
+                          and r.get("resident") == spec.name)
+        line = f"{spec.name}: {len(spec.routine.tasks)} tasks, {walks} walks, {sum(uses.values())} uses"
+        if uses:
+            line += " (" + ", ".join(f"{why}: {n}" for why, n in uses.most_common()) + ")"
+        if skipped:
+            line += "; did not: " + ", ".join(f"{what} ({n})" for what, n in skipped.most_common())
+        lines.append(line)
+    return lines
+
+
 def _lab_replay(args, catalog, load_lab_home) -> int:
     from vesper.lab.session import compare_reports, read_trace, replay
     try:
@@ -901,6 +953,12 @@ def main(argv: list[str] | None = None) -> int:
     lab_look.add_argument("--root", default=".vesper", help="where `vesper setup ha` installed the stack")
     lab_look.add_argument("--width", type=int, default=1280)
     lab_look.add_argument("--height", type=int, default=800)
+    lab_day = lab_actions.add_parser("day", help="the home's residents live a day, faster than real time")
+    lab_day.add_argument("home")
+    lab_day.add_argument("--catalog", default="catalog/vds")
+    lab_day.add_argument("--from", dest="start", default="00:00", help="the time of day it starts (default 00:00)")
+    lab_day.add_argument("--hours", type=float, default=24.0, help="how long (default 24)")
+    lab_day.add_argument("--trace", help="the trace file (default: traces/<time>-day-<pid>.jsonl next to the home)")
     lab_replay = lab_actions.add_parser("replay", help="replay a trace's inputs and compare the device reports")
     lab_replay.add_argument("trace")
     lab_replay.add_argument("--home", help="the home file (default: the one the trace names)")
