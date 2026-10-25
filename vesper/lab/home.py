@@ -142,8 +142,8 @@ def _residents(raw, path: Path, world_map: WorldMap, devices: list[PlacedDevice]
         name = r.get("name")
         if not isinstance(name, str) or not topic_safe(name):
             raise HomeError(f"{where}.name: name the resident (letters, digits, '_' or '-')")
-        if name == "player":
-            raise HomeError(f"{where}.name: 'player' is the player's name")
+        if name in ("player", "hub"):
+            raise HomeError(f"{where}.name: {name!r} is the {name}'s name")
         if any(d.name == name for d in devices):
             raise HomeError(f"{where}.name: {name!r} is a device's name")
         if any(s.name == name for s in out):
@@ -158,6 +158,10 @@ def _residents(raw, path: Path, world_map: WorldMap, devices: list[PlacedDevice]
             raise HomeError(f"{where}.routine: {e}") from e
         except ProfileError as e:
             raise HomeError(str(e)) from e
+        away = next((j for j, task in enumerate(day.tasks) if task.room is None), None)
+        if away is not None and not any(room.outdoor for room in world_map.rooms):
+            raise HomeError(f"{where}.routine: tasks[{away}] ({day.tasks[away].name}) is AWAY, but the map has no "
+                            f"outdoor room to go to")
         out.append(ResidentSpec(name, _text(r.get("avatar", "male_0"), f"{where}.avatar"), day, profile))
     return out
 

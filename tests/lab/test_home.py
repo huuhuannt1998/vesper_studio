@@ -138,6 +138,7 @@ def test_residents_come_with_their_routine_and_profile(tmp_path):
     (("name: alex", "name: front_door"), r"residents\[0\]\.name: 'front_door' is a device's name"),
     (("forget_light: 0.3", "forget_light: 3"), r"residents\[0\]\.profile\.forget_light: 3 is not a probability"),
     (("{name: alex, avatar", "{avatar"), r"residents\[0\]\.name: name the resident"),
+    (("name: alex", "name: hub"), r"residents\[0\]\.name: 'hub' is the hub's name"),
 ])
 def test_a_resident_s_mistakes_are_named(tmp_path, change, message):
     (tmp_path / "routines").mkdir()
@@ -159,3 +160,25 @@ def test_two_residents_may_not_share_a_name(tmp_path):
     twice = WITH_ALEX + "      - {name: alex, routine: routines/alex.yaml}\n"
     with pytest.raises(HomeError, match=r"residents\[1\]\.name: 'alex' is used twice"):
         load(tmp_path, twice)
+
+
+def test_an_away_task_needs_somewhere_outside_to_go(tmp_path):
+    from tests.lab.maps import house
+    from vesper.lab.worldmap import WorldMap
+    m = house()
+    indoors = WorldMap(scene=m.scene, rooms=[r for r in m.rooms if not r.outdoor], grid=m.grid)
+    (tmp_path / "routines").mkdir()
+    (tmp_path / "routines" / "alex.yaml").write_text(ALEX + '  - {at: "08:00", minutes: 60, name: work, '
+                                                            'category: AWAY}\n')
+    text = """\
+        version: 2
+        scene: test/house
+        avatar: {model: female_0, start: {room: hall}}
+        devices:
+          - {product: "zigbee:acme:pir-1", name: hall_motion, at: {room: hall, mount: ceiling}}
+        residents:
+          - {name: alex, routine: routines/alex.yaml}
+    """
+    with pytest.raises(HomeError, match=r"residents\[0\]\.routine: tasks\[2\] \(work\) is AWAY, but the map has "
+                                        r"no outdoor room to go to"):
+        load_lab_home(write_home(tmp_path, text, world_map=indoors), catalog())

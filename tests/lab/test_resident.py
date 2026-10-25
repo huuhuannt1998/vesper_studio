@@ -216,3 +216,148 @@ def test_the_home_s_residents_enter_with_the_session_and_a_replay_lives_their_da
     assert [r["op"] for r in lived].count("spawn") == 1  # lived again, not lived and re-applied
     assert lived == [r for r in s.records if r["kind"] == "input" and r["actor"] == "alex"]
     assert compare_reports(s.records, again) is None
+
+
+# -- the final review's findings --------------------------------------------------------------------------------
+
+RESIDENT = "    residents:\n      - {name: alex, routine: routines/alex.yaml}\n"
+KITCHEN_LAMP = ('      - {product: "zigbee:acme:dim-1", name: kitchen_lamp, at: {room: kitchen, xy: [5.0, 1.0], '
+                'mount: table}}\n')
+SMOKE = '      - {product: "zigbee:acme:smoke-1", name: kitchen_smoke, at: {room: kitchen, mount: ceiling}}\n'
+
+
+def smoke_catalog():
+    cat = catalog()
+    smoke = copy.deepcopy(cat["zigbee:acme:pir-1"])
+    smoke["id"], smoke["identity"]["category"] = "zigbee:acme:smoke-1", "smoke_sensor"
+    smoke["features"][0].update(name="smoke", property="smoke", ha="binary_sensor/smoke")
+    cat[smoke["id"]] = smoke
+    return cat
+
+
+def smoke(t, value):
+    t.s.runtime.stimulate(t.s.twin_ids["kitchen_smoke"], {"type": "measured", "feature": "smoke", "value": value})
+
+
+def notes(t, decision):
+    return [r for r in t.s.records if r["kind"] == "resident" and r["decision"] == decision]
+
+
+def test_a_session_with_the_player_and_the_residents_replays_exactly(tmp_path):
+    (tmp_path / "routines").mkdir()
+    (tmp_path / "routines" / "alex.yaml").write_text(MORNING)
+    motion = '      - {product: "zigbee:acme:pir-1", name: bedroom_motion, at: {room: bedroom, mount: ceiling}}\n'
+    text = HOME.replace('start_time: "07:30"', 'start_time: "06:59"') + motion + RESIDENT  # alex is in bed
+    home = load_lab_home(write_home(tmp_path, text), catalog())
+    s = Session(home, clock=LogicalClock())
+    s.start()  # the player and alex, as `vesper lab run` and the Python API do
+    s.move(0.3, 0.0)  # a script's first input, before the clock moves
+    s.clock.advance(600)
+    s.stop()
+    assert compare_reports(s.records, replay(s.records, home)) is None
+
+
+def test_two_residents_leaving_a_lit_room_together_switch_its_light_off(tmp_path):
+    day = [task("21:00", 30, "read", "LEISURE", "bedroom"), task("21:30", 10, "tea", "EATING", "kitchen")]
+    t = lab(tmp_path, [day, list(day)], start="20:59", residents=2, profile=Profile(forget_light=0.0))
+    t.at("21:33")
+    assert (t.room("r0"), t.room("r1")) == ("kitchen", "kitchen") and t.on("bedroom_lamp") is False
+
+
+def test_going_to_bed_from_a_lit_room_switches_that_room_s_light_off(tmp_path):
+    t = lab(tmp_path, [task("21:00", 60, "tea", "EATING", "kitchen"), task("22:30", 480, "sleep", "SLEEP",
+                                                                           "bedroom")],
+            start="20:59", extra=KITCHEN_LAMP, profile=Profile(forget_light=0.0, forget_lock=0.0))
+    t.at("21:05")
+    assert t.on("kitchen_lamp") is True
+    t.at("22:40")
+    assert t.room() == "bedroom" and t.on("kitchen_lamp") is False and t.locked("front_lock") is True
+
+
+def test_the_routine_is_lived_every_day_and_across_midnight(tmp_path):
+    day = [task("07:00", 30, "breakfast", "EATING", "kitchen"), task("23:30", 450, "sleep", "SLEEP", "bedroom")]
+    t = lab(tmp_path, day, start="23:00")
+    t.s.clock.advance_to(8 * H + 2 * 60)  # 07:02 the next morning
+    assert t.room() == "kitchen"
+    t.s.clock.advance_to(32 * H + 2 * 60)  # 07:02 the morning after
+    to_task = [r["why"]["task"] for r in inputs(t.s) if r["op"] == "walk_to" and r["why"]["reason"] == r["why"]["task"]]
+    assert t.room() == "kitchen" and to_task == ["sleep", "breakfast", "sleep", "breakfast"]
+
+
+def test_going_to_bed_after_midnight_is_going_to_bed(tmp_path):
+    t = lab(tmp_path, [task("23:30", 60, "tv", "LEISURE", "hall"), task("00:30", 420, "sleep", "SLEEP",
+                                                                        "bedroom")],
+            start="23:29", profile=Profile(forget_lock=0.0))
+    t.s.clock.advance_to(H + 11 * 60)  # 00:40
+    assert t.room() == "bedroom" and t.locked("front_lock") is True
+
+
+def test_an_alarm_keeps_the_residents_out_until_it_clears(tmp_path):
+    t = lab(tmp_path, [task("07:00", 120, "breakfast", "EATING", "kitchen"), task("09:30", 60, "read", "LEISURE",
+                                                                                   "bedroom")],
+            extra=PLUG + SMOKE, cat=smoke_catalog())
+    t.at("07:05")
+    assert t.on("kitchen_plug") is True
+    smoke(t, True)
+    t.at("09:35")  # breakfast ended at 09:00 and reading began at 09:30, with the smoke still reported
+    assert t.room() == "porch" and t.s.world.doors["hall-porch"] is False
+    assert [r["task"] for r in notes(t, "stayed out: an alarm")] == ["read"]
+    assert not [r for r in inputs(t.s) if r["t"] > 6 * 60 and r["op"] == "interact"
+                and r["args"]["target"] == "kitchen_plug"]  # nobody went back in to switch the plug off
+    smoke(t, False)
+    t.at("09:40")
+    assert t.room() == "bedroom" and t.s.world.doors["hall-porch"] is False and t.on("kitchen_plug") is False
+
+
+def test_a_closed_door_on_the_way_is_opened_and_closed_behind(tmp_path):
+    t = lab(tmp_path, [task("07:00", 30, "breakfast", "EATING", "kitchen"), task("07:30", 30, "dress", "HYGIENE",
+                                                                              "bedroom")])
+    t.at("07:05")
+    t.s.world.set_door("bedroom-hall", False)  # someone closed it while alex was in the kitchen
+    t.at("07:31")
+    assert t.room() == "bedroom" and t.s.world.doors["bedroom-hall"] is False
+    assert [r["args"]["target"] for r in inputs(t.s) if r["op"] == "interact"] == ["bedroom-hall", "bedroom-hall"]
+
+
+def test_a_door_closed_in_front_of_a_walking_resident_is_opened_again(tmp_path):
+    t = lab(tmp_path, [task("07:00", 30, "breakfast", "EATING", "kitchen"), task("07:30", 30, "dress", "HYGIENE",
+                                                                              "bedroom")])
+    t.s.clock.advance_to(30 * 60 + 2)  # 07:30:02: on the way from the kitchen to the bedroom
+    assert t.room() != "bedroom"
+    t.s.world.set_door("bedroom-hall", False)
+    t.s.clock.advance_to(31 * 60 + 30)
+    assert t.room() == "bedroom" and not notes(t, "could not get there")
+
+
+def test_a_task_in_progress_when_the_day_starts_gets_its_light_and_its_devices(tmp_path):
+    t = lab(tmp_path, [task("21:00", 60, "read", "LEISURE", "bedroom")], start="21:10")
+    t.s.clock.advance_to(30)
+    assert t.room() == "bedroom" and t.on("bedroom_lamp") is True
+    (tmp_path / "u").mkdir()
+    u = lab(tmp_path / "u", [task("07:00", 60, "breakfast", "EATING", "kitchen")], start="07:10", extra=PLUG)
+    u.s.clock.advance_to(30)
+    assert u.room() == "kitchen" and u.on("kitchen_plug") is True
+
+
+def test_a_room_that_grows_dark_or_whose_light_is_switched_off_gets_its_light_again(tmp_path):
+    t = lab(tmp_path, [task("19:00", 120, "read", "LEISURE", "bedroom")], start="18:59")
+    t.at("19:02")
+    assert t.on("bedroom_lamp") is False  # still light enough
+    t.at("20:00")
+    assert t.on("bedroom_lamp") is True  # dusk
+    t.s.spawn("player", "female_0", (5.0, 4.4))
+    t.s.interact("bedroom_lamp", actor="player")
+    assert t.on("bedroom_lamp") is False
+    t.at("20:02")
+    assert t.on("bedroom_lamp") is True
+    assert [r["why"]["reason"] for r in inputs(t.s) if r["op"] == "interact"] == ["a dark room", "a dark room"]
+
+
+def test_the_next_task_s_devices_stay_on_and_a_switch_off_names_the_task_that_used_them(tmp_path):
+    t = lab(tmp_path, [task("17:00", 30, "cooking", "HOUSEHOLD", "kitchen"), task("17:30", 30, "dinner", "EATING",
+                                                                                   "kitchen"),
+                       task("18:00", 60, "walk", "AWAY")], start="16:59", extra=PLUG)
+    t.at("18:05")
+    uses = [(r["why"]["task"], r["why"]["reason"]) for r in inputs(t.s) if r["op"] == "interact"
+            and r["args"]["target"] == "kitchen_plug"]
+    assert uses == [("cooking", "cooking"), ("dinner", "dinner is over")]

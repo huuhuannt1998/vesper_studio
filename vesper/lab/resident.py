@@ -6,17 +6,24 @@ with who did it and why (`why`: resident, task, reason), the ground truth an att
 alarm are judged against (spec §6, D2). Decisions not to act ("forgot the light") are traced too.
 
 What it does, from its routine and its profile:
-- at each task's time it goes to the task's room; there it switches on what the task uses (a plug while
-  cooking) and switches it off when the task is over;
-- a room too dark for the task (the rules' daylight model, no light on) gets its light;
+- every day, at each task's time, it goes to the task's room; there it switches on what the task uses (a plug
+  while cooking) and switches it off when the task is over, unless the next task uses it too; a switch-off
+  names the task that used the device;
+- a room too dark for the task (the rules' daylight model, no light on) gets its light, when the task begins
+  and whenever the resident looks around (every LOOK_S): the room has grown dark, or someone switched the
+  light off;
 - leaving a room, it switches the room's lights off, unless it forgets (the profile's chance) or someone else
-  is still there;
-- going to bed (a SLEEP task after the profile's bedtime) it locks the front door, unless it forgets, and
-  switches the bedroom's lights off; sleep never switches a light on;
+  stays there (a resident whose task is in that room, or anyone else standing in it);
+- going to bed (a SLEEP task that starts within NIGHT_S after the profile's bedtime) it switches off the lights
+  of the room it leaves and of the bedroom, and locks the front door unless it forgets; sleep never switches a
+  light on;
 - leaving home (an AWAY task) it goes out through the front door, closes it and locks it behind, unless it
   forgets; coming home it unlocks, opens and closes it again;
-- an alarm (a smoke or gas sensor reporting) sends it out of the home.
-Reactions read what a person in the room would see (a light on or off), never Home Assistant's state.
+- a closed door on its way it opens, and closes behind it; a walk it cannot make is traced;
+- an alarm (a smoke or gas sensor reporting) sends it out of the home, and keeps it out until every alarm has
+  cleared; then it goes back to what its routine has it do.
+A session that starts in the middle of a task finds the resident at it. Reactions read what a person in the
+room would see (a light on or off), never Home Assistant's state.
 """
 from __future__ import annotations
 
@@ -31,6 +38,10 @@ from vesper.lab.rules import ambient_at, is_locked, is_on
 ALARMS = {("smoke_sensor", "smoke"), ("gas_sensor", "gas")}
 RETRY_S = 2.0  # waiting for a doorway someone stands in
 NEAR_M = 0.4  # how far from a device a resident stands to use it
+LOOK_S = 60.0  # how often a resident at its task looks around
+NIGHT_S = 8 * 3600  # going to bed: a SLEEP task that starts within this long after the profile's bedtime
+DAY_S = 24 * 3600
+WALK_TRIES = 3  # a walk planned again this often (doors shut on the way) is given up, and the trace says so
 
 
 class Resident:
@@ -42,52 +53,97 @@ class Resident:
         self._steps: deque = deque()
         self._epoch = 0  # a new task or an alarm replaces what was under way
         self._waiting = False
+        self._walking: tuple | None = None  # (point, reason, tries, task): the walk under way
         self._task: int | None = None
-        self._task_devices: list[tuple[str, str]] = []  # (device, task name): what the task switched on
-        self._alarm = False
+        self._task_devices: dict[str, str] = {}  # device -> the task that switched it on
+        self._alarms: set[str] = set()  # the alarm sensors reporting now
+        session.residents[name] = self
         self.world.on_event(self._on_world)
         session.runtime.subscribe(self._on_report)
 
+    @property
+    def _alarm(self) -> bool:
+        return bool(self._alarms)
+
     # -- the day ------------------------------------------------------------------------------
     def start(self) -> None:
-        start = self.home.start_time
+        start, clock = self.home.start_time, self.session.clock
+        self._start = clock.now()
+        self._midnight = self._start - start  # the session's time at the midnight that begins its first day
         self.session.spawn(self.name, self.model, self._spot(self._room_at(start)))
+        under_way = self._under_way(start)
+        if under_way is not None:  # the resident is at it already, and goes on with it
+            k, end = under_way
+            self._task = k
+            clock.call_at(self._start, self._settle)
+            clock.call_at(self._midnight + end, lambda k=k: self._end(k))
+        self._schedule_day(0)
+        self._schedule_day(1)
+        clock.call_at(self._midnight + DAY_S, lambda: self._next_day(2))
+        clock.call_at(self._start + LOOK_S, self._look)
+
+    def _schedule_day(self, day: int) -> None:
+        """Every task begins and ends at its times on every day; day 0 is the day the session starts on."""
         for k, t in enumerate(self.routine.tasks):
-            if t.start >= start:
-                self.session.clock.call_at(t.start - start, lambda k=k: self._begin(k))
-            elif t.end > start:
-                self._task = k  # in progress: the resident is already there
-            if t.end >= start:
-                self.session.clock.call_at(t.end - start, lambda k=k: self._end(k))
+            at = self._midnight + day * DAY_S + t.start
+            if at >= self._start:
+                self.session.clock.call_at(at, lambda k=k: self._begin(k))
+                self.session.clock.call_at(at + t.duration, lambda k=k: self._end(k))
+
+    def _next_day(self, day: int) -> None:
+        """At the midnight that begins day `day - 1`: day `day` is scheduled, a day before its tasks are due."""
+        self._schedule_day(day)
+        self.session.clock.call_at(self._midnight + day * DAY_S, lambda: self._next_day(day + 1))
+
+    def _under_way(self, when: float) -> tuple[int, float] | None:
+        """(task, end) of the task that began before `when` and has not ended (yesterday's may run past
+        midnight), in seconds after the first day's midnight."""
+        for day in (0, -1):
+            for k, t in enumerate(self.routine.tasks):
+                begin = day * DAY_S + t.start
+                if begin < when < begin + t.duration:
+                    return k, begin + t.duration
+        return None
 
     def _room_at(self, when: float) -> str:
         tasks = self.routine.tasks
-        now = [t for t in tasks if t.start <= when < t.end]
+        now = [t for t in tasks if t.start <= when < t.end] or [t for t in tasks if t.end - DAY_S > when]
         before = [t for t in tasks if t.start <= when]
         chosen = now[0] if now else before[-1] if before else tasks[-1] if tasks else None  # else yesterday's last
         if chosen is not None and chosen.room is None:
             return self._outdoors() or self._indoor_rooms()[0]
         return chosen.room if chosen is not None else self._indoor_rooms()[0]
 
+    def _settle(self) -> None:
+        """The task under way when the session starts: in its room already, the resident does what it does."""
+        task = self.routine.tasks[self._task]
+        if task.room is not None and not self._alarm:
+            if task.category != "SLEEP":
+                self._steps.append(("dark", task.room))
+            self._steps.append(("devices", task))
+            self._next()
+
     def _begin(self, k: int) -> None:
         task = self.routine.tasks[k]
         self._task = k
         self._epoch += 1
         self._steps.clear()
-        self._waiting = False
-        steps = [("use", d, False, f"{name} is over") for d, name in self._task_devices]
-        self._task_devices = []
+        self._waiting, self._walking = False, None
+        if self._alarm:  # kept out of the home
+            if task.room is not None:
+                self.session.note({"resident": self.name, "decision": "stayed out: an alarm", "task": task.name})
+            return
+        outside = self._outside()
         if task.room is None:
-            if not self._outside():
-                steps += self._leave_home("leaving home")
+            steps = [] if outside else self._switch_off(keep=()) + self._leave_home("leaving home")
         else:
-            if self._outside():
-                steps += self._come_home()
-            bedtime = task.category == "SLEEP" and task.start >= self.profile.bedtime
-            if bedtime:
+            steps = (self._come_home() if outside else []) + self._switch_off(keep=self._uses(task))
+            bed = self._going_to_bed(task)
+            steps.append(("leave_room", task.room))
+            if bed:
                 steps.append(("bedtime_lock",))
-            steps += [("leave_room", task.room), ("walk_room", task.room, task.name)]
-            if bedtime:
+            steps.append(("walk_room", task.room, task.name))
+            if bed:
                 steps.append(("lights_out", task.room))  # going to bed: the lights go off
             elif task.category != "SLEEP":
                 steps.append(("dark", task.room))
@@ -96,11 +152,37 @@ class Resident:
         self._next()
 
     def _end(self, k: int) -> None:
+        if self._task != k or self._alarm:
+            return  # out of the home for an alarm: what was left on stays on until the resident is back
         tasks = self.routine.tasks
-        if k + 1 < len(tasks) and tasks[k + 1].start <= tasks[k].end + 1e-6:
-            return  # the next task begins now, and switches this one's devices off first
-        self._steps.extend(("use", d, False, f"{name} is over") for d, name in self._task_devices)
-        self._task_devices = []
+        gap = (tasks[(k + 1) % len(tasks)].start - tasks[k].end) % DAY_S
+        if gap < 1e-6 or DAY_S - gap < 1e-6:
+            return  # the next task begins now, and switches off what it does not use
+        self._steps.extend(self._switch_off(keep=()))
+        self._next()
+
+    def _switch_off(self, keep) -> list[tuple]:
+        """Steps that switch off the devices earlier tasks switched on, except those in `keep` (the next task
+        uses them: they stay on, and are now that task's)."""
+        steps = [("use", d, False, f"{task} is over", 0, task) for d, task in self._task_devices.items()
+                 if d not in keep]
+        self._task_devices = {d: task for d, task in self._task_devices.items() if d in keep}
+        return steps
+
+    def _going_to_bed(self, task) -> bool:
+        return task.category == "SLEEP" and (task.start - self.profile.bedtime) % DAY_S < NIGHT_S
+
+    def _look(self) -> None:
+        """Every LOOK_S: at its task and in its room, a resident sees a room grown dark, or its light switched
+        off by someone else."""
+        clock = self.session.clock
+        clock.call_at(clock.now() + LOOK_S, self._look)
+        if self._alarm or self._steps or self._waiting or self._task is None:
+            return
+        task = self.routine.tasks[self._task]
+        if task.room is None or task.category == "SLEEP" or self._here() != task.room:
+            return
+        self._dark(task.room)
         self._next()
 
     # -- the steps ----------------------------------------------------------------------------
@@ -125,7 +207,7 @@ class Resident:
             if self._here() != step[1]:  # already in the room: no walk to its middle
                 self._walk(self._spot(step[1]), step[2])
         elif kind == "walk_point":
-            self._walk(step[1], step[2], tried=step[3] if len(step) > 3 else False)
+            self._walk(*step[1:])
         elif kind == "use":
             self._use(*step[1:])
         elif kind == "door":
@@ -144,31 +226,36 @@ class Resident:
         elif kind == "lock_behind":
             self._lock_behind(step[1], step[2])
 
-    def _walk(self, point, reason: str, tried: bool = False) -> None:
-        if self.session.walk_to(point, actor=self.name, why=self._why(reason)) is None:
-            if tried:
-                self.session.note({"resident": self.name, "decision": "could not get there", "reason": reason,
-                                   "point": list(point)})
-                return
-            # a closed door in the way: open this room's doors, then try again
-            self._steps.appendleft(("walk_point", point, reason, True))
-            for door in self._closed_doors_here():
-                for s in reversed(self._through(door, self._here(), reason, close=False)[:-1]):
-                    self._steps.appendleft(s)
+    def _walk(self, point, reason: str, tries: int = 0, task: str | None = None) -> None:
+        if self.session.walk_to(point, actor=self.name, why=self._why(reason, task)) is not None:
+            self._waiting, self._walking = True, (point, reason, tries, task)
             return
-        self._waiting = True
+        route = self.world.doors_on_route(self._xy(), point) if tries < WALK_TRIES else None
+        if not route:  # no way even through the doors, or no closed door in the way: the trace says so
+            self.session.note({"resident": self.name, "decision": "could not get there", "reason": reason,
+                               "point": list(point)})
+            return
+        self._steps.appendleft(("walk_point", point, reason, tries + 1, task))
+        for door, room in reversed(route):  # through each closed door on the way, in order, closing it behind
+            for s in reversed(self._through(door, room or self._here(), reason)):
+                self._steps.appendleft(s)
 
     def _on_world(self, event: dict) -> None:
-        if event.get("actor") == self.name and event["event"] in ("arrived", "blocked") and self._waiting:
-            epoch, clock = self._epoch, self.session.clock
+        if event.get("actor") != self.name or event["event"] not in ("arrived", "blocked") or not self._waiting:
+            return
+        if event["event"] == "blocked" and self._walking is not None:  # a door shut on the way: go again
+            point, reason, tries, task = self._walking
+            self._steps.appendleft(("walk_point", point, reason, tries + 1, task))
+        self._walking = None
+        epoch, clock = self._epoch, self.session.clock
 
-            def resume():
-                if epoch == self._epoch:
-                    self._waiting = False
-                    self._next()
-            clock.call_at(clock.now(), resume)
+        def resume():
+            if epoch == self._epoch:
+                self._waiting = False
+                self._next()
+        clock.call_at(clock.now(), resume)
 
-    def _use(self, device: str, want: bool, reason: str, tried: bool = False) -> None:
+    def _use(self, device: str, want: bool, reason: str, tries: int = 0, task: str | None = None) -> None:
         if self._state(device) == want:
             return
         target = self._operator(device)
@@ -176,13 +263,13 @@ class Resident:
             self.session.note({"resident": self.name, "decision": "cannot switch it by hand", "device": device})
             return
         if not self._in_reach(target):
-            if tried:
+            if tries:
                 self.session.note({"resident": self.name, "decision": "could not reach it", "device": target})
                 return
-            self._steps.appendleft(("use", device, want, reason, True))
-            self._steps.appendleft(("walk_point", self._near(target), reason))
+            self._steps.appendleft(("use", device, want, reason, 1, task))
+            self._steps.appendleft(("walk_point", self._near(target), reason, 0, task))
             return
-        self.session.interact(target, actor=self.name, why=self._why(reason))
+        self.session.interact(target, actor=self.name, why=self._why(reason, task))
 
     def _door(self, door: str, want_open: bool, reason: str, tried: bool = False) -> None:
         if self.world.doors.get(door) == want_open:
@@ -223,12 +310,20 @@ class Resident:
             self._steps.appendleft(("use", lights[0], True, "a dark room"))
 
     def _devices(self, task) -> None:
+        for name in self._uses(task):
+            self._task_devices[name] = task.name
+            self._steps.append(("use", name, True, task.name))
+
+    def _uses(self, task) -> list[str]:
+        """The devices `task` switches on: for each device category its activity uses, the first such device in
+        its room that a hand can work."""
+        out = []
         for category in self.profile.uses.get(task.category, ()):
             for name, d in self._devices_in(task.room):
                 if d.record["identity"]["category"] == category and self._operator(name) is not None:
-                    self._task_devices.append((name, task.name))
-                    self._steps.append(("use", name, True, task.name))
+                    out.append(name)
                     break
+        return out
 
     def _bedtime_lock(self) -> None:
         door = self._front_door()
@@ -251,12 +346,18 @@ class Resident:
             return
         self._steps.appendleft(("use", lock, True, reason))
 
-    def _leave_home(self, reason: str, lock: bool = True) -> list[tuple]:
+    def _leave_home(self, reason: str, alarm: bool = False) -> list[tuple]:
+        """Out through the front door, closing it behind; leaving for the day, also the lights and the lock (an
+        alarm leaves both)."""
         door, out = self._front_door(), self._outdoors()
-        if door is None or out is None:
-            return [("walk_room", out, reason)] if out else []
-        steps = [("leave_room", out)] + self._through(door, self._indoor_side(door), reason)
-        if lock:
+        if out is None:
+            self.session.note({"resident": self.name, "decision": "could not leave: the map has no outdoor room",
+                               "reason": reason})
+            return []
+        if door is None:
+            return [("walk_room", out, reason)]
+        steps = ([] if alarm else [("leave_room", out)]) + self._through(door, self._indoor_side(door), reason)
+        if not alarm:
             steps.append(("lock_behind", door, reason))
         return steps + [("walk_room", out, reason)]
 
@@ -264,7 +365,7 @@ class Resident:
         door, out = self._front_door(), self._outdoors()
         return self._through(door, out, "coming home") if door and out else []
 
-    def _through(self, door: str, from_room: str, reason: str, close: bool = True) -> list[tuple]:
+    def _through(self, door: str, from_room: str, reason: str) -> list[tuple]:
         """Walk to this side of the door, unlock and open it, go through, and close it behind."""
         dw = self.home.map.doorway(door)
         to_room = next((r for r in dw.rooms if r != from_room), from_room)
@@ -272,10 +373,8 @@ class Resident:
         lock = self._lock_of(door)
         if lock is not None:
             steps.append(("use", lock, False, reason))
-        steps += [("door", door, True, reason), ("walk_point", self._side(door, to_room), reason)]
-        if close:
-            steps.append(("door", door, False, reason))
-        return steps
+        return steps + [("door", door, True, reason), ("walk_point", self._side(door, to_room), reason),
+                        ("door", door, False, reason)]
 
     def _on_report(self, event) -> None:
         name = self.session.device_name(event.twin_id)
@@ -284,21 +383,30 @@ class Resident:
         category = self.home.device(name).record["identity"]["category"]
         if (category, event.feature) not in ALARMS:
             return
-        if event.value is True and not self._alarm:
-            self._alarm = True
-            if not self._outside():
-                self._epoch += 1
-                self._steps.clear()
-                self._waiting = False
-                self._steps.extend(self._leave_home("an alarm", lock=False))
-                clock = self.session.clock
-                clock.call_at(clock.now(), self._next)
+        was = self._alarm
+        if event.value is True:
+            self._alarms.add(name)
         elif event.value is False:
-            self._alarm = False
+            self._alarms.discard(name)
+        clock = self.session.clock
+        if self._alarm and not was and not self._outside():
+            self._epoch += 1
+            self._steps.clear()
+            self._waiting, self._walking = False, None
+            self._steps.extend(self._leave_home("an alarm", alarm=True))
+            clock.call_at(clock.now(), self._next)
+        elif was and not self._alarm:
+            clock.call_at(clock.now(), self._back_to_routine)
+
+    def _back_to_routine(self) -> None:
+        """Every alarm has cleared: the resident goes back to the task its routine has it do now."""
+        if not self._alarm and self._task is not None and self.routine.tasks[self._task].room is not None:
+            self._begin(self._task)
 
     # -- what the resident perceives ------------------------------------------------------------
-    def _why(self, reason: str) -> dict:
-        task = self.routine.tasks[self._task].name if self._task is not None else None
+    def _why(self, reason: str, task: str | None = None) -> dict:
+        if task is None and self._task is not None:
+            task = self.routine.tasks[self._task].name
         return {"resident": self.name, "task": task, "reason": reason}
 
     def _state(self, device: str) -> bool:
@@ -331,7 +439,25 @@ class Resident:
         return here is not None and self.home.map.room(here).outdoor
 
     def _others_in(self, room: str) -> bool:
-        return any(self.world.pose(a).room == room for a in self.world.actors() if a != self.name)
+        """Someone else stays in `room`: a resident whose task keeps it there (judged by the task, so two
+        residents leaving together do not each wait for the other), or anyone else standing in it."""
+        for actor in self.world.actors():
+            other = self.session.residents.get(actor)
+            if actor == self.name:
+                continue
+            if other is not None and other._task is not None:
+                if other._staying_in() == room:
+                    return True
+            elif self.world.pose(actor).room == room:
+                return True
+        return False
+
+    def _staying_in(self) -> str | None:
+        return None if self._alarm or self._task is None else self.routine.tasks[self._task].room
+
+    def _xy(self):
+        p = self.world.pose(self.name)
+        return (p.x, p.z)
 
     def _devices_in(self, room: str):
         return [(n, d) for n, d in self.rules.devices.items() if d.room == room and d.door is None]

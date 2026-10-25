@@ -215,12 +215,46 @@ class MapWorld:
                 self._schedule_walk(actor, token, path, idx, due + STEP_S)
         self.clock.call_at(due, step)
 
+    def doors_on_route(self, start: Point, target: Point) -> list[tuple[str, str | None]] | None:
+        """The closed doors on the shortest route as if every door were open, in the order the route crosses
+        them, each with the room the route comes from; None if there is no route even then."""
+        g = self.map.grid
+        s, goal = g.cell_of(*start), self._nearest_free_cell(target, g.is_walkable)
+        cells = self._cells(s, goal, g.is_walkable) if s is not None and goal is not None else None
+        if cells is None:
+            return None
+        closed = {c: d for d, is_open in self.doors.items() if not is_open for c in self.map.doorway(d).cells}
+        out: list[tuple[str, str | None]] = []
+        for before, c in zip(cells, cells[1:]):
+            door = closed.get(c)
+            if door is not None and closed.get(before) != door and (not out or out[-1][0] != door):
+                room = self.map.room_of_cell(*before)
+                out.append((door, room.id if room else None))
+        return out
+
     def _plan(self, start: Point, target: Point) -> list[Point] | None:
         """A* over free cells (8-connected, no corner cutting), then straightened along free lines of sight."""
         g = self.map.grid
         s, goal = g.cell_of(*start), self._nearest_free_cell(target)
         if s is None or goal is None:
             return None
+        cells = self._cells(s, goal, self._cell_free)
+        if cells is None:
+            return None
+        end = target if self._free(*target) else g.center(*goal)
+        points = [start] + [g.center(*c) for c in cells[1:-1]] + [end]
+        straight = [points[0]]
+        k = 0
+        while k < len(points) - 1:  # string-pulling: jump to the farthest point still in a free line of sight
+            far = len(points) - 1
+            while far > k + 1 and not self._segment_free(points[k], points[far]):
+                far -= 1
+            straight.append(points[far])
+            k = far
+        return straight
+
+    def _cells(self, s, goal, free) -> list[tuple[int, int]] | None:
+        """A*'s cells from `s` to `goal` over cells where `free(i, j)` holds."""
         diag = math.sqrt(2)
 
         def h(c):
@@ -238,8 +272,7 @@ class MapWorld:
                     if (di, dj) == (0, 0):
                         continue
                     n = (c[0] + di, c[1] + dj)
-                    if not self._cell_free(*n) or (di and dj and not (self._cell_free(c[0] + di, c[1])
-                                                                     and self._cell_free(c[0], c[1] + dj))):
+                    if not free(*n) or (di and dj and not (free(c[0] + di, c[1]) and free(c[0], c[1] + dj))):
                         continue
                     cost = best[c] + (diag if di and dj else 1.0)
                     if cost < best.get(n, math.inf):
@@ -252,28 +285,19 @@ class MapWorld:
         while cells[-1] != s:
             cells.append(came[cells[-1]])
         cells.reverse()
-        end = target if self._free(*target) else g.center(*goal)
-        points = [start] + [g.center(*c) for c in cells[1:-1]] + [end]
-        straight = [points[0]]
-        k = 0
-        while k < len(points) - 1:  # string-pulling: jump to the farthest point still in a free line of sight
-            far = len(points) - 1
-            while far > k + 1 and not self._segment_free(points[k], points[far]):
-                far -= 1
-            straight.append(points[far])
-            k = far
-        return straight
+        return cells
 
-    def _nearest_free_cell(self, p: Point) -> tuple[int, int] | None:
+    def _nearest_free_cell(self, p: Point, free=None) -> tuple[int, int] | None:
+        free = free or self._cell_free
         g = self.map.grid
         c = g.cell_of(*p)
-        if c is not None and self._cell_free(*c):
+        if c is not None and free(*c):
             return c
         if c is None:
             return None
         for r in range(1, 6):  # within half a metre: a target placed on furniture or a wall
             for i in range(c[0] - r, c[0] + r + 1):
                 for j in range(c[1] - r, c[1] + r + 1):
-                    if self._cell_free(i, j):
+                    if free(i, j):
                         return (i, j)
         return None

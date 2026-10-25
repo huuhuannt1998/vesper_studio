@@ -1,11 +1,12 @@
 # Alex's weekday: `vesper lab day examples/lab/test-house/home.yaml` lives it in seconds; `vesper lab play` in real time.
+# At 19:30, when play starts, Alex is having dinner in the kitchen: the hall is the player's (look-hub.yaml).
 version: 1
 tasks:
   - {at: "06:30", minutes: 30, name: wake up, category: SLEEP, room: bedroom}
   - {at: "07:00", minutes: 30, name: breakfast, category: EATING, room: kitchen}
   - {at: "07:30", minutes: 540, name: work, category: AWAY}
-  - {at: "16:30", minutes: 60, name: cooking, category: HOUSEHOLD, room: kitchen}
-  - {at: "17:30", minutes: 30, name: dinner, category: EATING, room: kitchen}
-  - {at: "19:00", minutes: 120, name: tv, category: LEISURE, room: hall}
-  - {at: "21:00", minutes: 60, name: read, category: LEISURE, room: bedroom}
+  - {at: "16:30", minutes: 90, name: tv, category: LEISURE, room: hall}
+  - {at: "18:00", minutes: 60, name: cooking, category: HOUSEHOLD, room: kitchen}
+  - {at: "19:00", minutes: 60, name: dinner, category: EATING, room: kitchen}
+  - {at: "20:00", minutes: 120, name: read, category: LEISURE, room: bedroom}
   - {at: "22:30", minutes: 480, name: sleep, category: SLEEP, room: bedroom}

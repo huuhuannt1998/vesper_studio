@@ -62,3 +62,15 @@ def test_the_example_s_resident_lives_a_whole_day_that_replays_exactly():
     assert {"kitchen_plug", "hall-porch", "bedroom_lamp"} <= uses  # cooking, the front door, a dark bedroom
     assert compare_reports(session.records, replay(session.records, home)) is None
     assert alex.routine.tasks[-1].category == "SLEEP"
+
+
+@pytest.mark.skipif(not CATALOG.is_file(), reason="no local catalog (`vesper catalog build`)")
+def test_alex_is_out_of_the_hall_when_play_and_the_hub_look_begin():
+    """`look-hub.yaml` has the player trip the hall's motion sensor: nobody else may be there first."""
+    records = {r["id"]: r for r in json.loads(CATALOG.read_text())}
+    session = Session(load_lab_home(EXAMPLE / "home.yaml", records))
+    session.start(spawn_player=False)
+    session.clock.advance(120)
+    session.stop()
+    assert session.world.pose("alex").room != "hall"
+    assert not [r for r in session.records if r["kind"] == "rule" and r.get("device") == "hall_motion"]

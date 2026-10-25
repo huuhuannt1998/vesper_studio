@@ -36,6 +36,7 @@ class Session:
                          for d in home.devices}
         self.runtime.on_action(self._on_action)
         self._names = {tid: name for name, tid in self.twin_ids.items()}
+        self.residents: dict = {}  # name -> the scripted Resident living in this session
         self.world = world or MapWorld(home.map, self.clock)
         for door, is_open in home.doors.items():
             self.world.add_door(door, is_open)
@@ -50,8 +51,9 @@ class Session:
 
     # -- life cycle ---------------------------------------------------------------------------
     def start(self, spawn_player: bool = True, residents: bool = True) -> None:
-        """Start the home; the player and the home's residents enter it (a replay starts neither: their actions
-        are its inputs)."""
+        """Start the home: the home's residents enter it and begin what their routine has them do now, then the
+        player enters. A replay starts the residents (it lives their day again) but not the player, whose actions
+        are its inputs; starting the residents first keeps their first actions before the player's, in both."""
         self._write({"kind": "meta", "format": TRACE_FORMAT, "clock": self.clock_kind, "home": str(self.home.path),
                      "scene": self.home.scene,
                      "seed": self.home.seed, "start_time": self.home.start_time,
@@ -59,12 +61,14 @@ class Session:
         self.runtime.subscribe(self._on_report)
         self.world.on_event(self._on_world)
         self.rules.start()
-        if spawn_player:
-            self.spawn(PLAYER, self.home.avatar["model"], self.home.avatar["start"])
-        if residents:
+        if residents and self.home.residents:
             from vesper.lab.resident import Resident
             for spec in self.home.residents:
                 Resident(self, spec.name, spec.model, spec.routine, spec.profile).start()
+            if isinstance(self.clock, LogicalClock):
+                self.clock.advance(0)  # their first instant, before any input (a replay's first input does this)
+        if spawn_player:
+            self.spawn(PLAYER, self.home.avatar["model"], self.home.avatar["start"])
 
     def stop(self) -> None:
         if self._file is not None:
