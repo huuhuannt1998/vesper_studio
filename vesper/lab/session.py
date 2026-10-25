@@ -7,6 +7,7 @@ device reports exactly (spec success criterion 4); `replay` and `compare_reports
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import time
 from pathlib import Path
@@ -48,7 +49,9 @@ class Session:
                            record=lambda r: self._write({**r, "kind": "rule"}))
 
     # -- life cycle ---------------------------------------------------------------------------
-    def start(self, spawn_player: bool = True) -> None:
+    def start(self, spawn_player: bool = True, residents: bool = True) -> None:
+        """Start the home; the player and the home's residents enter it (a replay starts neither: their actions
+        are its inputs)."""
         self._write({"kind": "meta", "format": TRACE_FORMAT, "clock": self.clock_kind, "home": str(self.home.path),
                      "scene": self.home.scene,
                      "seed": self.home.seed, "start_time": self.home.start_time,
@@ -58,6 +61,10 @@ class Session:
         self.rules.start()
         if spawn_player:
             self.spawn(PLAYER, self.home.avatar["model"], self.home.avatar["start"])
+        if residents:
+            from vesper.lab.resident import Resident
+            for spec in self.home.residents:
+                Resident(self, spec.name, spec.model, spec.routine, spec.profile).start()
 
     def stop(self) -> None:
         if self._file is not None:
@@ -79,14 +86,14 @@ class Session:
         self._input(actor, "move", {"dx": dx, "dz": dz})
         return self.world.move(actor, dx, dz)
 
-    def walk_to(self, point, actor: str = PLAYER):
-        self._input(actor, "walk_to", {"point": list(point)})
+    def walk_to(self, point, actor: str = PLAYER, why: dict | None = None):
+        self._input(actor, "walk_to", {"point": list(point)}, **({"why": why} if why else {}))
         return self.world.walk_to(actor, tuple(point))
 
-    def interact(self, target: str | None = None, actor: str = PLAYER) -> dict:
+    def interact(self, target: str | None = None, actor: str = PLAYER, why: dict | None = None) -> dict:
         began = self.clock.now()  # on the wall clock, time passes while the rules work: replay starts it here
         outcome = self.rules.interact(actor, target)
-        self._input(actor, "interact", {"target": target}, outcome=outcome, t=began)
+        self._input(actor, "interact", {"target": target}, outcome=outcome, t=began, **({"why": why} if why else {}))
         return outcome
 
     def wait(self, seconds: float) -> None:
@@ -94,6 +101,13 @@ class Session:
             self.clock.advance(seconds)
         else:
             time.sleep(seconds)
+
+    def note(self, record: dict) -> None:
+        """A resident's decision not to act (\"forgot the light\"): ground truth, not an input."""
+        self._write({"kind": "resident", **record})
+
+    def device_name(self, twin_id: str) -> str | None:
+        return self._names.get(twin_id)
 
     # -- the trace ----------------------------------------------------------------------------
     def _input(self, actor: str, op: str, args: dict, **extra) -> None:
@@ -139,11 +153,21 @@ def read_trace(path: Path) -> list[dict]:
 
 
 def replay(records: list[dict], home) -> list[dict]:
-    """Re-apply a trace's inputs at their times to a new session of `home` on the logical clock."""
+    """Re-apply a trace's inputs at their times to a new session of `home` on the logical clock, from the time
+    of day the trace started (a day may start at another time than the home file's).
+
+    The home's residents live their day again instead of having their actions re-applied: they are
+    deterministic (their routine, their profile, the home's seed), and their actions then fall into the clock's
+    order exactly as they did, also at an instant shared with a rule (a task on the minute, the ambient tick).
+    `compare_reports` checks that they did the same things."""
+    meta = records[0] if records and records[0].get("kind") == "meta" else {}
+    if meta.get("start_time") is not None:
+        home = dataclasses.replace(home, start_time=meta["start_time"])
+    residents = {spec.name for spec in home.residents}
     s = Session(home, clock=LogicalClock())
-    s.start(spawn_player=False)
+    s.start(spawn_player=False, residents=True)
     for k, r in enumerate(records):
-        if r["kind"] != "input":
+        if r["kind"] != "input" or r["actor"] in residents:
             continue
         s.clock.advance_to(r["t"])
         a = r["args"]
@@ -153,9 +177,9 @@ def replay(records: list[dict], home) -> list[dict]:
             elif r["op"] == "move":
                 s.move(a["dx"], a["dz"], actor=r["actor"])
             elif r["op"] == "walk_to":
-                s.walk_to(a["point"], actor=r["actor"])
+                s.walk_to(a["point"], actor=r["actor"], why=r.get("why"))
             elif r["op"] == "interact":
-                s.interact(a["target"], actor=r["actor"])
+                s.interact(a["target"], actor=r["actor"], why=r.get("why"))
             elif r["op"] == "command":
                 if a["device"] not in s.twin_ids:
                     raise ValueError(f"unknown device {a['device']!r}")
@@ -193,13 +217,33 @@ def _compare_wall(original: list[dict], again: list[dict]) -> str | None:
     return None
 
 
+def _resident_actions(records: list[dict]) -> list[tuple]:
+    return [(r["t"], r["actor"], r["op"], r["args"]) for r in records if r["kind"] == "input" and "why" in r]
+
+
+def _compare_residents(original: list[dict], again: list[dict], wall: bool) -> str | None:
+    """The residents did the same things (on the wall clock: in the same order, at times within the tolerance)."""
+    a, b = _resident_actions(original), _resident_actions(again)
+    for k, (x, y) in enumerate(zip(a, b)):
+        same_time = abs(x[0] - y[0]) <= WALL_TOLERANCE_S if wall else x[0] == y[0]
+        if x[1:] != y[1:] or not same_time:
+            return (f"resident action {k}: the trace has {x[1]} {x[2]} {x[3]} at t={x[0]:g}, the replay "
+                    f"{y[1]} {y[2]} {y[3]} at t={y[0]:g}")
+    if len(a) != len(b):
+        names = sorted({x[1] for x in a} | {y[1] for y in b})
+        return f"the trace has {len(a)} resident actions, the replay {len(b)} ({', '.join(names)})"
+    return None
+
+
 def compare_reports(original: list[dict], again: list[dict]) -> str | None:
     """None if both traces hold the same device reports in the same order; else the first difference."""
     divergence = next((r for r in again if r["kind"] == "divergence"), None)
     if divergence is not None:
         return divergence["message"]
-    if original and original[0].get("kind") == "meta" and original[0].get("clock") == "wall":
-        return _compare_wall(original, again)
+    wall = bool(original) and original[0].get("kind") == "meta" and original[0].get("clock") == "wall"
+    residents = _compare_residents(original, again, wall=wall)  # who did what first: the clearest difference
+    if residents or wall:
+        return residents or _compare_wall(original, again)
     keys = ("device", "feature", "value", "observed_t", "cause")
     a = [tuple(r[k] for k in keys) for r in original if r["kind"] == "report"]
     b = [tuple(r[k] for k in keys) for r in again if r["kind"] == "report"]

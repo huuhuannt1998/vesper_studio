@@ -210,6 +210,10 @@ class Rules:
         room = self.devices[target].room
         return p.room == room or (doorway is not None and room in self.home.map.doorway(doorway).rooms)
 
+    def operable(self, name: str) -> bool:
+        """Whether a person's hand works this device (a ceiling device is worked by a switch bound to it)."""
+        return self._operable(name)
+
     def _operable(self, name: str) -> bool:
         return self.devices[name].mount != "ceiling" and toggle_command(self.twin(name)) is not None
 
