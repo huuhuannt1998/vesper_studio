@@ -67,3 +67,14 @@ test("every device category has its own glyph and a colour; an unknown one is a 
   assert.equal(glyphFor("teleporter"), "?");
   assert.equal(colorFor("teleporter"), colorFor("other"));
 });
+
+test("a command from the hub is a console line, and a refused one says why", () => {
+  const start = 7 * 3600;
+  assert.equal(recordLine({ t: 3, kind: "input", actor: "hub", op: "command",
+    args: { device: "bedroom_lamp", feature: "state", value: "ON" }, outcome: { accepted: true } }, start),
+    "07:00:03 the hub sets bedroom_lamp state = \"ON\"");
+  assert.equal(recordLine({ t: 4, kind: "input", actor: "hub", op: "command",
+    args: { device: "hall_motion", feature: "occupancy", value: true },
+    outcome: { accepted: false, reason: "occupancy is read-only" } }, start),
+    "07:00:04 the hub sets hall_motion occupancy = true: refused (occupancy is read-only)");
+});

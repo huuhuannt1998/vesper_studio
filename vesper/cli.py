@@ -582,15 +582,28 @@ def _lab_play(args, home) -> int:
     import webbrowser
 
     from vesper.lab.play import PlayError, PlayServer
+    from vesper.validation.stack import StackError
     from vesper.lab.session import Session
     from vesper.twins.clock import WallClock
     traces = home.path.parent / "traces"
     traces.mkdir(parents=True, exist_ok=True)
     trace = Path(args.trace) if args.trace else _new_trace(traces, "play")
+    if args.hub and home.automations is not None and not home.automations.is_file():
+        print(f"FAILED: automations: {home.automations} does not exist", file=sys.stderr)
+        return 1
     session = Session(home, clock=WallClock(), trace=trace)
-    session.start()
-    server = PlayServer(session, port=args.port)
+    started: list[tuple[str, object]] = []  # the hub's parts, stopped in reverse order
+    server, rules = None, None
     try:
+        if args.hub:
+            try:
+                rules = _start_hub(args, home, session, started)
+            except StackError as e:
+                print(f"FAILED: {e}", file=sys.stderr)
+                return 1
+        session.start()
+        ha = dict(started).get("ha")
+        server = PlayServer(session, port=args.port, hub_url=ha.url if ha else None)
         try:
             server.start()
         except PlayError as e:
@@ -598,14 +611,84 @@ def _lab_play(args, home) -> int:
             return 1
         print(f"VESPER Lab: {home.scene}, {len(home.devices)} devices, on the wall clock. Open {server.url} "
               "(Ctrl-C stops)")
+        if args.hub:
+            user, password = dict(started)["login"]
+            print(f"Home Assistant is in the hub panel ({dict(started)['ha'].url}): log in as {user}, password "
+                  f"{password} (kept in {Path(args.root) / 'ha' / 'lab-login.json'})")
+            _print_entities(home, dict(started)["hub"])
         if not args.no_browser:
             webbrowser.open(server.url)
         _wait_for_interrupt()
     finally:
-        server.stop()
+        if server is not None:
+            server.stop()
+        if started:
+            _stop_hub(started, home, rules)
         session.stop()
     print(f"trace {trace}")
     return 0
+
+
+def _start_hub(args, home, session, started: list) -> str:
+    """VESPER's broker, its Home Assistant (framed by the page, with the home's automations), and the home's
+    Zigbee devices on the broker. Returns the automations Home Assistant started with."""
+    from vesper.exposure import mqtt
+    from vesper.lab.hub import Hub
+    from vesper.validation import stack
+    root, port = Path(args.root), home.broker[1]
+    rules = home.automations.read_text() if home.automations is not None else "[]\n"
+    broker = stack.Mosquitto(root, port=port)
+    started.append(("broker", broker))
+    broker.start()
+    ha = stack.HomeAssistant(root, frameable=True, automations=rules)
+    started.append(("ha", ha))
+    ha.start()
+    ha.onboard()
+    ha.ensure_mqtt(port)
+    started.append(("login", ha.lab_login()))
+    client = mqtt.connect("127.0.0.1", port, "vesper-lab-bridge", will=OFFLINE_WILL)
+    started.append(("client", client))
+    hub = Hub(session, client, zhc_version=_zhc_version(Path(args.catalog)))
+    hub.start()
+    started.append(("hub", hub))
+    return rules
+
+
+def _stop_hub(started: list, home, rules: str | None) -> None:
+    from vesper.exposure import mqtt
+    for name, part in reversed(started):
+        if name == "hub":
+            part.stop()
+        elif name == "client":
+            mqtt.disconnect(part)
+        elif name == "ha":
+            _keep_automations(part, home, rules)
+            part.stop()
+        elif name == "broker":
+            part.stop()
+
+
+def _keep_automations(ha, home, rules: str | None) -> None:
+    """Automations edited in Home Assistant's UI go back into the home, which stays self-contained."""
+    try:
+        now = ha.read_automations()
+    except OSError:
+        return
+    if rules is None or now == rules:
+        return
+    target = home.automations or home.path.parent / "automations.yaml"
+    target.write_text(now)
+    print(f"{target.name} updated from Home Assistant" + ("" if home.automations else
+          f"; add `automations: {target.name}` to {home.path.name} to load it next time"))
+
+
+def _print_entities(home, hub) -> None:
+    print("Home Assistant entities, for automations:")
+    for d in home.devices:
+        if d.name in hub.skipped:
+            print(f"  {d.name}: not on the hub (Matter: plan W2d)")
+        else:
+            print(f"  {d.name}: {', '.join(sorted(set(hub.entities(d.name).values())))}")
 
 
 def _wait_for_interrupt() -> None:
@@ -622,6 +705,7 @@ def _lab_look(args, home) -> int:
     from vesper.lab.session import Session
     from vesper.lab.visual import DEFAULT_STEPS, LookError, load_steps, run_look
     from vesper.twins.clock import WallClock
+    from vesper.validation.stack import StackError
     if args.update_golden and not args.golden:
         print("FAILED: --update-golden needs --golden DIR, the directory of reference shots", file=sys.stderr)
         return 1
@@ -632,9 +716,22 @@ def _lab_look(args, home) -> int:
         return 1
     out = Path(args.out) if args.out else home.path.parent / "looks" / f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     out.mkdir(parents=True, exist_ok=True)
+    if args.hub and home.automations is not None and not home.automations.is_file():
+        print(f"FAILED: automations: {home.automations} does not exist", file=sys.stderr)
+        return 1
     session = Session(home, clock=WallClock(), trace=_new_trace(out, "look"))
+    started: list[tuple[str, object]] = []
+    rules = None
+    if args.hub:
+        try:
+            rules = _start_hub(args, home, session, started)
+        except StackError as e:
+            _stop_hub(started, home, rules)
+            print(f"FAILED: {e}", file=sys.stderr)
+            return 1
     session.start()
-    server = PlayServer(session, port=0)
+    ha = dict(started).get("ha")
+    server = PlayServer(session, port=0, hub_url=ha.url if ha else None)
     try:
         server.start()
         try:
@@ -651,6 +748,8 @@ def _lab_look(args, home) -> int:
             browser.close()
     finally:
         server.stop()
+        if started:
+            _stop_hub(started, home, rules)
         session.stop()
     for c in report.checks:
         print(f"{'PASS' if c.ok else 'FAIL'} {c.name}" + (f": {c.detail}" if c.detail else ""))
@@ -787,6 +886,10 @@ def main(argv: list[str] | None = None) -> int:
     lab_play.add_argument("--port", type=int, default=18080, help="the page's port on 127.0.0.1 (default 18080)")
     lab_play.add_argument("--trace", help="the trace file (default: traces/<time>.jsonl next to the home)")
     lab_play.add_argument("--no-browser", action="store_true", help="print the page's address, do not open it")
+    lab_play.add_argument("--hub", action="store_true",
+                          help="put Home Assistant in the loop: start VESPER's broker and Home Assistant (after "
+                               "`vesper setup ha`), and show its dashboard in the page")
+    lab_play.add_argument("--root", default=".vesper", help="where `vesper setup ha` installed the stack")
     lab_look = lab_actions.add_parser("look", help="drive the play page in a headless browser and check what it shows")
     lab_look.add_argument("home")
     lab_look.add_argument("--catalog", default="catalog/vds")
@@ -795,6 +898,8 @@ def main(argv: list[str] | None = None) -> int:
     lab_look.add_argument("--golden", help="a directory of reference shots to compare with")
     lab_look.add_argument("--update-golden", action="store_true", help="save this look's shots as the references")
     lab_look.add_argument("--browser", help="a Chromium-based browser (default: found, or VESPER_BROWSER)")
+    lab_look.add_argument("--hub", action="store_true", help="with VESPER's broker and Home Assistant in the loop")
+    lab_look.add_argument("--root", default=".vesper", help="where `vesper setup ha` installed the stack")
     lab_look.add_argument("--width", type=int, default=1280)
     lab_look.add_argument("--height", type=int, default=800)
     lab_replay = lab_actions.add_parser("replay", help="replay a trace's inputs and compare the device reports")

@@ -89,5 +89,10 @@ function describe(r) {
     if (r.event === "arrived") return `${r.actor} arrives`;
     if (r.event === "blocked") return `${r.actor} is blocked`;
   }
-  return null; // inputs are shown by what they cause
+  if (r.kind === "input" && r.op === "command") { // Home Assistant, through the bridge
+    const { device, feature, value } = r.args;
+    const refused = r.outcome && !r.outcome.accepted ? `: refused (${r.outcome.reason})` : "";
+    return `the hub sets ${device} ${feature} = ${JSON.stringify(value)}${refused}`;
+  }
+  return null; // a person's inputs are shown by what they cause
 }

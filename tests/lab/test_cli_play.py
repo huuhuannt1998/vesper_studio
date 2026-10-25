@@ -83,3 +83,128 @@ def test_look_needs_a_reference_directory_to_update(tmp_path, capsys):
     cat, home = setup(tmp_path)
     assert cli.main(["lab", "look", str(home), "--catalog", str(cat), "--update-golden"]) == 1
     assert "--update-golden needs --golden" in capsys.readouterr().err
+
+
+RULES = "- alias: lamp on when the hall sees someone\n  triggers: []\n  actions: []\n"
+
+
+class LabMosquitto:
+    made = []
+
+    def __init__(self, root, port=18830, **kwargs):
+        self.port, self.events = port, []
+        LabMosquitto.made.append(self)
+
+    def start(self):
+        self.events.append("start")
+
+    def stop(self):
+        self.events.append("stop")
+
+
+class LabHA:
+    made, fail = [], None
+
+    def __init__(self, root, port=18123, frameable=False, automations=None, **kwargs):
+        self.port, self.frameable, self.automations, self.events, self.edited = port, frameable, automations, [], None
+        LabHA.made.append(self)
+
+    @property
+    def url(self):
+        return f"http://127.0.0.1:{self.port}"
+
+    def start(self):
+        self.events.append("start")
+        if LabHA.fail:
+            raise LabHA.fail
+
+    def onboard(self):
+        self.events.append("onboard")
+
+    def ensure_mqtt(self, port):
+        self.events.append(("ensure_mqtt", port))
+
+    def lab_login(self):
+        self.events.append("login")
+        return "vesper", "s3cret-lab-login"
+
+    def read_automations(self):
+        return self.automations if self.edited is None else self.edited
+
+    def stop(self):
+        self.events.append("stop")
+
+
+def stack_fakes(monkeypatch):
+    from tests.exposure.fake_mqtt import FakeClient
+    from vesper.exposure import mqtt as mqtt_mod
+    from vesper.validation import stack as stack_mod
+    LabMosquitto.made, LabHA.made, LabHA.fail = [], [], None
+    monkeypatch.setattr(stack_mod, "Mosquitto", LabMosquitto)
+    monkeypatch.setattr(stack_mod, "HomeAssistant", LabHA)
+    clients = []
+    monkeypatch.setattr(mqtt_mod, "connect", lambda *a, **k: clients.append((a, FakeClient())) or clients[-1][1])
+    monkeypatch.setattr(mqtt_mod, "disconnect", lambda c: clients.append(("disconnected", c)))
+    return clients
+
+
+def test_play_with_the_hub_runs_broker_and_home_assistant_and_keeps_the_automations(tmp_path, capsys, monkeypatch):
+    from websockets.sync.client import connect as ws_connect
+    cat, home = setup(tmp_path)
+    (home.parent / "automations.yaml").write_text(RULES)
+    home.write_text(home.read_text() + "automations: automations.yaml\n")
+    clients = stack_fakes(monkeypatch)
+    seen = {}
+
+    def interrupted():
+        seen["out"] = capsys.readouterr().out
+        port = re.search(r"http://127\.0\.0\.1:(\d+)/", seen["out"]).group(1)
+        with ws_connect(f"ws://127.0.0.1:{port}/ws", proxy=None, origin=f"http://127.0.0.1:{port}") as ws:
+            seen["hub"] = json.loads(ws.recv(timeout=5))["hub"]
+        LabHA.made[0].edited = RULES + "- alias: added in the UI\n"
+    monkeypatch.setattr(cli, "_wait_for_interrupt", interrupted)
+    assert cli.main(["lab", "play", str(home), "--catalog", str(cat), "--port", "0", "--no-browser", "--hub",
+                     "--root", str(tmp_path / ".vesper")]) == 0
+    (ha,), (broker,) = LabHA.made, LabMosquitto.made
+    assert broker.port == 18830 and broker.events == ["start", "stop"]
+    assert ha.frameable and ha.automations == RULES
+    assert ha.events == ["start", "onboard", ("ensure_mqtt", 18830), "login", "stop"]
+    assert "log in as vesper, password s3cret-lab-login" in seen["out"]
+    assert clients[0][0][:3] == ("127.0.0.1", 18830, "vesper-lab-bridge") and clients[-1][0] == "disconnected"
+    assert seen["hub"] == "http://127.0.0.1:18123"
+    assert "bedroom_lamp: light." in seen["out"] and "front_lock: not on the hub (Matter: plan W2d)" in seen["out"]
+    assert (home.parent / "automations.yaml").read_text() == RULES + "- alias: added in the UI\n"
+    assert "automations.yaml updated" in capsys.readouterr().out
+
+
+def test_play_with_the_hub_stops_what_it_started_when_home_assistant_fails(tmp_path, capsys, monkeypatch):
+    from vesper.validation.stack import StackError
+    cat, home = setup(tmp_path)
+    stack_fakes(monkeypatch)
+    LabHA.fail = StackError("Home Assistant is not installed; run `vesper setup ha` first")
+    monkeypatch.setattr(cli, "_wait_for_interrupt", lambda: None)
+    assert cli.main(["lab", "play", str(home), "--catalog", str(cat), "--port", "0", "--no-browser", "--hub",
+                     "--root", str(tmp_path / ".vesper")]) == 1
+    assert "FAILED: Home Assistant is not installed" in capsys.readouterr().err
+    assert LabMosquitto.made[0].events == ["start", "stop"] and LabHA.made[0].events == ["start", "stop"]
+
+
+def test_play_with_the_hub_names_a_missing_automations_file_before_starting_anything(tmp_path, capsys, monkeypatch):
+    cat, home = setup(tmp_path)
+    home.write_text(home.read_text() + "automations: missing.yaml\n")
+    stack_fakes(monkeypatch)
+    assert cli.main(["lab", "play", str(home), "--catalog", str(cat), "--port", "0", "--no-browser", "--hub",
+                     "--root", str(tmp_path / ".vesper")]) == 1
+    assert "missing.yaml" in capsys.readouterr().err and LabMosquitto.made == []
+
+
+def test_look_with_the_hub_drives_the_page_with_home_assistant_in_the_loop(tmp_path, capsys, monkeypatch):
+    cat, home = setup(tmp_path)
+    clients = stack_fakes(monkeypatch)
+    fake = FakeBrowser()
+    fake.close = lambda: None
+    monkeypatch.setattr(browser_mod.Browser, "launch", classmethod(lambda cls, path=None, **kw: fake))
+    assert cli.main(["lab", "look", str(home), "--catalog", str(cat), "--out", str(tmp_path / "o"), "--hub",
+                     "--root", str(tmp_path / ".vesper")]) == 0
+    assert LabMosquitto.made[0].events == ["start", "stop"] and LabHA.made[0].events[-1] == "stop"
+    assert clients[-1][0] == "disconnected" and "PASS the session raised no errors" in capsys.readouterr().out
