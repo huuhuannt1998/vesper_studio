@@ -2,7 +2,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { STEP_M, decodeGrid, fitView, formatClock, hintFor, recordLine, stepFor } from "../../../vesper/lab/ui/mapview.js";
+import {
+  STEP_M, WALK_REPEAT_S, decodeGrid, feedLine, fitView, formatClock, headingName, hintFor, hitTest, moveFor,
+  promptFor, recordLine, stepFor, stepInterval,
+} from "../../../vesper/lab/ui/mapview.js";
 
 test("the walkable grid decodes bit for bit as Python wrote it (least significant bit first)", () => {
   // walkable 1,0,1 / 0,1,0 / 1,1,0 -> bits 0,2,4,6,7 -> 0xD5 0x00
@@ -32,12 +35,99 @@ test("WASD and the arrows step a quarter metre; other keys do nothing", () => {
   assert.equal(stepFor("e"), null);
 });
 
-test("the hint names what E would use", () => {
+test("the hint says what E or F would do to the nearest thing in reach", () => {
   const devices = { bedroom_lamp: { name: "bedroom_lamp", vendor: "Acme", model: "DIM-1", category: "light" } };
-  assert.equal(hintFor([], devices), "");
-  assert.equal(hintFor([{ kind: "door", target: "bedroom-hall" }], devices), "E: open or close the bedroom-hall door");
-  assert.equal(hintFor([{ kind: "device", target: "bedroom_lamp" }, { kind: "door", target: "x" }], devices),
-    "E: use bedroom_lamp (Acme DIM-1)");
+  const effects = { bedroom_lamp: { on: false }, "bedroom-hall": { open: true, locked: false } };
+  assert.equal(hintFor([], devices, effects), "");
+  assert.equal(hintFor([{ kind: "door", target: "bedroom-hall" }], devices, effects), "E or F: close bedroom-hall");
+  assert.equal(hintFor([{ kind: "device", target: "bedroom_lamp" }, { kind: "door", target: "x" }], devices, effects),
+    "E or F: switch bedroom_lamp on (Acme DIM-1)");
+});
+
+test("held keys walk together: diagonals are no faster, opposite keys cancel, Shift sprints", () => {
+  assert.deepEqual(moveFor(new Set(["w"])), [0, -STEP_M]);
+  const [dx, dz] = moveFor(new Set(["w", "d"]));
+  assert.ok(Math.abs(Math.hypot(dx, dz) - STEP_M) < 1e-12 && dx > 0 && dz < 0);
+  assert.deepEqual(moveFor(new Set(["arrowleft"])), [-STEP_M, 0]);
+  assert.equal(moveFor(new Set(["a", "d"])), null);
+  assert.equal(moveFor(new Set(["e", "q"])), null);
+  assert.equal(stepInterval(false), WALK_REPEAT_S);
+  assert.equal(stepInterval(true), WALK_REPEAT_S / 2); // 0.25 m per 0.11 s: running, about 2.3 m/s
+  assert.ok(Math.abs(STEP_M / WALK_REPEAT_S - 1.1) < 0.05); // walking: the residents' 1.1 m/s
+});
+
+test("the prompt by the pointer says what a click does, or why it cannot (PUBG's interaction prompt)", () => {
+  const base = { reachM: 1.0, operable: true, inReach: true, distance: 0.5 };
+  assert.equal(promptFor({ ...base, kind: "device", name: "kitchen_plug", category: "plug", effect: { on: false } }),
+    "Click: switch kitchen_plug on");
+  assert.equal(promptFor({ ...base, kind: "device", name: "front_lock", category: "lock",
+    effect: { locked: true } }), "Click: unlock front_lock");
+  assert.equal(promptFor({ ...base, kind: "device", name: "bedroom_button", category: "button", effect: null }),
+    "Click: press bedroom_button");
+  assert.equal(promptFor({ ...base, kind: "door", name: "front_door", effect: { open: false, locked: false } }),
+    "Click: open front_door");
+  assert.equal(promptFor({ ...base, kind: "door", name: "front_door", effect: { open: false, locked: true } }),
+    "front_door is locked");
+  assert.equal(promptFor({ ...base, inReach: false, distance: 2.34, kind: "door", name: "front_door",
+    effect: { open: true } }), "front_door: too far (2.3 m)");
+  assert.equal(promptFor({ ...base, inReach: false, distance: 0.45, kind: "device", name: "bedroom_button",
+    category: "button" }), "bedroom_button: other side of the wall");
+  assert.equal(promptFor({ ...base, operable: false, kind: "device", name: "hall_motion", category: "motion_sensor" }),
+    "hall_motion: a sensor, not used by hand");
+});
+
+test("a click picks the device under the pointer before a door, and nothing on bare floor", () => {
+  const items = [
+    { kind: "device", target: "lamp", x: 100, z: 100, r: 8 },
+    { kind: "device", target: "button", x: 112, z: 100, r: 8 },
+    { kind: "door", target: "front", box: [90, 90, 130, 110] },
+  ];
+  assert.equal(hitTest(101, 100, items), "lamp");
+  assert.equal(hitTest(111, 101, items), "button"); // the nearest centre
+  assert.equal(hitTest(128, 108, items), "front");
+  assert.equal(hitTest(300, 300, items), null);
+});
+
+test("the event feed shows the moments that matter, short, and leaves the rest to the console", () => {
+  const feed = (r) => feedLine(r, "player");
+  assert.equal(feed({ kind: "automation", automation: "hall lamp", device: "bedroom_lamp", feature: "state",
+    value: "ON", accepted: true }), "hall lamp: bedroom_lamp ON");
+  assert.equal(feed({ kind: "input", actor: "hub", op: "command",
+    args: { device: "bedroom_lamp", feature: "state", value: "OFF" }, outcome: { accepted: true } }),
+    "hub: bedroom_lamp OFF");
+  assert.equal(feed({ kind: "world", event: "door", id: "hall-porch", open: true }), "hall-porch opened");
+  assert.equal(feed({ kind: "rule", rule: "presence", device: "hall_motion", actor: "alex" }), "hall_motion sees alex");
+  assert.equal(feed({ kind: "rule", rule: "interact", actor: "alex", target: "kitchen_plug", ok: true,
+    result: "toggled" }), "alex: kitchen_plug toggled");
+  assert.equal(feed({ kind: "rule", rule: "interact", actor: "player", target: "kitchen_plug", ok: true,
+    result: "toggled" }), null); // the player saw it happen
+  assert.equal(feed({ kind: "resident", resident: "alex", decision: "forgot the light", device: "bedroom_lamp" }),
+    "alex forgot the light");
+  assert.equal(feed({ kind: "task", resident: "alex", task: "breakfast", category: "EATING", room: "kitchen" }),
+    "alex: breakfast");
+  assert.equal(feed({ kind: "report", device: "kitchen_climate", feature: "temperature", value: 21.4 }), null);
+});
+
+test("the console names the engine's commands, its skips, and the residents' tasks", () => {
+  const start = 7 * 3600;
+  assert.equal(recordLine({ t: 2, kind: "automation", automation: "hall lamp", device: "bedroom_lamp",
+    feature: "state", value: "ON", accepted: true }, start), "07:00:02 automation \"hall lamp\" sets bedroom_lamp state = \"ON\"");
+  assert.equal(recordLine({ t: 3, kind: "automation_skipped", automation: "blink", reason: "already running (mode single)" },
+    start), "07:00:03 automation \"blink\" skipped: already running (mode single)");
+  assert.equal(recordLine({ t: 4, kind: "task", resident: "alex", task: "breakfast", category: "EATING",
+    room: "kitchen" }, start), "07:00:04 alex begins breakfast (kitchen)");
+  assert.equal(recordLine({ t: 5, kind: "task", resident: "alex", task: "work", category: "AWAY", room: null },
+    start), "07:00:05 alex begins work (away)");
+});
+
+test("the compass names the heading: up the map is north", () => {
+  assert.equal(headingName(-90), "N");
+  assert.equal(headingName(270), "N");
+  assert.equal(headingName(0), "E");
+  assert.equal(headingName(90), "S");
+  assert.equal(headingName(180), "W");
+  assert.equal(headingName(-45), "NE");
+  assert.equal(headingName(135), "SW");
 });
 
 test("the clock shows the home's time of day and wraps at midnight", () => {

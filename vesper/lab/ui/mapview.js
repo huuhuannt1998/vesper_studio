@@ -2,6 +2,8 @@
 // World coordinates are metres on the floor: +x to the right, +z down the screen (a top-down view).
 
 export const STEP_M = 0.25; // one key press walks this far
+export const WALK_REPEAT_S = 0.22; // a held key steps this often: 1.14 m/s, the residents' walking speed
+export const SPRINT = 2; // Shift: steps twice as often (PUBG's sprint), which the sensors see as quicker motion
 
 // One glyph per catalog category (vesper/catalog/normalize/common.py CATEGORIES); tests/lab/test_ui.py checks.
 export const GLYPHS = {
@@ -54,12 +56,81 @@ export function stepFor(key) {
   return d ? [d[0] * STEP_M, d[1] * STEP_M] : null;
 }
 
-export function hintFor(reach, devices) {
+// The keys held down, together: one step of STEP_M in their direction (a diagonal is no faster), or null.
+export function moveFor(held) {
+  let x = 0, z = 0;
+  for (const key of held) {
+    const d = KEYS[key];
+    if (d) { x += d[0]; z += d[1]; }
+  }
+  const n = Math.hypot(x, z);
+  return n ? [(x / n) * STEP_M, (z / n) * STEP_M] : null;
+}
+
+export const stepInterval = (sprint) => (sprint ? WALK_REPEAT_S / SPRINT : WALK_REPEAT_S);
+
+// What a hand does to a door or device: "switch kitchen_plug on", "open front_door"; null for a locked door.
+export function actionFor(kind, name, effect, category) {
+  if (kind === "door") {
+    if (effect && effect.open) return `close ${name}`;
+    return effect && effect.locked ? null : `open ${name}`;
+  }
+  if (effect && "locked" in effect) return `${effect.locked ? "unlock" : "lock"} ${name}`;
+  if (effect && "on" in effect) return `switch ${name} ${effect.on ? "off" : "on"}`;
+  return category === "button" ? `press ${name}` : `use ${name}`;
+}
+
+// The prompt by the pointer (PUBG's interaction prompt): what a click does, or why it cannot.
+export function promptFor({ kind, name, category, effect, operable, inReach, distance, reachM }) {
+  if (kind === "device" && !operable) return `${name}: a sensor, not used by hand`;
+  if (!inReach) {
+    return distance > reachM ? `${name}: too far (${distance.toFixed(1)} m)` : `${name}: other side of the wall`;
+  }
+  const action = actionFor(kind, name, effect, category);
+  return action ? `Click: ${action}` : `${name} is locked`;
+}
+
+// The keyboard hint for the nearest thing in reach (E or F uses it).
+export function hintFor(reach, devices, effects) {
   if (!reach.length) return "";
   const { kind, target } = reach[0];
-  if (kind === "door") return `E: open or close the ${target} door`;
   const d = devices[target];
-  return `E: use ${target}` + (d && d.vendor ? ` (${d.vendor} ${d.model})` : "");
+  const action = actionFor(kind, target, effects[target], d && d.category);
+  const text = action ? `E or F: ${action}` : `${target} is locked`;
+  return text + (kind === "device" && d && d.vendor ? ` (${d.vendor} ${d.model})` : "");
+}
+
+// The door or device under a click, in screen pixels: the nearest device whose icon it is on, else a door
+// whose rectangle it is in (a little wider, so a thin door is easy to hit), else null (bare floor).
+export function hitTest(px, pz, items) {
+  let best = null, bestD = Infinity;
+  for (const it of items) {
+    if (it.kind !== "device") continue;
+    const d = Math.hypot(it.x - px, it.z - pz);
+    if (d <= it.r + 4 && d < bestD) { best = it.target; bestD = d; }
+  }
+  if (best !== null) return best;
+  const pad = 6;
+  const door = items.find((it) => it.kind === "door" && px >= it.box[0] - pad && px <= it.box[2] + pad &&
+    pz >= it.box[1] - pad && pz <= it.box[3] + pad);
+  return door ? door.target : null;
+}
+
+const COMPASS = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
+// The heading a yaw in degrees names, up the map being north (0 degrees points right, 90 down the screen).
+export const headingName = (yaw) => COMPASS[Math.round((((yaw % 360) + 360) % 360) / 45) % 8];
+
+// The event feed, top right (PUBG's kill feed): the moments that matter, in a few words; null for the rest.
+export function feedLine(r, player) {
+  const v = (value) => (typeof value === "string" ? value : JSON.stringify(value));
+  if (r.kind === "automation") return `${r.automation}: ${r.device} ${v(r.value)}${r.accepted === false ? " (refused)" : ""}`;
+  if (r.kind === "input" && r.op === "command") return `hub: ${r.args.device} ${v(r.args.value)}`;
+  if (r.kind === "world" && r.event === "door") return `${r.id} ${r.open ? "opened" : "closed"}`;
+  if (r.kind === "rule" && r.rule === "presence") return `${r.device} sees ${r.actor}`;
+  if (r.kind === "rule" && r.rule === "interact" && r.ok && r.actor !== player) return `${r.actor}: ${r.target} ${r.result}`;
+  if (r.kind === "resident") return `${r.resident} ${r.decision}`;
+  if (r.kind === "task") return `${r.resident}: ${r.task}`;
+  return null;
 }
 
 export function formatClock(startSeconds, t) {
@@ -76,6 +147,12 @@ export function recordLine(r, startSeconds) {
 function describe(r) {
   if (r.kind === "meta") return `the session starts on ${r.scene}`;
   if (r.kind === "resident") return `${r.resident}: ${r.decision}` + (r.device ? ` (${r.device})` : "");
+  if (r.kind === "task") return `${r.resident} begins ${r.task} (${r.room || "away"})`;
+  if (r.kind === "automation") {
+    const refused = r.accepted === false ? `: refused (${r.reason})` : "";
+    return `automation "${r.automation}" sets ${r.device} ${r.feature} = ${JSON.stringify(r.value)}${refused}`;
+  }
+  if (r.kind === "automation_skipped") return `automation "${r.automation}" skipped: ${r.reason}`;
   if (r.kind === "report") return `${r.device} reports ${r.feature} = ${JSON.stringify(r.value)}`;
   if (r.kind === "rule") {
     if (r.rule === "presence") return `presence: ${r.device} sees ${r.actor}`;
