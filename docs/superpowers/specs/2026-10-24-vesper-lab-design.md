@@ -60,12 +60,13 @@ Security results are not a contribution of this paper. They belong to later pape
 - In `vesper lab play`, the browser UI has an **edit mode**. It searches the catalog (`vesper catalog search` underneath), and a click on the map places a product in a room, on a wall, on a door or on a table. Edits are saved to `home.yaml`, which is plain YAML, so it can also be edited and versioned by hand.
 - **Play mode:**
   - WASD or arrow keys walk the avatar; E interacts with the nearest door, switch, lamp or plug; Tab cycles through the panels.
-  - **Controls like a shooter game (PI, 2026-10-26):** "when users control the character, we can use wasd to move and mouse click to interact with devices (like cs2 game)". So:
-    - WASD moves the avatar in both views.
-    - In the 3D view (plan W1): mouse look with the pointer locked, as in CS2. A crosshair marks the screen centre, and a left click interacts with the device or door under the crosshair. Reach and the wall still apply: within 1 m and on the same side, otherwise the page says why.
-    - In the map view: a left click on a device or door interacts with it, under the same reach rule.
-    - E stays as the keyboard alternative.
-    - To confirm with the PI: whether a click on empty floor still walks there. Today it does, and `vesper lab look`'s `click_world` steps rely on it.
+  - **Controls and views like a shooter game (PI, 2026-10-26):** "when users control the character, we can use wasd to move and mouse click to interact with devices (like cs2 game)", then "I want the framework/app works like PUBG game. We can have first and third view". So:
+    - **The 3D view is the main screen** (plan W1). It is third-person by default, with the camera behind and above the avatar, and V toggles first-person, as in PUBG. Mouse look runs with the pointer locked: in third person the mouse turns the camera and the avatar's heading, in first person it is the eyes.
+    - **Controls:** WASD moves relative to where the camera looks. A crosshair marks the screen centre, and a left click interacts with the device or door under it. Reach and the wall still apply: within 1 m and on the same side, otherwise the page says why. E stays as the keyboard alternative. Esc releases the pointer.
+    - **The 2D map becomes a minimap** in a corner, following the avatar and showing devices, doors, residents and the reach ring. M opens the full map, as in PUBG. On the minimap and the full map, a click on a device or door interacts with it under the same reach rule.
+    - **Home Assistant's dashboard, the console and the security console** stay as panels beside or over the view (Tab cycles through them).
+    - **No click-to-walk** in play, which matches both games: movement is WASD only. `vesper lab look` gets a scripted `walk` step (to a point, along the planned path) in place of `click_world` walking.
+    - **Before W1 is ready:** the map-only page keeps today's layout with WASD and click-to-interact, so the Lab stays usable.
   - Home Assistant's own dashboard (VESPER's instance) is embedded beside the views, so automations are created and inspected in Home Assistant's real UI. VESPER's instance is configured with `http: use_x_frame_options: false`, so the page on 127.0.0.1:18080 may frame it; nothing else is relaxed.
 - **The security console** lists attacks and defenses (§6), runs and stops them, and shows alerts. Attacks and defenses can also be scripted.
 - `vesper lab replay <trace>` replays a recorded session's inputs, headless or with the views.
