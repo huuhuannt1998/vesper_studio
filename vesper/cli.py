@@ -526,6 +526,8 @@ def _lab(args) -> int:
             return _lab_look(args, load_lab_home(Path(args.home), catalog))
         if args.action == "day":
             return _lab_day(args, load_lab_home(Path(args.home), catalog))
+        if args.action == "routine":
+            return _lab_routine(args, load_lab_home(Path(args.home), catalog))
         return _lab_replay(args, catalog, load_lab_home)
     except (HomeError, MapError, TraceError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
@@ -790,6 +792,60 @@ def _lab_day(args, home) -> int:
     return 0
 
 
+def _lab_routine(args, home) -> int:
+    """A resident's routine from the earlier work's schedules: a persona day or an ARAS day (spec §5a)."""
+    from vesper.lab.convert import ConvertError, from_aras, from_persona, routine_yaml
+    from vesper.lab.routine import RoutineError, load_routine
+    src = Path(args.file)
+    try:
+        overrides = {}
+        for item in args.room:
+            c, sep, room = item.partition("=")
+            if not (sep and c and room):
+                raise ConvertError(f"--room {item}: give it as canonical=room, such as living_room=hall")
+            overrides[c] = room
+        if args.source == "persona":
+            try:
+                schedule = json.loads(src.read_text())
+            except (OSError, ValueError) as e:
+                raise ConvertError(f"{src}: cannot read the schedule: {e}") from None
+            tasks, notes = from_persona(schedule, home.map, overrides)
+            name, label = src.stem, f"persona schedule {src.name}"
+        else:
+            try:
+                rows = [line.split() for line in src.read_text().splitlines() if line.strip()]
+            except OSError as e:
+                raise ConvertError(f"{src}: cannot read the ARAS day: {e.strerror}") from None
+            tasks, notes = from_aras(rows, args.resident, home.map, overrides)
+            house = (src.parent.name.split() or ["x"])[-1].lower()
+            name = f"aras-{house}-{src.stem.lower().replace('_', '')}-r{args.resident}"
+            label = f"ARAS {src.parent.name}/{src.name}, resident {args.resident}"
+    except ConvertError as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    if not tasks:
+        print(f"FAILED: {src.name} gives no task for this home", file=sys.stderr)
+        return 1
+    out = Path(args.out) if args.out else home.path.parent / "routines" / f"{name}.yaml"
+    if out.exists():
+        print(f"FAILED: {out} exists; a routine is never overwritten (choose another --out)", file=sys.stderr)
+        return 1
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name(f".{out.stem}.tmp.yaml")  # checked before it takes the routine's name
+    tmp.write_text(routine_yaml(tasks, source=label, notes=notes))
+    try:
+        load_routine(tmp, home.map)
+    except RoutineError as e:  # a converter defect, never the user's: say so and leave nothing behind
+        tmp.unlink()
+        print(f"FAILED: the converted routine does not load: {e}", file=sys.stderr)
+        return 1
+    tmp.rename(out)
+    for n in notes:
+        print(n)
+    print(f"{len(tasks)} tasks: {out}")
+    return 0
+
+
 def _day_summary(session) -> list[str]:
     from collections import Counter
     lines = []
@@ -959,6 +1015,15 @@ def main(argv: list[str] | None = None) -> int:
     lab_day.add_argument("--from", dest="start", default="00:00", help="the time of day it starts (default 00:00)")
     lab_day.add_argument("--hours", type=float, default=24.0, help="how long (default 24)")
     lab_day.add_argument("--trace", help="the trace file (default: traces/<time>-day-<pid>.jsonl next to the home)")
+    lab_routine = lab_actions.add_parser("routine", help="a resident's routine from a persona or an ARAS day")
+    lab_routine.add_argument("source", choices=("persona", "aras"))
+    lab_routine.add_argument("file", help="a persona schedule (.json) or an ARAS day (DAY_n.txt)")
+    lab_routine.add_argument("--home", required=True, help="the home whose rooms the routine uses")
+    lab_routine.add_argument("--catalog", default="catalog/vds")
+    lab_routine.add_argument("--resident", type=int, default=1, help="ARAS: resident 1 or 2")
+    lab_routine.add_argument("--room", action="append", default=[], metavar="CANONICAL=ROOM",
+                             help="map a canonical room (living_room, kitchen, bedroom, bathroom, entryway, hallway)")
+    lab_routine.add_argument("--out", help="the routine file (default: routines/<name>.yaml next to the home)")
     lab_replay = lab_actions.add_parser("replay", help="replay a trace's inputs and compare the device reports")
     lab_replay.add_argument("trace")
     lab_replay.add_argument("--home", help="the home file (default: the one the trace names)")
