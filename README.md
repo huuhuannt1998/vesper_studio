@@ -14,7 +14,18 @@ Assistant. Design: `docs/superpowers/specs/2026-10-22-vesper-device-twins-design
     uv pip install --python .venv/bin/python -e ".[dev]"
     .venv/bin/python -m pytest
 
-Habitat-based parts use a separate conda environment with habitat-sim 0.3.3 (Python 3.9).
+Habitat-based parts use a separate conda environment with habitat-sim 0.3.3 (Python 3.9); VESPER runs its world
+service there (`python -m vesper_world`) and finds it at `$VESPER_HABITAT_PYTHON`
+(default `~/miniconda3/envs/vesper/bin/python`).
+
+## VESPER Lab: a home from an HSSD scene
+
+    vesper lab scenes                                   # the HSSD scenes here, and whether each is downloaded
+    vesper lab new myhome --scene 102344022             # its map, its rooms and its doors, in about 10 s
+    vesper lab check myhome/home.yaml                   # then place devices (vesper catalog search)
+
+HSSD is a gated download (CC BY-NC 4.0) at `$VESPER_HSSD` (default `data/scene_datasets/hssd-hab`); the map
+files made from it stay on your machine. Design: `docs/superpowers/specs/2026-10-24-vesper-lab-design.md`.
 
 ## Status
 
