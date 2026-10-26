@@ -45,6 +45,30 @@ def ambient_at(seconds_of_day: float, lamps_on: int) -> dict:
             "illuminance": round(daylight + LAMP_LUX * lamps_on)}
 
 
+HEAT_SETPOINTS = ("occupied_heating_setpoint", "current_heating_setpoint")
+
+
+def thermostat(twin) -> dict | None:
+    """What a person reads off a heating thermostat and what its buttons set, or None for another device: the
+    room temperature it shows, its heating setpoint (feature, value, range) and its mode (feature, value, modes).
+    Only the setpoint and the mode are set by hand."""
+    feats, state = twin.features, twin.state
+    sp = next((n for n in HEAT_SETPOINTS if n in feats and "set" in feats[n].get("access", ())), None)
+    if sp is None:
+        return None
+    mode = feats.get("system_mode")
+    hand = mode is not None and mode["type"] == "enum" and "set" in mode.get("access", ())
+    return {"temperature": state.get("local_temperature"), "setpoint_feature": sp, "setpoint": state[sp],
+            "range": feats[sp].get("range"), "mode_feature": "system_mode" if hand else None,
+            "mode": state.get("system_mode"), "modes": list(mode.get("values") or []) if hand else []}
+
+
+def hand_settings(twin) -> tuple[str, ...]:
+    """The features a person sets by hand to a value (not a toggle): a thermostat's setpoint and mode."""
+    t = thermostat(twin)
+    return tuple(f for f in (t["setpoint_feature"], t["mode_feature"]) if f) if t else ()
+
+
 def toggle_command(twin) -> tuple[str, str | None, object] | None:
     """What a person's hand does to this device: ("operate", feature, value), ("press", None, None), or None for
     a device nobody operates by hand (a sensor)."""
@@ -173,6 +197,26 @@ class Rules:
         for other in device.controls:
             self._bound(device.name, other, actor)
         return self._done(actor, {"ok": True, "kind": "device", "target": target, "result": result})
+
+    def adjust(self, actor: str, target: str, feature: str, value) -> dict:
+        """A person sets a device's value by hand (a thermostat's setpoint or mode), within reach."""
+        if target not in self.devices:
+            raise ValueError(f"unknown device {target!r}")
+        if feature not in hand_settings(self.twin(target)) or self.devices[target].mount == "ceiling":
+            raise ValueError(f"{target}: {feature} is not something a person sets by hand")
+        if not self.within_reach(actor, target):
+            return self._done(actor, {"ok": False, "kind": "device", "target": target, "result": "out of reach"})
+        if self.runtime.operate(self.twin_ids[target], feature, value, actor=actor):
+            return self._done(actor, {"ok": True, "kind": "device", "target": target,
+                                      "result": f"set {feature} to {value}"})
+        reason = self.runtime.actions[-1].reason if self.runtime.actions else "refused"
+        return self._done(actor, {"ok": False, "kind": "device", "target": target, "result": f"refused: {reason}"})
+
+    def within_reach(self, actor: str, target: str) -> bool:
+        """A device a person standing where `actor` is could touch: near enough, on the same side of the wall."""
+        p = self.world.pose(actor)
+        return distance((p.x, p.z), self.devices[target].position) <= INTERACT_M and \
+            self._can_touch(actor, "device", target)
 
     def _use(self, name: str, actor: str) -> str:
         kind, feature, value = toggle_command(self.twin(name))

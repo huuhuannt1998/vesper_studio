@@ -114,6 +114,14 @@ class Session:
         self._input(actor, "interact", {"target": target}, outcome=outcome, t=began, **({"why": why} if why else {}))
         return outcome
 
+    def adjust(self, target: str, feature: str, value, actor: str = PLAYER, why: dict | None = None) -> dict:
+        """Set a device's value by hand (a thermostat's setpoint or mode), within reach."""
+        began = self.clock.now()
+        outcome = self.rules.adjust(actor, target, feature, value)
+        self._input(actor, "set", {"target": target, "feature": feature, "value": value}, outcome=outcome, t=began,
+                    **({"why": why} if why else {}))
+        return outcome
+
     def wait(self, seconds: float) -> None:
         if hasattr(self.clock, "advance"):
             self.clock.advance(seconds)
@@ -215,12 +223,14 @@ def replay(records: list[dict], home) -> list[dict]:
                 s.walk_to(a["point"], actor=r["actor"], why=r.get("why"))
             elif r["op"] == "interact":
                 s.interact(a["target"], actor=r["actor"], why=r.get("why"))
+            elif r["op"] == "set":
+                s.adjust(a["target"], a["feature"], a["value"], actor=r["actor"], why=r.get("why"))
             elif r["op"] == "command":
                 if a["device"] not in s.twin_ids:
                     raise ValueError(f"unknown device {a['device']!r}")
                 s.runtime.platform_set(s.twin_ids[a["device"]], a["feature"], a["value"])
         except (ValueError, WorldError) as e:  # the home changed under the trace: that is the difference
-            what = r["op"] + (f" {a['target']}" if r["op"] == "interact" and a.get("target") else "")
+            what = r["op"] + (f" {a['target']}" if r["op"] in ("interact", "set") and a.get("target") else "")
             s._write({"kind": "divergence", "input": k, "message": f"input {k} ({what} at t={r['t']:g}): {e}"})
             break
     if records:

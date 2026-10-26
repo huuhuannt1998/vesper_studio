@@ -12,6 +12,10 @@ What it does, from its routine and its profile:
 - a room too dark for the task (the rules' daylight model, no light on) gets its light, when the task begins
   and whenever the resident looks around (every LOOK_S): the room has grown dark, or someone switched the
   light off;
+- a room too cold or too warm for the profile's comfort band, as its thermostat shows it, gets the thermostat
+  changed by hand, at the same moments: too cold, a thermostat that is off is switched to heat and its setpoint
+  raised to the band's low end; too warm, its setpoint lowered to the band's high end. The rules' room
+  temperature does not follow the heating, so once the setpoint is right the resident leaves it;
 - leaving a room, it switches the room's lights off, unless it forgets (the profile's chance) or someone else
   stays there (a resident whose task is in that room, or anyone else standing in it);
 - going to bed (a SLEEP task that starts within NIGHT_S after the profile's bedtime) it switches off the lights
@@ -33,7 +37,7 @@ from collections import deque
 from vesper.lab.geometry import distance
 from vesper.lab.home import spawn_point
 from vesper.lab.profile import Profile
-from vesper.lab.rules import ambient_at, is_locked, is_on
+from vesper.lab.rules import ambient_at, is_locked, is_on, thermostat
 
 ALARMS = {("smoke_sensor", "smoke"), ("gas_sensor", "gas")}
 RETRY_S = 2.0  # waiting for a doorway someone stands in
@@ -147,6 +151,7 @@ class Resident:
                 steps.append(("lights_out", task.room))  # going to bed: the lights go off
             elif task.category != "SLEEP":
                 steps.append(("dark", task.room))
+                steps.append(("comfort", task.room))
             steps.append(("devices", task))
         self._steps.extend(steps)
         self._next()
@@ -182,6 +187,7 @@ class Resident:
         task = self.routine.tasks[self._task]
         if task.room is None or task.category == "SLEEP" or self._here() != task.room:
             return
+        self._comfort(task.room)
         self._dark(task.room)
         self._next()
 
@@ -216,6 +222,10 @@ class Resident:
             self._lights_off_here(step[1])
         elif kind == "dark":
             self._dark(step[1])
+        elif kind == "comfort":
+            self._comfort(step[1])
+        elif kind == "set":
+            self._set(*step[1:])
         elif kind == "lights_out":
             for light in reversed(self._lights(step[1])):
                 self._steps.appendleft(("use", light, False, "bedtime"))
@@ -308,6 +318,36 @@ class Resident:
         daylight = ambient_at(self.home.start_time + self.session.clock.now(), 0)["illuminance"]
         if daylight < self.profile.dark_lux:
             self._steps.appendleft(("use", lights[0], True, "a dark room"))
+
+    def _comfort(self, room: str) -> None:
+        low, high = self.profile.comfort
+        for name, d in self._devices_in(room):
+            t = thermostat(self.rules.twin(name))
+            if t is None or d.mount == "ceiling" or not isinstance(t["temperature"], int | float):
+                continue
+            steps = []
+            if t["temperature"] < low:
+                if t["mode"] == "off" and "heat" in t["modes"]:
+                    steps.append(("set", name, t["mode_feature"], "heat", "too cold"))
+                if t["setpoint"] < low:
+                    steps.append(("set", name, t["setpoint_feature"], _within(low, t["range"]), "too cold"))
+            elif t["temperature"] > high and t["setpoint"] > high:
+                steps.append(("set", name, t["setpoint_feature"], _within(high, t["range"]), "too warm"))
+            for s in reversed(steps):
+                self._steps.appendleft(s)
+            return  # a room's first thermostat is the one a person turns to
+
+    def _set(self, device: str, feature: str, value, reason: str, tries: int = 0, task: str | None = None) -> None:
+        if self.rules.twin(device).state.get(feature) == value:
+            return
+        if not self.rules.within_reach(self.name, device):
+            if tries:
+                self.session.note({"resident": self.name, "decision": "could not reach it", "device": device})
+                return
+            self._steps.appendleft(("set", device, feature, value, reason, 1, task))
+            self._steps.appendleft(("walk_point", self._near(device), reason, 0, task))
+            return
+        self.session.adjust(device, feature, value, actor=self.name, why=self._why(reason, task))
 
     def _devices(self, task) -> None:
         for name in self._uses(task):
@@ -519,3 +559,10 @@ class Resident:
                     if r is not None and r.id == room and (best is None or d < best[0]):
                         best = (d, c)
         return best[1] if best else self._spot(room)
+
+
+def _within(value: float, bounds) -> float:
+    """`value` inside a feature's range, if it has one."""
+    if not bounds:
+        return value
+    return min(max(value, bounds[0]), bounds[1])

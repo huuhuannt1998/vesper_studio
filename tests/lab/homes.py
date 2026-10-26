@@ -1,16 +1,26 @@
 """A small catalog and a home on the synthetic house, for the Lab tests."""
 import textwrap
 
+from tests.catalog.fixtures import zdef
 from tests.catalog.test_matter_normalize import records as matter_records
 from tests.lab.maps import house
 from tests.twins.conftest import records as zigbee_records
+from vesper.catalog.normalize.zigbee import zigbee_records as normalize_zigbee
 
 LOCK = "matter:115f:0001"
+THERMOSTAT = zdef("THERM-1", "Acme", [{"type": "climate", "features": [
+    {"name": "local_temperature", "access": 5, "type": "numeric", "property": "local_temperature", "unit": "°C"},
+    {"name": "current_heating_setpoint", "access": 7, "type": "numeric", "property": "current_heating_setpoint",
+     "unit": "°C", "value_min": 5, "value_max": 30, "value_step": 0.5},
+    {"name": "system_mode", "access": 7, "type": "enum", "property": "system_mode", "values": ["off", "auto", "heat"]},
+]}])
 
 
 def catalog():
     out = {r["id"]: r for r in zigbee_records().values()}
     out[LOCK] = matter_records()[LOCK]
+    for r in normalize_zigbee({"version": "26.123.0", "definitions": [THERMOSTAT]}):
+        out[r["id"]] = r
     return out
 
 

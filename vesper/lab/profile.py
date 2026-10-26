@@ -1,12 +1,14 @@
 """A resident's profile (spec §5a): the habits, the comfort, and which devices an activity uses.
 
-    profile: {forget_light: 0.2, forget_lock: 0.1, dark_lux: 50, bedtime: "20:00",
+    profile: {forget_light: 0.2, forget_lock: 0.1, dark_lux: 50, bedtime: "20:00", comfort: [20, 24],
               uses: {EATING: [plug], LEISURE: [plug]}}
 
 - forget_light: leaving a room, the chance of leaving its light on;
 - forget_lock: leaving home or going to bed, the chance of not locking the front door;
 - dark_lux: a room is too dark for an activity below this daylight (the rules' assumed ambient model);
 - bedtime: a SLEEP task that starts after this is going to bed;
+- comfort: the room temperatures (°C, low then high) the resident is comfortable in; outside them, it changes the
+  room's thermostat;
 - uses: per task category, the device categories the task switches on while it lasts and off after
   ("cooking uses the kitchen plug").
 Every value has a default; randomness comes from the home's seed, so a day replays exactly.
@@ -18,7 +20,7 @@ from dataclasses import dataclass, field
 from vesper.lab.routine import CATEGORIES, RoutineError, _time
 
 DEFAULT_USES = {"EATING": ("plug",), "HOUSEHOLD": ("plug",), "LEISURE": ("plug",), "WORK": ("plug",)}
-SETTINGS = ("forget_light", "forget_lock", "dark_lux", "bedtime", "uses")
+SETTINGS = ("forget_light", "forget_lock", "dark_lux", "bedtime", "comfort", "uses")
 
 
 class ProfileError(ValueError):
@@ -31,6 +33,7 @@ class Profile:
     forget_lock: float = 0.1
     dark_lux: float = 50.0
     bedtime: float = 20 * 3600  # seconds after midnight
+    comfort: tuple[float, float] = (20.0, 24.0)  # °C, low then high
     uses: dict = field(default_factory=lambda: dict(DEFAULT_USES))
 
 
@@ -59,6 +62,13 @@ def load_profile(spec, where: str) -> Profile:
             values["bedtime"] = _time(spec["bedtime"], f"{where}.bedtime")
         except RoutineError as e:
             raise ProfileError(str(e)) from None
+    if "comfort" in spec:
+        v = spec["comfort"]
+        if not (isinstance(v, list) and len(v) == 2 and all(isinstance(x, int | float) and not isinstance(x, bool)
+                                                           for x in v) and v[0] < v[1]):
+            raise ProfileError(f"{where}.comfort: {v!r} is not a comfort band (two temperatures in °C, low then "
+                               "high, such as [20, 24])")
+        values["comfort"] = (float(v[0]), float(v[1]))
     if "uses" in spec:
         uses = spec["uses"]
         if not isinstance(uses, dict):
