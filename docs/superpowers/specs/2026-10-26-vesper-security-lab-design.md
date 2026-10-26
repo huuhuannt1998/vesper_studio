@@ -73,7 +73,11 @@ the router, put the coordinator on its own Wi-Fi host (a common real setup), or 
 Real connections, each through the relay (§3.4):
 - **TCP:** the bridge's MQTT connection to the broker (the coordinator's link); each Wi-Fi device's own MQTT
   connection; Home Assistant's MQTT connection.
-- **UDP:** each Matter node's traffic with Home Assistant's Matter server.
+- **UDP:** each Matter node's traffic with Home Assistant's Matter server. Both ends are matter.js (VESPER's nodes
+  and the `matter-server` package). A node always advertises the port it binds, and the controller only uses
+  addresses it found by mDNS on the real interface, so a loopback relay cannot stand in front of a node (research
+  of 2026-10-26). Matter links' effects are applied instead inside VESPER's own Matter host process, at each node's
+  UDP socket (by node and direction; Matter's message classes are encrypted there, so they cannot be filtered on).
 
 Real TCP retransmissions, MQTT keepalives and Matter's retransmissions therefore meet every delay. The real Home
 Assistant decides when a device is unavailable.
@@ -88,9 +92,13 @@ retries and loss, inside VESPER's process.
 - **Virtual Wi-Fi devices: Tasmota.** A new catalog source: Tasmota device templates (real products, each with its
   GPIO template). Each becomes a VESPER twin that speaks Tasmota's MQTT protocol and its Home Assistant discovery,
   over its own MQTT connection and its own Wi-Fi link. These devices are virtual: no hardware and no real firmware
-  on any network. They live only on VESPER's loopback network. The template database's license is checked before
-  it enters the catalog; a release build keeps only records whose source allows redistribution, as for the rest
-  of the catalog.
+  on any network. They live only on VESPER's loopback network. The source is the blakadder/templates repository
+  (EPL-2.0, 2,871 devices, one Markdown file with YAML front matter each), parsed from a pinned commit (its JSON
+  export is not valid JSON), built on the user's machine like every other source; product images are not taken.
+  It is the first copyleft source: a release build carries its EPL-2.0 notice. Home Assistant's Tasmota
+  integration accepts a twin's discovery (`tasmota/discovery/<MAC>/config` and `/sensors`) unchanged, and marks a
+  device unavailable only by its LWT or when its own MQTT connection is down; VESPER's setup installs the
+  integration (HATasmota) and its config entry.
 - **Later:** ESPHome (its native TCP API) and Shelly (HTTP and WebSocket). They are real, and heavier to model.
 
 ### 3.4 The relay
@@ -103,7 +111,15 @@ ports. Per direction it holds a queue and applies the link's model and the attac
 - each filtered by device, direction, and message (an MQTT topic or payload field; a Matter message class).
 
 TCP effects act on whole MQTT packets (the relay parses MQTT framing), so a held report is held intact and arrives
-late on a live connection: the connection-keeping delays of Phantom-Delay, against a real broker and hub.
+late on a live connection: the connection-keeping delays of Phantom-Delay, against a real broker and hub. A
+`keep_connection` hold lets keepalives (PINGREQ, PINGRESP) and acknowledgements pass, as a real attacker who keeps
+the session alive does. A cut closes the broker's side without an MQTT DISCONNECT, so the broker publishes the
+client's will. QoS 1 messages that paho resends after a reconnect can arrive late or twice; the trace says so. The
+relay sets TCP_NODELAY on its sockets.
+
+**Availability as in Zigbee2MQTT.** Each Zigbee device's discovery lists both its own availability topic and the
+bridge's (`zigbee2mqtt/bridge/state`), as real Zigbee2MQTT does, so cutting the coordinator's link makes every
+Zigbee device unavailable in Home Assistant; the bridge republishes `online` on every reconnect.
 
 **Before it starts,** the relay checks every upstream against the session's own services: the broker the session
 started, the Home Assistant it started, the virtual devices it started. Any other address or port, including 1883
@@ -320,9 +336,9 @@ planned.
 
 ## 9. Risks, settled first by spikes
 
-1. **Matter through the relay.** Home Assistant's Matter server finds nodes by mDNS. The relay needs the nodes to
-   advertise the relay's port. If matter.js cannot, the effects are applied at the node's own socket instead.
-2. **The Tasmota template database's license** before it enters the catalog.
+1. **Matter's link effects inside the host process** (settled: no relay; §3.2): wrapping matter.js's network
+   service in `host.mjs` must not disturb commissioning; a spike first.
+2. **The Tasmota template database** (settled: EPL-2.0; parse the git tree, not the JSON export).
 3. **Home Assistant's MQTT and availability timeouts** under held packets: measured live first, so the Phantom-Delay
    claims are tested against what the real hub does.
 4. **Wall clock and the session's clock thread** with the relay in the loop (latency budget, ordering).
