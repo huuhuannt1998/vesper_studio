@@ -88,7 +88,7 @@ def test_a_lamp_toggles_by_hand_and_a_bound_button_switches_it(tmp_path):
 def test_only_what_a_person_can_reach_and_operate_is_a_target(tmp_path):
     t = lab(tmp_path, at=(1.5, 1.0))
     assert t.rules.interact("p") == {"ok": False, "kind": None, "target": None, "result": "nothing in reach"}
-    assert t.rules.interact("p", "bedroom_lamp")["result"] == "out of reach"
+    assert t.rules.interact("p", "bedroom_lamp")["result"] == "too far"  # the page says why, as PUBG's prompt does
     with pytest.raises(ValueError, match="hall_motion is not something a person operates"):
         t.rules.interact("p", "hall_motion")
 
@@ -111,7 +111,7 @@ def test_nothing_is_used_through_a_wall(tmp_path):
     text = HOME.replace("xy: [3.2, 3.5], mount: wall}", "xy: [5.0, 3.2], mount: wall}")  # on the kitchen | bedroom wall
     t = lab(tmp_path, text, at=(5.0, 2.75))  # in the kitchen, 0.45 m away through the wall
     assert "bedroom_button" not in [target for _, _, target in t.rules.reachable("p")]
-    assert t.rules.interact("p", "bedroom_button")["result"] == "out of reach"
+    assert t.rules.interact("p", "bedroom_button")["result"] == "other side of the wall"
     assert is_on(t.rules.twin("bedroom_lamp")) is False
 
 

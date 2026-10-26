@@ -180,10 +180,9 @@ class Rules:
             kind = "device"
         else:
             raise ValueError(f"unknown door or device {target!r}")
-        p = self.world.pose(actor)
-        where = self.home.map.doorway(target).center if kind == "door" else self.devices[target].position
-        if distance((p.x, p.z), where) > INTERACT_M or not self._can_touch(actor, kind, target):
-            return self._done(actor, {"ok": False, "kind": kind, "target": target, "result": "out of reach"})
+        why_not = self._out_of_reach(actor, kind, target)
+        if why_not:
+            return self._done(actor, {"ok": False, "kind": kind, "target": target, "result": why_not})
         if kind == "door":
             if not self.world.doors[target] and self._door_locked(target):
                 return self._done(actor, {"ok": False, "kind": "door", "target": target, "result": "locked"})
@@ -204,8 +203,9 @@ class Rules:
             raise ValueError(f"unknown device {target!r}")
         if feature not in hand_settings(self.twin(target)) or self.devices[target].mount == "ceiling":
             raise ValueError(f"{target}: {feature} is not something a person sets by hand")
-        if not self.within_reach(actor, target):
-            return self._done(actor, {"ok": False, "kind": "device", "target": target, "result": "out of reach"})
+        why_not = self._out_of_reach(actor, "device", target)
+        if why_not:
+            return self._done(actor, {"ok": False, "kind": "device", "target": target, "result": why_not})
         if self.runtime.operate(self.twin_ids[target], feature, value, actor=actor):
             return self._done(actor, {"ok": True, "kind": "device", "target": target,
                                       "result": f"set {feature} to {value}"})
@@ -214,9 +214,15 @@ class Rules:
 
     def within_reach(self, actor: str, target: str) -> bool:
         """A device a person standing where `actor` is could touch: near enough, on the same side of the wall."""
+        return self._out_of_reach(actor, "device", target) is None
+
+    def _out_of_reach(self, actor: str, kind: str, target: str) -> str | None:
+        """Why `actor` cannot touch the door or device (the page's prompt says it), or None if it can."""
         p = self.world.pose(actor)
-        return distance((p.x, p.z), self.devices[target].position) <= INTERACT_M and \
-            self._can_touch(actor, "device", target)
+        where = self.home.map.doorway(target).center if kind == "door" else self.devices[target].position
+        if distance((p.x, p.z), where) > INTERACT_M:
+            return "too far"
+        return None if self._can_touch(actor, kind, target) else "other side of the wall"
 
     def _use(self, name: str, actor: str) -> str:
         kind, feature, value = toggle_command(self.twin(name))

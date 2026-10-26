@@ -31,6 +31,7 @@ from websockets.exceptions import ConnectionClosed
 from websockets.http11 import Response
 
 from vesper.lab.mapworld import WorldError
+from vesper.lab.rules import INTERACT_M
 from vesper.lab.session import PLAYER
 
 UI_DIR = Path(__file__).parent / "ui"
@@ -48,7 +49,7 @@ class PlayError(RuntimeError):
 def hello(session, hub_url: str | None = None, recent=()) -> dict:
     home, world, m = session.home, session.world, session.home.map
     return {
-        "type": "hello", "scene": home.scene, "player": PLAYER, "hub": hub_url,
+        "type": "hello", "scene": home.scene, "player": PLAYER, "hub": hub_url, "reach_m": INTERACT_M,
         "clock": {"t": session.clock.now(), "start_time": home.start_time},
         "map": {"grid": m.grid.to_json(),
                 "rooms": [{"id": r.id, "label": r.label, "polygon": [list(p) for p in r.polygon],
@@ -58,6 +59,7 @@ def hello(session, hub_url: str | None = None, recent=()) -> dict:
         "devices": [_device(session, d) for d in home.devices],
         "doors": [_door(session, door) for door in world.doors],
         "actors": [_pose(world.pose(a)) for a in world.actors()],
+        "residents": [_resident(session, r) for r in session.residents.values()],
         "reach": reach(session), "records": list(recent)}
 
 
@@ -74,7 +76,15 @@ def _device(session, d) -> dict:
     return {"name": d.name, "product": d.product, "vendor": identity.get("vendor"), "model": identity.get("model"),
             "category": identity.get("category"), "room": d.room, "door": d.door, "x": d.position[0],
             "z": d.position[1], "mount": d.mount, "facing": d.facing, "controls": list(d.controls),
-            "effect": session.rules.effects.get(d.name), "state": dict(session.rules.twin(d.name).state)}
+            "effect": session.rules.effects.get(d.name), "state": dict(session.rules.twin(d.name).state),
+            "operable": session.rules.operable(d.name)}
+
+
+def _resident(session, r) -> dict:
+    """Who, doing what, where: the page's residents list (spec §2a), kept current by `task` records and poses."""
+    task, pose = r.task, session.world.pose(r.name)
+    return {"name": r.name, "model": r.model, "task": task.name if task else None,
+            "category": task.category if task else None, "room": pose.room}
 
 
 def _door(session, door: str) -> dict:

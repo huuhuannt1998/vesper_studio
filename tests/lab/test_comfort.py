@@ -55,7 +55,7 @@ def test_the_player_sets_a_thermostat_within_reach_and_the_replay_matches(tmp_pa
     s = Session(home, clock=LogicalClock())
     s.start(spawn_player=False)
     s.spawn("player", "female_0", (3.5, 4.5))  # in the bedroom, across it from the thermostat
-    assert s.adjust("bedroom_thermostat", "current_heating_setpoint", 23)["result"] == "out of reach"
+    assert s.adjust("bedroom_thermostat", "current_heating_setpoint", 23)["result"] == "too far"
     s.walk_to((6.5, 4.5))
     s.wait(10)
     outcome = s.adjust("bedroom_thermostat", "current_heating_setpoint", 23)

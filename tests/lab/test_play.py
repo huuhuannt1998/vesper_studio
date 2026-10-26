@@ -9,7 +9,8 @@ from websockets.sync.client import connect
 
 from tests.lab.homes import HOME, catalog, write_home
 from vesper.lab.home import load_lab_home
-from vesper.lab.play import PlayServer
+from vesper.lab.play import PlayServer, hello
+from vesper.lab.rules import INTERACT_M
 from vesper.lab.session import Session
 from vesper.twins.clock import WallClock
 
@@ -194,3 +195,17 @@ def test_a_page_that_joins_late_gets_the_recent_console(play):
         hello = until(ws, lambda m: m["type"] == "hello")
     kinds = [r["kind"] for r in hello["records"]]
     assert kinds[0] == "meta" and kinds[-1] == "resident" and len(hello["records"]) <= 200
+
+
+def test_hello_says_what_a_hand_uses_how_far_a_hand_reaches_and_who_lives_here(tmp_path):
+    """What the page's prompts need (spec §2a): a sensor is not used by hand, reach is INTERACT_M, and the
+    residents list shows who is doing what."""
+    from tests.lab.test_resident import lab, task
+    t = lab(tmp_path, [task("07:00", 60, "read", "LEISURE", "bedroom")])
+    t.s.clock.advance(0)  # the residents' first instant: their 07:00 task begins (Session.start does this too)
+    h = hello(t.s)
+    devices = {d["name"]: d for d in h["devices"]}
+    assert devices["bedroom_lamp"]["operable"] is True and devices["hall_motion"]["operable"] is False
+    assert h["reach_m"] == INTERACT_M
+    assert h["residents"] == [{"name": "r0", "model": "male_0", "task": "read", "category": "LEISURE",
+                               "room": "bedroom"}]

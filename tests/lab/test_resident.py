@@ -361,3 +361,13 @@ def test_the_next_task_s_devices_stay_on_and_a_switch_off_names_the_task_that_us
     uses = [(r["why"]["task"], r["why"]["reason"]) for r in inputs(t.s) if r["op"] == "interact"
             and r["args"]["target"] == "kitchen_plug"]
     assert uses == [("cooking", "cooking"), ("dinner", "dinner is over")]
+
+
+def test_each_task_a_resident_begins_is_a_trace_record(tmp_path):
+    """Ground truth and the page's residents list: who began what, where, and when (spec §2a: the team list)."""
+    t = lab(tmp_path, [task("07:00", 30, "wake up", "SLEEP", "bedroom"), task("07:30", 20, "breakfast", "EATING",
+                                                                               "kitchen")])
+    t.at("07:31")
+    began = [(r["resident"], r["task"], r["category"], r["room"]) for r in t.s.records if r["kind"] == "task"]
+    assert began == [("r0", "wake up", "SLEEP", "bedroom"), ("r0", "breakfast", "EATING", "kitchen")]
+    assert t.people[0].task.name == "breakfast"

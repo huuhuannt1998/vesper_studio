@@ -128,6 +128,11 @@ class Session:
         else:
             time.sleep(seconds)
 
+    def task_record(self, resident: str, task) -> None:
+        """A resident begins a task of its routine: ground truth, and the page's residents list."""
+        self._write({"kind": "task", "resident": resident, "task": task.name, "category": task.category,
+                     "room": task.room})
+
     def note(self, record: dict) -> None:
         """A resident's decision not to act (\"forgot the light\"): ground truth, not an input."""
         self._write({"kind": "resident", **record})

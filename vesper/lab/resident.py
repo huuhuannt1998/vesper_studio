@@ -69,6 +69,11 @@ class Resident:
     def _alarm(self) -> bool:
         return bool(self._alarms)
 
+    @property
+    def task(self):
+        """The routine's task under way, or None between tasks."""
+        return self.routine.tasks[self._task] if self._task is not None else None
+
     # -- the day ------------------------------------------------------------------------------
     def start(self) -> None:
         start, clock = self.home.start_time, self.session.clock
@@ -121,6 +126,7 @@ class Resident:
     def _settle(self) -> None:
         """The task under way when the session starts: in its room already, the resident does what it does."""
         task = self.routine.tasks[self._task]
+        self.session.task_record(self.name, task)
         if task.room is not None and not self._alarm:
             if task.category != "SLEEP":
                 self._steps.append(("dark", task.room))
@@ -130,6 +136,7 @@ class Resident:
     def _begin(self, k: int) -> None:
         task = self.routine.tasks[k]
         self._task = k
+        self.session.task_record(self.name, task)
         self._epoch += 1
         self._steps.clear()
         self._waiting, self._walking = False, None
