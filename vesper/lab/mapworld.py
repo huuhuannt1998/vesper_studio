@@ -220,10 +220,14 @@ class MapWorld:
 
     def doors_on_route(self, start: Point, target: Point) -> list[tuple[str, str | None]] | None:
         """The closed doors on the shortest route as if every door were open, in the order the route crosses
-        them, each with the room the route comes from; None if there is no route even then."""
+        them, each with the room the route comes from; None if there is no route even then. Routed over the
+        doorways as `_plan` is, so asking does not search the whole floor either."""
+        self.plan_work = 0
         g = self.map.grid
         s, goal = g.cell_of(*start), self._nearest_free_cell(target, g.is_walkable)
-        cells = self._cells(s, goal, g.is_walkable) if s is not None and goal is not None else None
+        if s is None or goal is None:
+            return None
+        cells = self._route(start, s, goal, g.center(*goal), every_door_open=True)
         if cells is None:
             return None
         closed = {c: d for d, is_open in self.doors.items() if not is_open for c in self.map.doorway(d).cells}
@@ -268,19 +272,21 @@ class MapWorld:
         end = target if self._free(*target) else g.center(*goal)
         return self._straighten([start] + [g.center(*c) for c in cells[1:-1]] + [end])
 
-    def _route(self, start: Point, s, goal, end: Point):
-        """Cells from s to goal through the open doorways, or None if there is no way."""
+    def _route(self, start: Point, s, goal, end: Point, every_door_open: bool = False):
+        """Cells from s to goal through the open doorways (or through every doorway, as if all doors were open),
+        or None if there is no way."""
         w, labels = self.map.grid.width, self.map.labels
+        free = self.map.grid.is_walkable if every_door_open else self._cell_free
         rs, rg = labels[s[1] * w + s[0]], labels[goal[1] * w + goal[0]]
-        if rs < 0 or rg < 0 or not self._cell_free(*s):
-            return self._cells(s, goal, self._cell_free)  # a point in no room: the whole floor
+        if rs < 0 or rg < 0 or not free(*s):
+            return self._cells(s, goal, free)  # a point in no room: the whole floor
         if rs == rg:
-            here = self._cells(s, goal, self._in_room(rs, ()))
+            here = self._cells(s, goal, self._in_room(rs, (), free))
             if here is not None:
                 return here
         graph = self._doorway_graph()
         doors_of, cell_of = graph
-        open_ = {d.id: d for d in self.map.doorways if self.doors.get(d.id, True)}
+        open_ = {d.id: d for d in self.map.doorways if every_door_open or self.doors.get(d.id, True)}
         dead: set = set()
         for _ in range(4 * len(open_) + 4):
             route = self._graph_route(start, end, rs, rg, doors_of, open_, dead)
@@ -290,7 +296,7 @@ class MapWorld:
             for (ra, a, b) in route:  # legs: in room ra, from a to b ("S", "G" or a doorway id)
                 ca = s if a == "S" else cell_of[a]
                 cb = goal if b == "G" else cell_of[b]
-                leg = self._leg(ra, a, b, ca, cb)
+                leg = self._leg(ra, a, b, ca, cb, free)
                 if leg is None:
                     dead.add((ra, a, b))
                     ok = False
@@ -300,26 +306,28 @@ class MapWorld:
                 return cells
         return None
 
-    def _leg(self, room: int, a: str, b: str, ca, cb):
-        """The cells across `room` from a to b; doorway-to-doorway legs are kept (door states never change
-        a room's own cells, and a closed doorway is never part of a route)."""
+    def _leg(self, room: int, a: str, b: str, ca, cb, free=None):
+        """The cells across `room` from a to b; doorway-to-doorway legs are kept. Door states never change a
+        room's own cells, so a leg is the same whether its doors are open or only supposed open (`free` is then
+        the grid's walkability): a walk asks for a leg only while both its doors are open."""
         keep = a != "S" and b != "G"
         if keep and (room, a, b) in self._legs:
             return self._legs[(room, a, b)]
         ends = tuple(d for d in (a, b) if d not in ("S", "G"))
-        cells = self._cells(ca, cb, self._in_room(room, ends))
+        cells = self._cells(ca, cb, self._in_room(room, ends, free))
         if keep:
             self._legs[(room, a, b)] = cells
             self._legs[(room, b, a)] = cells[::-1] if cells else cells
         return cells
 
-    def _in_room(self, room: int, doorways):
+    def _in_room(self, room: int, doorways, base=None):
         """free(i, j) for a search confined to `room` and the named doorways' own cells."""
         w, labels = self.map.grid.width, self.map.labels
         extra = set().union(*(self.map.doorway(d).cells for d in doorways)) if doorways else set()
+        cell_free = base or self._cell_free
 
         def free(i, j):
-            return self._cell_free(i, j) and (labels[j * w + i] == room or (i, j) in extra)
+            return cell_free(i, j) and (labels[j * w + i] == room or (i, j) in extra)
         return free
 
     def _doorway_graph(self):

@@ -177,6 +177,20 @@ def test_a_walk_across_a_home_sized_floor_searches_only_the_rooms_on_its_way():
     assert path_length(path) <= 1.1 * path_length(whole)
 
 
+def test_finding_the_closed_doors_on_a_way_searches_only_the_rooms_on_it():
+    """A resident whose walk a closed door blocks asks which doors to open (W3a); on a home-sized floor that
+    must not fall back to a whole-floor search either (final review, W3b)."""
+    m = grid_house()
+    w, _ = world(m, doors=[d.id for d in m.doorways])
+    w.set_door("r00-r10", False)
+    w.set_door("r00-r01", False)  # r00 is shut
+    assert w.doors_on_route((1.0, 1.0), (35.0, 23.0)) in ([("r00-r10", "r00")], [("r00-r01", "r00")])
+    assert w.plan_work < sum(w.map.grid.walkable) / 10, w.plan_work
+    w.set_door("r00-r10", True)
+    w.set_door("r00-r01", True)
+    assert w.doors_on_route((1.0, 1.0), (35.0, 23.0)) == []  # every door open: nothing to open
+
+
 def test_a_closed_door_on_the_way_is_walked_around_and_a_shut_room_is_out_of_reach():
     m = grid_house(cols=3, rows=2)
     doors = [d.id for d in m.doorways]
