@@ -273,7 +273,8 @@ class Bridge:
             self.rejections.append({"device": name, "payload": raw, "reason": "payload is not a JSON object"})
             return
         if self.send is not None:
-            self.send(name, None, lambda: self._apply(p, name, command))
+            features = tuple(f for f, _ in flatten(command))  # what the command sets: an effect can narrow to them
+            self.send(name, features, lambda: self._apply(p, name, command))
         else:
             self._apply(p, name, command)
 

@@ -276,7 +276,7 @@ def test_reports_can_come_through_a_link_and_commands_go_down_it(vds):
     client.deliver("zigbee2mqtt/plug-1/set", {"state": "ON"})
     assert rt.state(plug.twin_id)["state"] == "OFF"  # on its way down
     (name, feature, run), = sent
-    assert name == "plug-1" and feature is None
+    assert name == "plug-1" and feature == ("state",)  # what the command sets: an effect can narrow to it
     run()
     assert rt.state(plug.twin_id)["state"] == "ON" and client.last("zigbee2mqtt/plug-1")["state"] == "ON"
 

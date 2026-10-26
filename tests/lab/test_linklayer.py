@@ -181,3 +181,15 @@ def test_an_effect_round_trips_as_a_trace_input():
     e = Effect("delay", link="coordinator", direction="up", device="door", feature="contact", hold_s=40,
                until=120.0)
     assert Effect.from_dict(e.to_dict()) == e
+
+
+def test_a_link_is_up_only_in_range_and_not_cut_so_a_cut_ending_on_a_dead_link_says_nothing(monkeypatch):
+    from vesper.lab.network import ZIGBEE
+    monkeypatch.setitem(ZIGBEE, "drop_dbm", -39.0)  # the lamp's hop is out of range from the start
+    links, clock, rt, heard, records = layer()
+    links.apply(Effect("cut", link="zigbee/lamp"))
+    links.clear("zigbee/lamp")
+    rt.report(clock, "tw-lamp", "state", "ON")
+    clock.advance(1)
+    assert [(r["link"], r["event"], r.get("reason")) for r in records] == [
+        ("zigbee/lamp", "down", "out of range"), ("zigbee/lamp", "dropped", "out of range")]

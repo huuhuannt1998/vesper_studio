@@ -40,9 +40,11 @@ class Effect:
     keep_connection: bool = True
     until: float | None = None
 
-    def matches(self, link: str, direction: str, device: str | None, feature: str | None) -> bool:
+    def matches(self, link: str, direction: str, device: str | None, feature) -> bool:
+        """`feature`: the message's feature, or a tuple of them (a command that sets several at once)."""
+        names = feature if isinstance(feature, tuple) else (feature,)
         return (self.link == link and self.direction in (direction, "both")
-                and self.device in (None, device) and self.feature in (None, feature))
+                and self.device in (None, device) and (self.feature is None or self.feature in names))
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
@@ -73,6 +75,7 @@ class LinkLayer:
         self._listeners: list[Callable] = []
         self._effects: list[Effect] = []
         self._quality: dict[str, Quality] = {}
+        self._up: dict[str, bool] = {}  # a link is up when it is in range and not cut
         self._last: dict[tuple[str, str], float] = {}  # (device, direction) -> its last delivery time
 
     # -- set-up ---------------------------------------------------------------------------------
@@ -91,17 +94,29 @@ class LinkLayer:
     def quality(self, link: str) -> Quality:
         return self._quality[link]
 
+    def is_up(self, link: str) -> bool:
+        """In range and not cut."""
+        return self._up.get(link, True)
+
     def refresh(self) -> None:
         """Each link's quality from the home as it is now (a door shut or opened changes what a hop crosses)."""
         doors = self._doors()
         for name, link in self.network.links.items():
-            q = link_quality(link.medium, *link.ends, self.world_map, doors)
-            before = self._quality.get(name)
-            self._quality[name] = q
-            if (before is None or before.connected) and not q.connected:
-                self._net(name, "down", reason="out of range")
-            elif before is not None and not before.connected and q.connected:
-                self._net(name, "up", reason="in range")
+            self._quality[name] = link_quality(link.medium, *link.ends, self.world_map, doors)
+            self._settle(name, "out of range", "in range")
+
+    def _cut(self, link: str) -> bool:
+        return any(e.kind == "cut" and e.link == link for e in self._effects)
+
+    def _settle(self, link: str, down_reason: str, up_reason: str) -> None:
+        """Say so when a link goes down or comes up: up is in range and not cut, whatever changed."""
+        up = self._quality[link].connected and not self._cut(link)
+        before = self._up.get(link, True)
+        self._up[link] = up
+        if before and not up:
+            self._net(link, "down", reason=down_reason)
+        elif up and not before:
+            self._net(link, "up", reason=up_reason)
 
     # -- effects --------------------------------------------------------------------------------
     @property
@@ -116,7 +131,7 @@ class LinkLayer:
             raise NetworkError(f"effect: the {effect.link} link is carried by the relay here, not in-process")
         self._effects.append(effect)
         if effect.kind == "cut":
-            self._net(effect.link, "down", reason="cut")
+            self._settle(effect.link, "cut", "cut ended")
         if effect.until is not None:
             self.clock.call_at(effect.until, lambda: self._end(effect))
 
@@ -127,12 +142,13 @@ class LinkLayer:
     def _end(self, effect: Effect) -> None:
         if effect in self._effects:
             self._effects.remove(effect)
-            if effect.kind == "cut" and not any(e.kind == "cut" and e.link == effect.link for e in self._effects):
-                self._net(effect.link, "up", reason="cut ended")
+            if effect.kind == "cut":
+                self._settle(effect.link, "cut", "cut ended")
 
     # -- traffic --------------------------------------------------------------------------------
-    def down(self, device: str, feature: str | None, deliver: Callable[[], None]) -> None:
-        """A command towards `device`: `deliver()` runs when it arrives, or never if a link loses it."""
+    def down(self, device: str, feature, deliver: Callable[[], None]) -> None:
+        """A command towards `device` (setting `feature`, or a tuple of features): `deliver()` runs when it arrives,
+        or never if a link loses it."""
         self._send(device, "down", feature, deliver)
 
     def _on_report(self, event) -> None:
@@ -146,10 +162,9 @@ class LinkLayer:
         now, delay = self.clock.now(), 0.0
         held = duplicate = reorder = None
         for name in self.carried(device):
-            cut = next((e for e in self._effects if e.kind == "cut" and e.link == name), None)
-            if cut is not None or not self._quality[name].connected:
+            if not self._quality[name].connected or self._cut(name):
                 self._net(name, "dropped", device=device, feature=feature, direction=direction, sent_t=now,
-                          reason="cut" if cut else "out of range")
+                          reason="out of range" if not self._quality[name].connected else "cut")
                 return
             latency = self._quality[name].latency_s
             if latency:

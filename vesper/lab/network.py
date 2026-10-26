@@ -111,6 +111,13 @@ def parse_network(raw, world_map: WorldMap, devices) -> Network:
     return Network(router, hub, coordinator, links, unlinked)
 
 
+def out_of_range(network: Network, world_map: WorldMap, doors: dict[str, bool]) -> list[str]:
+    """The Zigbee devices whose hop to the coordinator is out of range as the home starts: with no mesh routing
+    yet (a device relaying for another), they are never heard."""
+    return [link.devices[0] for name, link in network.links.items()
+            if link.medium == "zigbee" and not link_quality("zigbee", *link.ends, world_map, doors).connected]
+
+
 def walls_between(world_map: WorldMap, a: Point, b: Point, doors: dict[str, bool]) -> tuple[int, int]:
     """The walls and the shut doors a straight line from `a` to `b` crosses. A wall is a stretch of cells that are
     neither walkable nor in any room (furniture stands inside a room, and is not counted); a doorway's cells count

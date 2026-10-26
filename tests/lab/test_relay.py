@@ -284,3 +284,20 @@ def test_a_message_resent_after_a_reconnect_is_named_in_the_trace(net):
     r, = records
     assert (r["event"], r["link"], r["device"], r["feature"], r["direction"]) == (
         "resent", "coordinator", "door", "contact", "up")
+
+
+@pytest.mark.parametrize("effect", [None, Effect("delay", link="coordinator", direction="up", device="door",
+                                                 hold_s=0.3)])
+def test_a_sender_that_closes_has_what_it_sent_delivered_first_then_the_close(net, effect):
+    """As TCP: the bytes before a FIN arrive before it. A graceful MQTT disconnect (DISCONNECT, then close) must
+    reach the broker, or it publishes the client's will as for a crash; a held message is not lost by the close."""
+    relay, up, port, _ = net
+    if effect is not None:
+        relay.apply(effect)
+    c = dial(port)
+    door, bye = publish("zigbee2mqtt/door", {"contact": False}), b"\xe0\x00"
+    c.sendall(connect() + door + bye)
+    c.close()
+    assert up.closed.wait(3)
+    got = b"".join(d for _, d in up.got)
+    assert door in got and got.endswith(bye)

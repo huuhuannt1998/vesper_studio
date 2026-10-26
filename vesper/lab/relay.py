@@ -31,6 +31,9 @@ from vesper.lab.network import NetworkError
 
 HOST = "127.0.0.1"
 FORBIDDEN = (1883, 8123)  # the standard MQTT and Home Assistant ports: never VESPER's, never touched
+# What a session-keeping hold lets pass: the acknowledgements (PUBACK, PUBREC, PUBREL, PUBCOMP, SUBACK, UNSUBACK)
+# and the keepalives (PINGREQ, PINGRESP); a CONNECT, a SUBSCRIBE or a DISCONNECT keeps its place in the stream.
+KEEPALIVE = frozenset({4, 5, 6, 7, 9, 11, 12, 13})
 
 
 class RelayError(NetworkError):
@@ -137,6 +140,10 @@ class _Direction:
         loop = self.relay._loop
         while True:
             due, data = await self.queue.get()
+            if data is None:  # the sender closed: as TCP, what it sent before arrives first, then the close
+                if not self.transport.is_closing():
+                    self.transport.close()
+                return
             if due > loop.time():
                 await asyncio.sleep(due - loop.time())
             self.relay._write(self.link, self.transport, data)
@@ -279,12 +286,13 @@ class Relay:
                 packets, buf = split_packets(buf + data)
                 for packet in packets:
                     self._forward(link, conn, packet, direction, out)
-        except (OSError, RelayError):
-            pass
-        finally:
+        except (OSError, RelayError):  # a reset or a malformed stream: nothing more passes
             out.task.cancel()
             if not writer.transport.is_closing():
-                writer.close()  # the other side ended: so does this one
+                writer.transport.abort()
+            return
+        out.queue.put_nowait((0.0, None))  # the sender closed: the writer drains what it holds, then closes
+        await out.task
 
     def _forward(self, link: _Link, conn: _Conn, packet: bytes, direction: str, out: _Direction) -> None:
         loop = self._loop
@@ -299,7 +307,7 @@ class Relay:
                 out.free_at = due + len(packet) * 8 / e.rate_bps
         pub = publish_of(packet, conn.level)
         if pub is None:  # a keepalive, an acknowledgement, a subscription: not a device's message
-            if any(e.kind == "delay" and e.keep_connection for e in effects):
+            if packet[0] >> 4 in KEEPALIVE and any(e.kind == "delay" and e.keep_connection for e in effects):
                 self._write(link, out.transport, packet)  # the attacker lets it pass: the session stays alive
             else:
                 out.queue.put_nowait((due, packet))

@@ -520,6 +520,7 @@ def _lab(args) -> int:
             print(f"{home.scene}: {len(home.map.rooms)} rooms, {len(home.map.doorways)} doorways, "
                   f"{len(home.doors)} doors, {len(home.devices)} devices; the player starts in "
                   f"{home.map.room_at(*home.avatar['start']).id}")
+            _warn_range(home)
             return 0
         if args.action == "network":
             return _lab_network(load_lab_home(Path(args.home), catalog))
@@ -537,6 +538,16 @@ def _lab(args) -> int:
     except (HomeError, MapError, TraceError, SceneError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
         return 1
+
+
+def _warn_range(home) -> None:
+    """Name the devices no one will hear: out of the coordinator's direct range, with no mesh routing yet."""
+    from vesper.lab.network import out_of_range
+    far = out_of_range(home.network, home.map, home.doors) if home.network is not None else []
+    if far:
+        print(f"network: {', '.join(far)} {'is' if len(far) == 1 else 'are'} out of the Zigbee coordinator's radio "
+              "range (no mesh routing yet): never heard, never commanded; move the coordinator nearer "
+              "(`network: coordinator:` in the home file; `vesper lab network` shows each link)")
 
 
 def _lab_network(home) -> int:
@@ -707,6 +718,7 @@ def _lab_play(args, home) -> int:
             return 1
         print(f"VESPER Lab: {home.scene}, {len(home.devices)} devices, on the wall clock. Open {server.url} "
               "(Ctrl-C stops)")
+        _warn_range(home)
         print(drawn)
         print(people)
         if lab:
@@ -924,6 +936,7 @@ def _lab_day(args, home) -> int:
     trace = Path(args.trace) if args.trace else _new_trace(traces, "day")
     session = Session(home, trace=trace)
     session.start(spawn_player=False, automations=home.automations is not None)
+    _warn_range(home)
     if session.automations is not None:  # Home Assistant's place is taken by VESPER's engine (spec §5b)
         engine = session.automations
         print(f"{home.automations.name}: {len(engine.automations)} of {len(engine.automations) + len(engine.refused)}"

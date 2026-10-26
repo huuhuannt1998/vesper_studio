@@ -126,3 +126,35 @@ def test_a_command_to_a_device_behind_a_cut_hop_never_arrives(lab):
     assert session.rules.effects.get("bedroom_lamp") != {"on": True}
     assert any(r["kind"] == "net" and r["event"] == "dropped" and r.get("direction") == "down"
                for r in session.records)
+
+
+def test_a_device_out_of_range_from_the_start_goes_unavailable_though_the_hub_starts_after_the_session(
+        tmp_path, monkeypatch):
+    """`vesper lab play --hub` starts the session before the hub: a hop down from the start must still count."""
+    from vesper.lab import hub as hub_module
+    from vesper.lab.network import ZIGBEE
+    monkeypatch.setitem(ZIGBEE, "drop_dbm", -39.0)  # the bedroom lamp (4 m, a wall) is out of range
+    monkeypatch.setitem(hub_module.AVAILABILITY_S, "active", 0.2)
+    monkeypatch.setitem(hub_module.AVAILABILITY_S, "passive", 0.2)
+    home = load_lab_home(write_home(tmp_path), catalog())
+    session = Session(home, clock=WallClock())
+    session.start()
+    mqtt = FakeClient()
+    hub = Hub(session, mqtt)
+    hub.start()
+    try:
+        eventually(lambda: mqtt.last("zigbee2mqtt/bedroom_lamp/availability") == {"state": "offline"})
+        assert mqtt.last("zigbee2mqtt/hall_motion/availability") == {"state": "online"}
+    finally:
+        hub.stop()
+        session.stop()
+
+
+def test_an_effect_narrowed_to_a_feature_acts_on_home_assistant_s_commands_as_on_the_engine_s(lab):
+    """The same attack in both modes (spec §3.7): a drop of the lamp's `state` commands on its hop."""
+    from vesper.lab.linklayer import Effect
+    session, hub, mqtt = lab
+    session.network_effect(Effect("drop", link="zigbee/bedroom_lamp", direction="down", feature="state"))
+    FakeHA(mqtt).call("light", "turn_on", {"entity_id": hub.entities("bedroom_lamp")["state"]})
+    time.sleep(0.3)
+    assert session.rules.effects.get("bedroom_lamp") != {"on": True}

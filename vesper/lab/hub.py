@@ -52,6 +52,9 @@ class Hub:
         self._down: dict[str, int] = {}  # device -> the down event it is waiting out
         self._offline: set[str] = set()
         session.on_record(self._on_record)
+        for name in self._placements:  # a hop down before the hub started (out of range from the start) counts too
+            if links is not None and f"zigbee/{name}" in links.network.links and not links.is_up(f"zigbee/{name}"):
+                self._on_record({"kind": "net", "link": f"zigbee/{name}", "event": "down"})
 
     def start(self) -> None:
         self.bridge.start()

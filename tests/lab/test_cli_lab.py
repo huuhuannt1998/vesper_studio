@@ -204,3 +204,16 @@ def test_a_replay_lives_the_residents_again_and_names_an_action_that_changed(tmp
     (home.parent / "routines" / "alex.yaml").write_text(DAY.replace('"21:00", minutes: 60', '"21:10", minutes: 50'))
     diff = compare_reports(records, replay(records, load_lab_home(home, load_catalog(cat))))
     assert diff is not None and "alex" in diff
+
+
+def test_check_names_the_devices_out_of_the_coordinator_s_radio_range(tmp_path, capsys, monkeypatch):
+    """Until a Zigbee mesh routes through mains-powered devices, a device out of the coordinator's direct range is
+    silent: `lab check` says which, so a home's automations do not stop working unseen."""
+    from vesper.lab.network import ZIGBEE
+    cat, home = setup(tmp_path)
+    assert cli.main(["lab", "check", str(home), "--catalog", str(cat)]) == 0
+    assert "out of" not in capsys.readouterr().out
+    monkeypatch.setitem(ZIGBEE, "drop_dbm", -39.0)
+    assert cli.main(["lab", "check", str(home), "--catalog", str(cat)]) == 0
+    out = capsys.readouterr().out
+    assert "out of the Zigbee coordinator's radio range (no mesh routing yet): " in out and "bedroom_lamp" in out
