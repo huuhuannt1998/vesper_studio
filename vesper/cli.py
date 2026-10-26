@@ -542,7 +542,8 @@ def _lab_scenes(args) -> int:
     from vesper.lab.scenes import hssd_dir, list_scenes
     for s in list_scenes(hssd_dir(args.hssd)):
         state = "ready" if s.ready else f"missing {len(s.missing)} file{'s' if len(s.missing) != 1 else ''}"
-        print(f"{s.id}  {s.rooms} rooms  {s.indoor_m2:g} m²  {state}  ({', '.join(s.labels)})")
+        storeys = f"  the ground floor of {s.storeys} storeys" if s.storeys > 1 else ""
+        print(f"{s.id}  {s.rooms} rooms  {s.indoor_m2:g} m²  {state}  ({', '.join(s.labels)}){storeys}")
     return 0
 
 
@@ -556,49 +557,71 @@ def _new_trace(directory: Path, label: str) -> Path:
 
 
 def _lab_new(args, world_map_cls) -> int:
-    """A home directory from a map file, or from an HSSD scene through the world service (spec §2, plan W1a)."""
-    import shutil
+    """A home directory from a map file, or from an HSSD scene through the world service (spec §2, plan W1a).
 
-    from vesper.lab.scenes import (SceneError, doors_from_openings, export_scene, habitat_python, hssd_dir,
-                                   scene_info, start_room)
+    The home is made in a hidden directory beside it and renamed into place only when it is whole: a failure, a
+    full disk or Ctrl-C leaves nothing behind."""
+    import shutil
     target = Path(args.dir)
     if target.exists():
         print(f"FAILED: {target} already exists", file=sys.stderr)
         return 1
-    doors: list[str] = []
-    if args.scene:
-        hssd = hssd_dir(args.hssd)
+    work = target.parent / f".{target.name}.making-{os.getpid()}"
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        work.mkdir()
         try:
-            info = scene_info(hssd, args.scene)
-            if info.missing:
-                n = len(info.missing)
-                raise SceneError(f"scene {args.scene} needs {n} file{'s' if n != 1 else ''} that "
-                                 f"{'are' if n != 1 else 'is'} not in {hssd}, such as {', '.join(info.missing[:3])}; "
-                                 "download the scene's files first")
-            target.mkdir(parents=True)
-            export_scene(hssd, args.scene, target, habitat_python(args.habitat_python))
-        except SceneError as e:
-            if target.exists():
-                shutil.rmtree(target)  # made here, just now: nothing of the user's is in it
-            print(f"FAILED: {e}", file=sys.stderr)
-            return 1
-        world_map = world_map_cls.load(target / "map.json")
-        doors = doors_from_openings(world_map, json.loads((target / "openings.json").read_text())["openings"])
+            said = _make_home(args, work, target, world_map_cls)
+            work.rename(target)
+        except BaseException:
+            shutil.rmtree(work, ignore_errors=True)
+            raise
+    except OSError as e:
+        print(f"FAILED: cannot make {target}: {e.strerror or e}", file=sys.stderr)
+        return 1
+    print(said)
+    return 0
+
+
+def _make_home(args, work: Path, target: Path, world_map_cls) -> str:
+    """Fill `work` with the home that will be `target`; what to tell the user."""
+    from vesper.lab import scenes
+    doors: list[str] = []
+    notes: list[str] = []
+    if args.scene:
+        hssd = scenes.hssd_dir(args.hssd)
+        info = scenes.scene_info(hssd, args.scene)
+        if info.missing:
+            n = len(info.missing)
+            raise scenes.SceneError(f"scene {args.scene} needs {n} file{'s' if n != 1 else ''} that "
+                                    f"{'are' if n != 1 else 'is'} not in {hssd}, such as "
+                                    f"{', '.join(info.missing[:3])}; download the scene's files first")
+        scenes.export_scene(hssd, args.scene, work, scenes.habitat_python(args.habitat_python))
+        world_map = world_map_cls.load(work / "map.json")
+        exported = scenes.read_openings(work / "openings.json")
+        doors = scenes.doors_from_openings(world_map, exported["openings"])
+        floor = exported.get("floor") or {}
+        if floor.get("left_out"):
+            notes.append(f"The home is the ground floor of {len(floor.get('storeys') or [])} storeys; left out: "
+                         f"{', '.join(floor['left_out'])}.")
+        stray = scenes.stray_doors(world_map, exported["openings"])
+        if stray:
+            notes.append(f"{len(stray)} door{'s' if len(stray) != 1 else ''} of the scene "
+                         f"{'stand' if len(stray) != 1 else 'stands'} in no doorway ({', '.join(stray)}): "
+                         "the home leaves them out.")
     else:
         world_map = world_map_cls.load(Path(args.map))
-        target.mkdir(parents=True)
-        world_map.save(target / "map.json")
-    start = start_room(world_map)
+        world_map.save(work / "map.json")
+    start = scenes.start_room(world_map)
     door_lines = "doors:" + "".join(f"\n  - {{doorway: {d}, open: false}}" for d in doors) if doors else "doors: []"
-    (target / "home.yaml").write_text(HOME_TEMPLATE.format(
+    (work / "home.yaml").write_text(HOME_TEMPLATE.format(
         scene=world_map.scene, room=start, doors=door_lines, rooms=", ".join(r.id for r in world_map.rooms),
         doorway=(world_map.doorways[0].id if world_map.doorways else "<doorway>"),
         doorways=", ".join(d.id for d in world_map.doorways) or "none"))
     found = f", {len(doors)} door{'s' if len(doors) != 1 else ''} from the scene's openings" if args.scene else ""
-    print(f"created {target / 'home.yaml'} on {world_map.scene}: {len(world_map.rooms)} rooms, "
-          f"{len(world_map.doorways)} doorways{found}; the player starts in {start}. "
-          "Place devices (vesper catalog search), then `vesper lab check`")
-    return 0
+    return "\n".join([f"created {target / 'home.yaml'} on {world_map.scene}: {len(world_map.rooms)} rooms, "
+                      f"{len(world_map.doorways)} doorways{found}; the player starts in {start}.", *notes,
+                      "Place devices (vesper catalog search), then `vesper lab check`."])
 
 
 def _lab_run(args, home) -> int:

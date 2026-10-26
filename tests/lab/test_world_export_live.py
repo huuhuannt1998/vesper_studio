@@ -28,12 +28,14 @@ pytestmark = pytest.mark.skipif(os.environ.get("VESPER_HABITAT") != "1" or not _
                                 reason=f"opt-in: VESPER_HABITAT=1, scene {SCENE} downloaded, the Habitat Python")
 
 
-def test_a_real_scene_becomes_a_home_whose_rooms_doors_and_walks_work(tmp_path):
+def test_a_real_scene_becomes_a_home_whose_rooms_doors_and_walks_work(tmp_path, capsys):
     home_dir = tmp_path / "home"
     assert cli.main(["lab", "new", str(home_dir), "--scene", SCENE, "--hssd", str(HSSD)]) == 0
     spec = yaml.safe_load((home_dir / "home.yaml").read_text())
-    assert {d["doorway"] for d in spec["doors"]} == {"dining_room-outdoor", "bedroom-outdoor", "other_room-outdoor",
-                                                     "bathroom_001-outdoor"}  # the scene's 4 doors; 8 windows
+    # The scene's 4 doors and 8 windows (HSSD's metadata): its 2.2 m glass windows are walls, not doors. Two doors
+    # open onto outside HSSD did not annotate (the front door, the garage's): no doorway, and named.
+    assert {d["doorway"] for d in spec["doors"]} == {"dining_room-outdoor", "bedroom-outdoor"}
+    assert "2 doors of the scene stand in no doorway (203-0_:0000, 212-0_:0000)" in capsys.readouterr().out
     home = load_lab_home(Path(home_dir / "home.yaml"), {})
     assert len(home.map.rooms) == 20 and len(home.map.doorways) >= 20
     assert home.map.room_at(*home.avatar["start"]).id == "living_room"
