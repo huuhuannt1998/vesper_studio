@@ -161,12 +161,23 @@ def test_a_day_can_start_later_and_stop_in_the_middle_of_a_walk_and_still_replay
     assert "identical" in capsys.readouterr().out
 
 
-def test_a_day_says_that_the_home_s_automations_do_not_run_without_home_assistant(tmp_path, capsys):
+def test_a_day_runs_the_home_s_automations_with_vesper_s_engine_and_names_the_refused(tmp_path, capsys):
     cat, home = with_alex(tmp_path)
-    (home.parent / "automations.yaml").write_text("[]\n")
+    (home.parent / "automations.yaml").write_text("""\
+- alias: wake-up light
+  triggers: [{trigger: time, at: "07:10"}]
+  actions: [{action: light.turn_on, target: {entity_id: light.nowhere}}]
+- alias: at sunset
+  triggers: [{trigger: sun, event: sunset}]
+  actions: []
+""")
     home.write_text(home.read_text() + "automations: automations.yaml\n")
     assert cli.main(["lab", "day", str(home), "--catalog", str(cat), "--hours", "1"]) == 0
-    assert "automations.yaml does not run in a day: Home Assistant is not in the loop" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "automations.yaml: 0 of 2 automations run by VESPER's engine (Home Assistant is not in the loop)" in out
+    assert "refused: wake-up light: entity light.nowhere is not one of this home's" in out
+    assert "refused: at sunset: trigger 'sun' is not supported" in out
+    assert "0 automation commands" in out
 
 
 def test_a_day_needs_residents_and_a_time_of_day(tmp_path, capsys):

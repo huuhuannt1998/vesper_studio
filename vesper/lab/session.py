@@ -1,8 +1,9 @@
 """A running Lab home (spec §2, §3): the twins, the world, the rules, the player, and the trace.
 
 The trace (`vesper-trace/1`) is one JSON object per line: a `meta` line first, then `input` (what a person
-did), `rule` (a rule that fired), `world` (doors, rooms, arrivals) and `report` (what a device reported, as the
-platform sees it), each with its world time `t`. On the logical clock, replaying the inputs reproduces the
+did), `rule` (a rule that fired), `automation` (a command from VESPER's built-in automation engine), `world`
+(doors, rooms, arrivals) and `report` (what a device reported, as the platform sees it), each with its world
+time `t`. On the logical clock, replaying the inputs reproduces the
 device reports exactly (spec success criterion 4); `replay` and `compare_reports` check it.
 """
 from __future__ import annotations
@@ -37,6 +38,8 @@ class Session:
         self.runtime.on_action(self._on_action)
         self._names = {tid: name for name, tid in self.twin_ids.items()}
         self.residents: dict = {}  # name -> the scripted Resident living in this session
+        self.automations = None  # VESPER's automation engine, when the session runs the home's automations
+        self._acting: dict | None = None  # the automation whose command is being applied
         self.world = world or MapWorld(home.map, self.clock)
         for door, is_open in home.doors.items():
             self.world.add_door(door, is_open)
@@ -50,17 +53,28 @@ class Session:
                            record=lambda r: self._write({**r, "kind": "rule"}))
 
     # -- life cycle ---------------------------------------------------------------------------
-    def start(self, spawn_player: bool = True, residents: bool = True) -> None:
+    def start(self, spawn_player: bool = True, residents: bool = True, automations: bool = False) -> None:
         """Start the home: the home's residents enter it and begin what their routine has them do now, then the
         player enters. A replay starts the residents (it lives their day again) but not the player, whose actions
-        are its inputs; starting the residents first keeps their first actions before the player's, in both."""
-        self._write({"kind": "meta", "format": TRACE_FORMAT, "clock": self.clock_kind, "home": str(self.home.path),
-                     "scene": self.home.scene,
-                     "seed": self.home.seed, "start_time": self.home.start_time,
-                     "devices": {d.name: d.product for d in self.home.devices}})
+        are its inputs; starting the residents first keeps their first actions before the player's, in both.
+
+        `automations`: run the home's automations with VESPER's engine (a session with no Home Assistant); the
+        meta record says which ran and which were refused, and a replay runs them again."""
+        meta = {"kind": "meta", "format": TRACE_FORMAT, "clock": self.clock_kind, "home": str(self.home.path),
+                "scene": self.home.scene,
+                "seed": self.home.seed, "start_time": self.home.start_time,
+                "devices": {d.name: d.product for d in self.home.devices}}
+        if automations:
+            from vesper.lab.automations import Engine
+            self.automations = Engine(self)
+            meta["automations"] = {"engine": "vesper", "loaded": [a.name for a in self.automations.automations],
+                                   "refused": self.automations.refused}
+        self._write(meta)
         self.runtime.subscribe(self._on_report)
         self.world.on_event(self._on_world)
         self.rules.start()
+        if self.automations is not None:
+            self.automations.start()
         if residents and self.home.residents:
             from vesper.lab.resident import Resident
             for spec in self.home.residents:
@@ -113,14 +127,31 @@ class Session:
     def device_name(self, twin_id: str) -> str | None:
         return self._names.get(twin_id)
 
+    def automation_command(self, automation: str, trigger: str, service: str, entity: str, twin_id: str,
+                           feature: str, value) -> bool:
+        """The automation engine sends a command as Home Assistant would, through the bridge (`platform_set`)."""
+        self._acting = {"automation": automation, "trigger": trigger, "service": service, "entity": entity}
+        try:
+            return self.runtime.platform_set(twin_id, feature, value)
+        finally:
+            self._acting = None
+
+    def automation_skipped(self, automation: str, trigger: str, reason: str) -> None:
+        self._write({"kind": "automation_skipped", "automation": automation, "trigger": trigger, "reason": reason})
+
     # -- the trace ----------------------------------------------------------------------------
     def _input(self, actor: str, op: str, args: dict, **extra) -> None:
         self._write({"kind": "input", "actor": actor, "op": op, "args": args, **extra})
 
     def _on_action(self, a) -> None:
-        """A command from the hub (through a bridge) is an input: replay applies it again, with no hub."""
+        """A command from the hub (through a bridge) is an input: replay applies it again, with no hub. A command
+        from VESPER's automation engine is not: a replay runs the engine again."""
         if a.actor == "platform":
             outcome = {"accepted": a.accepted} if a.accepted else {"accepted": False, "reason": a.reason}
+            if self._acting is not None:
+                self._write({"kind": "automation", **self._acting, "device": self._names.get(a.twin_id, a.twin_id),
+                             "feature": a.feature, "value": a.value, **outcome})
+                return
             self._input("hub", "command", {"device": self._names.get(a.twin_id, a.twin_id), "feature": a.feature,
                                            "value": a.value}, outcome=outcome)
 
@@ -169,7 +200,7 @@ def replay(records: list[dict], home) -> list[dict]:
         home = dataclasses.replace(home, start_time=meta["start_time"])
     residents = {spec.name for spec in home.residents}
     s = Session(home, clock=LogicalClock())
-    s.start(spawn_player=False, residents=True)
+    s.start(spawn_player=False, residents=True, automations=bool(meta.get("automations")))
     for k, r in enumerate(records):
         if r["kind"] != "input" or r["actor"] in residents:
             continue

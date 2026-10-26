@@ -779,16 +779,21 @@ def _lab_day(args, home) -> int:
     traces = home.path.parent / "traces"
     traces.mkdir(parents=True, exist_ok=True)
     trace = Path(args.trace) if args.trace else _new_trace(traces, "day")
-    if home.automations is not None:
-        print(f"note: {home.automations.name} does not run in a day: Home Assistant is not in the loop")
     session = Session(home, trace=trace)
-    session.start(spawn_player=False)
+    session.start(spawn_player=False, automations=home.automations is not None)
+    if session.automations is not None:  # Home Assistant's place is taken by VESPER's engine (spec §5b)
+        engine = session.automations
+        print(f"{home.automations.name}: {len(engine.automations)} of {len(engine.automations) + len(engine.refused)}"
+              " automations run by VESPER's engine (Home Assistant is not in the loop)")
+        for r in engine.refused:
+            print(f"  refused: {r['automation']}: {r['reason']}")
     session.clock.advance(args.hours * 3600)
     session.stop()
     for line in _day_summary(session):
         print(line)
     kinds = [r["kind"] for r in session.records]
-    print(f"{kinds.count('report')} device reports, {kinds.count('rule')} rule firings; trace {trace}")
+    print(f"{kinds.count('report')} device reports, {kinds.count('rule')} rule firings, "
+          f"{kinds.count('automation')} automation commands; trace {trace}")
     return 0
 
 
