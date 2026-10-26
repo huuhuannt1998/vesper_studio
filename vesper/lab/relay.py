@@ -27,13 +27,36 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from vesper.lab.linklayer import DIRECTIONS, KINDS, Effect
+from vesper.lab.network import NetworkError
 
 HOST = "127.0.0.1"
 FORBIDDEN = (1883, 8123)  # the standard MQTT and Home Assistant ports: never VESPER's, never touched
 
 
-class RelayError(ValueError):
+class RelayError(NetworkError):
     """A link or an effect the relay refuses; the message says why."""
+
+
+class SessionSink:
+    """The relay's way into a session that starts after it (Home Assistant must be pointed at the relay first):
+    records go to the session's trace on its clock, times are the session's, latencies its links'."""
+
+    def __init__(self):
+        self.session = None
+
+    def attach(self, session) -> None:
+        self.session = session
+
+    def record(self, r: dict) -> None:
+        if self.session is not None:
+            self.session.net_record(r)
+
+    def now(self) -> float:
+        return self.session.clock.now() if self.session is not None else 0.0
+
+    def latency(self, link: str) -> float:
+        links = self.session.links if self.session is not None else None
+        return links.quality(link).latency_s if links is not None and link in links.network.links else 0.0
 
 
 def _varint(buf: bytes, i: int) -> tuple[int, int] | None:

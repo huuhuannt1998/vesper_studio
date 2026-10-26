@@ -241,9 +241,15 @@ def test_play_with_the_hub_runs_broker_and_home_assistant_and_keeps_the_automati
     (ha,), (broker,) = LabHA.made, LabMosquitto.made
     assert broker.port == 18830 and broker.events == ["start", "stop"]
     assert ha.frameable and ha.automations == RULES
-    assert ha.events == ["start", "onboard", ("ensure_mqtt", 18830), "login", "stop"]
+    # Home Assistant and the bridge reach the broker through the home's network: the relay's hub and coordinator
+    # links, on ports of their own (security-lab spec §3.4), never the broker's directly
+    (_, hub_port), ((_, coord_port, name), _) = ha.events[2], clients[0]
+    assert ha.events[:2] == ["start", "onboard"] and ha.events[2][0] == "ensure_mqtt" and ha.events[3:] == [
+        "login", "stop"]
+    assert name == "vesper-lab-bridge" and len({hub_port, coord_port, 18830}) == 3 and clients[-1][0] == "disconnected"
+    assert f"network: Home Assistant's MQTT through the relay's hub link (port {hub_port}), the bridge's through its " \
+           f"coordinator link (port {coord_port})" in seen["out"]
     assert "log in as vesper, password s3cret-lab-login" in seen["out"]
-    assert clients[0][0][:3] == ("127.0.0.1", 18830, "vesper-lab-bridge") and clients[-1][0] == "disconnected"
     assert seen["hub"] == "http://127.0.0.1:18123"
     assert "bedroom_lamp: light." in seen["out"] and "front_lock: not on the hub (Matter: plan W2d)" in seen["out"]
     assert (home.parent / "automations.yaml").read_text() == RULES + "- alias: added in the UI\n"
@@ -333,3 +339,14 @@ def test_automations_from_home_assistant_never_overwrite_a_file_the_home_does_no
     assert (home.parent / "automations.yaml").read_text() == "precious\n"
     assert (home.parent / "automations-from-home-assistant.yaml").read_text() == RULES
     assert "automations-from-home-assistant.yaml" in capsys.readouterr().out
+
+
+def test_lab_network_shows_the_router_each_link_and_what_is_not_on_the_network(tmp_path, capsys):
+    cat, home = setup(tmp_path)
+    assert cli.main(["lab", "network", str(home), "--catalog", str(cat)]) == 0
+    out = capsys.readouterr().out
+    assert "router: hall (1.5, 3.0); the hub is wired to it; the Zigbee coordinator is on the hub" in out
+    assert "assumed" in out  # the radio constants are typical values, not measured
+    lamp = next(line for line in out.splitlines() if line.strip().startswith("zigbee/bedroom_lamp"))
+    assert "dBm" in lamp and "1 wall" in lamp and "ms" in lamp
+    assert "front_lock: a Matter device: on the network with plan W7a3" in out

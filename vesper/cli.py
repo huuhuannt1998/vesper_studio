@@ -521,6 +521,8 @@ def _lab(args) -> int:
                   f"{len(home.doors)} doors, {len(home.devices)} devices; the player starts in "
                   f"{home.map.room_at(*home.avatar['start']).id}")
             return 0
+        if args.action == "network":
+            return _lab_network(load_lab_home(Path(args.home), catalog))
         if args.action == "run":
             return _lab_run(args, load_lab_home(Path(args.home), catalog))
         if args.action == "play":
@@ -535,6 +537,31 @@ def _lab(args) -> int:
     except (HomeError, MapError, TraceError, SceneError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
         return 1
+
+
+def _lab_network(home) -> int:
+    """The home's network (security-lab spec §3): where the router stands, and each link's quality."""
+    from vesper.lab.network import WIFI, link_quality
+    net = home.network
+    place = lambda p: f"{p.room} ({p.position[0]:.1f}, {p.position[1]:.1f})"  # noqa: E731
+    coord = "on the hub" if net.coordinator.medium == "internal" else \
+        f"in the {place(net.coordinator)}, on {net.coordinator.medium}"
+    print(f"{home.scene}: router: {place(net.router)}; the hub is wired to it; the Zigbee coordinator is {coord}")
+    print(f"radio: assumed typical values (ITU-R P.1238 indoor path loss, {WIFI['wall_db']:g} dB a wall), "
+          "not measured on a device")
+    for link in net.links.values():
+        q = link_quality(link.medium, *link.ends, home.map, home.doors)
+        if q.rssi_dbm is None:
+            quality = "wired" if link.medium == "ethernet" else "on the same host"
+        elif not q.connected:
+            quality = f"{q.rssi_dbm:.0f} dBm: out of range"
+        else:
+            walls = f"{q.walls} wall{'s' if q.walls != 1 else ''}" + (f", {q.doors} shut door" if q.doors else "")
+            quality = f"{q.rssi_dbm:.0f} dBm, {walls}, {q.latency_s * 1000:.0f} ms"
+        print(f"  {link.name:<28} {link.medium:<9} {quality}")
+    for name, why in net.unlinked.items():
+        print(f"  {name}: {why}")
+    return 0
 
 
 def _lab_scenes(args) -> int:
@@ -652,8 +679,6 @@ def _lab_play(args, home) -> int:
     import webbrowser
 
     from vesper.lab.play import PlayError, PlayServer
-    from vesper.lab.session import Session
-    from vesper.twins.clock import WallClock
     traces = home.path.parent / "traces"
     traces.mkdir(parents=True, exist_ok=True)
     trace = Path(args.trace) if args.trace else _new_trace(traces, "play")
@@ -663,7 +688,7 @@ def _lab_play(args, home) -> int:
     with contextlib.ExitStack() as stack:  # everything started is stopped again, in reverse, whatever happens
         try:
             lab = stack.enter_context(_lab_stack(args, home)) if args.hub else None
-            session = Session(home, clock=WallClock(), trace=trace)  # its time starts once the hub is up
+            session = _lab_session(home, trace, lab)  # its time starts once the hub is up
             stack.callback(session.stop)
             session.start()
             hub = stack.enter_context(_lab_hub(args, session, lab.port)) if lab else None
@@ -686,6 +711,8 @@ def _lab_play(args, home) -> int:
         print(people)
         if lab:
             user, password = lab.login
+            print(f"network: Home Assistant's MQTT through the relay's hub link (port {lab.hub_port}), the bridge's "
+                  f"through its coordinator link (port {hub.coordinator_port})")
             print(f"Home Assistant is in the hub panel ({lab.ha.url}): log in as {user}, password {password} "
                   f"(kept in {Path(args.root) / 'ha' / 'lab-login.json'})")
             _print_entities(home, hub)
@@ -733,21 +760,38 @@ def _lab_stack(args, home):
     automations loaded, the Lab login), stopped again whatever happens, a stop signal included."""
     from vesper.validation import stack
     root, port = Path(args.root), home.broker[1]
+    from vesper.lab.relay import Relay, SessionSink
     rules = home.automations.read_text() if home.automations is not None else "[]\n"
     broker = stack.Mosquitto(root, port=port)
+    sink = SessionSink()  # the session starts once Home Assistant is up; the relay must exist before
+    relay = Relay(record=sink.record, allowed={port}, now=sink.now, latency=sink.latency)
     try:
         broker.start()
+        relay.start()
+        hub_port = relay.add_link("hub", port, client_is_device=False)  # Home Assistant's MQTT: the home's network
         ha = stack.HomeAssistant(root, frameable=True, automations=rules)
         try:
             ha.start()
             ha.onboard()
-            ha.ensure_mqtt(port)
-            yield SimpleNamespace(ha=ha, port=port, login=ha.lab_login())
+            ha.ensure_mqtt(hub_port)
+            yield SimpleNamespace(ha=ha, port=port, hub_port=hub_port, relay=relay, sink=sink, login=ha.lab_login())
         finally:
             _keep_automations(ha, home, rules)
             ha.stop()
     finally:
+        relay.stop()
         broker.stop()
+
+
+def _lab_session(home, trace, lab):
+    """A wall-clock session; with the hub, on the live network: the relay carries its TCP links."""
+    from vesper.lab.session import Session
+    from vesper.twins.clock import WallClock
+    session = Session(home, clock=WallClock(), trace=trace, live_network=lab is not None)
+    if lab is not None:
+        session.relay = lab.relay
+        lab.sink.attach(session)
+    return session
 
 
 @contextmanager
@@ -755,9 +799,11 @@ def _lab_hub(args, session, port: int):
     """The session's Zigbee devices on the broker, for as long as the block runs."""
     from vesper.exposure import mqtt
     from vesper.lab.hub import Hub
-    client = mqtt.connect("127.0.0.1", port, "vesper-lab-bridge", will=OFFLINE_WILL)
+    via = session.relay.add_link("coordinator", port, client_is_device=True) if session.relay else port
+    client = mqtt.connect("127.0.0.1", via, "vesper-lab-bridge", will=OFFLINE_WILL)
     try:
         hub = Hub(session, client, zhc_version=_zhc_version(Path(args.catalog)))
+        hub.coordinator_port = via
         hub.start()
         try:
             yield hub
@@ -808,9 +854,7 @@ def _lab_look(args, home) -> int:
 
     from vesper.lab.browser import Browser, BrowserError
     from vesper.lab.play import PlayServer
-    from vesper.lab.session import Session
     from vesper.lab.visual import DEFAULT_STEPS, LookError, load_steps, run_look
-    from vesper.twins.clock import WallClock
     if args.update_golden and not args.golden:
         print("FAILED: --update-golden needs --golden DIR, the directory of reference shots", file=sys.stderr)
         return 1
@@ -827,7 +871,7 @@ def _lab_look(args, home) -> int:
     with contextlib.ExitStack() as stack:  # everything started is stopped again, in reverse, whatever happens
         try:
             lab = stack.enter_context(_lab_stack(args, home)) if args.hub else None
-            session = Session(home, clock=WallClock(), trace=_new_trace(out, "look"))
+            session = _lab_session(home, _new_trace(out, "look"), lab)
             stack.callback(session.stop)
             session.start()
             if lab:
@@ -1098,6 +1142,9 @@ def main(argv: list[str] | None = None) -> int:
                                                   "or ~/miniconda3/envs/vesper/bin/python)")
     lab_scenes = lab_actions.add_parser("scenes", help="the HSSD scenes here, and whether each is ready")
     lab_scenes.add_argument("--hssd", help="the HSSD dataset (default: $VESPER_HSSD or data/scene_datasets/hssd-hab)")
+    lab_network = lab_actions.add_parser("network", help="the home's network: the router and each link's quality")
+    lab_network.add_argument("home")
+    lab_network.add_argument("--catalog", default="catalog/vds")
     lab_check = lab_actions.add_parser("check", help="validate a home file")
     lab_check.add_argument("home")
     lab_check.add_argument("--catalog", default="catalog/vds")

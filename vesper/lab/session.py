@@ -176,13 +176,18 @@ class Session:
     def network_effect(self, effect) -> None:
         """Put an effect on a link (an attack): an input, so a replay puts it on again at the same time. On the live
         network the relay carries the TCP links' effects."""
-        link = self.home.network.links.get(effect.link) if self.home.network else None
-        target = self.relay if (link is not None and link.tcp and self.relay is not None) else self.links
-        if target is None:
-            from vesper.lab.network import NetworkError
+        from vesper.lab.linklayer import check_effect
+        from vesper.lab.network import NetworkError
+        if self.home.network is None:
             raise NetworkError("effect: this home has no network")
-        target.apply(effect)
+        check_effect(effect, self.home.network)
+        link = self.home.network.links[effect.link]
+        (self.relay if link.tcp and self.relay is not None else self.links).apply(effect)
         self._input("lab", "effect", effect.to_dict())
+
+    def net_record(self, record: dict) -> None:
+        """A record from another thread (the relay's): written on the session's clock, like every other change."""
+        self.clock.call_at(self.clock.now(), lambda: self._write(record))
 
     def network_clear(self, link: str | None = None) -> None:
         for target in (self.links, self.relay):

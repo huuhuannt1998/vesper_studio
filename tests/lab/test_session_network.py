@@ -79,3 +79,32 @@ def test_an_effect_a_home_cannot_take_is_refused_and_not_traced(tmp_path):
     with pytest.raises(NetworkError, match="unknown link"):
         s.network_effect(Effect("delay", link="wifi/sofa", hold_s=1))
     assert not [r for r in s.records if r.get("op") == "effect"]
+
+
+def test_on_the_live_network_a_tcp_link_s_effect_goes_to_the_relay_and_a_hop_s_to_the_link_layer(tmp_path):
+    _, s = hall_lamp(tmp_path)
+    put = []
+
+    class Relay:
+        def apply(self, effect):
+            put.append(effect)
+
+        def clear(self, link=None):
+            put.append(("clear", link))
+    s.relay = Relay()
+    s.network_effect(Effect("delay", link="coordinator", hold_s=5))
+    s.network_effect(Effect("delay", link="zigbee/hall_motion", hold_s=5))
+    assert put == [Effect("delay", link="coordinator", hold_s=5)]
+    assert s.links.effects == [Effect("delay", link="zigbee/hall_motion", hold_s=5)]
+    with pytest.raises(NetworkError, match="'jam' is not one of"):
+        s.network_effect(Effect("jam", link="coordinator"))
+    s.network_clear()
+    assert put[-1] == ("clear", None) and s.links.effects == []
+
+
+def test_records_from_another_thread_reach_the_trace_on_the_session_s_clock(tmp_path):
+    _, s = hall_lamp(tmp_path)
+    s.net_record({"kind": "net", "link": "coordinator", "event": "down", "reason": "cut"})
+    assert not [r for r in s.records if r.get("reason") == "cut"]  # not yet: on the clock's next turn
+    s.clock.advance(0)
+    assert [r for r in s.records if r.get("reason") == "cut"][0]["t"] == s.clock.now()
