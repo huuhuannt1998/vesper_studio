@@ -44,6 +44,7 @@ Success:
 | **W4a** | The scenario engine: the file, the building blocks, defenses, predicates, runs and reports; the gold Phantom-Delay scenario | W7a |
 | **W4b** | The MCP server, its prompt, its registration, and the evaluation harness | W4a |
 | **W7b** | Real 802.11 on Linux: namespaces, mac80211_hwsim, wmediumd, hostapd, over the same topology | W7a; a Linux machine or a VM window |
+| **W8** | Device physical profiles and sensing: a datasheet-to-profile pipeline, a 3D sensing model with line of sight, zones shown in the 3D view (§6a) | the 20-sensor spike; its sensing model may follow W7a |
 
 The MCP server comes after the engine because it can only be as good as what it can set up: before W7a and W4a it
 could not reproduce a network-timing paper such as Phantom-Delay.
@@ -256,6 +257,48 @@ the link model's path loss, hostapd for the router, wpa_supplicant for each Wi-F
 Ethernet. The virtual devices and the hub run in their namespaces; the relay's effects become `tc netem` and
 nftables rules on the namespace links. It runs on Linux, or in a Linux VM on macOS (WSL2's kernel lacks
 mac80211_hwsim). It is optional: a scenario names the backend it needs, and the report says which ran.
+
+## 6a. Device physical profiles and sensing (W8)
+
+**Why.** The catalog takes each product's behaviour from real definitions (Zigbee2MQTT's converters, Z-Wave JS's
+device files, the Matter data model and the CSA's ledger): its features, units, ranges, settings and reporting.
+It has no physics: how far a sensor sees, at what angle, from what height, through what. Today every wall-mounted
+motion sensor uses an assumed 7 m, 110° cone and treats its room as its line of sight. A security paper's claims
+often turn on exactly this (did the sensor see the intruder?).
+
+**A physical profile per product.** Typed fields: the sensing technology (PIR, mmWave, both), range, horizontal and
+vertical field of view, mount and recommended height and tilt, whether it sees a still person, what it sees
+through, occupancy timeout and blind time, battery and life, radio, indoor or outdoor. Every value carries its
+evidence (the quoted text, the URL, the page) and a status: **sourced**, **inherited** (the same sensor under
+another model number), **assumed** (a category default from a standard, such as EN 50131-2-2's coverage classes
+for intruder detectors), or **unknown**.
+
+**Where the values come from, in order:** the manufacturer's datasheet and manual (their URLs often given by the
+sources already ingested: the CSA ledger records each product's manual and product page); the product page; FCC
+filings (public user manuals and RF reports, by FCC ID); then inheritance; then the category default.
+
+**The pipeline.** The same pattern as paper-to-scenario: a model reads a product's documents and fills the typed
+profile through validated tools, quoting its evidence; a second pass checks each value against its quote; a random
+sample is checked by hand, so the extraction's accuracy is a measured number. Categories where physics matters
+come first: motion and presence sensors, contact, cameras, smoke and leak, locks, thermostats.
+
+**Scale.** Space is 1:1 (HSSD is metric; the humanoids are adult size; devices are placed in metres), so a 5 m
+sensor covers 5 m. What W8 adds is a faithful zone:
+- its 3D shape from the profile: a wall PIR's fan from its height and tilt, with the dead zone beneath; a ceiling
+  sensor's circle, sized by the ceiling's height; an mmWave cone that sees a still person;
+- line of sight by rays against the 3D scene (walls, furniture, doors open or shut), not "the same room"; a PIR does
+  not see through glass, an mmWave sensor partly sees through thin walls;
+- detection as a probability: a PIR catches movement across its view farther than movement towards it; the
+  product's sensitivity setting scales the range; a person is a body (head, torso, legs), not a point;
+- the product's own timing (timeout, retrigger, blind time);
+- the zone drawn in the 3D view, so a researcher sees where a sensor is blind before placing it.
+
+**Limit.** Published specifications, not measured behaviour: calibration against physical devices is future work.
+
+**The spike first.** Twenty motion and presence sensors (Zigbee, Matter and Z-Wave; PIR and mmWave; indoor and
+outdoor): their documents read into profiles, every value verified against its quote, the share of fields that
+could be sourced, and the effort per product. It says how much of the catalog can really be sourced before W8 is
+planned.
 
 ## 7. Safety boundary
 
