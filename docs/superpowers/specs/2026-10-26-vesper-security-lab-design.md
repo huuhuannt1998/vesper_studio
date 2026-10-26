@@ -46,6 +46,9 @@ Success:
 | **W7b** | Real 802.11 on Linux: namespaces, mac80211_hwsim, wmediumd, hostapd, over the same topology | W7a; a Linux machine or a VM window |
 | **W8** | Device physical profiles and sensing: a datasheet-to-profile pipeline, a 3D sensing model with line of sight, zones shown in the 3D view (§6a) | the 20-sensor spike; its sensing model may follow W7a |
 
+**Progress.** W7a is built in three plans: W7a1 (the topology, the link layer, the relay, Zigbee2MQTT's availability,
+`vesper lab network`; plan 2026-10-26), W7a2 (the virtual Tasmota devices), W7a3 (Matter on the hub).
+
 The MCP server comes after the engine because it can only be as good as what it can set up: before W7a and W4a it
 could not reproduce a network-timing paper such as Phantom-Delay.
 

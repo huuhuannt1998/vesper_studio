@@ -22,6 +22,7 @@ browser.
 | Play a home in the browser, in 3D as in a game: walk, use devices, watch sensors and residents | `vesper lab play` | the catalog |
 | Put a real Home Assistant in the loop, with its dashboard in the page | `vesper lab play --hub` | `vesper setup ha`, Mosquitto |
 | Let the residents live a day in seconds, with the home's automations | `vesper lab day` | the catalog |
+| See the home's network: the router, and each link's signal and latency | `vesper lab network` | the catalog |
 | Replay any session and check that it reproduces exactly | `vesper lab replay` | the catalog |
 | Make a home from a real 3D scene (HSSD) | `vesper lab new --scene` | Habitat, HSSD |
 | Find a product to place in a home | `vesper catalog search`, `vesper catalog show` | the catalog |
@@ -103,6 +104,33 @@ login and each device's Home Assistant entities.
 The example home ships one automation: walking into the hall turns the bedroom lamp on. Edit automations in Home
 Assistant's own editor. They are written back to the home's `automations.yaml` when play stops. VESPER never uses
 the standard ports 1883 and 8123, so it does not disturb a Home Assistant you already run.
+
+## The home's network
+
+Every home has a network, as a real house does: a router, the hub (Home Assistant and VESPER's broker) wired to
+it, and the Zigbee coordinator on the hub, with each Zigbee device on its own hop to the coordinator. Every
+device's reports and every command cross their links, so a link's latency, a weak signal or an attack shows up
+where it would in a real home. `vesper lab network` shows where the router stands and each link's quality:
+
+    vesper lab network examples/lab/test-house/home.yaml
+
+A link's signal comes from the home itself: the distance and the walls between its two ends, with a shut door
+costing a little more. The radio constants are typical published values (ITU-R P.1238's indoor path loss), not
+measured on a device, and the output says so. A home can place its router and its coordinator:
+
+    network:
+      router: {room: hall}
+      coordinator: {room: bedroom, link: wifi}      # its own host, on the router's Wi-Fi
+
+With `--hub`, Home Assistant's and the bridge's MQTT connections really cross the network: they go through a relay
+on 127.0.0.1 that only ever forwards to the broker the session started (never ports 1883 or 8123). An attack acts on
+those real connections, on whole MQTT messages: it can delay, drop, duplicate, reorder or throttle them, or cut a
+link. A delay can let the keepalives through, so the connection stays up while a report arrives late (the
+Phantom-Delay attacks). A cut is either a lost link or a reset, after which the broker publishes the bridge's will
+and Home Assistant marks every Zigbee device unavailable. A device whose own hop is down goes unavailable after
+Zigbee2MQTT's availability timeout, alone. Without Home Assistant, on the logical clock, the same effects apply
+in-process. Every effect is an input of the trace, so a replay applies it again, and every message an effect
+touched is in the trace with when it was sent and when it arrived.
 
 ## A day in seconds, and exact replays
 
@@ -188,7 +216,7 @@ takes screenshots and writes a report. `look-3d.yaml` checks the 3D view: the cr
 
 ## Development
 
-    .venv/bin/python -m pytest          # about 860 tests, a minute or two
+    .venv/bin/python -m pytest          # about 900 tests, a minute or two
     .venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposure vesper/validation vesper_world \
         tests/lab tests/catalog tests/twins tests/exposure tests/validation tests/world
 
@@ -198,7 +226,8 @@ Opt-in tests need real services:
 |---|---|
 | `VESPER_HABITAT=1` | the world service in Habitat (scene 102344022 downloaded) |
 | `VESPER_UI_BROWSER=1` | a real headless browser (the map and the 3D view) |
-| `VESPER_STACK_TESTS=1` | a real Mosquitto |
+| `VESPER_STACK_TESTS=1` | a real Mosquitto (also the home's network end to end) |
+| `VESPER_HA_TESTS=1` | the real Home Assistant of `vesper setup ha` (the network end to end; about a minute) |
 | `VESPER_NETWORK_TESTS=1` | the upstream catalog sources |
 
 Layout:
@@ -219,6 +248,8 @@ Layout:
 ## Roadmap
 
 - **Guided setup:** `vesper setup habitat`, scene downloads, and `vesper doctor`.
+- **The home's network, continued:** Wi-Fi devices with their own connections (virtual Tasmota twins), Matter
+  devices on the hub, and real 802.11 on Linux.
 - **The security lab:** attacks and defenses as scenario files, run against VESPER's own local services, with their
   alerts, starting with the Phantom-Delay attacks (Fu et al., DSN 2022). An MCP server will let Claude Desktop, or
   any MCP client, set up a scenario from a research paper.
