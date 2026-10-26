@@ -155,6 +155,7 @@ function aim(target) {
   if (!me || !point) return null;
   Object.assign(cam, aimCamera({ x: me.x, z: me.z, floorY: view3d.floorY, mode: cam.mode }, point));
   lastPick = 0; // the crosshair is checked on the next frame
+  updateWhere(); // the header faces where the camera does, as after a mouse look
   return { ...cam };
 }
 

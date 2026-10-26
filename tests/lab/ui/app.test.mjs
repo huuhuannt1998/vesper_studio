@@ -64,7 +64,8 @@ async function page({ webgl = false } = {}) {
     docFire("pointerlockchange");
   };
   const view3d = { status: { ready: true, loaded: 0, failed: 0, total: 0, missing: [] }, floorY: 0, picked: null,
-    resize() {}, frame() {}, pick() { return this.picked; }, pointOf() { return null; }, colors() { return 2; } };
+    points: {}, resize() {}, frame() {}, pick() { return this.picked; }, pointOf(t) { return this.points[t] || null; },
+    colors() { return 2; } };
   if (webgl) {
     globalThis.WebGL2RenderingContext = class {};
     globalThis.view3dStub = view3d;
@@ -100,7 +101,8 @@ async function page({ webgl = false } = {}) {
   const aimAt = (target) => { view3d.picked = target; tick(101); frame(); }; // the crosshair is checked every 100 ms
   const locked = () => document.pointerLockElement === document.getElementById("view3d");
   if (webgl) for (let k = 0; k < 5; k += 1) await new Promise((r) => setImmediate(r)); // the 3D view starts
-  return { v, el: (id) => document.getElementById(id), key, tick, receive, sent, sentOf, screen, frame, aimAt, locked };
+  return { v, el: (id) => document.getElementById(id), key, tick, receive, sent, sentOf, screen, frame, aimAt, locked,
+    view3d };
 }
 
 test("a walking key released after Option (macOS renames the key) stops the walk", { skip }, async () => {
@@ -232,3 +234,14 @@ test("in 3D, the hint names the keys that act: E or F on the crosshair's thing, 
     p.aimAt({ target: "hall-porch", kind: "door" }); // out of reach: the prompt by the crosshair says why
     assert.equal(p.el("hint").textContent, "");
   });
+
+test("in 3D, a look's aim turns the header's facing with the camera, as the mouse does", { skip }, async () => {
+  const p = await page({ webgl: true });
+  const me = p.v.state.actors[p.v.state.player];
+  p.view3d.points.east = [me.x + 3, 1.6, me.z]; // due east of the player (yaw 0 faces +x)
+  p.view3d.points.south = [me.x, 1.6, me.z + 3]; // and due south (+z)
+  p.v.aim("south");
+  assert.match(p.el("where").textContent, / · facing S$/);
+  p.v.aim("east");
+  assert.match(p.el("where").textContent, / · facing E$/);
+});
