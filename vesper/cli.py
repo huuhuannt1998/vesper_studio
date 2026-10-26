@@ -939,6 +939,14 @@ def main(argv: list[str] | None = None) -> int:
     build.add_argument("--raw-root", default="catalog/raw")
     build.add_argument("--out", default="catalog/vds")
     build.add_argument("--release", action="store_true", help="keep only records whose sources allow redistribution")
+    search_cmd = actions.add_parser("search", help="find products to place in a home (every word must match)")
+    search_cmd.add_argument("words", nargs="*", help="words of the vendor, model, description, category or id")
+    search_cmd.add_argument("--category", help="only this category, such as light, plug or motion_sensor")
+    search_cmd.add_argument("--limit", type=int, default=25, help="at most this many (default 25)")
+    search_cmd.add_argument("--catalog", default="catalog/vds")
+    show_cmd = actions.add_parser("show", help="a product's identity, fidelity and features")
+    show_cmd.add_argument("product", help="a product id, such as zigbee:ikea:led1545g12")
+    show_cmd.add_argument("--catalog", default="catalog/vds")
 
     setup = commands.add_parser("setup", help="install local tools")
     setup_actions = setup.add_subparsers(dest="action", required=True)
@@ -1090,8 +1098,39 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
 
+def _catalog_find(args) -> int:
+    """`vesper catalog search` and `vesper catalog show`: products to place in a home (spec §7)."""
+    from vesper.catalog.errors import CatalogError
+    from vesper.catalog_search import describe, search, show
+    from vesper.lab.worldmap import suggest
+    from vesper.twins.home import load_catalog
+    try:
+        records = load_catalog(Path(args.catalog))
+    except (FileNotFoundError, CatalogError) as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    if args.action == "show":
+        if args.product not in records:
+            print(f"FAILED: no product {args.product!r} in the catalog; {suggest(args.product, list(records))}",
+                  file=sys.stderr)
+            return 1
+        print("\n".join(show(records[args.product])))
+        return 0
+    found = search(records, " ".join(args.words), args.category)
+    if not found:
+        print("FAILED: nothing matches; fewer words, or another category", file=sys.stderr)
+        return 1
+    for r in found[:args.limit]:
+        print(describe(r))
+    if len(found) > args.limit:
+        print(f"... and {len(found) - args.limit} more (--limit)")
+    return 0
+
+
 def _dispatch(args) -> int:
     if args.command == "catalog":
+        if args.action in ("search", "show"):
+            return _catalog_find(args)
         return _sync(args) if args.action == "sync" else _build(args)
     if args.command == "setup":
         return _setup(args)
