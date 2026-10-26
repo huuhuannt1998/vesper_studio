@@ -7,6 +7,7 @@
   - `jrn_01M5QPHFENDDB436RHXRF8Y4QY`: attack/defense testing is the platform's purpose, shown in the paper's demo;
   - `jrn_01M5QPMDZRHQ7A8XJ7WJ829V5K`: the top-down map and the 3D view, both from the start;
   - `jrn_01M5QRQ0N43J612QBEMEGN2YPH`: the six requirements below, and "Keep 'No robots'".
+- **Name (PI, 2026-10-26):** the app is **VESPER Studio**; the Lab is its play mode. Its packaging is §7.
 - **Builds on:** `2026-10-22-vesper-device-twins-design.md` (sub-project #1: the catalog, the twins, the Zigbee bridge, the Matter tier, an unmodified Home Assistant). This spec covers the rest of the original plan: home composition (#2, by hand), the residents (#3: the player, and scripted residents with routines and reactions), and the security use case (#4). It also replaces the packaging bullets of that spec's §5.
 
 **The PI's requirements (2026-10-24) and where they are met**
@@ -245,32 +246,60 @@ Each attack and defense has a scripted session and test: with the defense off th
 
 The legacy security framework (tag `legacy-security-v1`) worked at the network and firmware layers. It is not reused as such. Its MQTT-level ideas inform A1 and A2.
 
-## 7. Packaging and installation
+## 7. Packaging and installation: VESPER Studio (PI, 2026-10-26)
 
-- **The app:**
-  - distributed as `vesper-twins` on PyPI (`vesper` is taken by an unrelated project); the command and import name are `vesper`;
-  - installed with `uv tool install vesper-twins`;
-  - extra Python dependency: one WebSocket library for the UI server;
-  - the browser UI is static HTML and JavaScript (no build step), shipped in the wheel.
-- **The Habitat environment:** `vesper setup habitat` creates a conda or micromamba environment (`vesper-habitat`) with habitat-sim 0.3.3 (with Bullet), habitat-lab 0.3.3 and the `vesper_world` package. It records the environment's Python path in VESPER's configuration.
-- **Assets:** `vesper setup scenes` downloads HSSD (Hugging Face, after the user accepts its license) and Habitat's humanoid data into the user's data directory. They are never redistributed.
+- **The product is VESPER Studio, a desktop app for macOS and Windows.**
+  - PI, 2026-10-26: "Making this as an app for macOS and window is my definition of packaging. I want this to be a
+    professional simulation"; the name: "VESPER Studio".
+  - It is a native shell (Tauri) around VESPER's local server and its page, with a guided setup of the
+    environments and the scenes.
+  - Everything runs on the user's machine. A hosted site (an `.io` game) was weighed and set aside as costly
+    (PI, 2026-10-26: "If that's costly, we stick with the original plan"). There is no hosted simulation.
+- **Unsigned during development** (PI, 2026-10-26: "Unsigned for now"). macOS asks the user to allow the app once
+  (Control-click, Open); Windows SmartScreen asks once. Signing and notarization come with the release.
+- **The Python package underneath:**
+  - `vesper-studio` on PyPI (`vesper` is taken by an unrelated project);
+  - the command and the import name stay `vesper`;
+  - the page is static HTML and JavaScript (no build step), shipped in the wheel;
+  - researchers who prefer a terminal use it alone: `uv tool install vesper-studio`.
+- **The Habitat environment:**
+  - `vesper setup habitat` creates a conda or micromamba environment with habitat-sim 0.3.3 (with Bullet, Python
+    3.9) and records its Python in VESPER's configuration;
+  - the world service runs there as a copy of `vesper_world` alone (plan W1a), so nothing of VESPER's own
+    environment can shadow Habitat's packages;
+  - habitat-sim has no Windows build, so on Windows the world service runs in WSL2, which the app's setup installs
+    and drives. Homes made from a map file need no world service.
+- **Assets:**
+  - `vesper setup scenes` downloads HSSD scene by scene (Hugging Face, after the user accepts its license), and
+    Habitat's humanoid data, into the user's data directory;
+  - `vesper lab scenes` names what each scene still lacks;
+  - assets and the homes made from them stay on the user's machine and are never redistributed.
 - **The rest, unchanged from sub-project #1:**
   - `vesper setup ha` and `vesper setup matter`;
   - `vesper doctor`, which reports each prerequisite and the commands that need it;
   - the released, license-filtered catalog: `vesper catalog fetch`, a SHA-256-pinned bundle;
-  - `vesper catalog search|show`.
+  - `vesper catalog search|show` (present since W1a).
+- **The code is public now** (PI, 2026-10-26: "Push everything now"):
+  - https://github.com/huuhuannt1998/vesper_studio, under the MIT license, with a README that shows how to install,
+    run and use it;
+  - this replaces, for the code, the earlier rule that nothing is pushed before submission
+    (`dec_01M5K0PHHR183BMCAJEBG1M0XZ`); the release below still comes at submission.
 - **Quickstart** (success criterion 1):
+  - in the app: download, open, follow the setup, pick a scene, play;
+  - in a terminal:
 
-      uv tool install vesper-twins
-      vesper setup                 # habitat, scenes and ha, each skipped when already done
-      vesper catalog fetch
-      vesper lab new myhome --scene 102344022
-      vesper lab play myhome
+        uv tool install vesper-studio
+        vesper setup                 # habitat, scenes and ha, each skipped when already done
+        vesper catalog fetch
+        vesper lab new ~/vesper-homes/myhome --scene 102344022
+        vesper lab play ~/vesper-homes/myhome/home.yaml
 
-- **Release** (at submission only; nothing is pushed before then, decision `dec_01M5K0PHHR183BMCAJEBG1M0XZ`):
-  - the wheel and source distribution on PyPI, the catalog bundle on a GitHub Release, and a Zenodo DOI for code, catalog and the paper's results;
-  - `CITATION.cff`, a user guide, and `THIRD_PARTY_NOTICES.md` (what is downloaded, from where, under which license).
-  - An optional Linux container may follow; it is never required.
+- **Release** (at submission):
+  - the wheel and source distribution on PyPI;
+  - the app's installers (`.dmg`, `.msi`) and the catalog bundle on a GitHub Release;
+  - a Zenodo DOI for code, catalog and the paper's results;
+  - `CITATION.cff`, a user guide, and `THIRD_PARTY_NOTICES.md` (what is downloaded, from where, under which
+    license).
 
 ## 8. Testing
 
@@ -304,6 +333,7 @@ Each has its own plan:
 3. **Plan W3, residents:** routines, the activity → device tables, reactions, profiles, several residents, the schedule converters from the earlier work, and the logical-clock mode with VESPER's rule engine (§5b).
 4. **Plan W4, the security lab:** the vantage points, the plugin API, A1–A3 and D1–D2, the console.
 5. **Plan W5, packaging:** `vesper setup habitat|scenes`, `doctor`, the released catalog, the docs, the release checklist.
+6. **Plan W6, VESPER Studio for macOS and Windows (§7):** the desktop shell, its guided setup over W5's commands, WSL2 for the world service on Windows, and unsigned builds of both apps from each commit to main. It starts after W1b (the 3D view) and W5.
 
 What can start now, during another project's run (unit tests only):
 - W2's protocol, rules, recorder and UI against a fake world;
@@ -311,6 +341,6 @@ What can start now, during another project's run (unit tests only):
 - W4 against fakes;
 - W5's catalog bundle and `doctor`.
 
-The spikes, the world service and every live test wait for the end of the run and the PI's go. Plan D (Matter tier) is merged (2026-10-24, 0ec6a89).
+The spikes, the world service and every live test wait for the end of the run and the PI's go. Plan D (Matter tier) is merged (2026-10-24, 0ec6a89). W1a (a home from a real HSSD scene through the world service) is merged (2026-10-26, 2f07a3c); W1b, the 3D view, is next.
 
-**Out of scope:** robots and robot training (PI, 2026-10-24); radio and network-layer emulation; several players at once; LLM residents (later #3 work, which uses `vesper lab run`); automatic home composition (later #2 work); a hosted service; native Windows (WSL2 only).
+**Out of scope:** robots and robot training (PI, 2026-10-24); radio and network-layer emulation; several players at once; LLM residents (later #3 work, which uses `vesper lab run`); automatic home composition (later #2 work); a hosted service; the world service on native Windows (it runs in WSL2, §7).
