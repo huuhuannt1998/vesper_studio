@@ -203,13 +203,23 @@ def from_aras(rows, resident: int, world_map, overrides: dict | None = None) -> 
     return tasks, notes
 
 
+def minutes(seconds: float) -> float | int:
+    """A task's duration as a routine file gives it: whole minutes stay whole; else rounded down at 4 decimals
+    (< 6 ms), and a step further down if the decimal reads back a hair longer than the task (249 s is 4.15 min,
+    which reads back as 249.00000000000003 s): a task never runs into the next."""
+    if seconds % 60 == 0:
+        return int(seconds // 60)
+    m = math.floor(seconds / 60 * 1e4) / 1e4
+    while float(repr(m)) * 60 > seconds:
+        m = round(m - 1e-4, 4)
+    return m
+
+
 def routine_yaml(tasks: list[Task], source: str, notes: list[str] = ()) -> str:
     """A routine file (version 1) with its source and the conversion's notes as comments."""
     lines = [f"# from: {source}"] + [f"# {n}" for n in notes] + ["version: 1", "tasks:"]
     for t in tasks:
-        # whole minutes stay whole; else rounded down at 4 decimals (< 6 ms): a task never runs into the next
-        minutes = int(t.duration // 60) if t.duration % 60 == 0 else math.floor(t.duration / 60 * 1e4) / 1e4
-        fields = [f"at: {json.dumps(clock(t.start))}", f"minutes: {minutes}", f"name: {json.dumps(t.name)}",
+        fields = [f"at: {json.dumps(clock(t.start))}", f"minutes: {minutes(t.duration)}", f"name: {json.dumps(t.name)}",
                   f"category: {t.category}"] + ([f"room: {t.room}"] if t.room else [])
         lines.append("  - {" + ", ".join(fields) + "}")
     return "\n".join(lines) + "\n"

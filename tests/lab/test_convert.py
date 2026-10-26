@@ -8,7 +8,7 @@ from tests.lab.homes import catalog, write_home
 from tests.lab.maps import house
 from tests.twins.conftest import write_catalog
 from vesper import cli
-from vesper.lab.convert import ConvertError, from_aras, from_persona, room_map, routine_yaml
+from vesper.lab.convert import ConvertError, from_aras, from_persona, minutes, room_map, routine_yaml
 from vesper.lab.routine import load_routine
 
 H = 3600
@@ -150,3 +150,19 @@ def test_a_routine_that_would_not_load_is_never_left_behind(tmp_path, capsys, mo
     assert cli.main(args) == 1
     assert "does not load" in capsys.readouterr().err
     assert not out.exists() and not list((tmp_path / "routines").glob("*"))
+
+
+def test_a_duration_in_minutes_never_reads_back_longer_than_the_task():
+    """floor(d / 60, 4 decimals) * 60 can exceed d in floating point (249 s gave 249.00000000000003 s, and the
+    next task then started before this one ended): every duration of up to two days reads back at most d."""
+    for d in range(1, 2 * 86400):
+        m = minutes(d)
+        assert float(repr(m)) * 60 <= d and d - float(repr(m)) * 60 < 0.01, d
+
+
+def test_an_aras_day_that_begins_with_a_249_second_task_loads(tmp_path):
+    rows = aras_rows([(1, 249), (11, 6 * H), (12, 86400 - 249 - 6 * H)], [(11, 86400)])
+    tasks, notes = from_aras(rows, 1, house())
+    path = tmp_path / "r1.yaml"
+    path.write_text(routine_yaml(tasks, source="test", notes=notes))
+    assert [t.name for t in load_routine(path, house()).tasks][:2] == ["Other", "Sleeping"]
