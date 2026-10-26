@@ -19,7 +19,7 @@ browser.
 
 | | Command | Needs |
 |---|---|---|
-| Play a home in the browser: walk, use devices, watch sensors and residents | `vesper lab play` | the catalog |
+| Play a home in the browser, in 3D as in a game: walk, use devices, watch sensors and residents | `vesper lab play` | the catalog |
 | Put a real Home Assistant in the loop, with its dashboard in the page | `vesper lab play --hub` | `vesper setup ha`, Mosquitto |
 | Let the residents live a day in seconds, with the home's automations | `vesper lab day` | the catalog |
 | Replay any session and check that it reproduces exactly | `vesper lab replay` | the catalog |
@@ -37,7 +37,8 @@ browser.
 - Optional:
   - [Mosquitto](https://mosquitto.org/) and `vesper setup ha`, to put Home Assistant in the loop;
   - a Chromium-based browser, for `vesper lab look`;
-  - Miniconda with habitat-sim 0.3.3 and the HSSD dataset, for homes from real 3D scenes (see below).
+  - Miniconda with habitat-sim 0.3.3 and the HSSD dataset, for homes from real 3D scenes (see below);
+  - Habitat's humanoids, so the people in a home are Habitat's own avatars (see below).
 
 ## Install
 
@@ -59,22 +60,27 @@ Every command that runs twins refuses a catalog built by older catalog code, so 
     vesper lab play examples/lab/test-house/home.yaml
 
 Your browser opens on http://127.0.0.1:18080/ (add `--no-browser` to only print the address). The page shows the
-test house: a hall, a kitchen, a bedroom and a porch, with six real Zigbee products. Alex, a resident, lives there
-on a weekday routine.
+test house in 3D: a hall, a kitchen, a bedroom and a porch, with six real Zigbee products. Alex, a resident, lives
+there on a weekday routine. The test house has no 3D scene of its own, so it is drawn plainly from its map; a home
+made from a real scene (below) is drawn from the scene itself.
 
 | Control | What it does |
 |---|---|
-| **W A S D** or the arrow keys | walk; hold two keys for a diagonal |
+| **Click** the view | capture the mouse to look around (**Esc** lets it go) |
+| **W A S D** or the arrow keys | walk where you look; hold two keys for a diagonal |
 | **Shift** | run |
-| **Click** a device or a door | use it: switch a plug, open a door, press a button |
-| **E** or **F** | use the thing in reach (the nearest first) |
+| **Click** or **F** | use what the crosshair is on: switch a plug, open a door, press a button |
+| **E** | the same; with nothing under the crosshair, the thing in reach |
+| **V** | first person or third person |
+| **M** | the full map (a click on it uses a device or door too) |
 | **Q** | select the next thing in reach |
 | **Tab** | move to the next panel |
 
-As in a game, the prompt by the pointer says what a click will do ("Click: switch kitchen_plug on"), or why it
-cannot ("too far (3.7 m)", "other side of the wall", "a sensor, not used by hand"). Clicking the floor does not
-walk you there. The page also shows:
-- in the header, the room you are in and the direction you face;
+As in a game, the prompt under the crosshair says what a click will do ("Click: switch kitchen_plug on"), or why
+it cannot ("too far (3.7 m)", "other side of the wall", "a sensor, not used by hand"). A browser without WebGL, or
+the address with `?view=map`, plays on the map alone. The page also shows:
+- in the header, the room you are in and the direction you face, and a compass at the top of the view;
+- bottom right, the minimap;
 - top right, the event feed: a sensor seeing someone, a door, a resident's action, an automation;
 - the residents, and what each one is doing;
 - the console, with every trace record in words.
@@ -119,7 +125,7 @@ VESPER looks for that environment's Python at `~/miniconda3/envs/vesper/bin/pyth
 if yours is elsewhere. Then:
 
     vesper lab scenes                                          # the scenes here, and which are complete
-    vesper lab new ~/vesper-homes/myhome --scene 102344022     # rooms, doorways and doors, in about 10 s
+    vesper lab new ~/vesper-homes/myhome --scene 102344022     # rooms, doorways, doors and the 3D scene, in ~10 s
     vesper catalog search ikea bulb                            # products to place (vesper catalog show <id>)
     vesper lab check ~/vesper-homes/myhome/home.yaml
     vesper lab play ~/vesper-homes/myhome/home.yaml
@@ -128,7 +134,17 @@ Keep homes made from HSSD outside this repository: their map files are derived f
 redistributed. A new home gets:
 - the scene's rooms;
 - its walkable floor, with the furniture in it;
-- its doors, closed. HSSD's own metadata says which openings are doors and which are windows.
+- its doors, closed. HSSD's own metadata says which openings are doors and which are windows;
+- its 3D scene (`render.json`): every mesh the scene draws, placed exactly where Habitat places it. The page draws
+  the scene from HSSD's own files, so `vesper lab play` needs HSSD where the home was made, or `--hssd`.
+
+For the people, download Habitat's humanoids, in the Habitat environment:
+
+    python -m habitat_sim.utils.datasets_download --uids habitat_humanoids --data-path data/
+
+`vesper lab play` then draws each person as the Habitat humanoid their avatar names (`female_0`, `male_1`, …),
+walking with Habitat's own walk; it looks for them in `data/humanoids/humanoid_data`, or `VESPER_HUMANOIDS`, and
+draws plain figures without them.
 
 `lab new` names a door that opens onto no room of the map. In a scene with storeys, the home is the ground floor,
 and `lab new` names the rooms it leaves out.
@@ -163,8 +179,8 @@ Routines can be made from earlier schedule data:
 
     vesper lab look examples/lab/test-house/home.yaml --steps examples/lab/test-house/look-pubg.yaml
 
-`lab look` drives the page in a headless browser, step by step (walk, press, click, wait, expect). It takes
-screenshots and writes a report.
+`lab look` drives the page in a headless browser, step by step (walk, press, click, aim, view, wait, expect). It
+takes screenshots and writes a report. `look-3d.yaml` checks the 3D view: the crosshair, F, first person, the map.
 
 ## Development
 
@@ -177,7 +193,7 @@ Opt-in tests need real services:
 | Variable | What it enables |
 |---|---|
 | `VESPER_HABITAT=1` | the world service in Habitat (scene 102344022 downloaded) |
-| `VESPER_UI_BROWSER=1` | a real headless browser |
+| `VESPER_UI_BROWSER=1` | a real headless browser (the map and the 3D view) |
 | `VESPER_STACK_TESTS=1` | a real Mosquitto |
 | `VESPER_NETWORK_TESTS=1` | the upstream catalog sources |
 
@@ -198,7 +214,6 @@ Layout:
 
 ## Roadmap
 
-- **The 3D view:** third and first person, as in a game, with a minimap.
 - **Guided setup:** `vesper setup habitat`, scene downloads, and `vesper doctor`.
 - **The security lab:** attacks and defenses, run against VESPER's own local services, with their alerts.
 - **VESPER Studio for macOS and Windows:** one desktop app, with the setup built in.

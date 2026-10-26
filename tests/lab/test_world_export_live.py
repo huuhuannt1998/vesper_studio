@@ -1,6 +1,6 @@
 """A home from a real HSSD scene, through the real world service in the Habitat environment: opt-in
 (VESPER_HABITAT=1), like the Matter host contract test. Scene 102344022 must be downloaded (`vesper lab scenes`
-says ready); it takes about 10 s and 0.5 GB."""
+says ready); it takes about 10 s and 0.5 GB. With Habitat's humanoids downloaded, their motions are made too."""
 import os
 from pathlib import Path
 
@@ -9,6 +9,7 @@ import yaml
 
 from vesper import cli
 from vesper.lab.home import load_lab_home, spawn_point
+from vesper.lab.humanoids import DEFAULT_HUMANOIDS, find_humanoids
 from vesper.lab.scenes import habitat_python, hssd_dir, list_scenes
 from vesper.lab.session import Session
 from vesper.twins.clock import LogicalClock
@@ -38,6 +39,11 @@ def test_a_real_scene_becomes_a_home_whose_rooms_doors_and_walks_work(tmp_path, 
     assert "2 doors of the scene stand in no doorway (203-0_:0000, 212-0_:0000)" in capsys.readouterr().out
     home = load_lab_home(Path(home_dir / "home.yaml"), {})
     assert len(home.map.rooms) == 20 and len(home.map.doorways) >= 20
+    from vesper.lab.world3d import load_world3d
+    w = load_world3d(home, HSSD)  # every mesh, placed by Habitat; the two doors swing with the home's doors
+    assert len(w.manifest["items"]) == 219 and w.manifest["items"][0]["kind"] == "stage" and w.missing == []
+    assert sorted(i["doorway"] for i in w.manifest["items"] if "doorway" in i) == ["bedroom-outdoor",
+                                                                                "dining_room-outdoor"]
     assert home.map.room_at(*home.avatar["start"]).id == "living_room"
     s = Session(home, clock=LogicalClock())
     s.start()
@@ -50,3 +56,14 @@ def test_a_real_scene_becomes_a_home_whose_rooms_doors_and_walks_work(tmp_path, 
     assert w.walk_to("player", bedroom) is not None
     s.clock.advance(120)
     assert w.pose("player").room == "bedroom"
+
+
+@pytest.mark.skipif(not (DEFAULT_HUMANOIDS / "female_0" / "female_0.glb").is_file(),
+                    reason="Habitat's humanoids are not downloaded (data/humanoids/humanoid_data)")
+def test_habitat_s_humanoids_walk_as_in_habitat(tmp_path):
+    import json
+    h, said = find_humanoids({"female_0", "male_1"}, DEFAULT_HUMANOIDS, cache=tmp_path)
+    assert said == "people: Habitat's humanoids (female_0, male_1)"
+    m = json.loads(h.models["female_0"]["motion"].read_text())
+    assert len(m["joints"]) == 54 and m["joints"][0] == "left_hip" and m["fps"] == 30.0
+    assert len(m["walk"]) == 33 and abs(m["cycle_m"] - 1.31) < 0.01  # Habitat's walk: 1.31 m a cycle

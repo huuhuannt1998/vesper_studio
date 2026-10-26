@@ -4,7 +4,7 @@ import pytest
 
 from vesper.lab.browser import BrowserError
 from vesper.lab.png import Image, decode, encode
-from vesper.lab.visual import CONNECTED, READY, LookError, load_steps, run_look
+from vesper.lab.visual import CONNECTED, READY, VIEW3D_COLOURS, VIEW3D_READY, LookError, load_steps, run_look
 
 
 def picture(seed=0, size=(40, 30)):
@@ -119,6 +119,8 @@ def test_a_page_that_never_gets_ready_says_so(tmp_path):
     ("- {walk: [1, true]}", "step 1: walk needs [x, z]"),
     ("- {press: e, times: 0}", "step 1: times"),
     ("- {shot: '../escape'}", "step 1: a shot's name"),
+    ("- {aim: [1, 2]}", "step 1: aim needs the name of a device or door"),
+    ("- {view: top}", "step 1: view is map or 3d"),
     ("shot: a", "a list of steps"),
 ])
 def test_a_bad_steps_file_names_the_step(tmp_path, text, words):
@@ -149,3 +151,29 @@ def test_a_scripted_walk_moves_the_player_where_play_itself_has_no_click_to_walk
     report = run_look(b, "http://x/", steps, tmp_path)
     assert report.ok, report.checks
     assert ("evaluate", "vesper.walkTo(1.5, 4.5)") in b.calls and not [c for c in b.calls if c[0] == "click"]
+
+
+def test_aim_turns_the_view_onto_a_device_and_fails_for_one_the_view_does_not_have(tmp_path):
+    b = FakeBrowser({'vesper.aim("kitchen_plug")': {"yaw": -30, "pitch": -12, "mode": "third"},
+                     'vesper.aim("nowhere")': None})
+    report = run_look(b, "http://x/", [{"aim": "kitchen_plug"}, {"aim": "nowhere"}, {"shot": "never"}], tmp_path)
+    assert ("evaluate", 'vesper.aim("kitchen_plug")') in b.calls
+    failed = [c for c in report.checks if not c.ok]
+    assert [c.name for c in failed] == ["aim at nowhere", "step 3"] and "no device or door" in failed[0].detail
+    assert report.shots == [] and failed[1].detail == "skipped after a failed step"
+
+
+def test_view_switches_to_3d_waits_for_it_and_checks_it_is_drawn(tmp_path):
+    b = FakeBrowser({VIEW3D_READY: True, VIEW3D_COLOURS: 30})
+    report = run_look(b, "http://x/", [{"view": "3d"}, {"view": "map"}], tmp_path)
+    assert ("evaluate", 'vesper.setView("3d")') in b.calls and ("evaluate", 'vesper.setView("map")') in b.calls
+    assert ("wait_for", VIEW3D_READY, 90) in b.calls
+    names = [c.name for c in report.checks if c.ok]
+    assert "the 3D view is ready" in names and "the 3D view is drawn" in names and report.ok
+
+
+def test_a_page_that_starts_in_3d_must_draw_it(tmp_path):
+    blank = run_look(FakeBrowser({VIEW3D_COLOURS: 1}), "http://x/", [], tmp_path / "a")
+    assert [c.name for c in blank.checks if not c.ok] == ["the 3D view is drawn"]
+    on_map = run_look(FakeBrowser({VIEW3D_COLOURS: None}), "http://x/", [], tmp_path / "b")
+    assert on_map.ok and "the 3D view is drawn" not in [c.name for c in on_map.checks]

@@ -1,0 +1,23 @@
+# vesper lab look examples/lab/test-house/home.yaml --steps examples/lab/test-house/look-3d.yaml
+# The 3D view (spec §2a, plan W1b), drawn from the house's map: third person, the crosshair and its prompt, F, first
+# person (V), and the full map (M).
+- {until: "vesper.mode === '3d'", label: "the page opens on the 3D view"}
+- {shot: start}
+- {walk: [4.3, 0.9]}
+- {until: "vesper.state.reach.some(r => r.target === 'kitchen_plug')", label: "the plug comes into reach", timeout: 15}
+- {aim: kitchen_plug}
+- {wait: 0.5}
+- {expect: "vesper.crosshair && vesper.crosshair.target === 'kitchen_plug'", label: "the crosshair is on the plug"}
+- {expect: "vesper.prompt.startsWith('Click: switch kitchen_plug')", label: "the prompt says what a click does"}
+- {shot: aimed}
+- {press: f}
+- {until: "vesper.lastResult && vesper.lastResult.target === 'kitchen_plug' && vesper.lastResult.ok === true",
+   label: "F uses what the crosshair is on", timeout: 10}
+- {press: v}
+- {wait: 0.5}
+- {expect: "vesper.camera().mode === 'first'", label: "V: first person"}
+- {shot: first_person}
+- {press: v}
+- {press: m}
+- {wait: 0.4}
+- {shot: full_map}

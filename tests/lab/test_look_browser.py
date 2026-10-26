@@ -1,8 +1,9 @@
 """A look with a real headless browser: opt-in (VESPER_UI_BROWSER=1), like the Matter host contract test.
 
-It plays the bedroom scene and checks the page the way a person would see it: the lamp in reach, E lights it
-(and the pixels around it get brighter), a click on the lamp switches it off again, and a scripted walk takes the
-player into the hall (play itself walks by WASD only).
+It plays the bedroom scene and checks the page the way a person would see it. On the map: the lamp in reach, E
+lights it (and the pixels around it get brighter), a click on the lamp switches it off again, and a scripted walk
+takes the player into the hall (play itself walks by WASD only). In the 3D view (plan W1b): the crosshair aimed at
+the lamp, F lights it, V turns to first person.
 """
 import os
 
@@ -22,6 +23,7 @@ pytestmark = pytest.mark.skipif(os.environ.get("VESPER_UI_BROWSER") != "1" or fi
                                 reason="opt-in: VESPER_UI_BROWSER=1 and a Chromium-based browser")
 
 STEPS = [
+    {"view": "map"},
     {"shot": "start"},
     {"expect": "vesper.state.reach[0].target === 'bedroom_lamp'", "label": "the lamp is in reach"},
     {"expect": "document.getElementById('hint').textContent.includes('bedroom_lamp')",
@@ -82,3 +84,36 @@ def test_a_real_browser_sees_the_lamp_light_up_and_the_player_walk(tmp_path):
     assert yellowness(lit, *beside) > yellowness(start, *beside) + 15  # the glow, not just the icon's colour
     assert bluish(lit, *began) > 0.3 and bluish(hall, *ended) > 0.3  # the player is drawn where it is
     assert bluish(hall, *began) < 0.05  # and is gone from where it started
+
+
+STEPS_3D = [
+    {"until": "vesper.mode === '3d'", "label": "the page opens on the 3D view"},
+    {"aim": "bedroom_lamp"},
+    {"wait": 0.3},
+    {"expect": "vesper.crosshair && vesper.crosshair.target === 'bedroom_lamp'",
+     "label": "the crosshair is on the lamp"},
+    {"expect": "vesper.prompt.startsWith('Click: switch bedroom_lamp on')",
+     "label": "the prompt says what a click does"},
+    {"press": "f"},
+    {"until": "vesper.state.effects.bedroom_lamp.on === true", "label": "F lights the lamp under the crosshair",
+     "timeout": 10},
+    {"press": "v"},
+    {"expect": "vesper.camera().mode === 'first'", "label": "V turns to first person"},
+    {"shot": "first_person"},
+]
+
+
+def test_a_real_browser_plays_the_home_in_3d(tmp_path):
+    home = load_lab_home(write_home(tmp_path, IN_BEDROOM), catalog())
+    session = Session(home, clock=WallClock(), trace=tmp_path / "trace.jsonl")
+    session.start()
+    server = PlayServer(session, port=0)
+    server.start()
+    try:
+        with Browser.launch(width=1280, height=800, timeout=90) as browser:
+            report = run_look(browser, server.url, STEPS_3D, tmp_path / "look", ready_timeout=90)
+    finally:
+        server.stop()
+        session.stop()
+    assert report.ok, [c for c in report.checks if not c.ok]
+    assert any(c.name == "the 3D view is drawn" and c.ok for c in report.checks)

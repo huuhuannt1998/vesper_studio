@@ -1,6 +1,7 @@
 # vesper lab look examples/lab/test-house/home.yaml --steps examples/lab/test-house/look-pubg.yaml
 # The map page's PUBG controls (spec §2a), without the hub: room and compass, residents, click to use, the prompt,
 # no click-to-walk, the event feed.
+- {view: map}  # these checks are of the map; the page opens on the 3D view (look-3d.yaml)
 - {shot: start}
 - {expect: "document.getElementById('where').textContent.startsWith('kitchen')", label: "the header shows the room"}
 - {expect: "document.getElementById('residents').textContent.includes('alex')", label: "the residents list shows Alex"}

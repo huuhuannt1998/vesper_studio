@@ -99,25 +99,27 @@ Not taken from PUBG: combat, the shrinking zone, loot, health. The Lab's "danger
 ## 3. Architecture
 
 ```
- Browser (127.0.0.1:18080): map canvas | 3D view (streamed frames) | HA dashboard (iframe, :18123) | console
-        ▲ WebSocket: world state, frames, device states, alerts      │ inputs, edits, console commands
-        │                                                            ▼
+ Browser (127.0.0.1:18080): 3D view (three.js) + minimap | HA dashboard (iframe, :18123) | console
+        ▲ WebSocket: world state, device states, alerts              │ inputs, edits, console commands
+        │ HTTP: the page, the render manifest, HSSD's meshes,        ▼
+        │       Habitat's humanoids (only those the home uses)
  VESPER app  (Python ≥3.11, `vesper lab play`)
-   game rules (§5) · twins runtime + Zigbee bridge + Matter tier · security lab (§6) · recorder
+   map world (§5: floor, rooms, doors, reach) · game rules · twins runtime + Zigbee bridge + Matter tier ·
+   security lab (§6) · recorder
    stack: VESPER's Mosquitto :18830, Home Assistant :18123 (and Matter Server :15580 when Matter devices are placed)
-        ▲ JSON lines over stdin/stdout (the Matter host's pattern)   │ avatar commands, door commands, render requests
-        │ world events, avatar pose, door states, JPEG frames        ▼
- World service  (`vesper_world`, Habitat env: Python 3.9, habitat-sim + habitat-lab 0.3.3)
-   HSSD scene (articulated) · navmesh · room regions · doors · humanoid avatar · offscreen third-person camera
+        ▲ files: map.json, openings.json, render.json; motions       │ `export` (once per home), `humanoids` (once)
+        │                                                            ▼
+ World service  (`vesper_world`, Habitat env: Python 3.9, habitat-sim 0.3.3), run as a child process
+   HSSD scene (articulated) · navmesh · room regions · doors vs windows · every mesh's world matrix · humanoid motions
 ```
 
-- **One authority.** The world service owns the scene, the walkable floor (navmesh), the rooms (HSSD region annotations), the articulated doors, the avatar and its pose. The map and the 3D view are both views of the same state.
-- **Two environments, as the device-twins spec requires.** Habitat needs Python 3.9 and VESPER needs at least 3.11. The app starts the world service as a child process from the Habitat environment and talks to it over JSON lines, as it already does with the Matter host.
+- **One authority for each thing.** Habitat is the authority on the scene: its walkable floor (navmesh), its rooms (HSSD region annotations), its doors, and where every mesh stands. The world service exports these once per home (plan W1a, W1b). At play time the app's map world, built from that export, is the authority on the state: where each person is, which doors are open, what is in reach. The map, the minimap and the 3D view are views of that one state.
+- **Two environments, as the device-twins spec requires.** Habitat needs Python 3.9 and VESPER needs at least 3.11. The app runs the world service as a child process in the Habitat environment, with a copy of `vesper_world` alone on its path (nothing of VESPER's can shadow Habitat's packages), when it makes a home (`export`) and once for the humanoids (`humanoids`).
   - The world service never touches the twins, the hub or the network.
   - The app never imports Habitat.
 - **Device events stay on MQTT.** The twins, the bridge and Home Assistant keep the interfaces sub-project #1 tested. Device events are therefore observable on VESPER's broker as on a real Zigbee2MQTT home, which is what attacks and defenses act on (§6).
 - **The map file.** It is generated once per scene by the world service and cached in the home directory. It holds the navmesh projected to the floor, the room polygons with names, the doors (id, polygon, hinge), and furniture footprints. The map view and the placement editor need only this file. It is derived from HSSD, so it stays on the user's machine and is never distributed (device-twins spec §5).
-- **Rendering.** The world service renders a third-person RGB camera behind the avatar, offscreen, at 640×480. Frames are JPEG-encoded and streamed at the rate the browser takes, at least 10 per second (success criterion 3). Without a working renderer, the app runs with the map only and says so (risk R1).
+- **Rendering (decided by the W1b spike, 2026-10-26).** The browser draws the 3D view with three.js 0.170.0 (vendored, MIT), from the scene's own files: HSSD's stage, objects and articulated parts, each placed with the world matrix Habitat gives it (`render.json`, written by `export`; the spike matched all 219 meshes of scene 102344022 to Habitat's placement within 5×10⁻⁷, and its render to Habitat's own, object for object). Streaming Habitat's frames was set aside: mouse look needs the browser's frame rate, a round trip per frame would lag, Habitat would have to run during play, and habitat-sim has no Windows build. The people are Habitat's humanoids (their skinned models, walking with Habitat's own walk motion, standing in its standing pose), or plain figures without them. A home without a scene is drawn from its map (floor, walls, doors). Without WebGL the page plays on the map alone and says so.
 
 ## 4. The home file
 
@@ -341,6 +343,6 @@ What can start now, during another project's run (unit tests only):
 - W4 against fakes;
 - W5's catalog bundle and `doctor`.
 
-The spikes, the world service and every live test wait for the end of the run and the PI's go. Plan D (Matter tier) is merged (2026-10-24, 5eb2aed). W1a (a home from a real HSSD scene through the world service) is merged (2026-10-26, 544477b); W1b, the 3D view, is next.
+The spikes, the world service and every live test wait for the end of the run and the PI's go. Plan D (Matter tier) is merged (2026-10-24, 5eb2aed). W1a (a home from a real HSSD scene through the world service) is merged (2026-10-26, 544477b), and W1b (the 3D view: three.js from the scene's files placed by Habitat, Habitat's humanoids, PUBG's controls) after it. Next: W5 (setup), W4 (the security lab, Phantom-Delay first), W6 (the desktop app).
 
 **Out of scope:** robots and robot training (PI, 2026-10-24); radio and network-layer emulation; several players at once; LLM residents (later #3 work, which uses `vesper lab run`); automatic home composition (later #2 work); a hosted service; the world service on native Windows (it runs in WSL2, §7).

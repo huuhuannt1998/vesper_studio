@@ -1,5 +1,6 @@
 # vesper lab look examples/lab/test-house/home.yaml --hub --steps examples/lab/test-house/look-hub.yaml
 # The hall's motion sensor turns the bedroom lamp on through Home Assistant's automation (automations.yaml).
+- {view: map}  # these checks are of the map; the page opens on the 3D view (look-3d.yaml)
 - {shot: start}
 - {walk: [1.5, 1.5]}
 - {until: "vesper.state.actors.player.room === 'hall'", label: "the player walks into the hall", timeout: 15}

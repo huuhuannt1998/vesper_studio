@@ -7,11 +7,14 @@ A steps file is a YAML list, one action per step:
     - {click_world: [5.0, 4.5]}                               # a click on the map at a world point (it uses
                                                               #   the device or door there; play never walks on a click)
     - {walk: [1.5, 4.5]}                                      # the player walks there along the planned path
+    - {view: 3d}                                              # the 3D view (or map); it waits until it is drawn
+    - {aim: kitchen_plug}                                     # turn the 3D view so the crosshair is on it
     - {wait: 0.5}                                             # seconds
     - {expect: "vesper.state.effects.bedroom_lamp.on", label: "the lamp is on"}
     - {shot: lamp_on}                                         # a screenshot, lamp_on.png
 
-Every look also checks that the page got ready, that the map is drawn, that no shot is blank, that each shot
+Every look also checks that the page got ready, that the map is drawn (and the 3D view, when the page shows it),
+that no shot is blank, that each shot
 matches its reference image when references are given, that the page stayed connected to the session, that the
 session raised no error (when the caller can tell), and that the page raised no error. The result is
 `report.json`, `report.md` and the screenshots, in the output directory.
@@ -32,7 +35,10 @@ from vesper.lab.png import PngError, decode, diff, distinct_colors, encode
 
 READY = "window.vesper !== undefined && window.vesper.ready === true"
 CONNECTED = "window.vesper !== undefined && window.vesper.connected === true"
-ACTIONS = ("shot", "press", "click_world", "walk", "wait", "until", "expect")
+VIEW3D_READY = "vesper.view3d() !== null && vesper.view3d().ready === true"
+VIEW3D_COLOURS = "vesper.mode === '3d' ? vesper.view3dColors() : null"  # null: the page plays on the map
+VIEW3D_TIMEOUT_S = 90
+ACTIONS = ("shot", "press", "click_world", "walk", "wait", "until", "expect", "aim", "view")
 OPTIONS = {"press": {"times"}, "until": {"timeout", "label"}, "expect": {"label"}}
 MIN_COLOURS = 8  # fewer colours than this in a shot of the play page means nothing was drawn
 DEFAULT_STEPS = [{"shot": "start"}]
@@ -101,6 +107,10 @@ def _check_step(k: int, step) -> None:
         raise LookError(f"step {k}: wait needs a number of seconds")
     if action in ("until", "expect") and not (isinstance(value, str) and value.strip()):
         raise LookError(f"step {k}: {action} needs a JavaScript expression")
+    if action == "aim" and not (isinstance(value, str) and value.strip()):
+        raise LookError(f"step {k}: aim needs the name of a device or door, such as kitchen_plug")
+    if action == "view" and value not in ("map", "3d"):
+        raise LookError(f"step {k}: view is map or 3d")
 
 
 def run_look(browser, url: str, steps: list[dict], out: Path, *, golden: Path | None = None,
@@ -121,6 +131,7 @@ def run_look(browser, url: str, steps: list[dict], out: Path, *, golden: Path | 
         return report
     colours = browser.evaluate("vesper.canvasColors()") or 0
     checks.append(Check("the map is drawn", colours >= MIN_COLOURS, f"{colours} colours on the map"))
+    _check_3d(browser, checks)
     for k, step in enumerate(steps, 1):
         try:
             if not _step(browser, step, report, golden, update_golden, tolerance, max_diff):
@@ -162,9 +173,30 @@ def _step(browser, step: dict, report: Report, golden, update_golden, tolerance,
     elif "expect" in step:
         value = browser.evaluate(step["expect"])
         checks.append(Check(step.get("label", step["expect"]), bool(value), json.dumps(value)))
+    elif "aim" in step:
+        if browser.evaluate(f"vesper.aim({json.dumps(step['aim'])})") is None:
+            checks.append(Check(f"aim at {step['aim']}", False, "no device or door of that name in the 3D view"))
+            return False
+    elif "view" in step:
+        browser.evaluate(f"vesper.setView({json.dumps(step['view'])})")
+        if step["view"] == "3d":
+            try:
+                browser.wait_for(VIEW3D_READY, timeout=VIEW3D_TIMEOUT_S)
+            except BrowserError as e:
+                checks.append(Check("the 3D view is ready", False, str(e)))
+                return False
+            checks.append(Check("the 3D view is ready", True))
+            _check_3d(browser, checks)
     elif "shot" in step:
         _shot(browser, step["shot"], report, golden, update_golden, tolerance, max_diff)
     return True
+
+
+def _check_3d(browser, checks) -> None:
+    """When the page shows the 3D view, that it is drawn: not one flat colour."""
+    colours = browser.evaluate(VIEW3D_COLOURS)
+    if colours is not None:
+        checks.append(Check("the 3D view is drawn", colours >= MIN_COLOURS, f"{colours} colours in the 3D view"))
 
 
 def _shot(browser, name: str, report: Report, golden, update_golden, tolerance, max_diff) -> None:
