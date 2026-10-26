@@ -1,4 +1,6 @@
 """The browser page: its JavaScript tests (under node), and that it stands alone."""
+import json
+import os
 import re
 import shutil
 import subprocess
@@ -11,11 +13,34 @@ from vesper.lab.play import UI_DIR
 TESTS = Path(__file__).parent / "ui"
 
 
+def page_hello(tmp_path) -> dict:
+    """A real hello for the page tests: the player in the bedroom by the lamp, a contact sensor and a lock on the
+    front door, and a resident, alex, reading in the bedroom."""
+    from tests.lab.homes import catalog, write_home
+    from tests.lab.test_play import IN_BEDROOM
+    from vesper.lab.home import load_lab_home
+    from vesper.lab.play import hello
+    from vesper.lab.resident import Resident
+    from vesper.lab.routine import Routine, Task
+    from vesper.lab.session import Session
+    from vesper.twins.clock import LogicalClock
+    home = load_lab_home(write_home(tmp_path, IN_BEDROOM.replace('start_time: "07:30"', 'start_time: "07:00"')),
+                         catalog())
+    s = Session(home, clock=LogicalClock())
+    s.start()
+    Resident(s, "alex", "male_0", Routine("alex", (Task(7 * 3600, 3600, "read", "LEISURE", "bedroom"),))).start()
+    s.clock.advance(0)
+    return hello(s)
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
-def test_the_map_view_javascript_passes_its_tests():
+def test_the_page_s_javascript_passes_its_tests(tmp_path):
     files = sorted(str(p) for p in TESTS.glob("*.test.mjs"))
-    r = subprocess.run(["node", "--test", *files], capture_output=True, text=True, timeout=120)
+    (tmp_path / "hello.json").write_text(json.dumps(page_hello(tmp_path)))
+    r = subprocess.run(["node", "--test", *files], capture_output=True, text=True, timeout=120,
+                       env={**os.environ, "VESPER_HELLO": str(tmp_path / "hello.json")})
     assert r.returncode == 0, r.stdout[-3000:] + r.stderr[-2000:]
+    assert re.search(r"^[#ℹ] skipped 0$", r.stdout, re.M), r.stdout[-1000:]  # the page tests ran, with the hello
 
 
 def test_the_page_loads_only_its_own_files():

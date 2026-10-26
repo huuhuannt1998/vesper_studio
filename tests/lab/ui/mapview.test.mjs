@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import {
   STEP_M, WALK_REPEAT_S, decodeGrid, feedLine, fitView, formatClock, headingName, hintFor, hitTest, moveFor,
-  promptFor, recordLine, stepFor, stepInterval,
+  promptFor, recordLine, stepFor, stepInterval, walkKey,
 } from "../../../vesper/lab/ui/mapview.js";
 
 test("the walkable grid decodes bit for bit as Python wrote it (least significant bit first)", () => {
@@ -78,8 +78,8 @@ test("the prompt by the pointer says what a click does, or why it cannot (PUBG's
 
 test("a click picks the device under the pointer before a door, and nothing on bare floor", () => {
   const items = [
-    { kind: "device", target: "lamp", x: 100, z: 100, r: 8 },
-    { kind: "device", target: "button", x: 112, z: 100, r: 8 },
+    { kind: "device", target: "lamp", x: 100, z: 100, r: 8, operable: true },
+    { kind: "device", target: "button", x: 112, z: 100, r: 8, operable: true },
     { kind: "door", target: "front", box: [90, 90, 130, 110] },
   ];
   assert.equal(hitTest(101, 100, items), "lamp");
@@ -172,4 +172,42 @@ test("a command from the hub is a console line, and a refused one says why", () 
 test("a resident's decision not to act is a console line", () => {
   assert.equal(recordLine({ t: 1, kind: "resident", resident: "alex", decision: "forgot the light",
     device: "bedroom_lamp" }, 21 * 3600), "21:00:01 alex: forgot the light (bedroom_lamp)");
+});
+
+test("a door's own sensor does not steal the click from the door; a sensor alone is still found", () => {
+  const items = [
+    { kind: "device", target: "front_door", x: 100, z: 92, r: 8, operable: false }, // the contact sensor, on the door
+    { kind: "device", target: "front_lock", x: 100, z: 108, r: 8, operable: true },
+    { kind: "door", target: "hall-porch", box: [96, 80, 104, 120] },
+    { kind: "device", target: "hall_motion", x: 300, z: 300, r: 8, operable: false },
+  ];
+  assert.equal(hitTest(100, 92, items), "hall-porch"); // the sensor's icon lies on the door: the door
+  assert.equal(hitTest(100, 108, items), "front_lock"); // the lock is worked by hand: the lock
+  assert.equal(hitTest(301, 300, items), "hall_motion"); // a sensor alone: found, so the page can say why not
+});
+
+test("walking keys are named by the physical key, so a modifier released first cannot leave one held", () => {
+  assert.equal(walkKey("KeyW"), "w");
+  assert.equal(walkKey("ArrowLeft"), "arrowleft");
+  assert.equal(walkKey("KeyE"), null);
+  assert.equal(walkKey(undefined), null);
+});
+
+test("a thing no click can work says so in its own words", () => {
+  const base = { kind: "device", operable: false, inReach: true, distance: 0.5, reachM: 1 };
+  assert.equal(promptFor({ ...base, name: "hall_motion", category: "motion_sensor" }),
+    "hall_motion: a sensor, not used by hand");
+  assert.equal(promptFor({ ...base, name: "ceiling_light", category: "light", switchedBy: "wall_switch" }),
+    "ceiling_light: use wall_switch");
+  assert.equal(promptFor({ ...base, name: "bedroom_thermostat", category: "thermostat" }),
+    "bedroom_thermostat: nothing a click can do here");
+});
+
+test("the feed shows a person coming into a sensor's view, not every retrigger, nor a gap between tasks", () => {
+  assert.equal(feedLine({ kind: "rule", rule: "presence", device: "bedroom_radar", actor: "alex", entered: false },
+    "player"), null);
+  assert.equal(feedLine({ kind: "rule", rule: "presence", device: "bedroom_radar", actor: "alex", entered: true },
+    "player"), "bedroom_radar sees alex");
+  assert.equal(feedLine({ kind: "task", resident: "alex", task: null }, "player"), null);
+  assert.equal(recordLine({ t: 0, kind: "task", resident: "alex", task: null }, 7 * 3600), "07:00:00 alex is between tasks");
 });

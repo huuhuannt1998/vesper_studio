@@ -5,7 +5,7 @@
 // `window.vesper` exposes the page's state to the visual checks (`vesper lab look`).
 import {
   colorFor, decodeGrid, feedLine, fitView, formatClock, glyphFor, gridBounds, headingName, hintFor, hitTest, moveFor,
-  promptFor, recordLine, stepFor, stepInterval,
+  promptFor, recordLine, stepInterval, walkKey,
 } from "./mapview.js";
 
 const LOCKED = "#e74c3c", UNLOCKED = "#3fb37f";
@@ -30,8 +30,8 @@ const vesper = (window.vesper = {
   },
 });
 let state = null, view = null, floor = null, dirty = true, selected = 0, lastStep = 0, helloAt = 0, toastTimer = 0;
-const held = new Set(); // the walking keys held down
-let sprint = false;
+const held = new Set(); // the walking keys held down, by physical key (walkKey)
+let sprint = false, hover = null, feedShown = ""; // the target under the pointer; the feed's lines on the page
 
 // -- the connection -------------------------------------------------------------------------------
 const ws = new WebSocket(`ws://${location.host}/ws`);
@@ -51,7 +51,7 @@ function handle(m) {
   if (!state) return;
   if (m.type === "pose") onPose(m);
   else if (m.type === "effect") onEffect(m.target, m.effect);
-  else if (m.type === "reach") { state.reach = m.targets; selected = 0; updateHint(); }
+  else if (m.type === "reach") { state.reach = m.targets; selected = 0; updateHint(); updatePrompt(); }
   else if (m.type === "record") onRecord(m.record);
   else if (m.type === "result") { vesper.lastResult = m; if (!m.ok) toast(m.target ? `${m.target}: ${m.result}` : m.result, true); }
   else if (m.type === "walk") { if (!m.ok) toast("there is no way there", true); }
@@ -94,7 +94,7 @@ function onHello(h) {
 
 function onPose(m) {
   state.actors[m.actor] = { ...state.actors[m.actor], ...m };
-  if (m.actor === state.player) updateWhere();
+  if (m.actor === state.player) { updateWhere(); updatePrompt(); }
   const r = state.residents[m.actor];
   if (r && r.room !== m.room) { r.room = m.room; drawResidents(); }
 }
@@ -113,12 +113,17 @@ function drawResidents() {
   }
   for (const r of people) {
     const li = document.createElement("li"), what = document.createElement("span");
-    li.textContent = `${r.name} · ${r.room || "out"}`;
+    li.textContent = `${r.name} · ${r.room || (r.category === "AWAY" ? "out" : "between rooms")}`;
     what.className = "muted";
-    what.textContent = (r.task ? `${r.task} (${r.category})` : "between tasks") + (r.reason ? ` · ${r.reason}` : "");
+    const reason = r.reason && r.reason !== r.task ? ` · ${r.reason}` : ""; // a task's own name is no reason
+    what.textContent = (r.task ? `${r.task} (${r.category})` : "between tasks") + reason;
     li.append(what);
     list.append(li);
   }
+  const note = document.createElement("li");
+  note.className = "muted";
+  note.textContent = "The 3D view comes with the Habitat world service (plan W1).";
+  list.append(note);
 }
 
 function spread(devices, doorways) {
@@ -187,6 +192,9 @@ function feed(text) {
 function drawFeed() {
   const now = performance.now(), list = $("feed");
   vesper.feed = vesper.feed.filter((f) => now - f.at < FEED_S * 1000);
+  const shown = vesper.feed.map((f) => `${f.at}:${f.text}`).join("\n");
+  if (shown === feedShown) return; // unchanged: a screen reader is not told the same lines again
+  feedShown = shown;
   list.innerHTML = "";
   for (const f of vesper.feed) {
     const li = document.createElement("li");
@@ -213,17 +221,21 @@ function toast(text, bad = false) {
 
 // -- input ------------------------------------------------------------------------------------------
 // The walking keys are held, as in a game: a tap is one step, a held key steps every stepInterval (Shift runs),
-// and two keys walk the diagonal.
+// and two keys walk the diagonal. They are tracked by physical key; Cmd or Option lets them all go (macOS
+// swallows the key-up of a key released while Cmd is down).
 window.addEventListener("keydown", (e) => {
+  if (e.key === "Meta" || e.key === "Alt") held.clear();
   if (!state || e.metaKey || e.ctrlKey || e.altKey) return;
-  const key = e.key.toLowerCase();
+  const walk = walkKey(e.code), key = e.key.toLowerCase();
   sprint = e.shiftKey;
-  if (stepFor(key)) {
+  if (walk) {
     e.preventDefault();
-    if (!held.has(key)) {
-      held.add(key);
+    if (!held.has(walk)) {
+      held.add(walk);
       step();
     }
+  } else if (e.repeat) {
+    return; // holding E or F uses the thing once
   } else if (key === "e" || key === "f") { // F is PUBG's interact key
     const target = state.reach.length ? state.reach[selected % state.reach.length].target : null;
     send({ type: "interact", target });
@@ -232,7 +244,11 @@ window.addEventListener("keydown", (e) => {
     updateHint();
   }
 });
-window.addEventListener("keyup", (e) => { held.delete(e.key.toLowerCase()); sprint = e.shiftKey; });
+window.addEventListener("keyup", (e) => {
+  if (e.key === "Meta" || e.key === "Alt") held.clear();
+  held.delete(walkKey(e.code));
+  sprint = e.shiftKey;
+});
 window.addEventListener("blur", () => held.clear()); // a key released in another window must not walk on
 
 function step() {
@@ -256,29 +272,34 @@ canvas.addEventListener("click", (e) => {
 });
 
 canvas.addEventListener("mousemove", (e) => {
-  const tip = $("tip");
   if (!view || !state) return;
   const r = canvas.getBoundingClientRect(), px = e.clientX - r.left, pz = e.clientY - r.top;
   const target = hitTest(px, pz, hitItems());
   canvas.classList.toggle("target", target !== null);
-  vesper.prompt = target === null ? "" : promptAt(target);
-  tip.hidden = target === null;
-  if (target === null) return;
-  const d = state.devices[target];
+  hover = target === null ? null : { target, px, pz };
+  updatePrompt();
+});
+
+canvas.addEventListener("mouseleave", () => { hover = null; updatePrompt(); });
+
+function updatePrompt() { // the prompt by the pointer, again when the player moves under a still pointer
+  const tip = $("tip");
+  vesper.prompt = hover ? promptAt(hover.target) : "";
+  tip.hidden = !hover;
+  if (!hover) return;
+  const d = state.devices[hover.target];
   tip.innerHTML = "";
   const b = document.createElement("b");
   b.textContent = vesper.prompt;
   tip.append(b, d ? `${d.vendor} ${d.model} (${d.category})\n${JSON.stringify(d.state)}` : "");
-  tip.style.left = `${px + 14}px`;
-  tip.style.top = `${pz + 14}px`;
-});
-
-canvas.addEventListener("mouseleave", () => { $("tip").hidden = true; vesper.prompt = ""; });
+  tip.style.left = `${hover.px + 14}px`;
+  tip.style.top = `${hover.pz + 14}px`;
+}
 
 function hitItems() { // the doors and devices on the screen, for clicks and the prompt
   const items = Object.values(state.devices).map((d) => {
     const [x, z] = devicePoint(d);
-    return { kind: "device", target: d.name, x, z, r: deviceRadius() };
+    return { kind: "device", target: d.name, x, z, r: deviceRadius(), operable: d.operable };
   });
   for (const door of Object.values(state.doors)) {
     const dw = state.doorways[door.id];
@@ -292,10 +313,12 @@ function hitItems() { // the doors and devices on the screen, for clicks and the
 function promptAt(target) {
   const me = state.actors[state.player], d = state.devices[target], door = state.doors[target];
   const [x, z] = d ? [d.x, d.z] : [door.x, door.z];
+  const switchedBy = Object.values(state.devices).find((o) => (o.controls || []).includes(target));
   return promptFor({
     kind: d ? "device" : "door", name: target, category: d && d.category, effect: state.effects[target],
     operable: d ? d.operable : true, inReach: state.reach.some((r) => r.target === target),
     distance: me ? Math.hypot(me.x - x, me.z - z) : Infinity, reachM: state.hello.reach_m,
+    switchedBy: switchedBy && switchedBy.name,
   });
 }
 

@@ -51,6 +51,12 @@ export function fitView(bounds, width, height, margin = 20) {
   };
 }
 
+const CODES = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", ArrowUp: "arrowup", ArrowDown: "arrowdown",
+  ArrowLeft: "arrowleft", ArrowRight: "arrowright" };
+// The walking key a physical key is (KeyboardEvent.code), or null. Held keys are tracked by it: `key` changes
+// with a modifier (macOS: Option+W types "∑"), so a key released after Option would stay held by its `key`.
+export const walkKey = (code) => CODES[code] || null;
+
 export function stepFor(key) {
   const d = KEYS[key.toLowerCase()];
   return d ? [d[0] * STEP_M, d[1] * STEP_M] : null;
@@ -80,9 +86,15 @@ export function actionFor(kind, name, effect, category) {
   return category === "button" ? `press ${name}` : `use ${name}`;
 }
 
+const SENSORS = new Set(["contact_sensor", "motion_sensor", "leak_sensor", "smoke_sensor", "gas_sensor",
+  "vibration_sensor", "climate_sensor", "air_quality_sensor", "light_sensor"]);
+
 // The prompt by the pointer (PUBG's interaction prompt): what a click does, or why it cannot.
-export function promptFor({ kind, name, category, effect, operable, inReach, distance, reachM }) {
-  if (kind === "device" && !operable) return `${name}: a sensor, not used by hand`;
+export function promptFor({ kind, name, category, effect, operable, inReach, distance, reachM, switchedBy }) {
+  if (kind === "device" && !operable) {
+    if (SENSORS.has(category)) return `${name}: a sensor, not used by hand`;
+    return switchedBy ? `${name}: use ${switchedBy}` : `${name}: nothing a click can do here`;
+  }
   if (!inReach) {
     return distance > reachM ? `${name}: too far (${distance.toFixed(1)} m)` : `${name}: other side of the wall`;
   }
@@ -100,20 +112,23 @@ export function hintFor(reach, devices, effects) {
   return text + (kind === "device" && d && d.vendor ? ` (${d.vendor} ${d.model})` : "");
 }
 
-// The door or device under a click, in screen pixels: the nearest device whose icon it is on, else a door
-// whose rectangle it is in (a little wider, so a thin door is easy to hit), else null (bare floor).
+// The door or device under a click, in screen pixels: the nearest device a hand works whose icon it is on, else
+// a door whose rectangle it is in (a little wider, so a thin door is easy to hit), else the nearest other device
+// (a sensor: the page says why not), else null (bare floor). A door's own sensor never hides the door.
 export function hitTest(px, pz, items) {
-  let best = null, bestD = Infinity;
-  for (const it of items) {
-    if (it.kind !== "device") continue;
-    const d = Math.hypot(it.x - px, it.z - pz);
-    if (d <= it.r + 4 && d < bestD) { best = it.target; bestD = d; }
-  }
-  if (best !== null) return best;
+  const nearest = (operable) => {
+    let best = null, bestD = Infinity;
+    for (const it of items) {
+      if (it.kind !== "device" || Boolean(it.operable) !== operable) continue;
+      const d = Math.hypot(it.x - px, it.z - pz);
+      if (d <= it.r + 4 && d < bestD) { best = it.target; bestD = d; }
+    }
+    return best;
+  };
   const pad = 6;
   const door = items.find((it) => it.kind === "door" && px >= it.box[0] - pad && px <= it.box[2] + pad &&
     pz >= it.box[1] - pad && pz <= it.box[3] + pad);
-  return door ? door.target : null;
+  return nearest(true) ?? (door ? door.target : null) ?? nearest(false);
 }
 
 const COMPASS = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
@@ -126,10 +141,10 @@ export function feedLine(r, player) {
   if (r.kind === "automation") return `${r.automation}: ${r.device} ${v(r.value)}${r.accepted === false ? " (refused)" : ""}`;
   if (r.kind === "input" && r.op === "command") return `hub: ${r.args.device} ${v(r.args.value)}`;
   if (r.kind === "world" && r.event === "door") return `${r.id} ${r.open ? "opened" : "closed"}`;
-  if (r.kind === "rule" && r.rule === "presence") return `${r.device} sees ${r.actor}`;
+  if (r.kind === "rule" && r.rule === "presence") return r.entered === false ? null : `${r.device} sees ${r.actor}`;
   if (r.kind === "rule" && r.rule === "interact" && r.ok && r.actor !== player) return `${r.actor}: ${r.target} ${r.result}`;
   if (r.kind === "resident") return `${r.resident} ${r.decision}`;
-  if (r.kind === "task") return `${r.resident}: ${r.task}`;
+  if (r.kind === "task") return r.task ? `${r.resident}: ${r.task}` : null;
   return null;
 }
 
@@ -147,7 +162,7 @@ export function recordLine(r, startSeconds) {
 function describe(r) {
   if (r.kind === "meta") return `the session starts on ${r.scene}`;
   if (r.kind === "resident") return `${r.resident}: ${r.decision}` + (r.device ? ` (${r.device})` : "");
-  if (r.kind === "task") return `${r.resident} begins ${r.task} (${r.room || "away"})`;
+  if (r.kind === "task") return r.task ? `${r.resident} begins ${r.task} (${r.room || "away"})` : `${r.resident} is between tasks`;
   if (r.kind === "automation") {
     const refused = r.accepted === false ? `: refused (${r.reason})` : "";
     return `automation "${r.automation}" sets ${r.device} ${r.feature} = ${JSON.stringify(r.value)}${refused}`;
