@@ -1,7 +1,8 @@
 """A look with a real headless browser: opt-in (VESPER_UI_BROWSER=1), like the Matter host contract test.
 
 It plays the bedroom scene and checks the page the way a person would see it: the lamp in reach, E lights it
-(and the pixels around it get brighter), a click on the map walks the player into the hall.
+(and the pixels around it get brighter), a click on the lamp switches it off again, and a scripted walk takes the
+player into the hall (play itself walks by WASD only).
 """
 import os
 
@@ -29,7 +30,10 @@ STEPS = [
     {"until": "vesper.state.effects.bedroom_lamp.on === true", "label": "the lamp turns on", "timeout": 10},
     {"wait": 0.3},
     {"shot": "lamp_on"},
-    {"click_world": [1.5, 4.5]},
+    {"click_world": [5.0, 5.0]},
+    {"until": "vesper.state.effects.bedroom_lamp.on === false", "label": "a click on the lamp switches it off",
+     "timeout": 10},
+    {"walk": [1.5, 4.5]},
     {"until": "vesper.state.actors.player.room === 'hall' && Math.hypot(vesper.state.actors.player.x - 1.5, "
               "vesper.state.actors.player.z - 4.5) < 0.05", "label": "the player walks into the hall and stops there",
      "timeout": 15},

@@ -116,6 +116,7 @@ def test_a_page_that_never_gets_ready_says_so(tmp_path):
     ("- {fly: 1}", "step 1: unknown action 'fly'"),
     ("- {shot: a}\n- {press: e, shot: b}", "step 2: one action per step"),
     ("- {click_world: [1]}", "step 1: click_world needs [x, z]"),
+    ("- {walk: [1, true]}", "step 1: walk needs [x, z]"),
     ("- {press: e, times: 0}", "step 1: times"),
     ("- {shot: '../escape'}", "step 1: a shot's name"),
     ("shot: a", "a list of steps"),
@@ -139,3 +140,12 @@ def test_errors_inside_the_session_fail_the_look(tmp_path):
     bad = run_look(FakeBrowser(), "http://x/", [], tmp_path / "b", session_errors=lambda: ["RuntimeError: boom"])
     check = next(c for c in bad.checks if c.name == "the session raised no errors")
     assert not check.ok and "boom" in check.detail and not bad.ok
+
+
+def test_a_scripted_walk_moves_the_player_where_play_itself_has_no_click_to_walk(tmp_path):
+    """The page walks by WASD only (spec §2); a look walks the player along the planned path with `walk`."""
+    b = FakeBrowser({"vesper.state.actors.player.room === 'hall'": True})
+    steps = [{"walk": [1.5, 4.5]}, {"until": "vesper.state.actors.player.room === 'hall'", "timeout": 5}]
+    report = run_look(b, "http://x/", steps, tmp_path)
+    assert report.ok, report.checks
+    assert ("evaluate", "vesper.walkTo(1.5, 4.5)") in b.calls and not [c for c in b.calls if c[0] == "click"]

@@ -26,13 +26,20 @@ What it does:
 Check, each one a pass criterion:
 1. The hub panel shows Home Assistant's dashboard, and the printed login works inside the page.
 2. Home Assistant lists the six devices, with the printed entities.
-3. Walking from the kitchen into the hall turns the hall's motion entity on in Home Assistant within about a second. The automation "Bedroom lamp on when someone is in the hall" fires, the bedroom lamp glows on the map, and the console shows `the hub sets bedroom_lamp state = "ON"`.
+3. Walking (WASD) from the kitchen into the hall turns the hall's motion entity on in Home Assistant within about a second. The automation "Bedroom lamp on when someone is in the hall" fires, the bedroom lamp glows on the map, and the console shows `the hub sets bedroom_lamp state = "ON"`.
 4. Switching the kitchen plug on in Home Assistant turns its icon on in the map.
 5. Pressing E at the bedroom switch toggles the lamp through its binding, and Home Assistant shows it.
 6. An automation edited in Home Assistant is written back to `~/vesper-lab/test-house/automations.yaml` when play stops.
 7. Ctrl-C stops the page, the bridge, Home Assistant and Mosquitto, and frees the ports.
 8. `vesper lab replay <the printed trace> --home ~/vesper-lab/test-house/home.yaml` says the reports are identical. A wall-clock trace is compared per device, with report times within 0.5 s.
 9. The session is longer than 5 minutes, and Home Assistant is still on 127.0.0.1:18123 at the end (`lsof -nP -iTCP:18123 -sTCP:LISTEN`), never on 8123.
+10. The page plays like PUBG (spec §2a):
+    - two keys walk the diagonal, and Shift runs;
+    - the pointer on the kitchen plug says "Click: switch kitchen_plug on" in reach, and "too far (… m)" from the hall;
+    - a click on it in reach switches it, while a click on bare floor only says that WASD walks;
+    - the event feed (top right) shows the automation turning the lamp on, then fades;
+    - the header shows the room and the heading;
+    - the residents panel shows Alex's task.
 
 Then, for the record, the same story as an automatic look:
 

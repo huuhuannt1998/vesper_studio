@@ -4,7 +4,9 @@ A steps file is a YAML list, one action per step:
 
     - {until: "vesper.state.reach.length > 0", timeout: 5}   # wait until the page shows it
     - {press: e}                                              # a key; `times: 3` repeats it
-    - {click_world: [5.0, 4.5]}                               # a click on the map at a world point
+    - {click_world: [5.0, 4.5]}                               # a click on the map at a world point (it uses
+                                                              #   the device or door there; play never walks on a click)
+    - {walk: [1.5, 4.5]}                                      # the player walks there along the planned path
     - {wait: 0.5}                                             # seconds
     - {expect: "vesper.state.effects.bedroom_lamp.on", label: "the lamp is on"}
     - {shot: lamp_on}                                         # a screenshot, lamp_on.png
@@ -30,7 +32,7 @@ from vesper.lab.png import PngError, decode, diff, distinct_colors, encode
 
 READY = "window.vesper !== undefined && window.vesper.ready === true"
 CONNECTED = "window.vesper !== undefined && window.vesper.connected === true"
-ACTIONS = ("shot", "press", "click_world", "wait", "until", "expect")
+ACTIONS = ("shot", "press", "click_world", "walk", "wait", "until", "expect")
 OPTIONS = {"press": {"times"}, "until": {"timeout", "label"}, "expect": {"label"}}
 MIN_COLOURS = 8  # fewer colours than this in a shot of the play page means nothing was drawn
 DEFAULT_STEPS = [{"shot": "start"}]
@@ -92,9 +94,9 @@ def _check_step(k: int, step) -> None:
             raise LookError(f"step {k}: press needs a key, such as e or ArrowUp")
         if isinstance(times, bool) or not isinstance(times, int) or times < 1:
             raise LookError(f"step {k}: times must be a whole number of at least 1")
-    if action == "click_world" and not (isinstance(value, list) and len(value) == 2 and all(
+    if action in ("click_world", "walk") and not (isinstance(value, list) and len(value) == 2 and all(
             isinstance(v, int | float) and not isinstance(v, bool) for v in value)):
-        raise LookError(f"step {k}: click_world needs [x, z] in metres")
+        raise LookError(f"step {k}: {action} needs [x, z] in metres")
     if action == "wait" and (isinstance(value, bool) or not isinstance(value, int | float) or value < 0):
         raise LookError(f"step {k}: wait needs a number of seconds")
     if action in ("until", "expect") and not (isinstance(value, str) and value.strip()):
@@ -142,6 +144,9 @@ def _step(browser, step: dict, report: Report, golden, update_golden, tolerance,
         x, z = step["click_world"]
         px, py = browser.evaluate(f"vesper.toScreen({x}, {z})")
         browser.click(px, py)
+    elif "walk" in step:
+        x, z = step["walk"]
+        browser.evaluate(f"vesper.walkTo({x}, {z})")
     elif "wait" in step:
         deadline = time.monotonic() + step["wait"]
         while time.monotonic() < deadline:
