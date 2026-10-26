@@ -37,3 +37,19 @@ def test_the_page_knows_every_catalog_category():
     text = (UI_DIR / "mapview.js").read_text()
     glyphs = re.search(r"export const GLYPHS = \{(.*?)\};", text, re.S).group(1)
     assert set(re.findall(r"(\w+):", glyphs)) == set(CATEGORIES)
+
+
+def test_every_element_the_script_looks_up_is_on_the_page():
+    page, app = (UI_DIR / "index.html").read_text(), (UI_DIR / "app.js").read_text()
+    for name in set(re.findall(r'\$\("([\w-]+)"\)', app)):
+        assert f'id="{name}"' in page, f"app.js looks up #{name}, which index.html does not have"
+    for name in ("feed", "residents", "where"):  # the event feed, the residents list, the compass (spec §2a)
+        assert f'id="{name}"' in page, name
+
+
+def test_the_page_walks_by_keys_only_and_a_click_uses_what_is_under_it():
+    """No click-to-walk in play (spec §2): only the looks' scripted walk sends walk_to."""
+    app = (UI_DIR / "app.js").read_text()
+    sends = [line.strip() for line in app.splitlines() if '"walk_to"' in line]
+    assert len(sends) == 1 and sends[0].startswith("walkTo:"), sends
+    assert 'send({ type: "interact", target })' in app

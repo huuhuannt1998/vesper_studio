@@ -11,6 +11,7 @@
   <header>
     <h1>VESPER Lab</h1>
     <span id="scene" class="muted"></span>
+    <span id="where" class="where" aria-label="Where you are and which way you face"></span>
     <span id="clock" class="clock">--:--:--</span>
     <span id="status" class="status">connecting…</span>
   </header>
@@ -18,13 +19,14 @@
     <section id="map-panel" class="panel" tabindex="0" aria-label="Map of the home">
       <canvas id="map"></canvas>
       <div id="hint" class="hint" aria-live="polite"></div>
+      <ol id="feed" class="feed" aria-live="polite" aria-label="Events"></ol>
       <div id="toast" class="toast" role="status"></div>
       <div id="tip" class="tip" hidden></div>
     </section>
     <aside>
-      <section id="view-panel" class="panel" tabindex="0">
-        <h2>3D view</h2>
-        <p class="placeholder">The 3D view needs the Habitat world service (plan W1). The map shows the same world.</p>
+      <section id="residents-panel" class="panel" tabindex="0">
+        <h2>Residents <span class="muted">· the 3D view comes with the Habitat world service (plan W1)</span></h2>
+        <ul id="residents" class="residents"></ul>
       </section>
       <section id="hub-panel" class="panel" tabindex="0">
         <h2>Home Assistant</h2>
@@ -36,7 +38,8 @@
       </section>
     </aside>
   </main>
-  <footer>WASD or arrows: walk · E: use · Q: next thing in reach · click the map: walk there · Tab: next panel</footer>
+  <footer>WASD or arrows: walk · Shift: run · click a device or a door, or E or F: use it · Q: next thing in reach ·
+    Tab: next panel</footer>
   <script type="module" src="app.js"></script>
 </body>
 </html>

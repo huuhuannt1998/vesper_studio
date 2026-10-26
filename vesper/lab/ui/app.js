@@ -1,17 +1,24 @@
 // The play page: draws the home from the server's messages and sends the player's inputs (vesper/lab/play.py).
+// It plays like PUBG (spec §2a), map only until the 3D view (plan W1): WASD walks (Shift runs), a click on a device
+// or a door uses it (E or F: the nearest in reach), the prompt by the pointer says what a click does or why not,
+// the event feed shows what just happened, and the residents list who is doing what. There is no click-to-walk.
 // `window.vesper` exposes the page's state to the visual checks (`vesper lab look`).
-import { colorFor, decodeGrid, fitView, formatClock, glyphFor, gridBounds, hintFor, recordLine, stepFor } from "./mapview.js";
+import {
+  colorFor, decodeGrid, feedLine, fitView, formatClock, glyphFor, gridBounds, headingName, hintFor, hitTest, moveFor,
+  promptFor, recordLine, stepFor, stepInterval,
+} from "./mapview.js";
 
 const LOCKED = "#e74c3c", UNLOCKED = "#3fb37f";
 const SLOT_PX = 40; // devices at one spot (a sensor and a lock on one door) are drawn side by side
-const WALK_REPEAT_S = 0.22; // a held key walks at about walking speed (0.25 m per 0.22 s)
 const LOG_MAX = 300;
+const FEED_MAX = 5, FEED_S = 8; // the event feed keeps this many lines, each this many seconds
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
 const vesper = (window.vesper = {
-  ready: false, connected: false, state: null, lastResult: null, lastError: null, messages: 0,
+  ready: false, connected: false, state: null, lastResult: null, lastError: null, messages: 0, feed: [], prompt: "",
+  walkTo: (x, z) => send({ type: "walk_to", x, z }), // the looks' scripted walk; play itself has no click-to-walk
   toScreen: (x, z) => { // page coordinates of a world point, for clicks
     const r = canvas.getBoundingClientRect(), [sx, sz] = view.toScreen(x, z);
     return [r.left + sx, r.top + sz];
@@ -23,6 +30,8 @@ const vesper = (window.vesper = {
   },
 });
 let state = null, view = null, floor = null, dirty = true, selected = 0, lastStep = 0, helloAt = 0, toastTimer = 0;
+const held = new Set(); // the walking keys held down
+let sprint = false;
 
 // -- the connection -------------------------------------------------------------------------------
 const ws = new WebSocket(`ws://${location.host}/ws`);
@@ -40,11 +49,11 @@ function setStatus(text, kind) {
 function handle(m) {
   if (m.type === "hello") return onHello(m);
   if (!state) return;
-  if (m.type === "pose") state.actors[m.actor] = { ...state.actors[m.actor], ...m };
+  if (m.type === "pose") onPose(m);
   else if (m.type === "effect") onEffect(m.target, m.effect);
   else if (m.type === "reach") { state.reach = m.targets; selected = 0; updateHint(); }
   else if (m.type === "record") onRecord(m.record);
-  else if (m.type === "result") { vesper.lastResult = m; if (!m.ok) toast(m.result, true); }
+  else if (m.type === "result") { vesper.lastResult = m; if (!m.ok) toast(m.target ? `${m.target}: ${m.result}` : m.result, true); }
   else if (m.type === "walk") { if (!m.ok) toast("there is no way there", true); }
   else if (m.type === "error") { vesper.lastError = m.message; toast(m.message, true); }
 }
@@ -57,6 +66,7 @@ function onHello(h) {
     doors: Object.fromEntries(h.doors.map((d) => [d.id, d])),
     doorways: Object.fromEntries(h.map.doorways.map((d) => [d.id, d])),
     actors: Object.fromEntries(h.actors.map((a) => [a.actor, a])),
+    residents: Object.fromEntries((h.residents || []).map((r) => [r.name, { ...r, reason: null }])),
     cells: decodeGrid(h.map.grid.walkable, h.map.grid.width, h.map.grid.height),
   };
   for (const d of h.devices) if (d.effect) state.effects[d.name] = d.effect;
@@ -75,9 +85,40 @@ function onHello(h) {
     $("hub").innerHTML = "<p>No hub in this session. With Home Assistant set up, <code>vesper lab play</code> shows its dashboard here.</p>";
   }
   $("log").innerHTML = "";
-  for (const r of h.records || []) onRecord(r); // what happened before this page joined
+  for (const r of h.records || []) onRecord(r, false); // what happened before this page joined: no feed
   layout();
   updateHint();
+  updateWhere();
+  drawResidents();
+}
+
+function onPose(m) {
+  state.actors[m.actor] = { ...state.actors[m.actor], ...m };
+  if (m.actor === state.player) updateWhere();
+  const r = state.residents[m.actor];
+  if (r && r.room !== m.room) { r.room = m.room; drawResidents(); }
+}
+
+function updateWhere() {
+  const me = state.actors[state.player];
+  $("where").textContent = me ? `${me.room || "between rooms"} · facing ${headingName(me.yaw)}` : "";
+}
+
+function drawResidents() {
+  const list = $("residents"), people = Object.values(state.residents);
+  list.innerHTML = "";
+  if (!people.length) {
+    list.innerHTML = '<li class="muted">No residents in this home. Add them under <code>residents:</code> in home.yaml.</li>';
+    return;
+  }
+  for (const r of people) {
+    const li = document.createElement("li"), what = document.createElement("span");
+    li.textContent = `${r.name} · ${r.room || "out"}`;
+    what.className = "muted";
+    what.textContent = (r.task ? `${r.task} (${r.category})` : "between tasks") + (r.reason ? ` · ${r.reason}` : "");
+    li.append(what);
+    list.append(li);
+  }
 }
 
 function spread(devices, doorways) {
@@ -112,10 +153,19 @@ function onEffect(target, effect) {
   state.effects[target] = effect;
   if (state.devices[target]) state.devices[target].effect = effect;
   if (state.doors[target]) Object.assign(state.doors[target], effect);
+  updateHint();
 }
 
-function onRecord(r) {
+function onRecord(r, live = true) {
   if (r.kind === "report" && state.devices[r.device]) state.devices[r.device].state[r.feature] = r.value;
+  const who = r.kind === "task" ? r.resident : r.kind === "input" && r.why ? r.why.resident : null;
+  if (who && state.residents[who]) {
+    const p = state.residents[who];
+    if (r.kind === "task") Object.assign(p, { task: r.task, category: r.category, reason: null });
+    else p.reason = r.why.reason;
+    drawResidents();
+  }
+  if (live) feed(feedLine(r, state.player));
   const line = recordLine(r, state.hello.clock.start_time);
   if (line === null) return;
   const li = document.createElement("li");
@@ -127,12 +177,30 @@ function onRecord(r) {
   log.scrollTop = log.scrollHeight;
 }
 
+function feed(text) {
+  if (text === null) return;
+  vesper.feed.push({ text, at: performance.now() });
+  while (vesper.feed.length > FEED_MAX) vesper.feed.shift();
+  drawFeed();
+}
+
+function drawFeed() {
+  const now = performance.now(), list = $("feed");
+  vesper.feed = vesper.feed.filter((f) => now - f.at < FEED_S * 1000);
+  list.innerHTML = "";
+  for (const f of vesper.feed) {
+    const li = document.createElement("li");
+    li.textContent = f.text;
+    list.append(li);
+  }
+}
+
 function updateHint() {
   const reach = state.reach;
   if (!reach.length) { $("hint").textContent = ""; return; }
   selected %= reach.length;
   const more = reach.length > 1 ? ` · Q: next (${reach.length} in reach)` : "";
-  $("hint").textContent = hintFor([reach[selected]], state.devices) + more;
+  $("hint").textContent = hintFor([reach[selected]], state.devices, state.effects) + more;
 }
 
 function toast(text, bad = false) {
@@ -144,45 +212,92 @@ function toast(text, bad = false) {
 }
 
 // -- input ------------------------------------------------------------------------------------------
+// The walking keys are held, as in a game: a tap is one step, a held key steps every stepInterval (Shift runs),
+// and two keys walk the diagonal.
 window.addEventListener("keydown", (e) => {
   if (!state || e.metaKey || e.ctrlKey || e.altKey) return;
-  const step = stepFor(e.key);
-  if (step) {
+  const key = e.key.toLowerCase();
+  sprint = e.shiftKey;
+  if (stepFor(key)) {
     e.preventDefault();
-    const now = performance.now() / 1000;
-    if (e.repeat && now - lastStep < WALK_REPEAT_S) return;
-    lastStep = now;
-    send({ type: "move", dx: step[0], dz: step[1] });
-  } else if (e.key === "e" || e.key === "E") {
+    if (!held.has(key)) {
+      held.add(key);
+      step();
+    }
+  } else if (key === "e" || key === "f") { // F is PUBG's interact key
     const target = state.reach.length ? state.reach[selected % state.reach.length].target : null;
     send({ type: "interact", target });
-  } else if (e.key === "q" || e.key === "Q") {
+  } else if (key === "q") {
     selected += 1;
     updateHint();
   }
 });
+window.addEventListener("keyup", (e) => { held.delete(e.key.toLowerCase()); sprint = e.shiftKey; });
+window.addEventListener("blur", () => held.clear()); // a key released in another window must not walk on
+
+function step() {
+  const d = moveFor(held);
+  if (!d) return;
+  lastStep = performance.now() / 1000;
+  send({ type: "move", dx: d[0], dz: d[1] });
+}
+
+setInterval(() => {
+  if (held.size && performance.now() / 1000 - lastStep >= stepInterval(sprint) - 0.005) step();
+}, 20);
 
 canvas.addEventListener("click", (e) => {
-  if (!view) return;
-  const r = canvas.getBoundingClientRect(), [x, z] = view.toWorld(e.clientX - r.left, e.clientY - r.top);
-  send({ type: "walk_to", x, z });
+  if (!view || !state) return;
+  const r = canvas.getBoundingClientRect(), target = hitTest(e.clientX - r.left, e.clientY - r.top, hitItems());
+  if (target === null) { toast("WASD walks; click a device or a door to use it"); return; }
+  const d = state.devices[target];
+  if (d && !d.operable) { toast(promptAt(target), true); return; } // a sensor: nothing for a hand to do
+  send({ type: "interact", target });
 });
 
 canvas.addEventListener("mousemove", (e) => {
   const tip = $("tip");
-  if (!view) return;
+  if (!view || !state) return;
   const r = canvas.getBoundingClientRect(), px = e.clientX - r.left, pz = e.clientY - r.top;
-  const near = Object.values(state.devices).find((d) => {
-    const [sx, sz] = devicePoint(d);
-    return Math.hypot(sx - px, sz - pz) < 12;
-  });
-  tip.hidden = !near;
-  if (near) {
-    tip.textContent = `${near.name}\n${near.vendor} ${near.model} (${near.category})\n${JSON.stringify(near.state)}`;
-    tip.style.left = `${px + 14}px`;
-    tip.style.top = `${pz + 14}px`;
-  }
+  const target = hitTest(px, pz, hitItems());
+  canvas.classList.toggle("target", target !== null);
+  vesper.prompt = target === null ? "" : promptAt(target);
+  tip.hidden = target === null;
+  if (target === null) return;
+  const d = state.devices[target];
+  tip.innerHTML = "";
+  const b = document.createElement("b");
+  b.textContent = vesper.prompt;
+  tip.append(b, d ? `${d.vendor} ${d.model} (${d.category})\n${JSON.stringify(d.state)}` : "");
+  tip.style.left = `${px + 14}px`;
+  tip.style.top = `${pz + 14}px`;
 });
+
+canvas.addEventListener("mouseleave", () => { $("tip").hidden = true; vesper.prompt = ""; });
+
+function hitItems() { // the doors and devices on the screen, for clicks and the prompt
+  const items = Object.values(state.devices).map((d) => {
+    const [x, z] = devicePoint(d);
+    return { kind: "device", target: d.name, x, z, r: deviceRadius() };
+  });
+  for (const door of Object.values(state.doors)) {
+    const dw = state.doorways[door.id];
+    if (!dw) continue;
+    const [x0, z0] = view.toScreen(dw.box[0], dw.box[1]), [x1, z1] = view.toScreen(dw.box[2], dw.box[3]);
+    items.push({ kind: "door", target: door.id, box: [x0, z0, x1, z1] });
+  }
+  return items;
+}
+
+function promptAt(target) {
+  const me = state.actors[state.player], d = state.devices[target], door = state.doors[target];
+  const [x, z] = d ? [d.x, d.z] : [door.x, door.z];
+  return promptFor({
+    kind: d ? "device" : "door", name: target, category: d && d.category, effect: state.effects[target],
+    operable: d ? d.operable : true, inReach: state.reach.some((r) => r.target === target),
+    distance: me ? Math.hypot(me.x - x, me.z - z) : Infinity, reachM: state.hello.reach_m,
+  });
+}
 
 // -- drawing ----------------------------------------------------------------------------------------
 function layout() {
@@ -291,8 +406,10 @@ function padlock(x, z) {
   ctx.stroke();
 }
 
+const deviceRadius = () => Math.max(8, 0.16 * view.scale);
+
 function drawDevice(d, inReach, isChosen) {
-  const [x, z] = devicePoint(d), r = Math.max(8, 0.16 * view.scale);
+  const [x, z] = devicePoint(d), r = deviceRadius();
   const lock = d.effect && "locked" in d.effect;
   const active = d.state && (d.state.occupancy === true || d.state.presence === true);
   if (active) {
@@ -363,4 +480,4 @@ window.addEventListener("resize", layout);
   if (dirty) { dirty = false; draw(); }
   requestAnimationFrame(loop);
 })();
-setInterval(() => { dirty = true; }, 1000); // the clock
+setInterval(() => { dirty = true; if (state) drawFeed(); }, 1000); // the clock, and the feed's old lines go
