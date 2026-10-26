@@ -9,6 +9,16 @@ def test_initial_state_follows_each_feature_type(vds):
     assert t.state["battery"] == 0
 
 
+def test_a_matter_color_temperature_light_starts_at_the_spec_default_not_below_its_physical_range():
+    """Experiment 6 (2026-10-26): starting at 0 and 1 mireds, two products' twins lay below the node's physical
+    minimum (135 mireds) and the node refused them. Matter's ColorTemperatureMireds default is 0x00FA (250)."""
+    ct = [{"name": f"Color Control.{a}", "type": "numeric", "access": ["state", "get"], **extra}
+          for a, extra in (("ColorTemperatureMireds", {}), ("CoupleColorTempToLevelMinMireds", {"range": [1, 65279]}),
+                           ("StartUpColorTemperatureMireds", {"range": [1, 65279]}))]
+    t = Twin.from_vds({"id": "matter:1460:aa61", "features": ct})
+    assert [t.state[f["name"]] for f in ct] == [250, 250, 250]
+
+
 def test_binary_values_are_matched_like_zigbee2mqtt_and_toggle_flips(vds):
     t = Twin.from_vds(vds["LED1545G12"])
     assert t.coerce("state", "on") == "ON"

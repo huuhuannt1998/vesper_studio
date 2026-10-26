@@ -14,7 +14,20 @@ def stable_seed(*parts: object) -> int:
     return int.from_bytes(hashlib.sha256("|".join(map(str, parts)).encode()).digest()[:8], "big")
 
 
+# Starting values the type alone gets wrong. Matter's ColorTemperatureMireds defaults to 0x00FA (250 mireds, 4000 K);
+# the coupled minimum and the start-up temperature are manufacturer-specific and must lie in the light's physical
+# range, which the catalog does not know (the DCL publishes no limits), so they start at the same 250 mireds, inside
+# the usual tunable-white range (153 to 370 mireds, 6500 K to 2700 K). The type's minimum, 0 or 1 mired, is outside
+# every light's range.
+SPEC_START = {"Color Control.ColorTemperatureMireds": 250, "Color Control.CoupleColorTempToLevelMinMireds": 250,
+              "Color Control.StartUpColorTemperatureMireds": 250}
+
+
 def _initial(f: dict):
+    if f["name"] in SPEC_START:
+        lo, hi = f.get("range", [None, None])
+        if lo is None or lo <= SPEC_START[f["name"]] <= hi:
+            return SPEC_START[f["name"]]
     kind = f["type"]
     if kind == "binary":
         return f.get("value_off", False)
