@@ -49,6 +49,9 @@ class MapWorld:
         self._walk: dict[str, int] = {}  # a walk's token; a newer walk or a step cancels the older one
         self._handlers: list[Callable[[dict], None]] = []
         self._blocked: frozenset = frozenset()
+        self.plan_work = 0  # grid cells the last plan expanded: what it cost, independent of the machine
+        self._legs: dict = {}  # (room, from doorway, to doorway) -> cells: the walk across a room, reused
+        self._graph = None  # per map: each room's doorways, and each doorway's cell
 
     def on_event(self, fn: Callable[[dict], None]) -> None:
         self._handlers.append(fn)
@@ -233,7 +236,28 @@ class MapWorld:
         return out
 
     def _plan(self, start: Point, target: Point) -> list[Point] | None:
-        """A* over free cells (8-connected, no corner cutting), then straightened along free lines of sight."""
+        """The shortest walk, found cheaply on a home-sized floor (spec §5b: the clock thread must not stall):
+        - a straight line when its line of sight is free (no search);
+        - else a route through the open doorways (A* over the doorways, by straight-line distance), each leg
+          searched only inside its room and kept for later walks; a leg a room cannot hold drops its edge;
+        - else, for a point in no room, A* over the whole floor.
+        Then straightened along free lines of sight."""
+        self.plan_work = 0
+        g = self.map.grid
+        s, goal = g.cell_of(*start), self._nearest_free_cell(target)
+        if s is None or goal is None:
+            return None
+        end = target if self._free(*target) else g.center(*goal)
+        if self._segment_free(start, end):
+            return [start, end]
+        cells = self._route(start, s, goal, end)
+        if cells is None:
+            return None
+        return self._straighten([start] + [g.center(*c) for c in cells[1:-1]] + [end])
+
+    def _plan_grid(self, start: Point, target: Point) -> list[Point] | None:
+        """A* over the whole floor, then straightened: the reference the routed plan is held to."""
+        self.plan_work = 0
         g = self.map.grid
         s, goal = g.cell_of(*start), self._nearest_free_cell(target)
         if s is None or goal is None:
@@ -242,7 +266,109 @@ class MapWorld:
         if cells is None:
             return None
         end = target if self._free(*target) else g.center(*goal)
-        points = [start] + [g.center(*c) for c in cells[1:-1]] + [end]
+        return self._straighten([start] + [g.center(*c) for c in cells[1:-1]] + [end])
+
+    def _route(self, start: Point, s, goal, end: Point):
+        """Cells from s to goal through the open doorways, or None if there is no way."""
+        w, labels = self.map.grid.width, self.map.labels
+        rs, rg = labels[s[1] * w + s[0]], labels[goal[1] * w + goal[0]]
+        if rs < 0 or rg < 0 or not self._cell_free(*s):
+            return self._cells(s, goal, self._cell_free)  # a point in no room: the whole floor
+        if rs == rg:
+            here = self._cells(s, goal, self._in_room(rs, ()))
+            if here is not None:
+                return here
+        graph = self._doorway_graph()
+        doors_of, cell_of = graph
+        open_ = {d.id: d for d in self.map.doorways if self.doors.get(d.id, True)}
+        dead: set = set()
+        for _ in range(4 * len(open_) + 4):
+            route = self._graph_route(start, end, rs, rg, doors_of, open_, dead)
+            if route is None:
+                return None
+            cells, ok = [s], True
+            for (ra, a, b) in route:  # legs: in room ra, from a to b ("S", "G" or a doorway id)
+                ca = s if a == "S" else cell_of[a]
+                cb = goal if b == "G" else cell_of[b]
+                leg = self._leg(ra, a, b, ca, cb)
+                if leg is None:
+                    dead.add((ra, a, b))
+                    ok = False
+                    break
+                cells += leg[1:]
+            if ok:
+                return cells
+        return None
+
+    def _leg(self, room: int, a: str, b: str, ca, cb):
+        """The cells across `room` from a to b; doorway-to-doorway legs are kept (door states never change
+        a room's own cells, and a closed doorway is never part of a route)."""
+        keep = a != "S" and b != "G"
+        if keep and (room, a, b) in self._legs:
+            return self._legs[(room, a, b)]
+        ends = tuple(d for d in (a, b) if d not in ("S", "G"))
+        cells = self._cells(ca, cb, self._in_room(room, ends))
+        if keep:
+            self._legs[(room, a, b)] = cells
+            self._legs[(room, b, a)] = cells[::-1] if cells else cells
+        return cells
+
+    def _in_room(self, room: int, doorways):
+        """free(i, j) for a search confined to `room` and the named doorways' own cells."""
+        w, labels = self.map.grid.width, self.map.labels
+        extra = set().union(*(self.map.doorway(d).cells for d in doorways)) if doorways else set()
+
+        def free(i, j):
+            return self._cell_free(i, j) and (labels[j * w + i] == room or (i, j) in extra)
+        return free
+
+    def _doorway_graph(self):
+        """Per room: its doorways; per doorway: the cell a route passes (the doorway cell nearest its centre)."""
+        if self._graph is None:
+            index = {r.id: k for k, r in enumerate(self.map.rooms)}
+            doors_of: dict = {}
+            cell_of: dict = {}
+            for d in self.map.doorways:
+                for r in d.rooms:
+                    doors_of.setdefault(index[r], []).append(d)
+                cell_of[d.id] = min(d.cells, key=lambda c: (distance(self.map.grid.center(*c), d.center), c))
+            self._graph = (doors_of, cell_of)
+        return self._graph
+
+    def _graph_route(self, start, end, rs, rg, doors_of, open_, dead):
+        """A* over S, the open doorways and G, by straight-line distance; returns [(room, from, to)] legs."""
+        index = {r.id: k for k, r in enumerate(self.map.rooms)}
+        pos = {"S": start, "G": end, **{d: open_[d].center for d in open_}}
+
+        def edges(node):
+            rooms = [rs] if node == "S" else [index[r] for r in open_[node].rooms]
+            for ra in rooms:
+                if ra == rg and (ra, node, "G") not in dead:
+                    yield ra, "G"
+                for d in doors_of.get(ra, []):
+                    if d.id in open_ and d.id != node and (ra, node, d.id) not in dead:
+                        yield ra, d.id
+
+        frontier, best, came = [(distance(start, end), 0.0, "S")], {"S": 0.0}, {}
+        while frontier:
+            _, cost, node = heapq.heappop(frontier)
+            if node == "G":
+                legs = []
+                while node != "S":
+                    prev, ra = came[node]
+                    legs.append((ra, prev, node))
+                    node = prev
+                return legs[::-1]
+            if cost > best.get(node, math.inf):
+                continue
+            for ra, nxt in edges(node):
+                c = cost + distance(pos[node], pos[nxt])
+                if c < best.get(nxt, math.inf):
+                    best[nxt], came[nxt] = c, (node, ra)
+                    heapq.heappush(frontier, (c + distance(pos[nxt], end), c, nxt))
+        return None
+
+    def _straighten(self, points: list[Point]) -> list[Point]:
         straight = [points[0]]
         k = 0
         while k < len(points) - 1:  # string-pulling: jump to the farthest point still in a free line of sight
@@ -265,6 +391,7 @@ class MapWorld:
         tie = 0
         while frontier:
             _, _, c = heapq.heappop(frontier)
+            self.plan_work += 1
             if c == goal:
                 break
             for di in (-1, 0, 1):

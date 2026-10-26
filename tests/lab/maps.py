@@ -51,3 +51,23 @@ def house():
             return 2 <= z < 4  # only the porch is outside
         return 0 <= z < 6 and x < 7
     return WorldMap(scene="test/house", rooms=rooms, grid=grid_from(9, 6, walkable, origin=(-2.0, 0.0)))
+
+
+def grid_house(cols=6, rows=4, size=6.0):
+    """cols x rows rooms of `size` metres (r<col><row>), 20 cm walls, and a 1 m doorway in the middle of every
+    wall between neighbours: a home-sized floor (36 x 24 m by default) where a walk crosses many rooms."""
+    def walkable(x, z):
+        in_vwall = any(abs(x - c * size) < 0.1 for c in range(1, cols))
+        in_hwall = any(abs(z - r * size) < 0.1 for r in range(1, rows))
+        if in_vwall and in_hwall:
+            return False
+        if in_vwall:
+            return abs(z % size - size / 2) < 0.5
+        if in_hwall:
+            return abs(x % size - size / 2) < 0.5
+        return True
+    rooms = [Room(f"r{c}{r}", "room", rect(c * size + (0.1 if c else 0), r * size + (0.1 if r else 0),
+                                          (c + 1) * size - (0.1 if c < cols - 1 else 0),
+                                          (r + 1) * size - (0.1 if r < rows - 1 else 0)))
+             for c in range(cols) for r in range(rows)]
+    return WorldMap(scene="test/grid-house", rooms=rooms, grid=grid_from(cols * size, rows * size, walkable))

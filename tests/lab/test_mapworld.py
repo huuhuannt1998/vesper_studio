@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from tests.lab.maps import house, two_rooms
+from tests.lab.maps import grid_house, house, two_rooms
 from vesper.lab.mapworld import SPEED_M_S, STEP_S, MapWorld, WorldError
 from vesper.twins.clock import LogicalClock
 
@@ -153,3 +153,48 @@ def test_late_callbacks_do_not_slow_a_walk_down():
     planned = sum(math.dist(a, b) for a, b in zip(path, path[1:])) / SPEED_M_S
     clock.advance(20.0)
     assert arrived and arrived[0] <= planned + STEP_S + 0.1 + 1e-6
+
+
+def path_length(path):
+    return sum(math.dist(a, b) for a, b in zip(path, path[1:]))
+
+
+def test_a_walk_in_a_straight_line_needs_no_search():
+    w, _ = world(house())
+    w.spawn("p", "female_0", (4.0, 1.0))
+    assert w.walk_to("p", (6.5, 2.5)) == [(4.0, 1.0), (6.5, 2.5)]
+    assert w.plan_work == 0
+
+
+def test_a_walk_across_a_home_sized_floor_searches_only_the_rooms_on_its_way():
+    w, _ = world(grid_house())  # 36 x 24 m, 24 rooms: a whole-floor search took over a second here
+    w.spawn("p", "female_0", (1.0, 1.0))
+    path = w.walk_to("p", (35.0, 23.0))
+    assert path is not None and all(w._segment_free(a, b) for a, b in zip(path, path[1:]))
+    walkable = sum(w.map.grid.walkable)
+    assert w.plan_work < walkable / 10, (w.plan_work, walkable)
+    whole = w._plan_grid((1.0, 1.0), (35.0, 23.0))  # the whole-floor search: the shortest path on the grid
+    assert path_length(path) <= 1.1 * path_length(whole)
+
+
+def test_a_closed_door_on_the_way_is_walked_around_and_a_shut_room_is_out_of_reach():
+    m = grid_house(cols=3, rows=2)
+    doors = [d.id for d in m.doorways]
+    w, _ = world(m, doors=doors)
+    w.spawn("p", "female_0", (1.0, 1.0))  # in r00
+    w.set_door("r00-r10", False)
+    path = w.walk_to("p", (9.0, 1.0))  # r10: round through r01 and r11
+    assert path is not None and max(z for _, z in path) > 6.0
+    w.set_door("r00-r01", False)
+    assert w.walk_to("p", (9.0, 1.0)) is None  # every way out of r00 is shut
+
+
+def test_repeated_walks_reuse_what_the_first_one_searched():
+    w, _ = world(grid_house())
+    w.spawn("p", "female_0", (1.0, 1.0))
+    w.walk_to("p", (35.0, 23.0))
+    first = w.plan_work
+    w.stop("p")
+    w.walk_to("p", (35.0, 23.0))
+    assert 0 < w.plan_work < first  # only the legs from the start and to the target are searched again
+    assert w._legs  # the legs between doorways are kept
