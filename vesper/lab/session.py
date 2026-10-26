@@ -28,7 +28,9 @@ class TraceError(ValueError):
 
 
 class Session:
-    def __init__(self, home, *, clock=None, world=None, trace: Path | None = None):
+    def __init__(self, home, *, clock=None, world=None, trace: Path | None = None, live_network: bool = False):
+        """`live_network`: the relay carries the home's TCP links (Home Assistant in the loop); otherwise the link
+        layer carries them in-process, on the session's clock."""
         self.home = home
         self.clock = clock or LogicalClock()
         self.clock_kind = getattr(self.clock, "kind", "logical" if hasattr(self.clock, "advance") else "wall")
@@ -51,6 +53,12 @@ class Session:
             raise TraceError(f"the trace {trace} already exists; a session never overwrites one") from e
         self.rules = Rules(home, self.runtime, self.world, self.twin_ids,
                            record=lambda r: self._write({**r, "kind": "rule"}))
+        self.relay = None  # the live network's relay, when Home Assistant is in the loop (set by the hub)
+        self.links = None
+        if home.network is not None:
+            from vesper.lab.linklayer import LinkLayer
+            self.links = LinkLayer(home.network, home.map, self.clock, self.runtime, self._names, self._write,
+                                   seed=home.seed, carry_tcp=not live_network, doors=lambda: dict(self.world.doors))
 
     # -- life cycle ---------------------------------------------------------------------------
     def start(self, spawn_player: bool = True, residents: bool = True, automations: bool = False) -> None:
@@ -71,6 +79,8 @@ class Session:
                                    "refused": self.automations.refused}
         self._write(meta)
         self.runtime.subscribe(self._on_report)
+        if self.links is not None:
+            self.links.start()
         self.world.on_event(self._on_world)
         self.rules.start()
         if self.automations is not None:
@@ -142,13 +152,43 @@ class Session:
         return self._names.get(twin_id)
 
     def automation_command(self, automation: str, trigger: str, service: str, entity: str, twin_id: str,
-                           feature: str, value) -> bool:
-        """The automation engine sends a command as Home Assistant would, through the bridge (`platform_set`)."""
-        self._acting = {"automation": automation, "trigger": trigger, "service": service, "entity": entity}
-        try:
-            return self.runtime.platform_set(twin_id, feature, value)
-        finally:
-            self._acting = None
+                           feature: str, value) -> None:
+        """The automation engine sends a command as Home Assistant would, through the bridge (`platform_set`), and
+        across the device's links: it reaches the device when they deliver it."""
+        acting = {"automation": automation, "trigger": trigger, "service": service, "entity": entity}
+
+        def deliver():
+            self._acting = acting
+            try:
+                self.runtime.platform_set(twin_id, feature, value)
+            finally:
+                self._acting = None
+        device = self._names.get(twin_id)
+        if self.links is not None and device is not None:
+            self.links.down(device, feature, deliver)
+        else:
+            deliver()
+
+    def subscribe_reports(self, fn) -> None:
+        """`fn(event)` hears each twin's report as the hub would: once it has crossed the device's links."""
+        (self.links or self.runtime).subscribe(fn)
+
+    def network_effect(self, effect) -> None:
+        """Put an effect on a link (an attack): an input, so a replay puts it on again at the same time. On the live
+        network the relay carries the TCP links' effects."""
+        link = self.home.network.links.get(effect.link) if self.home.network else None
+        target = self.relay if (link is not None and link.tcp and self.relay is not None) else self.links
+        if target is None:
+            from vesper.lab.network import NetworkError
+            raise NetworkError("effect: this home has no network")
+        target.apply(effect)
+        self._input("lab", "effect", effect.to_dict())
+
+    def network_clear(self, link: str | None = None) -> None:
+        for target in (self.links, self.relay):
+            if target is not None:
+                target.clear(link)
+        self._input("lab", "effect_clear", {"link": link})
 
     def automation_skipped(self, automation: str, trigger: str, reason: str) -> None:
         self._write({"kind": "automation_skipped", "automation": automation, "trigger": trigger, "reason": reason})
@@ -177,6 +217,8 @@ class Session:
     def _on_world(self, event: dict) -> None:
         if event["event"] != "pose":  # poses follow from the inputs; the trace keeps what they caused
             self._write({"kind": "world", **event})
+        if event["event"] == "door" and self.links is not None:
+            self.links.refresh()  # a door shut or opened: what each hop crosses changed
 
     def _write(self, record: dict) -> None:
         rec = {"t": self.clock.now(), **record}  # exact: JSON keeps a float, and replay needs the same instant
@@ -231,6 +273,11 @@ def replay(records: list[dict], home) -> list[dict]:
                 s.interact(a["target"], actor=r["actor"], why=r.get("why"))
             elif r["op"] == "set":
                 s.adjust(a["target"], a["feature"], a["value"], actor=r["actor"], why=r.get("why"))
+            elif r["op"] == "effect":
+                from vesper.lab.linklayer import Effect
+                s.network_effect(Effect.from_dict(a))
+            elif r["op"] == "effect_clear":
+                s.network_clear(a["link"])
             elif r["op"] == "command":
                 if a["device"] not in s.twin_ids:
                     raise ValueError(f"unknown device {a['device']!r}")

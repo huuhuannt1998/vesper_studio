@@ -302,7 +302,7 @@ class Engine:
         for e in self.entities.values():
             value = self.runtime.state(e.twin_id).get(e.feature)
             self._state[e.entity_id] = "unknown" if e.platform == "event" else self._state_of(e, value)
-        self.runtime.subscribe(self._on_report)
+        self.session.subscribe_reports(self._on_report)  # as Home Assistant hears them: across the links
         self._midnight = clock.now() - self.home.start_time
         for day in (0, 1):
             self._schedule_day(day)
