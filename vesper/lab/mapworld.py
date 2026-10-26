@@ -77,16 +77,21 @@ class MapWorld:
         return list(self._poses)
 
     def move(self, actor: str, dx: float, dz: float) -> Pose:
-        """A player's step, cut to MAX_STEP_M; walls and closed doors stop it (`last_move_ok` is False)."""
+        """A player's step, cut to MAX_STEP_M; walls and closed doors stop it (`last_move_ok` is False). A diagonal
+        step that a wall stops slides along the wall instead (its free part along x or z), as in a game."""
         p = self.pose(actor)
         self.stop(actor)
         length = math.hypot(dx, dz)
         if length > MAX_STEP_M:
             dx, dz = dx * MAX_STEP_M / length, dz * MAX_STEP_M / length
-        target = (p.x + dx, p.z + dz)
-        self.last_move_ok = length > 0 and self._segment_free((p.x, p.z), target)
-        if self.last_move_ok:
-            self._place(actor, target, math.degrees(math.atan2(dz, dx)))
+        tries = [(dx, dz)] + ([(dx, 0.0), (0.0, dz)] if dx and dz else [])
+        self.last_move_ok = False
+        for sx, sz in tries:
+            target = (p.x + sx, p.z + sz)
+            if (sx or sz) and self._segment_free((p.x, p.z), target):
+                self.last_move_ok = True
+                self._place(actor, target, math.degrees(math.atan2(sz, sx)))
+                break
         return self._poses[actor]
 
     def walk_to(self, actor: str, target: Point) -> list[Point] | None:

@@ -371,3 +371,15 @@ def test_each_task_a_resident_begins_is_a_trace_record(tmp_path):
     began = [(r["resident"], r["task"], r["category"], r["room"]) for r in t.s.records if r["kind"] == "task"]
     assert began == [("r0", "wake up", "SLEEP", "bedroom"), ("r0", "breakfast", "EATING", "kitchen")]
     assert t.people[0].task.name == "breakfast"
+
+
+def test_between_two_tasks_a_resident_has_none_and_the_trace_says_so(tmp_path):
+    t = lab(tmp_path, [task("07:00", 30, "wake up", "SLEEP", "bedroom"), task("08:00", 20, "breakfast", "EATING",
+                                                                               "kitchen")])
+    t.at("07:45")
+    assert t.people[0].task is None
+    began = [r["task"] for r in t.s.records if r["kind"] == "task"]
+    assert began == ["wake up", None]
+    t.at("08:01")
+    assert t.people[0].task.name == "breakfast" and [r["task"] for r in t.s.records if r["kind"] == "task"][-1] == \
+        "breakfast"

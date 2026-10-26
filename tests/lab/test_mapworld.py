@@ -31,6 +31,16 @@ def test_steps_move_within_a_room_and_walls_stop_them():
     assert blocked.x == pytest.approx(3.8) and not w.last_move_ok
 
 
+def test_a_diagonal_step_into_a_wall_slides_along_it():
+    """Holding two keys against a wall walks along the wall, as in a game, instead of freezing (final review)."""
+    w, _ = world()
+    w.spawn("p", "female_0", (3.8, 0.5))
+    p = w.move("p", 0.1768, 0.1768)  # the x part runs into the wall at x = 3.9
+    assert w.last_move_ok and (p.x, p.z) == pytest.approx((3.8, 0.6768)) and p.yaw == pytest.approx(90.0)
+    stuck = w.move("p", 0.4, 0.0)  # straight into the wall: nothing to slide along
+    assert not w.last_move_ok and (stuck.x, stuck.z) == pytest.approx((3.8, 0.6768))
+
+
 def test_walking_through_a_doorway_changes_room():
     w, events = world()
     w.spawn("p", "female_0", (3.6, 2.0))

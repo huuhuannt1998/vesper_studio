@@ -60,6 +60,7 @@ class Resident:
         self._walking: tuple | None = None  # (point, reason, tries, task): the walk under way
         self._task: int | None = None
         self._task_devices: dict[str, str] = {}  # device -> the task that switched it on
+        self._between = False  # a task has ended and the next has not begun
         self._alarms: set[str] = set()  # the alarm sensors reporting now
         session.residents[name] = self
         self.world.on_event(self._on_world)
@@ -72,7 +73,7 @@ class Resident:
     @property
     def task(self):
         """The routine's task under way, or None between tasks."""
-        return self.routine.tasks[self._task] if self._task is not None else None
+        return self.routine.tasks[self._task] if self._task is not None and not self._between else None
 
     # -- the day ------------------------------------------------------------------------------
     def start(self) -> None:
@@ -135,7 +136,7 @@ class Resident:
 
     def _begin(self, k: int) -> None:
         task = self.routine.tasks[k]
-        self._task = k
+        self._task, self._between = k, False
         self.session.task_record(self.name, task)
         self._epoch += 1
         self._steps.clear()
@@ -170,6 +171,8 @@ class Resident:
         gap = (tasks[(k + 1) % len(tasks)].start - tasks[k].end) % DAY_S
         if gap < 1e-6 or DAY_S - gap < 1e-6:
             return  # the next task begins now, and switches off what it does not use
+        self._between = True
+        self.session.task_record(self.name, None)
         self._steps.extend(self._switch_off(keep=()))
         self._next()
 

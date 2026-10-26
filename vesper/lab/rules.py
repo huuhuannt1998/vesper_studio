@@ -289,7 +289,7 @@ class Rules:
             key = (name, actor)
             was, self._covered[key] = self._covered.get(key, False), covered
             if covered and (not was or now - self._last_trigger.get(key, -math.inf) >= RETRIGGER_S):
-                self._trigger(name, actor, now)
+                self._trigger(name, actor, now, entered=not was)
 
     def _presence_tick(self) -> None:
         """A presence (mmWave) sensor keeps seeing a covered person who keeps still."""
@@ -300,10 +300,11 @@ class Rules:
                 self._trigger(name, actor, now)
         self.runtime.clock.call_at(now + RETRIGGER_S, self._presence_tick)
 
-    def _trigger(self, name: str, actor: str, now: float) -> None:
+    def _trigger(self, name: str, actor: str, now: float, entered: bool = False) -> None:
+        """`entered`: the person has just come into the sensor's view (not a retrigger of one it keeps seeing)."""
         self._last_trigger[(name, actor)] = now
         self.runtime.stimulate(self.twin_ids[name], {"type": "presence"})
-        self.record({"t": now, "rule": "presence", "device": name, "actor": actor})
+        self.record({"t": now, "rule": "presence", "device": name, "actor": actor, "entered": entered})
 
     def _contact(self, door: str, is_open: bool) -> None:
         for name, dev in self.devices.items():

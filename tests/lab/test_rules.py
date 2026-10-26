@@ -7,7 +7,7 @@ from tests.catalog.test_matter_normalize import records as matter_records
 from tests.lab.homes import HOME, catalog, write_home
 from vesper.lab.home import load_lab_home
 from vesper.lab.mapworld import MapWorld
-from vesper.lab.rules import Rules, ambient_at, is_on
+from vesper.lab.rules import RETRIGGER_S, Rules, ambient_at, is_on
 from vesper.twins.clock import LogicalClock
 from vesper.twins.runtime import MATTER_CONTACT, OCCUPANCY_TIMEOUT_S, Runtime
 
@@ -43,6 +43,16 @@ def test_walking_in_trips_a_ceiling_motion_sensor_and_keeping_still_lets_it_clea
     t.world.move("p", 0.3, 0.0)
     assert t.state("hall_motion")["occupancy"] is True
     assert any(r["rule"] == "presence" and r["device"] == "hall_motion" for r in t.log)
+
+
+def test_a_presence_record_says_whether_the_person_just_came_into_view(tmp_path):
+    """The page's event feed shows entries, not every retrigger of a sensor that keeps seeing someone (review)."""
+    t = lab(tmp_path, at=(5.0, 1.5))  # the kitchen
+    go(t, (1.5, 3.0))  # into the hall
+    t.clock.advance(RETRIGGER_S + 1)
+    t.world.move("p", 0.1, 0.0)  # moving under the sensor again: a retrigger
+    seen = [r["entered"] for r in t.log if r["rule"] == "presence" and r["device"] == "hall_motion"]
+    assert seen == [True, False]
 
 
 def test_a_wall_sensor_sees_its_cone_only(tmp_path):
