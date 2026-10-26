@@ -40,7 +40,8 @@ async function page() {
   globalThis.setTimeout = () => 0;
   globalThis.clearTimeout = () => {};
   globalThis.requestAnimationFrame = () => 0;
-  globalThis.document = { getElementById: (id) => (elements[id] ||= new El(id)), createElement: (tag) => new El(tag) };
+  globalThis.document = { getElementById: (id) => (elements[id] ||= new El(id)), createElement: (tag) => new El(tag),
+    body: new El("body") };
   globalThis.window = globalThis;
   globalThis.addEventListener = (type, fn) => (windowListeners[type] ||= []).push(fn);
   globalThis.devicePixelRatio = 1;

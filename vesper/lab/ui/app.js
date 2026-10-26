@@ -1,24 +1,40 @@
 // The play page: draws the home from the server's messages and sends the player's inputs (vesper/lab/play.py).
-// It plays like PUBG (spec §2a), map only until the 3D view (plan W1): WASD walks (Shift runs), a click on a device
-// or a door uses it (E or F: the nearest in reach), the prompt by the pointer says what a click does or why not,
-// the event feed shows what just happened, and the residents list who is doing what. There is no click-to-walk.
-// `window.vesper` exposes the page's state to the visual checks (`vesper lab look`).
+// It plays like PUBG (spec §2a). The 3D view is the main screen (plan W1b): third person (V: first person), mouse
+// look with the pointer captured (a click on the view captures it, Esc lets it go), WASD walks where the camera
+// looks (Shift runs), and a click or F uses the device or door under the crosshair, whose prompt says what a click
+// does or why not. The map is the minimap in the corner and, with M, the full map; a click on it uses what is under
+// the pointer. A browser without WebGL, or `?view=map`, plays on the map alone. The event feed shows what just
+// happened and the residents list who is doing what. There is no click-to-walk. `window.vesper` exposes the page's
+// state to the visual checks (`vesper lab look`).
 import {
-  colorFor, decodeGrid, feedLine, fitView, formatClock, glyphFor, gridBounds, headingName, hintFor, hitTest, moveFor,
-  promptFor, recordLine, stepInterval, tipPosition, walkKey,
+  centerView, colorFor, decodeGrid, feedLine, fitView, formatClock, glyphFor, gridBounds, headingName, hintFor,
+  hitTest, moveFor, promptFor, recordLine, stepInterval, tipPosition, walkKey,
 } from "./mapview.js";
+import { PITCH_MAX, aimCamera, compassMarks, moveRelative } from "./scene3d.js";
 
 const LOCKED = "#e74c3c", UNLOCKED = "#3fb37f";
 const SLOT_PX = 40; // devices at one spot (a sensor and a lock on one door) are drawn side by side
 const LOG_MAX = 300;
 const FEED_MAX = 5, FEED_S = 8; // the event feed keeps this many lines, each this many seconds
+const MINI_PX = 220, MINI_SCALE = 14; // the minimap: its size, and pixels a metre
+const LOOK_DEG = 0.15; // degrees the view turns per pixel of mouse movement
+const KEYS_MAP = "WASD or arrows: walk · Shift: run · click a device or a door, or E or F: use it · Q: next thing in " +
+  "reach · Tab: next panel";
+const KEYS_3D = "Click the view to look around (Esc lets go) · WASD: walk · Shift: run · click or F: use what the " +
+  "crosshair is on · V: first or third person · M: map · Q: next thing in reach · Tab: next panel";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("map");
 const ctx = canvas.getContext("2d");
 const vesper = (window.vesper = {
   ready: false, connected: false, state: null, lastResult: null, lastError: null, messages: 0, feed: [], prompt: "",
+  mode: "map", crosshair: null, // the 3D view's: what the crosshair is on ({target, kind}) or null
   walkTo: (x, z) => send({ type: "walk_to", x, z }), // the looks' scripted walk; play itself has no click-to-walk
+  setView: (mode) => setMode(mode), // "map" or "3d": the looks' choice; play picks 3D when the browser has WebGL
+  aim: (target) => aim(target), // the looks' aim: turn the view so the crosshair is on a device or door
+  camera: () => ({ ...cam }),
+  view3d: () => (view3d ? { ...view3d.status } : null),
+  view3dColors: () => (view3d ? view3d.colors() : 0),
   toScreen: (x, z) => { // page coordinates of a world point, for clicks
     const r = canvas.getBoundingClientRect(), [sx, sz] = view.toScreen(x, z);
     return [r.left + sx, r.top + sz];
@@ -32,6 +48,9 @@ const vesper = (window.vesper = {
 let state = null, view = null, floor = null, dirty = true, selected = 0, lastStep = 0, helloAt = 0, toastTimer = 0;
 const held = new Set(); // the walking keys held down, by physical key (walkKey)
 let sprint = false, hover = null, feedShown = ""; // the target under the pointer; the feed's lines on the page
+let mode = "map", fullMap = false, view3d = null, view3dTried = false, locked = false, lastFrame = 0, lastPick = 0;
+const cam = { yaw: 0, pitch: -10, mode: "third" }; // the 3D view's camera: where the player looks
+const params = new URLSearchParams(location.search || "");
 
 // -- the connection -------------------------------------------------------------------------------
 const ws = new WebSocket(`ws://${location.host}/ws`);
@@ -86,10 +105,102 @@ function onHello(h) {
   }
   $("log").innerHTML = "";
   for (const r of h.records || []) onRecord(r, false); // what happened before this page joined: no feed
-  layout();
+  const me = state.actors[state.player];
+  if (me) cam.yaw = me.yaw;
+  setMode(params.get("view") === "map" || typeof WebGL2RenderingContext === "undefined" ? "map" : "3d");
   updateHint();
   updateWhere();
   drawResidents();
+}
+
+// -- the 3D view ----------------------------------------------------------------------------------------
+function setMode(next) {
+  mode = next === "3d" ? "3d" : "map";
+  vesper.mode = mode;
+  document.body.classList.toggle("mode-3d", mode === "3d");
+  for (const id of ["view3d", "compass", "crosshair"]) $(id).hidden = mode !== "3d";
+  $("keys").textContent = mode === "3d" ? KEYS_3D : KEYS_MAP;
+  fullMap = false;
+  canvas.classList.toggle("full", false);
+  if (mode === "map") $("prompt3d").textContent = "";
+  if (mode === "3d" && !view3dTried) start3d();
+  layout();
+}
+
+async function start3d() {
+  view3dTried = true;
+  const box = $("loading"), w = state.hello.world3d;
+  box.hidden = false;
+  box.textContent = w ? `Loading the scene's ${w.items} meshes…` : "Building the home from its map…";
+  try {
+    const { createView3d } = await import("./view3d.js");
+    view3d = await createView3d($("view3d"), state.hello, (s) => {
+      box.textContent = `Loading the scene: ${s.loaded + s.failed} of ${s.total} meshes`;
+    });
+    view3d.resize();
+    box.hidden = true;
+    const s = view3d.status;
+    if (s.failed) toast(`${s.failed} of the scene's ${s.total} files could not be loaded (${s.missing[0]}${s.failed > 1 ? ", …" : ""})`, true);
+  } catch (e) {
+    box.hidden = true;
+    toast(`The 3D view could not start (${e.message}); the map works`, true);
+    view3d = null;
+    setMode("map");
+  }
+}
+
+function aim(target) {
+  const me = state && state.actors[state.player];
+  const point = view3d && view3d.pointOf(target);
+  if (!me || !point) return null;
+  Object.assign(cam, aimCamera({ x: me.x, z: me.z, floorY: view3d.floorY, mode: cam.mode }, point));
+  lastPick = 0; // the crosshair is checked on the next frame
+  return { ...cam };
+}
+
+function look(dx, dy) {
+  cam.yaw = (cam.yaw + dx * LOOK_DEG) % 360;
+  cam.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, cam.pitch - dy * LOOK_DEG));
+  updateWhere();
+}
+
+function crosshairTarget() { // what the crosshair is on, when that is in reach
+  const c = vesper.crosshair;
+  return c && state.reach.some((r) => r.target === c.target) ? c.target : null;
+}
+
+function useCrosshair() {
+  const c = vesper.crosshair;
+  if (!c) return;
+  const d = state.devices[c.target];
+  if (d && !d.operable) { toast(promptAt(c.target), true); return; } // a sensor: nothing for a hand to do
+  const target = c.target;
+  send({ type: "interact", target });
+}
+
+function updateCrosshair() {
+  const c = view3d.pick(), before = vesper.crosshair;
+  vesper.crosshair = c;
+  const text = c ? promptAt(c.target) : "";
+  $("prompt3d").textContent = text;
+  $("crosshair").classList.toggle("on", Boolean(c));
+  if (!hover) vesper.prompt = text;
+  if ((before && before.target) !== (c && c.target)) updateHint();
+}
+
+let compassYaw = null;
+function drawCompass() {
+  if (compassYaw !== null && Math.abs(cam.yaw - compassYaw) < 0.25) return;
+  compassYaw = cam.yaw;
+  const bar = $("compass");
+  bar.innerHTML = "";
+  for (const m of compassMarks(cam.yaw, 120)) {
+    const s = document.createElement("span");
+    s.textContent = m.label;
+    s.className = /^\d/.test(m.label) ? "" : "point";
+    s.style.left = `${(0.5 + m.offset) * 100}%`;
+    bar.append(s);
+  }
 }
 
 function onPose(m) {
@@ -101,7 +212,7 @@ function onPose(m) {
 
 function updateWhere() {
   const me = state.actors[state.player];
-  $("where").textContent = me ? `${me.room || "between rooms"} · facing ${headingName(me.yaw)}` : "";
+  $("where").textContent = me ? `${me.room || "between rooms"} · facing ${headingName(mode === "3d" ? cam.yaw : me.yaw)}` : "";
 }
 
 function drawResidents() {
@@ -120,10 +231,6 @@ function drawResidents() {
     li.append(what);
     list.append(li);
   }
-  const note = document.createElement("li");
-  note.className = "muted";
-  note.textContent = "The 3D view comes with the Habitat world service (plan W1).";
-  list.append(note);
 }
 
 function spread(devices, doorways) {
@@ -207,8 +314,10 @@ function updateHint() {
   const reach = state.reach;
   if (!reach.length) { $("hint").textContent = ""; return; }
   selected %= reach.length;
-  const more = reach.length > 1 ? ` · Q: next (${reach.length} in reach)` : "";
-  $("hint").textContent = hintFor([reach[selected]], state.devices, state.effects) + more;
+  const aimed = mode === "3d" ? crosshairTarget() : null; // in 3D, E or F uses what the crosshair is on first
+  const chosen = aimed ? reach.find((r) => r.target === aimed) : reach[selected];
+  const more = reach.length > 1 && !aimed ? ` · Q: next (${reach.length} in reach)` : "";
+  $("hint").textContent = hintFor([chosen], state.devices, state.effects) + more;
 }
 
 function toast(text, bad = false) {
@@ -237,11 +346,18 @@ window.addEventListener("keydown", (e) => {
   } else if (e.repeat) {
     return; // holding E or F uses the thing once
   } else if (key === "e" || key === "f") { // F is PUBG's interact key
-    const target = state.reach.length ? state.reach[selected % state.reach.length].target : null;
+    const aimed = mode === "3d" ? crosshairTarget() : null;
+    const target = aimed || (state.reach.length ? state.reach[selected % state.reach.length].target : null);
     send({ type: "interact", target });
   } else if (key === "q") {
     selected += 1;
     updateHint();
+  } else if (key === "v" && mode === "3d") { // PUBG's first or third person
+    cam.mode = cam.mode === "third" ? "first" : "third";
+  } else if (key === "m" && mode === "3d") { // PUBG's full map
+    fullMap = !fullMap;
+    canvas.classList.toggle("full", fullMap);
+    layout();
   }
 });
 window.addEventListener("keyup", (e) => {
@@ -252,7 +368,7 @@ window.addEventListener("keyup", (e) => {
 window.addEventListener("blur", () => held.clear()); // a key released in another window must not walk on
 
 function step() {
-  const d = moveFor(held);
+  const d = mode === "3d" ? moveRelative(held, cam.yaw) : moveFor(held);
   if (!d) return;
   lastStep = performance.now() / 1000;
   send({ type: "move", dx: d[0], dz: d[1] });
@@ -281,6 +397,15 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 canvas.addEventListener("mouseleave", () => { hover = null; updatePrompt(); });
+
+const view3dBox = $("view3d"); // a click captures the pointer for mouse look; a click while captured uses
+view3dBox.addEventListener("click", () => { // what the crosshair is on
+  if (mode !== "3d" || !view3d) return;
+  if (!locked && view3dBox.requestPointerLock) { view3dBox.requestPointerLock(); return; }
+  useCrosshair();
+});
+document.addEventListener?.("pointerlockchange", () => { locked = document.pointerLockElement === view3dBox; });
+document.addEventListener?.("mousemove", (e) => { if (locked) look(e.movementX || 0, e.movementY || 0); });
 
 function updatePrompt() { // the prompt by the pointer, again when the player moves under a still pointer
   const tip = $("tip");
@@ -327,19 +452,42 @@ function promptAt(target) {
 }
 
 // -- drawing ----------------------------------------------------------------------------------------
+const mini = () => mode === "3d" && !fullMap; // the map is the minimap
+
+function mapSize() { // the map canvas's size on the page, in CSS pixels
+  if (mini()) return { width: MINI_PX, height: MINI_PX };
+  const box = canvas.parentElement.getBoundingClientRect();
+  return { width: box.width, height: box.height };
+}
+
 function layout() {
-  const box = canvas.parentElement.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.round(box.width * dpr);
-  canvas.height = Math.round(box.height * dpr);
+  const { width, height } = mapSize(), dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (view3d) view3d.resize();
   if (!state) return;
-  view = fitView(gridBounds(state.hello.map.grid), box.width, box.height, 28);
-  floor = drawFloor(box.width, box.height, dpr);
+  view = fitView(gridBounds(state.hello.map.grid), width, height, 28);
+  floor = drawFloor(width, height, dpr);
   dirty = true;
+}
+
+function followView() { // the minimap keeps the player in its middle
+  const me = state.actors[state.player], { width, height } = mapSize();
+  return me ? centerView(me.x, me.z, width, height, MINI_SCALE) : view;
 }
 
 function drawFloor(width, height, dpr) {
   const g = state.hello.map.grid, off = document.createElement("canvas");
+  if (mini()) { // the whole floor at the minimap's scale, drawn shifted each frame
+    const b = gridBounds(g), full = fitView(b, (b.maxX - b.minX) * MINI_SCALE, (b.maxZ - b.minZ) * MINI_SCALE, 0);
+    return drawFloorWith(full, (b.maxX - b.minX) * MINI_SCALE, (b.maxZ - b.minZ) * MINI_SCALE, dpr, off);
+  }
+  return drawFloorWith(view, width, height, dpr, off);
+}
+
+function drawFloorWith(at, width, height, dpr, off) {
+  const g = state.hello.map.grid, view = at;
   off.width = Math.round(width * dpr);
   off.height = Math.round(height * dpr);
   const c = off.getContext("2d");
@@ -367,7 +515,7 @@ function drawFloor(width, height, dpr) {
     c.fillStyle = "rgba(40, 46, 60, 0.75)";
     c.font = "600 13px system-ui, sans-serif";
     c.textAlign = "left";
-    c.fillText(room.label.split("/")[0], lx + 8, lz + 18);
+    if (!mini()) c.fillText(room.label.split("/")[0], lx + 8, lz + 18); // the minimap is too small for names
     c.fillStyle = "#d9d3c7";
   }
   c.setLineDash([]);
@@ -375,11 +523,17 @@ function drawFloor(width, height, dpr) {
 }
 
 function draw() {
-  const { width, height } = canvas.parentElement.getBoundingClientRect();
+  const { width, height } = mapSize();
   ctx.fillStyle = "#12161f";
   ctx.fillRect(0, 0, width, height);
   if (!state || !view) return;
-  ctx.drawImage(floor, 0, 0, width, height);
+  if (mini()) {
+    view = followView();
+    const b = gridBounds(state.hello.map.grid), [x0, z0] = view.toScreen(b.minX, b.minZ);
+    ctx.drawImage(floor, x0, z0, (b.maxX - b.minX) * MINI_SCALE, (b.maxZ - b.minZ) * MINI_SCALE);
+  } else {
+    ctx.drawImage(floor, 0, 0, width, height);
+  }
   const reachable = new Set(state.reach.map((r) => r.target));
   const chosen = state.reach.length ? state.reach[selected % state.reach.length].target : null;
   for (const d of Object.values(state.devices)) if (d.effect && d.effect.on) glow(d);
@@ -388,7 +542,6 @@ function draw() {
   for (const a of Object.values(state.actors)) drawActor(a, a.actor === state.player);
   $("clock").textContent = formatClock(state.hello.clock.start_time,
     state.hello.clock.t + (performance.now() - helloAt) / 1000);
-  if (!vesper.ready) vesper.ready = true;
 }
 
 function glow(d) {
@@ -433,7 +586,7 @@ function padlock(x, z) {
   ctx.stroke();
 }
 
-const deviceRadius = () => Math.max(8, 0.16 * view.scale);
+const deviceRadius = () => (mini() ? 4 : Math.max(8, 0.16 * view.scale));
 
 function drawDevice(d, inReach, isChosen) {
   const [x, z] = devicePoint(d), r = deviceRadius();
@@ -459,10 +612,10 @@ function drawDevice(d, inReach, isChosen) {
   ctx.font = `700 ${glyph.length > 1 ? 9 : 11}px system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(glyph, x, z + 0.5);
+  if (!mini()) ctx.fillText(glyph, x, z + 0.5);
   ctx.textBaseline = "alphabetic";
   ctx.font = "11px system-ui, sans-serif";
-  label(lock ? `${d.name} · ${d.effect.locked ? "locked" : "unlocked"}` : d.name, x, z + r + 13);
+  if (!mini()) label(lock ? `${d.name} · ${d.effect.locked ? "locked" : "unlocked"}` : d.name, x, z + r + 13);
   if (inReach) ring(x, z, r + 10, isChosen);
 }
 
@@ -499,12 +652,24 @@ function drawActor(a, isPlayer) {
   ctx.stroke();
   ctx.font = "600 11px system-ui, sans-serif";
   ctx.textAlign = "center";
-  label(isPlayer ? "you" : a.actor, x, z - r - 5);
+  if (!mini()) label(isPlayer ? "you" : a.actor, x, z - r - 5);
 }
 
 window.addEventListener("resize", layout);
 (function loop() {
-  if (dirty) { dirty = false; draw(); }
+  const now = performance.now();
+  if (mode === "3d" && view3d && state) {
+    view3d.frame(state, cam, Math.min(0.1, (now - (lastFrame || now)) / 1000));
+    if (now - lastPick > 100) { lastPick = now; updateCrosshair(); }
+    drawCompass();
+    dirty = true; // the minimap follows the player every frame
+  }
+  lastFrame = now;
+  if (dirty) {
+    dirty = false;
+    draw();
+    if (!vesper.ready && state && view && (mode === "map" || (view3d && view3d.status.ready))) vesper.ready = true;
+  }
   requestAnimationFrame(loop);
 })();
 setInterval(() => { dirty = true; if (state) drawFeed(); }, 1000); // the clock, and the feed's old lines go

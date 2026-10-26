@@ -51,6 +51,9 @@ def test_the_page_loads_only_its_own_files():
     assert '<link rel="icon" href="data:,">' in page  # else Chrome fetches /favicon.ico
     for name in local:
         assert name.startswith("data:") or (UI_DIR / name).is_file(), name  # data: is inline, not fetched
+    imports = json.loads(re.search(r'<script type="importmap">(.*?)</script>', page, re.S).group(1))["imports"]
+    assert imports == {"three": "./vendor/three/build/three.module.min.js",
+                       "three/addons/": "./vendor/three/examples/jsm/"}
     for f in UI_DIR.iterdir():  # the page's own files; vendor/ is checked against its release below
         if not f.is_file():
             continue
@@ -58,6 +61,8 @@ def test_the_page_loads_only_its_own_files():
         assert not re.search(r"https?://(?!127\.0\.0\.1|localhost)", text), f"{f.name} loads from the internet"
         for imported in re.findall(r'from "\./([^"]+)"', text):
             assert (UI_DIR / imported).is_file(), f"{f.name} imports a missing {imported}"
+        for imported in re.findall(r'from "three/addons/([^"]+)"', text):
+            assert (UI_DIR / "vendor/three/examples/jsm" / imported).is_file(), f"{f.name}: {imported}"
 
 
 def test_the_vendored_three_js_is_the_pinned_release_unchanged():

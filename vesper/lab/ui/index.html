@@ -6,6 +6,7 @@
   <title>VESPER Lab</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
+  <script type="importmap">{"imports": {"three": "./vendor/three/build/three.module.min.js", "three/addons/": "./vendor/three/examples/jsm/"}}</script>
 </head>
 <body>
   <header>
@@ -16,7 +17,12 @@
     <span id="status" class="status">connecting…</span>
   </header>
   <main>
-    <section id="map-panel" class="panel" tabindex="0" aria-label="Map of the home">
+    <section id="map-panel" class="panel" tabindex="0" aria-label="The home: the 3D view and the map">
+      <div id="view3d" class="view3d" hidden></div>
+      <div id="compass" class="compass" hidden aria-hidden="true"></div>
+      <div id="crosshair" class="crosshair" hidden aria-hidden="true"></div>
+      <div id="prompt3d" class="prompt3d" aria-live="polite"></div>
+      <div id="loading" class="loading" hidden></div>
       <canvas id="map"></canvas>
       <div id="hint" class="hint" aria-live="polite"></div>
       <ol id="feed" class="feed" aria-live="polite" aria-label="Events"></ol>
@@ -38,7 +44,7 @@
       </section>
     </aside>
   </main>
-  <footer>WASD or arrows: walk · Shift: run · click a device or a door, or E or F: use it · Q: next thing in reach ·
+  <footer id="keys">WASD or arrows: walk · Shift: run · click a device or a door, or E or F: use it · Q: next thing in reach ·
     Tab: next panel</footer>
   <script type="module" src="app.js"></script>
 </body>
