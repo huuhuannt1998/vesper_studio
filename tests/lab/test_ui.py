@@ -1,4 +1,5 @@
 """The browser page: its JavaScript tests (under node), and that it stands alone."""
+import hashlib
 import json
 import os
 import re
@@ -50,11 +51,23 @@ def test_the_page_loads_only_its_own_files():
     assert '<link rel="icon" href="data:,">' in page  # else Chrome fetches /favicon.ico
     for name in local:
         assert name.startswith("data:") or (UI_DIR / name).is_file(), name  # data: is inline, not fetched
-    for f in UI_DIR.iterdir():
+    for f in UI_DIR.iterdir():  # the page's own files; vendor/ is checked against its release below
+        if not f.is_file():
+            continue
         text = f.read_text()
         assert not re.search(r"https?://(?!127\.0\.0\.1|localhost)", text), f"{f.name} loads from the internet"
         for imported in re.findall(r'from "\./([^"]+)"', text):
             assert (UI_DIR / imported).is_file(), f"{f.name} imports a missing {imported}"
+
+
+def test_the_vendored_three_js_is_the_pinned_release_unchanged():
+    vendor = UI_DIR / "vendor" / "three"
+    pinned = dict(reversed(line.split("  ", 1)) for line in re.findall(r"^[0-9a-f]{64}  \S+$",
+                                                                        (vendor / "NOTICE.md").read_text(), re.M))
+    present = {p.relative_to(vendor).as_posix() for p in vendor.rglob("*") if p.is_file()} - {"NOTICE.md"}
+    assert present == set(pinned)
+    for name, digest in pinned.items():
+        assert hashlib.sha256((vendor / name).read_bytes()).hexdigest() == digest, name
 
 
 def test_the_page_knows_every_catalog_category():

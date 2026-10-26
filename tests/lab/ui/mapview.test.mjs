@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  STEP_M, WALK_REPEAT_S, decodeGrid, feedLine, fitView, formatClock, headingName, hintFor, hitTest, moveFor,
+  STEP_M, WALK_REPEAT_S, centerView, decodeGrid, feedLine, fitView, formatClock, headingName, hintFor, hitTest, moveFor,
   promptFor, recordLine, stepFor, stepInterval, tipPosition, walkKey,
 } from "../../../vesper/lab/ui/mapview.js";
 
@@ -24,6 +24,14 @@ test("the view fits the map in the canvas, centred, and maps back exactly", () =
     const [px, pz] = wide.toWorld(...wide.toScreen(x, z));
     assert.ok(Math.abs(px - x) < 1e-9 && Math.abs(pz - z) < 1e-9);
   }
+});
+
+test("the minimap's view keeps a point in the middle at a fixed scale, and maps back exactly", () => {
+  const v = centerView(3, -2, 200, 160, 20);
+  assert.equal(v.scale, 20);
+  assert.deepEqual(v.toScreen(3, -2), [100, 80]);
+  assert.deepEqual(v.toScreen(4, -1), [120, 100]);
+  assert.deepEqual(v.toWorld(120, 100), [4, -1]);
 });
 
 test("WASD and the arrows step a quarter metre; other keys do nothing", () => {

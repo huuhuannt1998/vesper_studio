@@ -51,6 +51,15 @@ export function fitView(bounds, width, height, margin = 20) {
   };
 }
 
+// The minimap's view: the point (cx, cz) in the middle of a width x height canvas, at `scale` pixels a metre.
+export function centerView(cx, cz, width, height, scale) {
+  return {
+    scale,
+    toScreen: (x, z) => [width / 2 + (x - cx) * scale, height / 2 + (z - cz) * scale],
+    toWorld: (px, pz) => [cx + (px - width / 2) / scale, cz + (pz - height / 2) / scale],
+  };
+}
+
 const CODES = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", ArrowUp: "arrowup", ArrowDown: "arrowdown",
   ArrowLeft: "arrowleft", ArrowRight: "arrowright" };
 // The walking key a physical key is (KeyboardEvent.code), or null. Held keys are tracked by it: `key` changes
