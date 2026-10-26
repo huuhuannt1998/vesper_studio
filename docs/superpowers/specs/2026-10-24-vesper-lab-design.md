@@ -62,7 +62,7 @@ Security results are not a contribution of this paper. They belong to later pape
   - WASD or arrow keys walk the avatar; E interacts with the nearest door, switch, lamp or plug; Tab cycles through the panels.
   - **Controls and views like a shooter game (PI, 2026-10-26):** "when users control the character, we can use wasd to move and mouse click to interact with devices (like cs2 game)", then "I want the framework/app works like PUBG game. We can have first and third view". So:
     - **The 3D view is the main screen** (plan W1). It is third-person by default, with the camera behind and above the avatar, and V toggles first-person, as in PUBG. Mouse look runs with the pointer locked: in third person the mouse turns the camera and the avatar's heading, in first person it is the eyes.
-    - **Controls:** WASD moves relative to where the camera looks. A crosshair marks the screen centre, and a left click interacts with the device or door under it. Reach and the wall still apply: within 1 m and on the same side, otherwise the page says why. E stays as the keyboard alternative. Esc releases the pointer.
+    - **Controls:** WASD moves relative to where the camera looks. A crosshair marks the screen centre, and a left click interacts with the device or door under it. Reach and the wall still apply: within 1 m and on the same side, otherwise the page says why. F (PUBG's interact key) and E are keyboard alternatives. Esc releases the pointer. The full mapping to PUBG is in §2a.
     - **The 2D map becomes a minimap** in a corner, following the avatar and showing devices, doors, residents and the reach ring. M opens the full map, as in PUBG. On the minimap and the full map, a click on a device or door interacts with it under the same reach rule.
     - **Home Assistant's dashboard, the console and the security console** stay as panels beside or over the view (Tab cycles through them).
     - **No click-to-walk** in play, which matches both games: movement is WASD only. `vesper lab look` gets a scripted `walk` step (to a point, along the planned path) in place of `click_world` walking.
@@ -71,6 +71,29 @@ Security results are not a contribution of this paper. They belong to later pape
 - **The security console** lists attacks and defenses (§6), runs and stops them, and shows alerts. Attacks and defenses can also be scripted.
 - `vesper lab replay <trace>` replays a recorded session's inputs, headless or with the views.
 - `vesper lab run <script.py>` runs a scripted session through the Python API, with no player: the same actions (walk to, interact) for automated experiments and later for AI residents.
+
+## 2a. Design reference: PUBG (PI, 2026-10-26)
+
+The PI: "I want the framework/app works like PUBG game. We can have first and third view" and "You can use PUBG game as the core design that we want to follow". So PUBG is the core reference for how the Lab looks, feels and flows. When a UI or interaction question comes up, do what PUBG does, unless the research needs something else; then the plan says why.
+
+| PUBG | VESPER Lab |
+|---|---|
+| Lobby, choosing a map | Start screen: choose a home (HSSD scene, devices, residents), or `vesper lab new` |
+| Match settings | Session settings: clock (wall or logical), residents, Home Assistant on or off, defenses, attacks |
+| Third-person view, V for first-person | The 3D view, third-person by default; V toggles first-person |
+| WASD, mouse look, F to interact | WASD; pointer-lock mouse look; **left click** interacts with what is under the crosshair (the PI's choice); F and E as keyboard alternatives |
+| Shift to sprint | Shift walks faster (a running resident, which sensors see as quicker motion); the default stays 1.1 m/s |
+| Interaction prompt by the crosshair ("[F] Open door") | "Click: open front_door", "Click: switch kitchen_plug on", or why not ("too far", "other side of the wall", "locked") |
+| Minimap; M for the full map | The 2D map as a minimap that follows the avatar; M opens the full map with devices, doors, residents and reach |
+| Compass bar | Compass at the top, with the room the avatar is in |
+| Kill feed, top right | Event feed, top right: device reports, the hub's commands, rule firings, resident decisions, attack and defense alerts (the console, shortened) |
+| Tab: inventory | Tab: panels (Home Assistant's dashboard, the full console, the security console) |
+| Team list | Residents list: who, where, doing what (task and reason) |
+| Spectating teammates | Follow a resident's camera (third or first person) |
+| Replays: timeline, free camera, follow anyone | `vesper lab replay` with the views: timeline scrubbing, free camera, follow any actor |
+| Settings: keys, graphics, FPS counter | Key bindings, resolution and frame rate (the world service's limits), an FPS and latency readout |
+
+Not taken from PUBG: combat, the shrinking zone, loot, health. The Lab's "danger" is the security lab (§6): attacks and defenses with their alerts.
 
 ## 3. Architecture
 
