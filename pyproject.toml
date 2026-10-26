@@ -26,7 +26,7 @@ dev = ["jinja2>=3.1", "pytest>=8", "ruff>=0.5"]
 vesper = "vesper.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["vesper"]
+packages = ["vesper", "vesper_world"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
