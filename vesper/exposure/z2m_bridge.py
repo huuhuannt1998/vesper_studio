@@ -85,6 +85,8 @@ class Bridge:
     expected: dict[str, list[ExpectedEntity]] = field(default_factory=dict)
     skipped: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
     rejections: list[dict] = field(default_factory=list)
+    events: object = None  # where reports come from (anything with `subscribe`): a home's network; default the runtime
+    send: object = None  # send(name, feature, run): a command crosses the device's links, `run()` when it arrives
 
     def __post_init__(self):
         self._by_name: dict[str, Placement] = {}
@@ -106,7 +108,7 @@ class Bridge:
         self._local = threading.local()
         self.client.on_message = self._on_message
         self.client.on_connect = self._on_connect
-        self.runtime.subscribe(self._on_event)
+        (self.events or self.runtime).subscribe(self._on_event)
 
     # -- lifecycle -----------------------------------------------------------------------------
     def start(self) -> None:
@@ -152,6 +154,11 @@ class Bridge:
                 self._track(self.client.publish(topic, "", qos=1, retain=True))
         for topic in ("bridge/devices", "bridge/info", "bridge/state"):
             self._track(self.client.publish(f"{b}/{topic}", "", qos=1, retain=True))
+
+    def set_available(self, friendly_name: str, online: bool) -> None:
+        """Mark one device available or not, as Zigbee2MQTT's availability check does when a device stops answering."""
+        self._publish(f"{self.base_topic}/{friendly_name}/availability", {"state": "online" if online else "offline"},
+                      retain=True)
 
     def stop(self) -> None:
         for p in self.placements:
@@ -220,8 +227,10 @@ class Bridge:
         self.client.subscribe(f"{CONTROL}/#")
 
     def _on_connect(self, client, userdata, flags, reason, properties=None) -> None:
-        """paho reconnects by itself, but with a clean session: subscribe again."""
+        """paho reconnects by itself, but with a clean session: subscribe again, and say the bridge is online (the
+        broker published its will, `offline`, when the connection died)."""
         self._subscribe()
+        self._publish(f"{self.base_topic}/bridge/state", {"state": "online"}, retain=True)
 
     def _on_message(self, client, userdata, msg) -> None:
         topic, raw = msg.topic, msg.payload.decode("utf-8", "replace")
@@ -263,6 +272,12 @@ class Bridge:
         if not isinstance(command, dict):
             self.rejections.append({"device": name, "payload": raw, "reason": "payload is not a JSON object"})
             return
+        if self.send is not None:
+            self.send(name, None, lambda: self._apply(p, name, command))
+        else:
+            self._apply(p, name, command)
+
+    def _apply(self, p: Placement, name: str, command: dict) -> None:
         accepted = []
         self._local.quiet = True
         try:

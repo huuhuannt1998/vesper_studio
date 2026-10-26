@@ -101,3 +101,28 @@ def test_walking_in_lets_an_automation_turn_the_lamp_on_and_the_page_shows_it(tm
         server.stop()
         hub.stop()
         session.stop()
+
+
+def test_a_device_whose_hop_stays_down_goes_unavailable_after_zigbee2mqtt_s_timeout_and_comes_back(lab, monkeypatch):
+    """Zigbee2MQTT marks a device offline when it stops answering for its availability timeout (10 min for a
+    mains-powered device, 25 h for a battery one); here shortened. Only that device: the others stay available."""
+    from vesper.lab import hub as hub_module
+    from vesper.lab.linklayer import Effect
+    session, hub, mqtt = lab
+    monkeypatch.setitem(hub_module.AVAILABILITY_S, "active", 0.3)
+    session.network_effect(Effect("cut", link="zigbee/bedroom_lamp"))
+    eventually(lambda: mqtt.last("zigbee2mqtt/bedroom_lamp/availability") == {"state": "offline"})
+    assert mqtt.last("zigbee2mqtt/hall_motion/availability") == {"state": "online"}
+    session.network_clear("zigbee/bedroom_lamp")
+    eventually(lambda: mqtt.last("zigbee2mqtt/bedroom_lamp/availability") == {"state": "online"})
+
+
+def test_a_command_to_a_device_behind_a_cut_hop_never_arrives(lab):
+    from vesper.lab.linklayer import Effect
+    session, hub, mqtt = lab
+    session.network_effect(Effect("cut", link="zigbee/bedroom_lamp"))
+    FakeHA(mqtt).call("light", "turn_on", {"entity_id": hub.entities("bedroom_lamp")["state"]})
+    time.sleep(0.3)
+    assert session.rules.effects.get("bedroom_lamp") != {"on": True}
+    assert any(r["kind"] == "net" and r["event"] == "dropped" and r.get("direction") == "down"
+               for r in session.records)

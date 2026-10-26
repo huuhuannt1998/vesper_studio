@@ -249,3 +249,41 @@ def test_a_bridge_without_discovery_never_touches_home_assistant_topics(vds):
     b.start()
     b.retract()
     assert not any(t.startswith("homeassistant/") for t, _, _ in client.published)
+
+
+def test_a_reconnect_says_the_bridge_is_online_again_after_its_will_said_offline(vds):
+    b, rt, client = bridge(vds, "MCCGQ11LM")
+    client.published.clear()
+    client.on_connect(client, None, {}, 0, None)  # paho reconnected; the broker had published the will
+    assert client.last("zigbee2mqtt/bridge/state") == {"state": "online"}
+    assert client.retained("zigbee2mqtt/bridge/state") is True
+
+
+def test_reports_can_come_through_a_link_and_commands_go_down_it(vds):
+    """A home's network carries each device's reports and Home Assistant's commands (security-lab spec §3.2):
+    the bridge hears reports from `events` and hands each command to `send`, which runs it when it arrives."""
+    rt = Runtime(clock=LogicalClock())
+    plug = Placement(rt.add(vds["PLUG-1"]).id, "plug-1")
+    heard, sent = [], []
+
+    class Link:
+        def subscribe(self, fn):
+            heard.append(fn)
+    client = FakeClient()
+    b = Bridge(rt, [plug], client, events=Link(), send=lambda name, feature, fn: sent.append((name, feature, fn)))
+    b.start()
+    assert len(heard) == 1  # the bridge hears the link, not the runtime
+    client.deliver("zigbee2mqtt/plug-1/set", {"state": "ON"})
+    assert rt.state(plug.twin_id)["state"] == "OFF"  # on its way down
+    (name, feature, run), = sent
+    assert name == "plug-1" and feature is None
+    run()
+    assert rt.state(plug.twin_id)["state"] == "ON" and client.last("zigbee2mqtt/plug-1")["state"] == "ON"
+
+
+def test_a_device_can_be_marked_unavailable_and_available_again(vds):
+    b, rt, client = bridge(vds, "MCCGQ11LM")
+    b.set_available("mccgq11lm", False)
+    assert client.last("zigbee2mqtt/mccgq11lm/availability") == {"state": "offline"}
+    b.set_available("mccgq11lm", True)
+    assert client.last("zigbee2mqtt/mccgq11lm/availability") == {"state": "online"}

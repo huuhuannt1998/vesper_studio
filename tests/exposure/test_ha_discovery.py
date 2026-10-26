@@ -87,3 +87,13 @@ def test_number_and_select_command_templates_render_to_json():
     assert json.loads(render(number["command_template"], 30)) == {"countdown": 30}
     assert json.loads(render(select["command_template"], "off")) == {"power_on_behavior": "off"}
     assert (number["min"], number["max"]) == (0, 43200)
+
+
+def test_a_device_is_available_only_while_both_it_and_the_bridge_are_as_zigbee2mqtt_says(vds):
+    """Zigbee2MQTT lists the bridge's state too: when the bridge's broker connection dies, its will marks the bridge
+    offline and Home Assistant marks every Zigbee device unavailable."""
+    _, payload, _, _ = discover(vds["MCCGQ11LM"], "hall/door")
+    assert [a["topic"] for a in payload["availability"]] == ["zigbee2mqtt/hall/door/availability",
+                                                             "zigbee2mqtt/bridge/state"]
+    assert payload["availability_mode"] == "all"
+    assert {render(a["value_template"], {"state": "offline"}) for a in payload["availability"]} == {"offline"}

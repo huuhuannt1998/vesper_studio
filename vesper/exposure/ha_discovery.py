@@ -182,7 +182,9 @@ def device_discovery(vds: dict, *, ieee: str, friendly_name: str, base_topic: st
                 "mdl": identity["model"]},
         "o": {"name": "VESPER", "sw": __version__},
         "state_topic": state_topic,
-        "availability": [{"topic": f"{state_topic}/availability", "value_template": "{{ value_json.state }}"}],
+        "availability": [{"topic": f"{state_topic}/availability", "value_template": "{{ value_json.state }}"},
+                         {"topic": f"{base_topic}/bridge/state", "value_template": "{{ value_json.state }}"}],
+        "availability_mode": "all",  # as Zigbee2MQTT: the device, and the bridge that carries it
         "cmps": cmps,
     }
     return f"{DISCOVERY_PREFIX}/device/{ieee}/config", payload, expected, skipped
