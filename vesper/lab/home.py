@@ -27,6 +27,7 @@ import yaml
 from vesper.exposure.z2m_bridge import topic_safe
 from vesper.twins.twin import Twin, TwinError
 from vesper.lab.geometry import Point, centroid, distance, point_in_polygon
+from vesper.lab.network import Network, NetworkError, parse_network
 from vesper.lab.profile import Profile, ProfileError, load_profile
 from vesper.lab.routine import Routine, RoutineError, load_routine
 from vesper.lab.worldmap import MapError, WorldMap, suggest
@@ -76,6 +77,7 @@ class LabHome:
     defenses: list[str] = field(default_factory=list)
     broker: tuple[str, int] = ("127.0.0.1", 18830)
     matter_interface: str | None = None
+    network: Network | None = None  # the home's network (security-lab spec §3); set by load_lab_home
 
     def device(self, name: str) -> PlacedDevice:
         for d in self.devices:
@@ -121,6 +123,10 @@ def load_lab_home(path: Path, catalog: dict[str, dict]) -> LabHome:
     except MapError as e:
         raise HomeError(f"avatar.start.room: {e}") from e
     broker = _mapping(spec.get("broker") or {}, "broker")
+    try:
+        network = parse_network(spec.get("network"), world_map, devices)
+    except NetworkError as e:
+        raise HomeError(str(e)) from e
     automations = spec.get("automations")
     return LabHome(path=path, map=world_map, scene=str(spec.get("scene", world_map.scene)),
                    seed=_int(spec.get("seed", 0), "seed"), start_time=_clock(spec.get("start_time", "07:00")),
@@ -131,7 +137,7 @@ def load_lab_home(path: Path, catalog: dict[str, dict]) -> LabHome:
                    defenses=list(_mapping(spec.get("security") or {}, "security").get("defenses") or []),
                    broker=(_text(broker.get("host", "127.0.0.1"), "broker.host"),
                            _int(broker.get("port", 18830), "broker.port")),
-                   matter_interface=spec.get("matter_interface"))
+                   matter_interface=spec.get("matter_interface"), network=network)
 
 
 def _residents(raw, path: Path, world_map: WorldMap, devices: list[PlacedDevice]) -> list[ResidentSpec]:
