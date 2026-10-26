@@ -38,10 +38,12 @@ def test_the_example_s_products_are_real_and_its_automation_names_entities_the_h
     assert named and named <= made
 
 
-def test_the_example_s_look_for_the_hub_is_a_valid_steps_file():
+@pytest.mark.parametrize("name", ["look-hub.yaml", "look-pubg.yaml"])
+def test_the_example_s_looks_are_valid_steps_files_that_walk_without_clicking(name):
     from vesper.lab.visual import load_steps
-    steps = load_steps(EXAMPLE / "look-hub.yaml")
-    assert [next(iter(s)) for s in steps][-1] == "shot"
+    steps = load_steps(EXAMPLE / name)
+    actions = [next(iter(s)) for s in steps]
+    assert actions[-1] == "shot" and "walk" in actions  # play has no click-to-walk: looks walk with `walk`
 
 
 @pytest.mark.skipif(not CATALOG.is_file(), reason="no local catalog (`vesper catalog build`)")

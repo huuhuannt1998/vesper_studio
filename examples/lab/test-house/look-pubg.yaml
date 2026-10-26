@@ -1,0 +1,29 @@
+# vesper lab look examples/lab/test-house/home.yaml --steps examples/lab/test-house/look-pubg.yaml
+# The map page's PUBG controls (spec §2a), without the hub: room and compass, residents, click to use, the prompt,
+# no click-to-walk, the event feed.
+- {shot: start}
+- {expect: "document.getElementById('where').textContent.startsWith('kitchen')", label: "the header shows the room"}
+- {expect: "document.getElementById('residents').textContent.includes('alex')", label: "the residents list shows Alex"}
+- {walk: [4.3, 0.9]}
+- {until: "vesper.state.reach.some(r => r.target === 'kitchen_plug')", label: "the plug comes into reach", timeout: 15}
+- {click_world: [4.0, 0.5]}
+- {until: "vesper.lastResult && vesper.lastResult.target === 'kitchen_plug' && vesper.lastResult.ok === true",
+   label: "a click on the plug uses it (whatever Alex's dinner did to it first)", timeout: 10}
+- {expect: "vesper.prompt.startsWith('Click: switch kitchen_plug')", label: "the prompt says what a click does"}
+- {wait: 0.3}
+- {shot: plug_on}
+- {click_world: [5.5, 1.8]}
+- {expect: "document.getElementById('toast').textContent.includes('WASD')", label: "a click on bare floor only says WASD walks"}
+- {expect: "Math.hypot(vesper.state.actors.player.x - 4.3, vesper.state.actors.player.z - 0.9) < 0.3",
+   label: "and the player did not walk"}
+- {click_world: [5.0, 5.0]}
+- {expect: "vesper.prompt.startsWith('bedroom_lamp: too far')", label: "the prompt says the lamp is too far"}
+- {wait: 0.3}
+- {shot: lamp_too_far}
+- {walk: [1.5, 3.0]}
+- {until: "vesper.feed.some(f => f.text === 'hall_motion sees player')", label: "the event feed shows the hall sensor seeing the player",
+   timeout: 15}
+- {press: d}
+- {wait: 0.5}
+- {expect: "vesper.state.actors.player.x > 1.6", label: "a tap of D is one step east"}
+- {shot: hall_feed}

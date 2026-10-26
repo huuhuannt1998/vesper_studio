@@ -48,6 +48,13 @@ Then, for the record, the same story as an automatic look:
 
 Pass: exit code 0, and the shots read: the lamp lit after the walk, by the automation.
 
+The page's PUBG controls (check 10) have their own automatic look, without the hub. It checks the room and compass, the residents, click to use, the prompt, no click-to-walk, the event feed and a one-step tap:
+
+    taskpolicy -b .venv/bin/vesper lab look ~/vesper-lab/test-house/home.yaml \
+        --steps ~/vesper-lab/test-house/look-pubg.yaml --out ~/vesper-lab/looks/pubg-<UTC>
+
+First run (2026-10-26 07:46Z): PASS, 19 checks, with the shots read.
+
 Budget (estimate until the first run measures it): Home Assistant 0.5–1 GB and one core while it starts (minutes on a first start); Mosquitto and the page negligible; a headless browser about 0.3 GB for a minute.
 
 Record in the ledger: the time, the trace path, the look's `report.md`, and anything that failed.

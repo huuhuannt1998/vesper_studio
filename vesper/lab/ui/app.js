@@ -5,7 +5,7 @@
 // `window.vesper` exposes the page's state to the visual checks (`vesper lab look`).
 import {
   colorFor, decodeGrid, feedLine, fitView, formatClock, glyphFor, gridBounds, headingName, hintFor, hitTest, moveFor,
-  promptFor, recordLine, stepInterval, walkKey,
+  promptFor, recordLine, stepInterval, tipPosition, walkKey,
 } from "./mapview.js";
 
 const LOCKED = "#e74c3c", UNLOCKED = "#3fb37f";
@@ -292,8 +292,12 @@ function updatePrompt() { // the prompt by the pointer, again when the player mo
   const b = document.createElement("b");
   b.textContent = vesper.prompt;
   tip.append(b, d ? `${d.vendor} ${d.model} (${d.category})\n${JSON.stringify(d.state)}` : "");
-  tip.style.left = `${hover.px + 14}px`;
-  tip.style.top = `${hover.pz + 14}px`;
+  const box = canvas.getBoundingClientRect();
+  tip.style.left = "0px"; // measured unsqueezed: an old position near the edge would narrow it
+  tip.style.top = "0px";
+  const [x, z] = tipPosition(hover.px, hover.pz, tip.offsetWidth || 0, tip.offsetHeight || 0, box.width, box.height);
+  tip.style.left = `${x}px`;
+  tip.style.top = `${z}px`;
 }
 
 function hitItems() { // the doors and devices on the screen, for clicks and the prompt

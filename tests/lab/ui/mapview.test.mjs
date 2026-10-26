@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import {
   STEP_M, WALK_REPEAT_S, decodeGrid, feedLine, fitView, formatClock, headingName, hintFor, hitTest, moveFor,
-  promptFor, recordLine, stepFor, stepInterval, walkKey,
+  promptFor, recordLine, stepFor, stepInterval, tipPosition, walkKey,
 } from "../../../vesper/lab/ui/mapview.js";
 
 test("the walkable grid decodes bit for bit as Python wrote it (least significant bit first)", () => {
@@ -210,4 +210,11 @@ test("the feed shows a person coming into a sensor's view, not every retrigger, 
     "player"), "bedroom_radar sees alex");
   assert.equal(feedLine({ kind: "task", resident: "alex", task: null }, "player"), null);
   assert.equal(recordLine({ t: 0, kind: "task", resident: "alex", task: null }, 7 * 3600), "07:00:00 alex is between tasks");
+});
+
+test("the tooltip sits right of and below the pointer, and flips where it would leave the map", () => {
+  assert.deepEqual(tipPosition(100, 100, 200, 60, 880, 700), [114, 114]);
+  assert.deepEqual(tipPosition(800, 100, 200, 60, 880, 700), [586, 114]); // too wide on the right: left of the pointer
+  assert.deepEqual(tipPosition(100, 680, 200, 60, 880, 700), [114, 606]); // too low: above
+  assert.deepEqual(tipPosition(5, 5, 300, 60, 200, 700), [0, 19]); // wider than the map: from its left edge
 });

@@ -131,6 +131,14 @@ export function hitTest(px, pz, items) {
   return nearest(true) ?? (door ? door.target : null) ?? nearest(false);
 }
 
+// Where the tooltip goes: right of and below the pointer, flipped to the left or above where it would leave the
+// map (the map panel clips what overflows), and never past the map's left or top edge.
+export function tipPosition(px, pz, tipW, tipH, panelW, panelH, gap = 14) {
+  const x = px + gap + tipW <= panelW ? px + gap : px - gap - tipW;
+  const z = pz + gap + tipH <= panelH ? pz + gap : pz - gap - tipH;
+  return [Math.max(0, x), Math.max(0, z)];
+}
+
 const COMPASS = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
 // The heading a yaw in degrees names, up the map being north (0 degrees points right, 90 down the screen).
 export const headingName = (yaw) => COMPASS[Math.round((((yaw % 360) + 360) % 360) / 45) % 8];
