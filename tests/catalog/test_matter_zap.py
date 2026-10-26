@@ -79,7 +79,9 @@ def test_device_types_keep_only_locked_server_clusters_with_their_required_attri
     light = parse_zap(ZAP_FILES).device_types[0x010C]
     assert light.server_clusters == ("On/Off", "Color Control")  # the serverLocked="false" include is optional
     assert light.required == {"On/Off": ("ON_OFF",),
-                              "Color Control": ("COLOR_CONTROL_COLOR_TEMPERATURE", "COLOR_CONTROL_COLOR_MODE")}
+                              "Color Control": ("COLOR_CONTROL_COLOR_TEMPERATURE", "COLOR_CONTROL_COLOR_MODE",
+                                                "COLOR_CONTROL_COLOR_TEMP_PHYSICAL_MIN",
+                                                "COLOR_CONTROL_COLOR_TEMP_PHYSICAL_MAX")}
 
 
 def test_enums_resolve_per_cluster_first():

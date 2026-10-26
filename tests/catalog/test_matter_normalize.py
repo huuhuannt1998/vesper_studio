@@ -60,10 +60,20 @@ def test_unknown_vendor_name_and_device_type_are_reasons_not_crashes():
 
 def test_required_attributes_are_features_even_where_the_cluster_marks_them_optional():
     feats = {f["name"]: f for f in records()["matter:100b:0018"]["features"]}
-    assert set(feats) == {"On/Off.OnOff", "Color Control.ColorMode", "Color Control.ColorTemperatureMireds"}
+    assert set(feats) == {"On/Off.OnOff", "Color Control.ColorMode", "Color Control.ColorTemperatureMireds",
+                          "Color Control.ColorTempPhysicalMinMireds", "Color Control.ColorTempPhysicalMaxMireds"}
     assert feats["Color Control.ColorTemperatureMireds"]["range"] == [0, 0xFEFF]
     assert "set" in feats["Color Control.ColorTemperatureMireds"]["access"]
     assert feats["Color Control.ColorMode"]["values"] == ["CurrentHueAndCurrentSaturation", "ColorTemperatureMireds"]
+
+
+def test_a_required_attribute_named_by_an_older_define_is_still_a_feature():
+    """connectedhomeip's device types require COLOR_CONTROL_COLOR_TEMP_PHYSICAL_MIN and _MAX, which the Color
+    Control cluster defines as ..._MIN_MIREDS and ..._MAX_MIREDS; an exact match dropped a light's physical limits."""
+    feats = {f["name"]: f for f in records()["matter:100b:0018"]["features"]}
+    lo, hi = feats["Color Control.ColorTempPhysicalMinMireds"], feats["Color Control.ColorTempPhysicalMaxMireds"]
+    assert lo["range"] == [1, 65279] and "set" not in lo["access"] and "set" not in hi["access"]
+    assert lo["category"] == hi["category"] == "diagnostic"  # they describe the light, not its state
 
 
 def test_door_lock_operating_mode_uses_the_door_lock_enum():

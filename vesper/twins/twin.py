@@ -18,9 +18,11 @@ def stable_seed(*parts: object) -> int:
 # the coupled minimum and the start-up temperature are manufacturer-specific and must lie in the light's physical
 # range, which the catalog does not know (the DCL publishes no limits), so they start at the same 250 mireds, inside
 # the usual tunable-white range (153 to 370 mireds, 6500 K to 2700 K). The type's minimum, 0 or 1 mired, is outside
-# every light's range.
+# every light's range. The light's own physical limits are unknown, so they start as the widest the attributes
+# allow: 1 mired to Matter's PhysicalMax default, 0xFEFF.
 SPEC_START = {"Color Control.ColorTemperatureMireds": 250, "Color Control.CoupleColorTempToLevelMinMireds": 250,
-              "Color Control.StartUpColorTemperatureMireds": 250}
+              "Color Control.StartUpColorTemperatureMireds": 250, "Color Control.ColorTempPhysicalMinMireds": 1,
+              "Color Control.ColorTempPhysicalMaxMireds": 0xFEFF}
 
 
 def _initial(f: dict):

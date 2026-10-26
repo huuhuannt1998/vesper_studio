@@ -21,7 +21,7 @@ UTILITY_CLUSTERS = frozenset({
 DESCRIPTIVE = frozenset({
     "Options", "OnLevel", "LockType", "ControlSequenceOfOperation", "FanModeSequence", "EndProductType", "Type",
     "ConfigStatus", "OccupancySensorType", "OccupancySensorTypeBitmap", "SupportedOperatingModes",
-    "MultiPressMax", "ColorMode", "EnhancedColorMode",
+    "MultiPressMax", "ColorMode", "EnhancedColorMode", "ColorTempPhysicalMinMireds", "ColorTempPhysicalMaxMireds",
 })
 COMMAND_SET = frozenset({  # attributes that a standard command changes, though not writable directly
     ("On/Off", "OnOff"), ("Level Control", "CurrentLevel"), ("Door Lock", "LockState"),
@@ -75,6 +75,19 @@ def _category(attribute: str) -> str | None:
     return "diagnostic" if descriptive else None
 
 
+def _required_names(cluster, required) -> set[str]:
+    """The attributes a device type requires. It names them by define, and some names lag the cluster's XML:
+    Color Temperature Light requires COLOR_CONTROL_COLOR_TEMP_PHYSICAL_MIN, which the cluster defines as
+    COLOR_CONTROL_COLOR_TEMP_PHYSICAL_MIN_MIREDS. So a name matches a define exactly, else an attribute's name,
+    else the one define that extends it; a name that matches nothing is left out, as before."""
+    out = set()
+    for r in required:
+        exact = [a.name for a in cluster.attributes if a.define == r or a.name == r]
+        longer = [a.name for a in cluster.attributes if a.define.startswith(r + "_")]
+        out.update(exact or (longer if len(longer) == 1 else ()))
+    return out
+
+
 def device_type_features(zap: ZapModel, dt: DeviceType, prov: str) -> list[dict]:
     feats = []
     for cname in dt.server_clusters:
@@ -85,9 +98,9 @@ def device_type_features(zap: ZapModel, dt: DeviceType, prov: str) -> list[dict]
             feats.append({"name": cname, "type": "unsupported", "access": [], "category": None, "ha": None,
                           "source": prov, "unsupported_reason": f"cluster {cname!r} has no ZAP definition"})
             continue
-        required = set(dt.required.get(cname, ()))
+        required = _required_names(cluster, dt.required.get(cname, ()))
         for a in cluster.attributes:
-            if a.optional and a.define not in required:  # the device type can require an optional attribute
+            if a.optional and a.name not in required:  # the device type can require an optional attribute
                 continue
             kind, extra = resolve_type(zap, a.type, cluster.code)
             settable = a.writable or (cname, a.name) in COMMAND_SET

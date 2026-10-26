@@ -113,6 +113,10 @@ ZAP_FILES = {
                type="int16u" min="0" max="0xfeff" optional="true"/>
     <attribute side="server" code="0x0003" name="CurrentX" define="COLOR_CONTROL_CURRENT_X" type="int16u"
                optional="true"/>
+    <attribute side="server" code="0x400B" name="ColorTempPhysicalMinMireds"
+               define="COLOR_CONTROL_COLOR_TEMP_PHYSICAL_MIN_MIREDS" type="int16u" min="1" max="65279" optional="true"/>
+    <attribute side="server" code="0x400C" name="ColorTempPhysicalMaxMireds"
+               define="COLOR_CONTROL_COLOR_TEMP_PHYSICAL_MAX_MIREDS" type="int16u" max="65279" optional="true"/>
   </cluster></configurator>""").encode(),
     "matter-devices.xml": (APACHE_HEADER + """<configurator>
   <deviceType><name>MA-contactsensor</name><domain>CHIP</domain><typeName>Contact Sensor</typeName>
@@ -135,7 +139,9 @@ ZAP_FILES = {
         <requireAttribute>ON_OFF</requireAttribute></include>
       <include cluster="Color Control" server="true" serverLocked="true">
         <requireAttribute>COLOR_CONTROL_COLOR_TEMPERATURE</requireAttribute>
-        <requireAttribute>COLOR_CONTROL_COLOR_MODE</requireAttribute></include>
+        <requireAttribute>COLOR_CONTROL_COLOR_MODE</requireAttribute>
+        <requireAttribute>COLOR_CONTROL_COLOR_TEMP_PHYSICAL_MIN</requireAttribute>
+        <requireAttribute>COLOR_CONTROL_COLOR_TEMP_PHYSICAL_MAX</requireAttribute></include>
       <include cluster="Temperature Measurement" server="true" serverLocked="false"/></clusters></deviceType>
 </configurator>""").encode(),
 }

@@ -19,6 +19,16 @@ def test_a_matter_color_temperature_light_starts_at_the_spec_default_not_below_i
     assert [t.state[f["name"]] for f in ct] == [250, 250, 250]
 
 
+def test_a_light_s_unknown_physical_limits_start_as_the_widest_the_attributes_allow():
+    """The DCL publishes no limits, so the twin claims none: 1 to 0xFEFF mireds (Matter's PhysicalMax default),
+    with the 250-mired start inside."""
+    limits = [{"name": "Color Control.ColorTempPhysicalMinMireds", "type": "numeric", "access": ["state", "get"],
+               "range": [1, 65279]},
+              {"name": "Color Control.ColorTempPhysicalMaxMireds", "type": "numeric", "access": ["state", "get"]}]
+    t = Twin.from_vds({"id": "matter:1460:aa61", "features": limits})
+    assert (t.state[limits[0]["name"]], t.state[limits[1]["name"]]) == (1, 0xFEFF)
+
+
 def test_binary_values_are_matched_like_zigbee2mqtt_and_toggle_flips(vds):
     t = Twin.from_vds(vds["LED1545G12"])
     assert t.coerce("state", "on") == "ON"
