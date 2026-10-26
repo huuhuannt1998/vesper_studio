@@ -3,7 +3,7 @@
 **A smart-home simulation lab on a laptop: real market devices as virtual twins, living in homes from real 3D
 scenes, with an unmodified Home Assistant as the hub.**
 
-![The play page: the example home, a resident at dinner, the event feed, a motion sensor that sees the player, and why the lamp is out of reach](docs/images/lab-play.png)
+![The play page in 3D: the player in the example home's bedroom has just switched on an IKEA lamp; the crosshair's prompt says what a click does next, the console shows the lamp's report, and Alex is at dinner in the kitchen](docs/images/lab-play.png)
 
 VESPER Studio maps 13,682 real products from the Zigbee2MQTT, Matter and Z-Wave catalogs to virtual devices, each
 at the highest fidelity its public definition allows. It places them in a home: a small test house, or a real 3D
@@ -78,7 +78,11 @@ made from a real scene (below) is drawn from the scene itself.
 
 As in a game, the prompt under the crosshair says what a click will do ("Click: switch kitchen_plug on"), or why
 it cannot ("too far (3.7 m)", "other side of the wall", "a sensor, not used by hand"). A browser without WebGL, or
-the address with `?view=map`, plays on the map alone. The page also shows:
+the address with `?view=map`, plays on the map alone:
+
+![The map page: the same home from above, with Alex at dinner, the event feed, a motion sensor that sees the player, and why the lamp is out of reach](docs/images/lab-map.png)
+
+The page also shows:
 - in the header, the room you are in and the direction you face, and a compass at the top of the view;
 - bottom right, the minimap;
 - top right, the event feed: a sensor seeing someone, a door, a resident's action, an automation;
@@ -184,7 +188,7 @@ takes screenshots and writes a report. `look-3d.yaml` checks the 3D view: the cr
 
 ## Development
 
-    .venv/bin/python -m pytest          # about 820 tests, about a minute
+    .venv/bin/python -m pytest          # about 860 tests, a minute or two
     .venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposure vesper/validation vesper_world \
         tests/lab tests/catalog tests/twins tests/exposure tests/validation tests/world
 
@@ -215,7 +219,9 @@ Layout:
 ## Roadmap
 
 - **Guided setup:** `vesper setup habitat`, scene downloads, and `vesper doctor`.
-- **The security lab:** attacks and defenses, run against VESPER's own local services, with their alerts.
+- **The security lab:** attacks and defenses as scenario files, run against VESPER's own local services, with their
+  alerts, starting with the Phantom-Delay attacks (Fu et al., DSN 2022). An MCP server will let Claude Desktop, or
+  any MCP client, set up a scenario from a research paper.
 - **VESPER Studio for macOS and Windows:** one desktop app, with the setup built in.
 - **The placement editor**, and Matter devices on the hub.
 
