@@ -3,6 +3,7 @@ file and the scene's door openings. The pure parts run here, under VESPER's Pyth
 runnable in the Habitat environment (Python 3.9)."""
 import ast
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -96,8 +97,48 @@ def test_a_storeyed_scene_is_its_ground_floor_and_says_what_it_leaves_out():
     assert [o["handle"] for o in export.openings_on_floor(openings, 0.0)] == ["211-2_:0000"]
 
 
+URDF = """<?xml version="1.0" ?>
+<robot name="cabinet">
+  <link name="root"/>
+  <joint name="root_rotation" type="fixed"><parent link="root"/><child link="body"/></joint>
+  <link name="body">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/><geometry><mesh filename="body.glb" scale="1.0 1.0 1.0"/></geometry>
+    </visual>
+    <collision><geometry><box size="1 1 1"/></geometry></collision>
+  </link>
+  <link name="door">
+    <visual>
+      <origin xyz="0.5 0 0" rpy="1.5707963 0 0"/><geometry><mesh filename="door.glb" scale="2 1 1"/></geometry>
+    </visual>
+    <visual><geometry><mesh filename="handle.glb"/></geometry></visual>
+  </link>
+</robot>
+"""
+
+
+def test_an_articulated_object_s_meshes_are_read_from_its_urdf():
+    visuals = export.urdf_visuals(URDF)
+    assert visuals == {"body": [("body.glb", (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 1.0, 1.0))],
+                       "door": [("door.glb", (0.5, 0.0, 0.0), (1.5707963, 0.0, 0.0), (2.0, 1.0, 1.0)),
+                                ("handle.glb", (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (1.0, 1.0, 1.0))]}
+
+
+def test_a_mesh_s_place_is_its_link_s_frame_then_its_urdf_origin():
+    """URDF's roll, pitch and yaw turn about the fixed x, y and z axes; the spike matched Habitat to 1e-6."""
+    m = export.trs((1, 2, 3), (math.pi / 2, 0, 0), (2, 1, 1))
+    y_axis = [m[0][1], m[1][1], m[2][1]]  # where the mesh's +y goes: up turns to +z under a quarter roll
+    assert [round(v, 6) for v in y_axis] == [0, 0, 1] and [m[0][3], m[1][3], m[2][3]] == [1, 2, 3]
+    assert [round(m[0][0], 6), round(m[1][0], 6), round(m[2][0], 6)] == [2, 0, 0]  # the scale stays on its axis
+    frame = [[0, 0, 1, 10], [0, 1, 0, 0], [-1, 0, 0, 5], [0, 0, 0, 1]]  # a link turned a quarter about y
+    placed = export.matmul(frame, export.trs((1, 0, 0), (0, 0, 0), (1, 1, 1)))
+    assert [placed[0][3], placed[1][3], placed[2][3]] == [10, 0, 4]
+    assert export.flat(export.IDENTITY_ROWS) == [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+
+
 class FakeScene:
     scene = "102344022"
+    hssd = "/data/hssd-hab"
     floor_y = 0.0
     bounds = ((0.0, 0.0, 0.0), (3.0, 1.0, 2.0))
     regions = [{"name": "kitchen", "label": "kitchen", "floor_height": 0.0,
@@ -108,6 +149,10 @@ class FakeScene:
                 "poly_loop": [[0, 0, 0], [1.4, 0, 0], [1.4, 0, 2], [0, 0, 2]]}]
     openings = [{"handle": "211-2_:0000", "kind": "door", "x": 1.5, "y": 1.1, "z": 1.0},
                 {"handle": "211-2_:0001", "kind": "door", "x": 1.5, "y": 3.9, "z": 1.0}]  # upstairs
+    render = [{"kind": "stage", "asset": "stages/102344022.glb",
+               "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]},
+              {"kind": "object", "asset": "objects/openings/211-2.glb", "handle": "211-2_:0000",
+               "opening": "door", "matrix": [1, 0, 0, 1.5, 0, 1, 0, 0, 0, 0, 1, 1.0, 0, 0, 0, 1]}]
 
     @staticmethod
     def navigable(x, y, z):  # two rooms, and a doorway at z 0.6..1.4 through the wall at x 1.4..1.6
@@ -124,6 +169,9 @@ def test_export_writes_a_map_vesper_loads_and_the_openings(tmp_path, monkeypatch
     openings = json.loads((tmp_path / "out" / "openings.json").read_text())
     assert openings == {"format": "vesper-openings/1", "scene": "hssd/102344022", "openings": FakeScene.openings[:1],
                         "floor": {"height": 0.0, "storeys": [0.0, 2.8], "left_out": ["bedroom"]}}
+    render = json.loads((tmp_path / "out" / "render.json").read_text())
+    assert render == {"format": "vesper-render/1", "scene": "hssd/102344022", "hssd": "/data/hssd-hab",
+                      "floor_y": 0.0, "items": FakeScene.render}
     said = capsys.readouterr().out
     assert "2 rooms, 1 door, 0 windows" in said and "the ground floor of 2 storeys, leaving out bedroom" in said
 

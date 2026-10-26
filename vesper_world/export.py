@@ -6,18 +6,24 @@ Whether an opening is a door or a window is HSSD's own metadata: floor-length wi
 largest connected part of the floor is kept: a stair landing or a speck of navmesh on a counter is not floor a
 person walks on. Rooms are HSSD's region annotations on the ground floor; a storeyed scene's upper floors are left
 out, and named. Doorways are not exported: VESPER derives them from the floor and the rooms.
+The render manifest (`vesper-render/1`, plan W1b) lists every mesh the scene draws, each with the world matrix
+Habitat gives it: the browser draws the scene from HSSD's own files, placed exactly as Habitat places them.
 Pure functions only: `habitat_scene.py` holds what needs Habitat.
 """
 from __future__ import annotations
 
 import base64
 import csv
+import math
 import re
+import xml.etree.ElementTree as ET
 from collections import deque
 from math import ceil, floor
 
 MAP_FORMAT = "vesper-map/1"
 OPENINGS_FORMAT = "vesper-openings/1"
+RENDER_FORMAT = "vesper-render/1"
+IDENTITY_ROWS = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
 CELL_M = 0.1
 OUTDOOR_LABELS = ("outdoor", "porch/terrace/deck/driveway", "balcony")  # HSSD's region labels for outside
 _OPENING = re.compile(r"^\d+-\d+_:\d+$")  # HSSD's door and window objects: objects/openings/<n>-<k>
@@ -152,3 +158,51 @@ def scene_openings(scene) -> dict:
             "openings": openings_on_floor(scene.openings, scene.floor_y),
             "floor": {"height": scene.floor_y, "storeys": storeys(scene.regions),
                       "left_out": [r["name"] for r in left_out]}}
+
+
+def scene_render(scene) -> dict:
+    """The render manifest: each mesh's file (relative to HSSD) and world matrix (16 numbers, row by row)."""
+    return {"format": RENDER_FORMAT, "scene": f"hssd/{scene.scene}", "hssd": scene.hssd, "floor_y": scene.floor_y,
+            "items": list(scene.render)}
+
+
+def urdf_visuals(text: str) -> dict:
+    """{link name: [(mesh file, xyz, rpy, scale), ...]}: the meshes an articulated object draws, per link."""
+    def numbers(value, default):
+        return tuple(float(v) for v in value.split()) if value else default
+    out = {}
+    for link in ET.fromstring(text).iter("link"):
+        meshes = []
+        for visual in link.findall("visual"):
+            mesh, origin = visual.find("geometry/mesh"), visual.find("origin")
+            if mesh is None:
+                continue
+            meshes.append((mesh.get("filename"),
+                           numbers(origin.get("xyz") if origin is not None else None, (0.0, 0.0, 0.0)),
+                           numbers(origin.get("rpy") if origin is not None else None, (0.0, 0.0, 0.0)),
+                           numbers(mesh.get("scale"), (1.0, 1.0, 1.0))))
+        if meshes:
+            out[link.get("name")] = meshes
+    return out
+
+
+def trs(xyz, rpy, scale):
+    """A URDF origin as a 4x4 matrix (rows): translate, then turn (roll, pitch, yaw about the fixed x, y and z
+    axes), then scale."""
+    roll, pitch, yaw = rpy
+    cr, sr, cp, sp, cy, sy = (math.cos(roll), math.sin(roll), math.cos(pitch), math.sin(pitch), math.cos(yaw),
+                              math.sin(yaw))
+    r = [[cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
+         [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
+         [-sp, cp * sr, cp * cr]]
+    return [[r[i][0] * scale[0], r[i][1] * scale[1], r[i][2] * scale[2], float(xyz[i])] for i in range(3)] + \
+        [[0.0, 0.0, 0.0, 1.0]]
+
+
+def matmul(a, b):
+    return [[sum(a[i][k] * b[k][j] for k in range(4)) for j in range(4)] for i in range(4)]
+
+
+def flat(rows) -> list:
+    """A 4x4 matrix as the manifest stores it: 16 numbers, row by row (three.js's Matrix4.set order)."""
+    return [round(float(v), 6) + 0.0 for row in rows for v in row]
