@@ -3,11 +3,10 @@ here, and only when a scene is loaded, so the rest of the package runs without i
 from __future__ import annotations
 
 import json
-import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from vesper_world.export import ExportError, is_opening
+from vesper_world.export import KINDS_CSV, ExportError, ground_floor, is_opening, opening_kind, opening_kinds
 
 AGENT_HEIGHT_M = 1.6
 AGENT_RADIUS_M = 0.2  # the walkable floor keeps this far from walls and furniture
@@ -41,6 +40,10 @@ def load_scene(hssd: str, scene: str, radius: float = AGENT_RADIUS_M) -> Scene:
     regions = json.loads(semantics.read_text()).get("region_annotations") or []
     if not regions:
         raise ExportError(f"scene {scene!r}: its region annotations are empty")
+    if not (root / KINDS_CSV).is_file():
+        raise ExportError(f"{root} has no {KINDS_CSV}: without it doors and windows cannot be told apart "
+                          f"(download HSSD's metadata folder)")
+    kinds = opening_kinds(root / KINDS_CSV)
     import habitat_sim as hs
     cfg = hs.SimulatorConfiguration()
     cfg.scene_dataset_config_file = str(config)
@@ -55,9 +58,11 @@ def load_scene(hssd: str, scene: str, radius: float = AGENT_RADIUS_M) -> Scene:
         openings = []
         for handle in [h for h in objects.get_object_handles() if is_opening(h)]:
             t = objects.get_object_by_handle(handle).translation
-            openings.append({"handle": handle, "x": round(float(t[0]), 4), "y": round(float(t[1]), 4),
+            kind = opening_kind(handle, kinds) or "unknown"
+            openings.append({"handle": handle, "kind": kind, "x": round(float(t[0]), 4), "y": round(float(t[1]), 4),
                              "z": round(float(t[2]), 4)})
-            objects.remove_object_by_handle(handle)
+            if kind == "door":  # a window stays: it is wall, whatever its height
+                objects.remove_object_by_handle(handle)
         settings = hs.NavMeshSettings()
         settings.set_defaults()
         settings.agent_radius, settings.agent_height = radius, AGENT_HEIGHT_M
@@ -66,7 +71,7 @@ def load_scene(hssd: str, scene: str, radius: float = AGENT_RADIUS_M) -> Scene:
             raise ExportError(f"scene {scene!r}: Habitat could not build its navmesh")
         lo, hi = sim.pathfinder.get_bounds()
         bounds = ((float(lo[0]), float(lo[1]), float(lo[2])), (float(hi[0]), float(hi[1]), float(hi[2])))
-        floor_y = statistics.median(float(r.get("floor_height", 0.0)) for r in regions)
+        floor_y = ground_floor(regions)
         loaded = Scene(scene, floor_y, bounds, regions, openings)
         loaded._pathfinder = sim.pathfinder
         loaded._sim = sim  # kept alive while the pathfinder is used

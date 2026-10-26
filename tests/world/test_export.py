@@ -61,20 +61,60 @@ def test_a_door_opening_is_an_object_named_by_its_number_and_part():
     assert not export.is_opening("0a1b2c3d4e_:0000") and not export.is_opening("chair_:0000")
 
 
+def test_an_opening_is_a_door_or_a_window_as_hssd_s_metadata_says():
+    """Floor-length windows are 2.2 m tall, like doors: only HSSD's own category tells them apart (final review)."""
+    kinds = {"211-2": "door", "4134-0": "window"}
+    assert export.opening_kind("211-2_:0001", kinds) == "door"
+    assert export.opening_kind("4134-0_:0000", kinds) == "window"
+    assert export.opening_kind("999-9_:0000", kinds) is None
+
+
+def test_the_kinds_are_read_from_hssd_s_object_metadata(tmp_path):
+    csv = tmp_path / "fpmodels-with-decomposed.csv"
+    csv.write_text("id,name,main_category,super_category\n"
+                   "211-2,door,door,structure\n4134-0,\"window, tall\",window,structure\n"
+                   "0a1b2c3d4e,chair,chair,furniture\n")
+    assert export.opening_kinds(csv) == {"211-2": "door", "4134-0": "window"}
+
+
+def test_an_upper_storey_with_more_rooms_is_still_not_the_ground_floor():
+    regions = [{"name": "garden", "label": "outdoor", "floor_height": -0.9},
+               {"name": "hall", "label": "hallway", "floor_height": 0.0},
+               {"name": "bed1", "label": "bedroom", "floor_height": 2.81},
+               {"name": "bed2", "label": "bedroom", "floor_height": 2.81}]
+    assert export.ground_floor(regions) == 0.0  # not the lower garden, not the busier upstairs
+
+
+def test_a_storeyed_scene_is_its_ground_floor_and_says_what_it_leaves_out():
+    regions = [{"name": "kitchen", "floor_height": 0.0}, {"name": "bedroom", "floor_height": 2.81},
+               {"name": "hall", "floor_height": 0.02}, {"name": "attic", "floor_height": 5.6}]
+    assert export.ground_floor(regions) == 0.0
+    kept, dropped = export.on_floor(regions, 0.0)
+    assert [r["name"] for r in kept] == ["kitchen", "hall"] and [r["name"] for r in dropped] == ["bedroom", "attic"]
+    assert export.storeys(regions) == [0.0, 2.81, 5.6]
+    openings = [{"handle": "211-2_:0000", "y": 1.1}, {"handle": "211-2_:0001", "y": 3.9}]
+    assert [o["handle"] for o in export.openings_on_floor(openings, 0.0)] == ["211-2_:0000"]
+
+
 class FakeScene:
     scene = "102344022"
     floor_y = 0.0
     bounds = ((0.0, 0.0, 0.0), (3.0, 1.0, 2.0))
-    regions = [{"name": "kitchen", "label": "kitchen", "poly_loop": [[0, 0, 0], [1.4, 0, 0], [1.4, 0, 2], [0, 0, 2]]},
-               {"name": "hallway", "label": "hallway", "poly_loop": [[1.6, 0, 0], [3, 0, 0], [3, 0, 2], [1.6, 0, 2]]}]
-    openings = [{"handle": "211-2_:0000", "x": 1.5, "y": 1.1, "z": 1.0}]
+    regions = [{"name": "kitchen", "label": "kitchen", "floor_height": 0.0,
+                "poly_loop": [[0, 0, 0], [1.4, 0, 0], [1.4, 0, 2], [0, 0, 2]]},
+               {"name": "hallway", "label": "hallway", "floor_height": 0.0,
+                "poly_loop": [[1.6, 0, 0], [3, 0, 0], [3, 0, 2], [1.6, 0, 2]]},
+               {"name": "bedroom", "label": "bedroom", "floor_height": 2.8,  # upstairs: left out
+                "poly_loop": [[0, 0, 0], [1.4, 0, 0], [1.4, 0, 2], [0, 0, 2]]}]
+    openings = [{"handle": "211-2_:0000", "kind": "door", "x": 1.5, "y": 1.1, "z": 1.0},
+                {"handle": "211-2_:0001", "kind": "door", "x": 1.5, "y": 3.9, "z": 1.0}]  # upstairs
 
     @staticmethod
     def navigable(x, y, z):  # two rooms, and a doorway at z 0.6..1.4 through the wall at x 1.4..1.6
         return 0 <= x <= 3 and 0 <= z <= 2 and (not 1.4 <= x <= 1.6 or 0.6 <= z <= 1.4)
 
 
-def test_export_writes_a_map_vesper_loads_and_the_openings(tmp_path, monkeypatch):
+def test_export_writes_a_map_vesper_loads_and_the_openings(tmp_path, monkeypatch, capsys):
     import vesper_world.__main__ as cli
     monkeypatch.setattr(cli, "load_scene", lambda hssd, scene, radius: FakeScene)
     assert main(["export", "--hssd", str(tmp_path), "--scene", "102344022", "--out", str(tmp_path / "out")]) == 0
@@ -82,7 +122,10 @@ def test_export_writes_a_map_vesper_loads_and_the_openings(tmp_path, monkeypatch
     assert m.scene == "hssd/102344022" and [r.id for r in m.rooms] == ["kitchen", "hallway"]
     assert [d.id for d in m.doorways] == ["hallway-kitchen"]
     openings = json.loads((tmp_path / "out" / "openings.json").read_text())
-    assert openings == {"format": "vesper-openings/1", "scene": "hssd/102344022", "openings": FakeScene.openings}
+    assert openings == {"format": "vesper-openings/1", "scene": "hssd/102344022", "openings": FakeScene.openings[:1],
+                        "floor": {"height": 0.0, "storeys": [0.0, 2.8], "left_out": ["bedroom"]}}
+    said = capsys.readouterr().out
+    assert "2 rooms, 1 door, 0 windows" in said and "the ground floor of 2 storeys, leaving out bedroom" in said
 
 
 def test_export_names_a_scene_it_cannot_load(tmp_path, monkeypatch, capsys):

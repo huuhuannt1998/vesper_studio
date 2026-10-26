@@ -33,9 +33,18 @@ def main(argv=None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     (out / "map.json").write_text(json.dumps(world_map))
     (out / "openings.json").write_text(json.dumps(openings, indent=1))
+    doors = sum(o.get("kind") == "door" for o in openings["openings"])
+    floor = openings["floor"]
+    upper = (f"; the ground floor of {len(floor['storeys'])} storeys, leaving out "
+             f"{', '.join(floor['left_out'])}" if floor["left_out"] else "")
     print(f"{args.scene}: {world_map['grid']['width']} x {world_map['grid']['height']} cells, "
-          f"{len(world_map['rooms'])} rooms, {len(openings['openings'])} openings -> {out}")
+          f"{len(world_map['rooms'])} rooms, {_count(doors, 'door')}, "
+          f"{_count(len(openings['openings']) - doors, 'window')}{upper} -> {out}")
     return 0
+
+
+def _count(n: int, noun: str) -> str:
+    return f"{n} {noun}" + ("" if n == 1 else "s")
 
 
 if __name__ == "__main__":
