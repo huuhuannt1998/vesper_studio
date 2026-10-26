@@ -492,7 +492,7 @@ map: map.json
 seed: 0
 start_time: "07:00"
 avatar: {{model: female_0, start: {{room: {room}}}}}
-doors: []
+{doors}
 devices: []
 # devices:
 #   - {{product: "zigbee:aqara:mccgq11lm", name: front_door, at: {{door: {doorway}}}}}
@@ -508,9 +508,12 @@ def _lab(args) -> int:
     from vesper.lab.session import TraceError
     from vesper.lab.worldmap import MapError, WorldMap
     from vesper.twins.home import load_catalog
+    from vesper.lab.scenes import SceneError
     try:
         if args.action == "new":
             return _lab_new(args, WorldMap)
+        if args.action == "scenes":
+            return _lab_scenes(args)
         catalog = load_catalog(Path(args.catalog))
         if args.action == "check":
             home = load_lab_home(Path(args.home), catalog)
@@ -529,9 +532,18 @@ def _lab(args) -> int:
         if args.action == "routine":
             return _lab_routine(args, load_lab_home(Path(args.home), catalog))
         return _lab_replay(args, catalog, load_lab_home)
-    except (HomeError, MapError, TraceError) as e:
+    except (HomeError, MapError, TraceError, SceneError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
         return 1
+
+
+def _lab_scenes(args) -> int:
+    """The HSSD scenes here: rooms, indoor area, and whether every file each needs is here (spec §2)."""
+    from vesper.lab.scenes import hssd_dir, list_scenes
+    for s in list_scenes(hssd_dir(args.hssd)):
+        state = "ready" if s.ready else f"missing {len(s.missing)} file{'s' if len(s.missing) != 1 else ''}"
+        print(f"{s.id}  {s.rooms} rooms  {s.indoor_m2:g} m²  {state}  ({', '.join(s.labels)})")
+    return 0
 
 
 def _new_trace(directory: Path, label: str) -> Path:
@@ -544,20 +556,48 @@ def _new_trace(directory: Path, label: str) -> Path:
 
 
 def _lab_new(args, world_map_cls) -> int:
+    """A home directory from a map file, or from an HSSD scene through the world service (spec §2, plan W1a)."""
+    import shutil
+
+    from vesper.lab.scenes import (SceneError, doors_from_openings, export_scene, habitat_python, hssd_dir,
+                                   scene_info, start_room)
     target = Path(args.dir)
     if target.exists():
         print(f"FAILED: {target} already exists", file=sys.stderr)
         return 1
-    world_map = world_map_cls.load(Path(args.map))
-    indoor = [r for r in world_map.rooms if not r.outdoor] or world_map.rooms
-    start = next((r for word in ("entry", "hall", "living") for r in indoor if word in r.label.lower()), indoor[0])
-    target.mkdir(parents=True)
-    world_map.save(target / "map.json")
+    doors: list[str] = []
+    if args.scene:
+        hssd = hssd_dir(args.hssd)
+        try:
+            info = scene_info(hssd, args.scene)
+            if info.missing:
+                n = len(info.missing)
+                raise SceneError(f"scene {args.scene} needs {n} file{'s' if n != 1 else ''} that "
+                                 f"{'are' if n != 1 else 'is'} not in {hssd}, such as {', '.join(info.missing[:3])}; "
+                                 "download the scene's files first")
+            target.mkdir(parents=True)
+            export_scene(hssd, args.scene, target, habitat_python(args.habitat_python))
+        except SceneError as e:
+            if target.exists():
+                shutil.rmtree(target)  # made here, just now: nothing of the user's is in it
+            print(f"FAILED: {e}", file=sys.stderr)
+            return 1
+        world_map = world_map_cls.load(target / "map.json")
+        doors = doors_from_openings(world_map, json.loads((target / "openings.json").read_text())["openings"])
+    else:
+        world_map = world_map_cls.load(Path(args.map))
+        target.mkdir(parents=True)
+        world_map.save(target / "map.json")
+    start = start_room(world_map)
+    door_lines = "doors:" + "".join(f"\n  - {{doorway: {d}, open: false}}" for d in doors) if doors else "doors: []"
     (target / "home.yaml").write_text(HOME_TEMPLATE.format(
-        scene=world_map.scene, room=start.id, rooms=", ".join(r.id for r in world_map.rooms),
+        scene=world_map.scene, room=start, doors=door_lines, rooms=", ".join(r.id for r in world_map.rooms),
         doorway=(world_map.doorways[0].id if world_map.doorways else "<doorway>"),
         doorways=", ".join(d.id for d in world_map.doorways) or "none"))
-    print(f"created {target / 'home.yaml'} on {world_map.scene}; add devices, then `vesper lab check`")
+    found = f", {len(doors)} door{'s' if len(doors) != 1 else ''} from the scene's openings" if args.scene else ""
+    print(f"created {target / 'home.yaml'} on {world_map.scene}: {len(world_map.rooms)} rooms, "
+          f"{len(world_map.doorways)} doorways{found}; the player starts in {start}. "
+          "Place devices (vesper catalog search), then `vesper lab check`")
     return 0
 
 
@@ -981,9 +1021,16 @@ def main(argv: list[str] | None = None) -> int:
     mat.add_argument("--out")
     lab = commands.add_parser("lab", help="VESPER Lab: a game-like virtual smart home")
     lab_actions = lab.add_subparsers(dest="action", required=True)
-    lab_new = lab_actions.add_parser("new", help="create a home directory from a scene's map file")
+    lab_new = lab_actions.add_parser("new", help="create a home directory from an HSSD scene or a map file")
     lab_new.add_argument("dir")
-    lab_new.add_argument("--map", required=True, help="a vesper-map/1 file")
+    lab_source = lab_new.add_mutually_exclusive_group(required=True)
+    lab_source.add_argument("--scene", help="an HSSD scene id (vesper lab scenes lists them)")
+    lab_source.add_argument("--map", help="a vesper-map/1 file")
+    lab_new.add_argument("--hssd", help="the HSSD dataset (default: $VESPER_HSSD or data/scene_datasets/hssd-hab)")
+    lab_new.add_argument("--habitat-python", help="the Habitat environment's Python (default: $VESPER_HABITAT_PYTHON "
+                                                  "or ~/miniconda3/envs/vesper/bin/python)")
+    lab_scenes = lab_actions.add_parser("scenes", help="the HSSD scenes here, and whether each is ready")
+    lab_scenes.add_argument("--hssd", help="the HSSD dataset (default: $VESPER_HSSD or data/scene_datasets/hssd-hab)")
     lab_check = lab_actions.add_parser("check", help="validate a home file")
     lab_check.add_argument("home")
     lab_check.add_argument("--catalog", default="catalog/vds")
