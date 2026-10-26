@@ -31,6 +31,73 @@ def test_play_serves_the_home_until_interrupted_and_keeps_its_trace(tmp_path, ca
     assert json.loads(trace.read_text().splitlines()[0])["format"] == "vesper-trace/1"
 
 
+def scene_setup(tmp_path):
+    from tests.lab.homes import catalog
+    from tests.lab.test_world3d import scene_home
+    from tests.twins.conftest import write_catalog
+    (tmp_path / "home").mkdir()
+    return write_catalog(tmp_path / "vds", list(catalog().values())), scene_home(tmp_path / "home").path
+
+
+def play_output(tmp_path, monkeypatch, capsys, *extra):
+    cat, home = (scene_setup if "scene" in extra else setup)(tmp_path)
+    seen = {}
+
+    def interrupted():
+        seen["out"] = capsys.readouterr().out
+        base = re.search(r"http://127\.0\.0\.1:\d+/", seen["out"]).group(0)
+        try:
+            seen["render"] = json.loads(get(base + "world/render.json"))
+        except Exception:  # noqa: BLE001 - a 404: no 3D scene
+            seen["render"] = None
+    monkeypatch.setattr(cli, "_wait_for_interrupt", interrupted)
+    args = [a for a in extra if a != "scene"]
+    assert cli.main(["lab", "play", str(home), "--catalog", str(cat), "--port", "0", "--no-browser", *args]) == 0
+    return seen, home
+
+
+def test_play_draws_a_home_made_from_a_scene_from_the_scene_s_files(tmp_path, capsys, monkeypatch):
+    seen, home = play_output(tmp_path, monkeypatch, capsys, "scene")
+    assert f"3D view: test/house, 4 meshes from {home.parent / 'hssd'}" in seen["out"]
+    assert "1 of its 3 files is missing (objects/openings/218-20.glb)" in seen["out"]
+    assert len(seen["render"]["items"]) == 4
+
+
+def test_play_takes_hssd_from_where_it_is_told(tmp_path, capsys, monkeypatch):
+    seen, _ = play_output(tmp_path, monkeypatch, capsys, "scene", "--hssd", str(tmp_path / "elsewhere"))
+    assert f"4 meshes from {tmp_path / 'elsewhere'}" in seen["out"] and "3 of its 3 files are missing" in seen["out"]
+
+
+def test_play_draws_a_home_without_a_scene_from_its_map(tmp_path, capsys, monkeypatch):
+    seen, _ = play_output(tmp_path, monkeypatch, capsys)
+    assert "3D view: drawn from the map" in seen["out"] and seen["render"] is None
+
+
+def test_play_with_a_broken_render_manifest_says_so_and_draws_the_map(tmp_path, capsys, monkeypatch):
+    cat, home = scene_setup(tmp_path)
+    (home.parent / "render.json").write_text("{")
+    monkeypatch.setattr(cli, "_wait_for_interrupt", lambda: None)
+    assert cli.main(["lab", "play", str(home), "--catalog", str(cat), "--port", "0", "--no-browser"]) == 0
+    out = capsys.readouterr().out
+    assert "3D view: cannot read" in out and "the page draws the home from its map" in out
+
+
+def test_play_draws_the_people_as_habitat_s_humanoids_when_they_are_there(tmp_path, capsys, monkeypatch):
+    from tests.lab.test_humanoids import fake_python, humanoid_data
+    monkeypatch.setenv("VESPER_HUMANOIDS", str(humanoid_data(tmp_path / "humanoid_data")))
+    monkeypatch.setenv("VESPER_HABITAT_PYTHON", str(fake_python(tmp_path)))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    seen, _ = play_output(tmp_path, monkeypatch, capsys)
+    assert "people: Habitat's humanoids (female_0)" in seen["out"]
+    assert (tmp_path / "cache" / "vesper" / "humanoids" / "female_0.motion.json").is_file()
+
+
+def test_play_without_habitat_s_humanoids_draws_plain_figures_and_says_why(tmp_path, capsys, monkeypatch):
+    monkeypatch.setenv("VESPER_HUMANOIDS", str(tmp_path / "nowhere"))
+    seen, _ = play_output(tmp_path, monkeypatch, capsys)
+    assert "people: plain figures (Habitat's humanoids are not at" in seen["out"]
+
+
 def test_play_opens_the_browser_unless_told_not_to(tmp_path, monkeypatch):
     cat, home = setup(tmp_path)
     opened = []
@@ -44,11 +111,13 @@ def test_look_runs_the_steps_and_reports_each_check(tmp_path, capsys, monkeypatc
     cat, home = setup(tmp_path)
     steps = tmp_path / "look.yaml"
     steps.write_text("- {shot: start}\n- {press: e}\n")
-    fake = FakeBrowser()
+    fake, launched = FakeBrowser(), {}
     fake.close = lambda: None
-    monkeypatch.setattr(browser_mod.Browser, "launch", classmethod(lambda cls, path=None, **kw: fake))
+    monkeypatch.setattr(browser_mod.Browser, "launch",
+                        classmethod(lambda cls, path=None, **kw: launched.update(kw) or fake))
     out = tmp_path / "look"
     assert cli.main(["lab", "look", str(home), "--catalog", str(cat), "--steps", str(steps), "--out", str(out)]) == 0
+    assert launched["timeout"] >= 60  # a scene's meshes keep a headless page busy for tens of seconds
     printed = capsys.readouterr().out
     assert "PASS the page is ready" in printed and "PASS start is not blank" in printed
     assert "PASS the page stayed connected" in printed and "PASS the session raised no errors" in printed

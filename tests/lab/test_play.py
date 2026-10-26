@@ -209,3 +209,74 @@ def test_hello_says_what_a_hand_uses_how_far_a_hand_reaches_and_who_lives_here(t
     assert h["reach_m"] == INTERACT_M
     assert h["residents"] == [{"name": "r0", "model": "male_0", "task": "read", "category": "LEISURE",
                                "room": "bedroom"}]
+
+
+def test_hello_says_whether_the_home_has_a_3d_scene_and_what_of_it_is_missing(tmp_path):
+    from tests.lab.test_world3d import scene_home
+    from vesper.lab.world3d import load_world3d
+    (tmp_path / "plain").mkdir()
+    plain = Session(load_lab_home(write_home(tmp_path / "plain"), catalog()), clock=WallClock())
+    assert hello(plain)["world3d"] is None
+    home = scene_home(tmp_path)
+    s = Session(home, clock=WallClock())
+    assert hello(s, world3d=load_world3d(home, tmp_path / "hssd"))["world3d"] == {
+        "render": "/world/render.json", "floor_y": 0.25, "items": 4, "missing": 1,
+        "missing_files": ["objects/openings/218-20.glb"], "hssd": str(tmp_path / "hssd")}
+
+
+def test_the_scene_s_files_are_served_and_nothing_else_of_hssd(tmp_path):
+    from tests.lab.test_world3d import scene_home
+    from vesper.lab.world3d import load_world3d
+    home = scene_home(tmp_path)
+    (tmp_path / "hssd" / "objects" / "other.glb").write_bytes(b"glTF")  # in HSSD, but not in this scene
+    (tmp_path / "secret.txt").write_text("not for the browser")
+    session = Session(home, clock=WallClock())
+    session.start()
+    server = PlayServer(session, port=0, world3d=load_world3d(home, tmp_path / "hssd"))
+    server.start()
+    try:
+        base = f"http://127.0.0.1:{server.port}"
+        status, kind, body = get(f"{base}/world/render.json")
+        assert status == 200 and kind == "application/json"
+        assert [i.get("doorway") for i in json.loads(body)["items"]] == [None, "bedroom-hall", None, None]
+        status, kind, body = get(f"{base}/hssd/stages/s.glb")
+        assert (status, kind, body) == (200, "model/gltf-binary", b"glTF")
+        for path in ("objects/other.glb", "objects/openings/218-20.glb", "../secret.txt", "..%2Fsecret.txt",
+                     "stages/../../secret.txt"):
+            assert get(f"{base}/hssd/{path}")[0] == 404, path
+    finally:
+        server.stop()
+        session.stop()
+
+
+def test_a_home_without_a_3d_scene_serves_no_render_manifest(play):
+    assert get(f"http://127.0.0.1:{play.port}/world/render.json")[0] == 404
+    assert get(f"http://127.0.0.1:{play.port}/hssd/stages/s.glb")[0] == 404
+
+
+def test_the_people_s_humanoids_are_served_and_only_theirs(tmp_path):
+    from vesper.lab.humanoids import Humanoids
+    data = tmp_path / "humanoid_data"
+    (data / "female_0").mkdir(parents=True)
+    (data / "female_0" / "female_0.glb").write_bytes(b"glTF-humanoid")
+    (data / "male_0").mkdir()
+    (data / "male_0" / "male_0.glb").write_bytes(b"glTF-other")  # Habitat has it; no one in this home is male_0
+    (tmp_path / "female_0.motion.json").write_text('{"format": "vesper-motion/1"}')
+    h = Humanoids(data, {"female_0": {"glb": data / "female_0" / "female_0.glb",
+                                      "motion": tmp_path / "female_0.motion.json"}})
+    session = Session(load_lab_home(write_home(tmp_path, IN_BEDROOM), catalog()), clock=WallClock())
+    assert hello(session, humanoids=h)["humanoids"] == {
+        "female_0": {"model": "/humanoids/female_0.glb", "motion": "/humanoids/female_0.motion.json"}}
+    assert hello(session)["humanoids"] is None
+    session.start()
+    server = PlayServer(session, port=0, humanoids=h)
+    server.start()
+    try:
+        base = f"http://127.0.0.1:{server.port}/humanoids"
+        assert get(f"{base}/female_0.glb") == (200, "model/gltf-binary", b"glTF-humanoid")
+        assert get(f"{base}/female_0.motion.json")[:2] == (200, "application/json")
+        for path in ("male_0.glb", "female_0.urdf", "../female_0.motion.json", "female_0/female_0.glb"):
+            assert get(f"{base}/{path}")[0] == 404, path
+    finally:
+        server.stop()
+        session.stop()

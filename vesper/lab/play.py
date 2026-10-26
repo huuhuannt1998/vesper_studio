@@ -1,7 +1,9 @@
 """The play server (spec §2, §3): the browser page, and one WebSocket per page to the running session.
 
-It listens on 127.0.0.1 only, and refuses WebSocket connections from another site's pages. A page gets `hello`
-(the whole home) when it connects, then every change:
+It listens on 127.0.0.1 only, and refuses WebSocket connections from another site's pages. Besides the page's own
+files it serves a home's 3D scene (plan W1b): `/world/render.json`, and under `/hssd/` the HSSD files that manifest
+lists, and no others; and under `/humanoids/` the people's Habitat humanoids, each a model and a walk. A page
+gets `hello` (the whole home) when it connects, then every change:
 - `pose` {actor, x, z, yaw, room} after every step;
 - `effect` {target, effect} when a device or a door looks different;
 - `reach` {targets} when what the player can reach changes;
@@ -37,7 +39,9 @@ from vesper.lab.session import PLAYER
 UI_DIR = Path(__file__).parent / "ui"
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
                  ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png",
-                 ".json": "application/json"}
+                 ".json": "application/json", ".wasm": "application/wasm", ".glb": "model/gltf-binary",
+                 ".gltf": "model/gltf+json", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".ktx2": "image/ktx2"}
+SCENE_CACHE = "private, max-age=3600"  # HSSD's files do not change: a reload need not fetch the scene again
 QUEUE_MAX = 5000  # messages waiting for one page; a page that falls this far behind is disconnected
 RECENT = 200  # trace records a page gets when it connects: the console of a page that joins late
 
@@ -46,10 +50,16 @@ class PlayError(RuntimeError):
     """The play server could not start."""
 
 
-def hello(session, hub_url: str | None = None, recent=()) -> dict:
+def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoids=None) -> dict:
     home, world, m = session.home, session.world, session.home.map
     return {
         "type": "hello", "scene": home.scene, "player": PLAYER, "hub": hub_url, "reach_m": INTERACT_M,
+        "world3d": None if world3d is None else {
+            "render": "/world/render.json", "floor_y": world3d.floor_y, "items": len(world3d.manifest["items"]),
+            "missing": len(world3d.missing), "missing_files": world3d.missing[:10], "hssd": str(world3d.root)},
+        "humanoids": None if humanoids is None else {
+            name: {"model": f"/humanoids/{name}.glb", "motion": f"/humanoids/{name}.motion.json"}
+            for name in sorted(humanoids.models)},
         "clock": {"t": session.clock.now(), "start_time": home.start_time},
         "map": {"grid": m.grid.to_json(),
                 "rooms": [{"id": r.id, "label": r.label, "polygon": [list(p) for p in r.polygon],
@@ -112,8 +122,10 @@ def _number(msg: dict, key: str) -> float:
 
 class PlayServer:
     def __init__(self, session, *, host: str = "127.0.0.1", port: int = 18080, hub_url: str | None = None,
-                 ui_dir: Path = UI_DIR):
+                 ui_dir: Path = UI_DIR, world3d=None, humanoids=None):
         self.session, self.host, self.hub_url, self.ui_dir = session, host, hub_url, Path(ui_dir)
+        self.world3d = world3d  # vesper.lab.world3d.World3d, or None: the page draws the home from its map
+        self.humanoids = humanoids  # vesper.lab.humanoids.Humanoids, or None: the people are plain figures
         self.port: int | None = None
         self._want_port = port
         self._pages: dict[asyncio.Queue, object] = {}  # each page's outgoing messages -> its connection
@@ -184,11 +196,37 @@ class PlayServer:
             if origin is not None and origin not in (f"http://127.0.0.1:{self.port}", f"http://localhost:{self.port}"):
                 return _response(403, "text/plain; charset=utf-8", b"a page from another site cannot play")
             return None
+        if path == "/world/render.json" or path.startswith("/hssd/"):
+            return self._scene_file(path)
+        if path.startswith("/humanoids/"):
+            return self._humanoid_file(path.removeprefix("/humanoids/"))
         root = self.ui_dir.resolve()
         f = (root / ("index.html" if path in ("", "/") else path.lstrip("/"))).resolve()
         if not f.is_relative_to(root) or not f.is_file():
             return _response(404, "text/plain; charset=utf-8", b"not found")
         return _response(200, CONTENT_TYPES.get(f.suffix, "application/octet-stream"), f.read_bytes())
+
+    def _scene_file(self, path: str):
+        w = self.world3d
+        if w is None:
+            return _response(404, "text/plain; charset=utf-8", b"this home has no 3D scene")
+        if path == "/world/render.json":
+            return _response(200, "application/json", json.dumps(w.manifest).encode())
+        asset = path.removeprefix("/hssd/")
+        f = w.root / asset
+        if asset not in w.assets or not f.is_file():  # only what the manifest lists, and it was checked when loaded
+            return _response(404, "text/plain; charset=utf-8", b"not part of this scene")
+        return _response(200, CONTENT_TYPES.get(f.suffix.lower(), "application/octet-stream"), f.read_bytes(),
+                         cache=SCENE_CACHE)
+
+    def _humanoid_file(self, name: str):
+        h = self.humanoids
+        avatar, _, kind = name.partition(".")
+        files = h.models.get(avatar) if h is not None else None
+        f = files and {"glb": files["glb"], "motion.json": files["motion"]}.get(kind)
+        if not f or not f.is_file():  # only the people's own models and walks
+            return _response(404, "text/plain; charset=utf-8", b"not a humanoid of this home")
+        return _response(200, CONTENT_TYPES[f.suffix], f.read_bytes(), cache=SCENE_CACHE)
 
     # -- WebSocket: one page --------------------------------------------------------------------
     async def _handle(self, ws) -> None:
@@ -197,7 +235,8 @@ class PlayServer:
         sender = None
         try:
             try:
-                snapshot = await self._on_clock(lambda: hello(self.session, self.hub_url, self._recent))
+                snapshot = await self._on_clock(
+                    lambda: hello(self.session, self.hub_url, self._recent, self.world3d, self.humanoids))
             except Exception as e:  # noqa: BLE001 - kept for the look, then the page is closed
                 self._fail(f"hello: {type(e).__name__}: {e}")
                 return
@@ -306,6 +345,6 @@ class PlayServer:
                 asyncio.ensure_future(ws.close(1013, "the page fell behind"))
 
 
-def _response(status: int, content_type: str, body: bytes) -> Response:
+def _response(status: int, content_type: str, body: bytes, cache: str = "no-store") -> Response:
     return Response(status, http.HTTPStatus(status).phrase, Headers(
-        [("Content-Type", content_type), ("Content-Length", str(len(body))), ("Cache-Control", "no-store")]), body)
+        [("Content-Type", content_type), ("Content-Length", str(len(body))), ("Cache-Control", cache)]), body)

@@ -99,7 +99,14 @@ def scene_info(hssd: Path, scene: str) -> SceneInfo:
 
 
 def export_scene(hssd: Path, scene: str, out: Path, python: Path, run=None) -> None:
-    """Run the world service's export in the Habitat environment: `out` gets map.json and openings.json.
+    """Run the world service's export in the Habitat environment: `out` gets map.json, openings.json and
+    render.json."""
+    run_world(python, ["export", "--hssd", str(Path(hssd).resolve()), "--scene", scene, "--out",
+                       str(Path(out).resolve())], f"scene {scene}", run)
+
+
+def run_world(python: Path, args: list, what: str, run=None):
+    """`python -m vesper_world ARGS` in the Habitat environment; a SceneError that says why when it fails.
 
     The Habitat environment sees a copy of `vesper_world` and nothing else of VESPER's: VESPER's own packages (a
     newer numpy, say) on its path would shadow Habitat's. It runs in that copy's directory, where nothing the user
@@ -110,18 +117,17 @@ def export_scene(hssd: Path, scene: str, out: Path, python: Path, run=None) -> N
     if not Path(python).is_file():
         raise SceneError(f"the Habitat environment's Python is not at {python}; give it with --habitat-python or "
                          f"{PYTHON_ENV} (the environment with habitat-sim 0.3.3)")
-    cmd = [str(python), "-s", "-m", "vesper_world", "export", "--hssd", str(Path(hssd).resolve()), "--scene", scene,
-           "--out", str(Path(out).resolve())]
     with tempfile.TemporaryDirectory(prefix="vesper-world-") as path:
         shutil.copytree(WORLD_PACKAGE, Path(path) / "vesper_world", ignore=shutil.ignore_patterns("__pycache__"))
         env = {**os.environ, "PYTHONPATH": path}
         try:
-            r = (run or subprocess.run)(cmd, env=env, cwd=path, capture_output=True, text=True,
-                                        timeout=EXPORT_TIMEOUT_S)
+            r = (run or subprocess.run)([str(python), "-s", "-m", "vesper_world", *args], env=env, cwd=path,
+                                        capture_output=True, text=True, timeout=EXPORT_TIMEOUT_S)
         except subprocess.TimeoutExpired:
-            raise SceneError(f"the world service did not export scene {scene} within {EXPORT_TIMEOUT_S} s") from None
+            raise SceneError(f"the world service did not finish {what} within {EXPORT_TIMEOUT_S} s") from None
     if r.returncode != 0:
-        raise SceneError(f"{_why(r)} (scene {scene})")
+        raise SceneError(f"{_why(r)} ({what})")
+    return r
 
 
 def _why(r) -> str:
@@ -151,7 +157,7 @@ def read_openings(path: Path) -> dict:
     return d
 
 
-def _doorway_of(world_map: WorldMap, opening: dict) -> str | None:
+def doorway_of(world_map: WorldMap, opening: dict) -> str | None:
     """The doorway an opening stands in: the one whose centre is within DOOR_SNAP_M."""
     if not world_map.doorways:
         return None
@@ -163,7 +169,7 @@ def doors_from_openings(world_map: WorldMap, openings: list[dict]) -> list[str]:
     """The doorways that have a door: a door (not a window, whatever its height) standing in it."""
     doors = []
     for o in openings:
-        doorway = _doorway_of(world_map, o) if o.get("kind") == "door" else None
+        doorway = doorway_of(world_map, o) if o.get("kind") == "door" else None
         if doorway and doorway not in doors:
             doors.append(doorway)
     return doors
@@ -171,7 +177,7 @@ def doors_from_openings(world_map: WorldMap, openings: list[dict]) -> list[str]:
 
 def stray_doors(world_map: WorldMap, openings: list[dict]) -> list[str]:
     """The scene's doors that stand in no doorway of the map: the home leaves them out, and says so."""
-    return [o["handle"] for o in openings if o.get("kind") == "door" and _doorway_of(world_map, o) is None]
+    return [o["handle"] for o in openings if o.get("kind") == "door" and doorway_of(world_map, o) is None]
 
 
 def start_room(world_map: WorldMap) -> str:

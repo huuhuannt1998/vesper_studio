@@ -670,7 +670,10 @@ def _lab_play(args, home) -> int:
         except Exception as e:  # noqa: BLE001 - starting the hub: a StackError, a refused connection, HTTP
             print(f"FAILED: {_hub_failure(e)}", file=sys.stderr)
             return 1
-        server = PlayServer(session, port=args.port, hub_url=lab.ha.url if lab else None)
+        world3d, drawn = _world3d(home, args.hssd)
+        humanoids, people = _humanoids(home, args.humanoids)
+        server = PlayServer(session, port=args.port, hub_url=lab.ha.url if lab else None, world3d=world3d,
+                            humanoids=humanoids)
         stack.callback(server.stop)
         try:
             server.start()
@@ -679,6 +682,8 @@ def _lab_play(args, home) -> int:
             return 1
         print(f"VESPER Lab: {home.scene}, {len(home.devices)} devices, on the wall clock. Open {server.url} "
               "(Ctrl-C stops)")
+        print(drawn)
+        print(people)
         if lab:
             user, password = lab.login
             print(f"Home Assistant is in the hub panel ({lab.ha.url}): log in as {user}, password {password} "
@@ -689,6 +694,32 @@ def _lab_play(args, home) -> int:
         _wait_for_interrupt()
     print(f"trace {trace}")
     return 0
+
+
+LOOK_READY_S = 90  # a scene's meshes load in seconds on a GPU, and in tens of seconds in a headless browser
+
+
+def _world3d(home, hssd):
+    """The home's 3D scene for the page (plan W1b), and a line that says what the 3D view draws."""
+    from vesper.lab.scenes import SceneError
+    from vesper.lab.world3d import load_world3d
+    try:
+        w = load_world3d(home, hssd)
+    except SceneError as e:
+        return None, f"3D view: {e}; the page draws the home from its map"
+    if w is None:
+        return None, "3D view: drawn from the map (a home made with `vesper lab new --scene` is drawn from its scene)"
+    n = len(w.missing)
+    gone = "" if not n else (f"; {n} of its {len(w.assets)} files {'is' if n == 1 else 'are'} missing "
+                             f"({', '.join(w.missing[:3])}{', …' if n > 3 else ''}): give HSSD's folder with "
+                             "--hssd or VESPER_HSSD")
+    return w, f"3D view: {home.scene}, {len(w.manifest['items'])} meshes from {w.root}{gone}"
+
+
+def _humanoids(home, data):
+    """Habitat's humanoids for the home's people (plan W1b), and a line that says what the people look like."""
+    from vesper.lab.humanoids import find_humanoids
+    return find_humanoids({home.avatar["model"], *(r.model for r in home.residents)}, data)
 
 
 def _hub_failure(e: Exception) -> str:
@@ -804,18 +835,23 @@ def _lab_look(args, home) -> int:
         except Exception as e:  # noqa: BLE001 - starting the hub: a StackError, a refused connection, HTTP
             print(f"FAILED: {_hub_failure(e)}", file=sys.stderr)
             return 1
-        server = PlayServer(session, port=0, hub_url=lab.ha.url if lab else None)
+        world3d, drawn = _world3d(home, args.hssd)
+        humanoids, people = _humanoids(home, args.humanoids)
+        print(drawn)
+        print(people)
+        server = PlayServer(session, port=0, hub_url=lab.ha.url if lab else None, world3d=world3d,
+                            humanoids=humanoids)
         stack.callback(server.stop)
         server.start()
         try:
             browser = Browser.launch(Path(args.browser) if args.browser else None, width=args.width,
-                                     height=args.height)
+                                     height=args.height, timeout=LOOK_READY_S)
         except BrowserError as e:
             print(f"FAILED: {e}", file=sys.stderr)
             return 1
         stack.callback(browser.close)
         report = run_look(browser, server.url, steps, out, golden=Path(args.golden) if args.golden else None,
-                          update_golden=args.update_golden,
+                          update_golden=args.update_golden, ready_timeout=LOOK_READY_S,
                           session_errors=lambda: server.errors + list(getattr(session.clock, "errors", [])))
     for c in report.checks:
         print(f"{'PASS' if c.ok else 'FAIL'} {c.name}" + (f": {c.detail}" if c.detail else ""))
@@ -1076,6 +1112,10 @@ def main(argv: list[str] | None = None) -> int:
     lab_play.add_argument("--port", type=int, default=18080, help="the page's port on 127.0.0.1 (default 18080)")
     lab_play.add_argument("--trace", help="the trace file (default: traces/<time>.jsonl next to the home)")
     lab_play.add_argument("--no-browser", action="store_true", help="print the page's address, do not open it")
+    lab_play.add_argument("--hssd", help="HSSD's folder, for the 3D view (default: $VESPER_HSSD, else where the "
+                                         "home was made)")
+    lab_play.add_argument("--humanoids", help="Habitat's humanoid folder, for the people (default: "
+                                              "$VESPER_HUMANOIDS, else data/humanoids/humanoid_data)")
     lab_play.add_argument("--hub", action="store_true",
                           help="put Home Assistant in the loop: start VESPER's broker and Home Assistant (after "
                                "`vesper setup ha`), and show its dashboard in the page")
@@ -1089,6 +1129,10 @@ def main(argv: list[str] | None = None) -> int:
     lab_look.add_argument("--update-golden", action="store_true", help="save this look's shots as the references")
     lab_look.add_argument("--browser", help="a Chromium-based browser (default: found, or VESPER_BROWSER)")
     lab_look.add_argument("--hub", action="store_true", help="with VESPER's broker and Home Assistant in the loop")
+    lab_look.add_argument("--hssd", help="HSSD's folder, for the 3D view (default: $VESPER_HSSD, else where the "
+                                         "home was made)")
+    lab_look.add_argument("--humanoids", help="Habitat's humanoid folder, for the people (default: "
+                                              "$VESPER_HUMANOIDS, else data/humanoids/humanoid_data)")
     lab_look.add_argument("--root", default=".vesper", help="where `vesper setup ha` installed the stack")
     lab_look.add_argument("--width", type=int, default=1280)
     lab_look.add_argument("--height", type=int, default=800)
