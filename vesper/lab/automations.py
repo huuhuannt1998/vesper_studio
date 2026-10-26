@@ -8,15 +8,22 @@ would see and acts as Home Assistant would:
 - entity ids are the ones that discovery creates (`entity_ids`);
 - a service call sends the command that entity's MQTT config sends (a light's JSON `state`, a switch's
   `payload_on`, a lock's `payload_lock`), applied as the bridge applies a command.
-Supported: triggers `state` (to, from, for), `numeric_state` (above, below, for) and `time` (at); conditions
-`state`, `numeric_state` and `time` (after, before); actions `light.*`, `switch.*` (turn_on, turn_off, toggle),
-`lock.lock`/`lock.unlock` and `delay`; mode `single`. An automation using anything else is refused by name, never
-run in part; the others run. Every command it sends is an `automation` record, not an input: a replay runs the
-engine again.
+- an event entity's state (a button's `action`) is the time of its last event, so every press is a change.
+Supported: triggers `state` (to, from, for; `to: ~` is any change), `numeric_state` (above, below, for) and `time`
+(at); conditions `state`, `numeric_state` and `time` (after, before); actions `light.*` (brightness,
+brightness_pct), `switch.*` (turn_on, turn_off, toggle), `lock.lock`/`lock.unlock` and `delay`; `enabled: false`
+anywhere; mode `single`. An automation using anything else (a template, an option, a key the engine does not
+know, an unquoted on/off that Home Assistant itself refuses) is refused by name when the file is loaded, never run
+in part; the others run.
+As in Home Assistant, every trigger of a state change is evaluated before any action runs, a `for:` lasts while
+the state still matches (a numeric value, while it stays in range), and conditions are checked before mode
+`single` drops a trigger. Every command the engine sends is an `automation` record, not an input: a replay runs
+the engine again.
 """
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import yaml
@@ -25,8 +32,16 @@ from vesper.exposure.ha_discovery import device_discovery
 from vesper.exposure.z2m_bridge import flatten, ieee_address
 
 DAY_S = 86400
+LOOP_LIMIT = 100  # firings of one automation at one instant: more is a loop (it triggers itself), not a day
 SERVICES = {"light": ("turn_on", "turn_off", "toggle"), "switch": ("turn_on", "turn_off", "toggle"),
             "lock": ("lock", "unlock")}
+AUTOMATION_KEYS = {"id", "alias", "description", "mode", "max_exceeded", "initial_state", "trace",
+                   "triggers", "trigger", "conditions", "condition", "actions", "action"}
+TRIGGER_KEYS = {"state": {"entity_id", "to", "from", "for"}, "numeric_state": {"entity_id", "above", "below", "for"},
+                "time": {"at"}}
+CONDITION_KEYS = {"state": {"entity_id", "state"}, "numeric_state": {"entity_id", "above", "below"},
+                  "time": {"after", "before"}}
+ACTION_KEYS = {"action", "service", "target", "entity_id", "data", "alias", "continue_on_error"}
 
 
 class AutomationError(ValueError):
@@ -52,6 +67,13 @@ class Automation:
     running: bool = field(default=False)
 
 
+@dataclass
+class _Held:
+    """A `for:` under way: it lasts while `still(state)` holds for the entity's new states."""
+    still: Callable[[str], bool]
+    alive: bool = True
+
+
 def _discovered(home):
     """(device name, twin id, discovery payload, expected entities) for each Zigbee device on the hub."""
     for d in home.devices:
@@ -67,6 +89,12 @@ def entity_ids(home) -> dict[str, dict[str, str]]:
     return {name: {e.feature: e.entity_id for e in expected} for name, _, _, expected in _discovered(home)}
 
 
+def _number(value, where: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise AutomationError(f"{where}: {value!r} is not a number")
+    return float(value)
+
+
 def _seconds(value, where: str) -> float:
     """A Home Assistant duration: 'HH:MM:SS', a mapping of hours/minutes/seconds, or a number of seconds."""
     if isinstance(value, bool):
@@ -74,17 +102,19 @@ def _seconds(value, where: str) -> float:
     if isinstance(value, int | float):
         return float(value)
     if isinstance(value, dict):
-        unknown = set(value) - {"hours", "minutes", "seconds", "milliseconds"}
-        if unknown:
-            raise AutomationError(f"{where}: {sorted(unknown)[0]!r} is not a duration field")
-        return (float(value.get("hours", 0)) * 3600 + float(value.get("minutes", 0)) * 60
-                + float(value.get("seconds", 0)) + float(value.get("milliseconds", 0)) / 1000)
+        fields = {"hours": 3600, "minutes": 60, "seconds": 1, "milliseconds": 0.001}
+        if set(value) - set(fields) or not all(isinstance(v, int | float) and not isinstance(v, bool)
+                                              for v in value.values()):
+            raise AutomationError(f"{where}: {value!r} is not a duration")
+        return sum(float(v) * fields[k] for k, v in value.items())
     return _clock(value, where)
 
 
 def _clock(value, where: str) -> float:
     try:
-        parts = [float(p) for p in str(value).split(":")]
+        if not isinstance(value, str):
+            raise ValueError
+        parts = [float(p) for p in value.split(":")]
         if len(parts) not in (2, 3):
             raise ValueError
     except ValueError:
@@ -92,14 +122,31 @@ def _clock(value, where: str) -> float:
     return parts[0] * 3600 + parts[1] * 60 + (parts[2] if len(parts) == 3 else 0)
 
 
-def _states(value) -> list[str]:
-    """A state or a list of states as Home Assistant compares them (YAML's on/off booleans are 'on'/'off')."""
+def _states(value, where: str) -> list[str]:
+    """A state or a list of states. Home Assistant's schema takes strings only, on purpose: an unquoted on/off
+    is a YAML boolean, and Home Assistant refuses the automation."""
     values = value if isinstance(value, list) else [value]
-    return [("on" if v else "off") if isinstance(v, bool) else str(v) for v in values]
+    for v in values:
+        if not isinstance(v, str):
+            raise AutomationError(f"{where}: {v!r} is not a quoted state; Home Assistant refuses YAML's unquoted "
+                                  "on/off")
+    return values
 
 
 def _entities(value) -> list[str]:
     return [value] if isinstance(value, str) else list(value or [])
+
+
+def _keys(item: dict, allowed: set, where: str = "") -> None:
+    unknown = sorted(set(item) - allowed - {"enabled"}, key=str)
+    if unknown:
+        raise AutomationError(f"{where + ': ' if where else ''}{unknown[0]!r} is not supported")
+    if not isinstance(item.get("enabled", True), bool):
+        raise AutomationError(f"{where}: enabled: {item['enabled']!r} is not true or false")
+
+
+def _enabled(items: list) -> list:
+    return [x for x in items if not (isinstance(x, dict) and x.get("enabled") is False)]
 
 
 class Engine:
@@ -111,10 +158,14 @@ class Engine:
                 oid = e.entity_id.split(".", 1)[1]
                 self.entities[e.entity_id] = Entity(e.entity_id, name, twin_id, e.feature, e.platform,
                                                     payload["cmps"].get(oid, {}))
+        self._of_feature: dict[tuple[str, str], list[Entity]] = {}
+        for e in self.entities.values():
+            self._of_feature.setdefault((e.twin_id, e.feature), []).append(e)
         self.automations: list[Automation] = []
         self.refused: list[dict] = []
         self._state: dict[str, str] = {}
-        self._changed: dict[str, int] = {}  # entity -> how often its state changed: a `for:` waits on it
+        self._held: dict[str, list[_Held]] = {}  # entity -> the `for:` timers waiting on it
+        self._burst: tuple[float, dict] = (-1.0, {})  # (instant, automation -> firings at it): the loop guard
         self._load()
 
     # -- the file -----------------------------------------------------------------------------
@@ -145,85 +196,112 @@ class Engine:
     def _parse(self, a, label: str) -> Automation:
         if not isinstance(a, dict):
             raise AutomationError("an automation is a mapping")
+        if "use_blueprint" in a:
+            raise AutomationError("blueprint automations are not supported")
+        _keys(a, AUTOMATION_KEYS)
         mode = a.get("mode", "single")
         if mode != "single":
             raise AutomationError(f"mode {mode!r} is not supported (single only)")
-        triggers = [self._trigger(t) for t in _list(a.get("triggers", a.get("trigger")), "triggers")]
-        if not triggers:
+        triggers = [self._trigger(t) for t in _enabled(_list(a.get("triggers", a.get("trigger")), "triggers"))]
+        if not triggers and not _list(a.get("triggers", a.get("trigger")), "triggers"):
             raise AutomationError("it has no trigger")
-        conditions = [self._condition(c) for c in _list(a.get("conditions", a.get("condition")), "conditions")]
-        actions = [self._action(x) for x in _list(a.get("actions", a.get("action")), "actions")]
+        conditions = [self._condition(c)
+                      for c in _enabled(_list(a.get("conditions", a.get("condition")), "conditions"))]
+        actions = [self._action(x) for x in _enabled(_list(a.get("actions", a.get("action")), "actions"))]
         return Automation(label, triggers, conditions, actions)
 
-    def _entity(self, entity_id: str) -> Entity:
-        e = self.entities.get(entity_id)
+    def _entity(self, entity_id) -> Entity:
+        e = self.entities.get(entity_id) if isinstance(entity_id, str) else None
         if e is None:
             raise AutomationError(f"entity {entity_id} is not one of this home's")
         return e
 
     def _trigger(self, t) -> dict:
         kind = t.get("trigger", t.get("platform")) if isinstance(t, dict) else None
-        if kind == "state":
-            ents = [self._entity(x).entity_id for x in _entities(t.get("entity_id"))]
-            out = {"kind": "state", "entities": ents, "to": _states(t["to"]) if "to" in t else None,
-                   "from": _states(t["from"]) if "from" in t else None}
-        elif kind == "numeric_state":
-            ents = [self._entity(x).entity_id for x in _entities(t.get("entity_id"))]
-            out = {"kind": "numeric_state", "entities": ents, "above": t.get("above"), "below": t.get("below")}
-        elif kind == "time":
-            return {"kind": "time", "at": [_clock(x, "at") for x in (t["at"] if isinstance(t.get("at"), list)
-                                                                       else [t.get("at")])]}
-        else:
+        if kind not in TRIGGER_KEYS:
             raise AutomationError(f"trigger {kind!r} is not supported")
-        out["for"] = _seconds(t["for"], "for") if "for" in t else 0.0
+        where = f"trigger {kind}"
+        _keys(t, TRIGGER_KEYS[kind] | {"trigger", "platform", "id"}, where)
+        if kind == "time":
+            at = t.get("at")
+            return {"kind": "time", "at": [_clock(x, f"{where}: at") for x in (at if isinstance(at, list) else [at])]}
+        if "entity_id" not in t:
+            raise AutomationError(f"{where}: entity_id is required")
+        out = {"kind": kind, "entities": [self._entity(x).entity_id for x in _entities(t["entity_id"])],
+               "for": _seconds(t["for"], "for") if "for" in t else 0.0}
+        if kind == "state":
+            out["to"] = _states(t["to"], f"{where}: to") if t.get("to") is not None else None
+            out["from"] = _states(t["from"], f"{where}: from") if t.get("from") is not None else None
+            out["from_only"] = "from" in t and "to" not in t  # a `for:` then lasts while the state is not `from`
+        else:
+            out["above"] = _number(t["above"], f"{where}: above") if "above" in t else None
+            out["below"] = _number(t["below"], f"{where}: below") if "below" in t else None
+            if out["above"] is None and out["below"] is None:
+                raise AutomationError(f"{where}: above or below is required")
         return out
 
     def _condition(self, c) -> dict:
         kind = c.get("condition") if isinstance(c, dict) else None
-        if kind == "state":
-            return {"kind": "state", "entities": [self._entity(x).entity_id for x in _entities(c.get("entity_id"))],
-                    "state": _states(c.get("state"))}
-        if kind == "numeric_state":
-            return {"kind": "numeric_state",
-                    "entities": [self._entity(x).entity_id for x in _entities(c.get("entity_id"))],
-                    "above": c.get("above"), "below": c.get("below")}
+        if kind not in CONDITION_KEYS:
+            raise AutomationError(f"condition {kind!r} is not supported")
+        where = f"condition {kind}"
+        _keys(c, CONDITION_KEYS[kind] | {"condition", "alias"}, where)
         if kind == "time":
-            if "weekday" in c:
-                raise AutomationError("condition time: weekday is not supported")
-            return {"kind": "time", "after": _clock(c["after"], "after") if "after" in c else None,
-                    "before": _clock(c["before"], "before") if "before" in c else None}
-        raise AutomationError(f"condition {kind!r} is not supported")
+            return {"kind": "time", "after": _clock(c["after"], f"{where}: after") if "after" in c else None,
+                    "before": _clock(c["before"], f"{where}: before") if "before" in c else None}
+        if "entity_id" not in c:
+            raise AutomationError(f"{where}: entity_id is required")
+        out = {"kind": kind, "entities": [self._entity(x).entity_id for x in _entities(c["entity_id"])]}
+        if kind == "state":
+            out["state"] = _states(c.get("state"), f"{where}: state")
+        else:
+            out["above"] = _number(c["above"], f"{where}: above") if "above" in c else None
+            out["below"] = _number(c["below"], f"{where}: below") if "below" in c else None
+        return out
 
     def _action(self, x) -> dict:
         if not isinstance(x, dict):
             raise AutomationError("an action is a mapping")
         if "delay" in x:
+            _keys(x, {"delay", "alias"}, "action delay")
             return {"kind": "delay", "seconds": _seconds(x["delay"], "delay")}
         service = x.get("action", x.get("service"))
         domain, _, verb = str(service).partition(".")
         if verb not in SERVICES.get(domain, ()):
             raise AutomationError(f"action {service!r} is not supported")
+        where = f"action {service}"
+        _keys(x, ACTION_KEYS, where)
         target = x.get("target") or {}
+        if not isinstance(target, dict):
+            raise AutomationError(f"{where}: target {target!r} is not a mapping")
+        if set(target) - {"entity_id"}:  # an area or a device: Home Assistant's registries, not the engine's
+            raise AutomationError(f"{where}: target {sorted(set(target) - {'entity_id'})[0]!r} is not supported")
         ents = _entities(target.get("entity_id") or x.get("entity_id"))
         if not ents:
-            raise AutomationError(f"action {service}: no target entity")
+            raise AutomationError(f"{where}: no target entity")
         for e in ents:
             if self._entity(e).platform != domain:
-                raise AutomationError(f"action {service}: {e} is not a {domain}")
-        data = dict(x.get("data") or {})
-        unknown = set(data) - ({"brightness", "brightness_pct"} if service == "light.turn_on" else set())
-        if unknown:
-            raise AutomationError(f"action {service}: data {sorted(unknown)[0]!r} is not supported")
-        brightness = data.get("brightness")
-        if "brightness_pct" in data:  # the light service turns a percentage into 0..255
-            brightness = round(float(data["brightness_pct"]) * 255 / 100)
+                raise AutomationError(f"{where}: {e} is not a {domain}")
+        data = x.get("data") or {}
+        if not isinstance(data, dict):
+            raise AutomationError(f"{where}: data {data!r} is not a mapping")
+        allowed = {"brightness": 255, "brightness_pct": 100} if service == "light.turn_on" else {}
+        brightness = None
+        for key, value in data.items():
+            if key not in allowed:
+                raise AutomationError(f"{where}: data {key!r} is not supported")
+            v = _number(value, f"{where}: data {key}")
+            if not 0 <= v <= allowed[key]:
+                raise AutomationError(f"{where}: data {key}: {value!r} is not between 0 and {allowed[key]}")
+            brightness = round(v * 255 / 100) if key == "brightness_pct" else v  # the light service's 0..255
         return {"kind": "call", "service": service, "entities": ents, "brightness": brightness}
 
     # -- running ------------------------------------------------------------------------------
     def start(self) -> None:
         clock = self.session.clock
         for e in self.entities.values():
-            self._state[e.entity_id] = self._state_of(e, self.runtime.state(e.twin_id).get(e.feature))
+            value = self.runtime.state(e.twin_id).get(e.feature)
+            self._state[e.entity_id] = "unknown" if e.platform == "event" else self._state_of(e, value)
         self.runtime.subscribe(self._on_report)
         self._midnight = clock.now() - self.home.start_time
         for day in (0, 1):
@@ -255,18 +333,28 @@ class Engine:
         return str(value)
 
     def _on_report(self, event) -> None:
-        for e in self.entities.values():
-            if e.twin_id != event.twin_id or e.feature != event.feature:
-                continue
-            old, new = self._state.get(e.entity_id), self._state_of(e, event.value)
-            if new == old:
-                continue
+        """A state change, as Home Assistant handles one: the `for:` timers it ends end, then every trigger it
+        matches is evaluated, and only then do actions run (later, at the same instant)."""
+        changes = []
+        for e in self._of_feature.get((event.twin_id, event.feature), ()):
+            old = self._state.get(e.entity_id)
+            if e.platform == "event":  # the time of the last event: every event is a change
+                new = f"{event.observed_t:.6f}"
+            else:
+                new = self._state_of(e, event.value)
+                if new == old:
+                    continue
             self._state[e.entity_id] = new
-            self._changed[e.entity_id] = self._changed.get(e.entity_id, 0) + 1
+            changes.append((e.entity_id, old, new))
+        for entity, _, new in changes:
+            for h in self._held.get(entity, ()):
+                h.alive = h.alive and h.still(new)
+            self._held[entity] = [h for h in self._held.get(entity, ()) if h.alive]
+        for entity, old, new in changes:
             for a in self.automations:
                 for t in a.triggers:
-                    if e.entity_id in t.get("entities", ()) and self._matches(t, old, new):
-                        self._after(t, e.entity_id, a, f"{t['kind']} {e.entity_id} {old} -> {new}")
+                    if entity in t.get("entities", ()) and self._matches(t, old, new):
+                        self._triggered(a, t, entity, old, new)
 
     def _matches(self, t: dict, old: str, new: str) -> bool:
         if t["kind"] == "state":
@@ -274,29 +362,47 @@ class Engine:
         return self._in_range(t, new) and not self._in_range(t, old)  # numeric_state: entering the range
 
     @staticmethod
-    def _in_range(t: dict, state: str) -> bool:
+    def _in_range(t: dict, state) -> bool:
         try:
             v = float(state)
         except (TypeError, ValueError):
             return False
-        return (t.get("above") is None or v > float(t["above"])) and (t.get("below") is None or v < float(t["below"]))
+        return (t.get("above") is None or v > t["above"]) and (t.get("below") is None or v < t["below"])
 
-    def _after(self, t: dict, entity: str, a: Automation, why: str) -> None:
+    def _triggered(self, a: Automation, t: dict, entity: str, old: str, new: str) -> None:
+        why, clock = f"{t['kind']} {entity} {old} -> {new}", self.session.clock
         if not t["for"]:
-            self._fire(a, why)
+            clock.call_at(clock.now(), lambda: self._fire(a, why))
             return
-        clock, seen = self.session.clock, self._changed.get(entity, 0)
+        if t["kind"] == "numeric_state":
+            still = lambda s: self._in_range(t, s)  # noqa: E731 - Home Assistant: while the value stays in range
+        elif t["from_only"]:
+            still = lambda s: s != old  # noqa: E731
+        else:
+            still = lambda s: s == new  # noqa: E731
+        h = _Held(still)
+        self._held.setdefault(entity, []).append(h)
 
-        def held():  # the state has held for the whole `for`: nothing changed it since
-            if self._changed.get(entity, 0) == seen:
+        def held():
+            if h.alive:
+                h.alive = False
+                self._held[entity] = [x for x in self._held.get(entity, ()) if x is not h]
                 self._fire(a, f"{why} for {t['for']:g} s")
         clock.call_at(clock.now() + t["for"], held)
 
     def _fire(self, a: Automation, why: str) -> None:
+        if not all(self._holds(c) for c in a.conditions):
+            return
         if a.running:  # Home Assistant: "Already running" (mode single), and the trigger is dropped
             self.session.automation_skipped(a.name, why, "already running (mode single)")
             return
-        if not all(self._holds(c) for c in a.conditions):
+        now = self.session.clock.now()
+        if self._burst[0] != now:
+            self._burst = (now, {})
+        count = self._burst[1][a.name] = self._burst[1].get(a.name, 0) + 1
+        if count > LOOP_LIMIT:
+            if count == LOOP_LIMIT + 1:
+                self.session.automation_skipped(a.name, why, f"it fired {LOOP_LIMIT} times at this instant: a loop")
             return
         a.running = True
         self._run(a, list(a.actions), why)
@@ -308,7 +414,7 @@ class Engine:
             return all(self._in_range(c, self._state.get(e, "")) for e in c["entities"])
         now = (self.session.clock.now() - self._midnight) % DAY_S
         after, before = c["after"], c["before"]
-        if after is not None and before is not None and after > before:  # across midnight
+        if after is not None and before is not None and after >= before:  # across midnight; equal: all day
             return now >= after or now < before
         return (after is None or now >= after) and (before is None or now < before)
 
@@ -327,9 +433,11 @@ class Engine:
         domain, verb = x["service"].split(".")
         if verb == "toggle":
             verb = "turn_off" if self._state.get(e.entity_id) == "on" else "turn_on"
+        brightness = x.get("brightness")
+        if domain == "light" and verb == "turn_on" and brightness == 0:
+            verb = "turn_off"  # Home Assistant: turning a light on at brightness 0 turns it off
         if domain == "light":  # the JSON schema light's command (HA mqtt/light/schema_json.py)
             command = {"state": "ON" if verb == "turn_on" else "OFF"}
-            brightness = x["brightness"]
             if verb == "turn_on" and brightness is not None and e.cfg.get("brightness"):
                 scale = e.cfg.get("brightness_scale", 255)
                 command["brightness"] = max(min(round(brightness / 255 * scale), scale), 1)
