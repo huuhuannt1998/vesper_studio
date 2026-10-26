@@ -112,12 +112,12 @@ export function promptFor({ kind, name, category, effect, operable, inReach, dis
 }
 
 // The keyboard hint for the nearest thing in reach (E or F uses it).
-export function hintFor(reach, devices, effects) {
+export function hintFor(reach, devices, effects, keys = "E or F") {
   if (!reach.length) return "";
   const { kind, target } = reach[0];
   const d = devices[target];
   const action = actionFor(kind, target, effects[target], d && d.category);
-  const text = action ? `E or F: ${action}` : `${target} is locked`;
+  const text = action ? `${keys}: ${action}` : `${target} is locked`;
   return text + (kind === "device" && d && d.vendor ? ` (${d.vendor} ${d.model})` : "");
 }
 

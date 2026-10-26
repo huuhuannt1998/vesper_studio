@@ -192,3 +192,28 @@ def test_a_bad_command_line_is_named(bad, capsys):
     with pytest.raises(SystemExit) as e:
         main(bad)
     assert e.value.code == 2
+
+
+def test_a_scene_file_is_named_by_its_place_in_the_hssd_folder_even_when_it_links_elsewhere(tmp_path):
+    """HSSD downloaded by an older huggingface_hub keeps its large files as links into the cache, and a subfolder may
+    be another disk. The page asks the server for a file by its place in the folder, so that is its name."""
+    from vesper_world.habitat_scene import _relative
+    root, blobs = tmp_path / "hssd-hab", tmp_path / "cache" / "blobs"
+    (root / "objects" / "a").mkdir(parents=True)
+    blobs.mkdir(parents=True)
+    (blobs / "f00d").write_bytes(b"glTF")
+    (root / "objects" / "a" / "chair.glb").symlink_to(blobs / "f00d")
+    (tmp_path / "disk" / "stages").mkdir(parents=True)
+    (root / "stages").symlink_to(tmp_path / "disk" / "stages")
+    assert _relative(root / "objects" / "a" / "chair.glb", root) == "objects/a/chair.glb"
+    assert _relative(str(root / "stages" / "102344022.glb"), root) == "stages/102344022.glb"
+    real = tmp_path / "real"
+    (real / "objects").mkdir(parents=True)
+    (tmp_path / "link").symlink_to(real)  # the folder given as a link, the file as its real place
+    assert _relative(real / "objects" / "x.glb", tmp_path / "link") == "objects/x.glb"
+
+
+def test_a_scene_file_outside_the_hssd_folder_is_named_not_a_crash(tmp_path):
+    from vesper_world.habitat_scene import _relative
+    with pytest.raises(export.ExportError, match="outside the HSSD folder"):
+        _relative(tmp_path / "elsewhere" / "x.glb", tmp_path / "hssd-hab")

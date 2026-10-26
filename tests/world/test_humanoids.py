@@ -2,6 +2,7 @@
 as joint rotations a browser can play. The motion files are pickles of numpy arrays, so the conversion runs in the
 Habitat environment; the pure part runs here."""
 import json
+import pickle
 
 import pytest
 
@@ -57,3 +58,23 @@ def test_humanoids_converts_every_avatar_it_finds(tmp_path, monkeypatch, capsys)
 def test_humanoids_names_a_folder_without_avatars(tmp_path, capsys):
     assert main(["humanoids", "--data", str(tmp_path), "--out", str(tmp_path / "out")]) == 1
     assert "no humanoids in" in capsys.readouterr().err
+
+
+class _Planted:
+    """What a planted motion file could hold: a pickle names a function to call when it is read."""
+    def __init__(self, marker):
+        self.marker = marker
+
+    def __reduce__(self):
+        return open, (str(self.marker), "w")
+
+
+def test_a_motion_file_naming_anything_but_numpy_s_arrays_is_refused_before_it_runs(tmp_path):
+    """Habitat's motion files hold only numpy arrays. The humanoid folder is found from where vesper runs, so a file
+    planted there must not run its code in the Habitat environment."""
+    marker = tmp_path / "ran"
+    pkl = tmp_path / "female_0_motion_data_smplx.pkl"
+    pkl.write_bytes(pickle.dumps({"walk_motion": _Planted(marker)}))
+    with pytest.raises(humanoids.HumanoidError, match="open"):
+        humanoids.load_motion_file(pkl)
+    assert not marker.exists()

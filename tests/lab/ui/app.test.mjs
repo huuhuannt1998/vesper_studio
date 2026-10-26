@@ -3,11 +3,23 @@
 // a contact sensor and a lock on the front door, and a resident, alex). It loads the page's own app.js.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import * as nodeModule from "node:module";
 import { test } from "node:test";
 
 const HELLO = process.env.VESPER_HELLO ? JSON.parse(readFileSync(process.env.VESPER_HELLO, "utf8")) : null;
 const skip = HELLO ? false : "needs VESPER_HELLO (run by tests/lab/test_ui.py)";
 let loads = 0;
+
+// The 3D view in these tests is a stub (globalThis.view3dStub): the page's own view3d.js needs three.js and WebGL.
+// The page imports it as "./view3d.js"; a resolve hook hands it the stub instead, so app.js runs unchanged.
+const STUB = "data:text/javascript,export const createView3d = async () => globalThis.view3dStub;";
+if (nodeModule.registerHooks) {
+  nodeModule.registerHooks({ resolve: (spec, ctx, next) => (spec === "./view3d.js" ? { url: STUB, shortCircuit: true }
+    : next(spec, ctx)) });
+} else {
+  nodeModule.register(`data:text/javascript,${encodeURIComponent(`export async function resolve(spec, ctx, next) {
+    return spec === "./view3d.js" ? { url: ${JSON.stringify(STUB)}, shortCircuit: true } : next(spec, ctx); }`)}`);
+}
 
 class El {
   constructor(id) {
@@ -31,17 +43,34 @@ class El {
   get parentElement() { return this; }
 }
 
-// A fresh page: stub globals, app.js loaded anew, the hello delivered. Returns the controls a test needs.
-async function page() {
-  let now = 1000;
-  const intervals = [], sent = [], elements = {}, windowListeners = {};
+// A fresh page: stub globals, app.js loaded anew, the hello delivered. Returns the controls a test needs. With
+// webgl, the browser has WebGL, so the page opens in 3D on the stub view; frame() runs one animation frame, aimAt()
+// puts something under the crosshair (or nothing), and the view captures the pointer on a click, as Chrome does.
+async function page({ webgl = false } = {}) {
+  let now = 1000, nextFrame = null;
+  const intervals = [], sent = [], elements = {}, windowListeners = {}, docListeners = {};
   globalThis.performance = { now: () => now };
   globalThis.setInterval = (fn, ms) => intervals.push({ fn, ms, next: now + ms });
   globalThis.setTimeout = () => 0;
   globalThis.clearTimeout = () => {};
-  globalThis.requestAnimationFrame = () => 0;
+  globalThis.requestAnimationFrame = (fn) => { nextFrame = fn; return 0; };
+  const docFire = (type) => { for (const fn of docListeners[type] || []) fn({}); };
   globalThis.document = { getElementById: (id) => (elements[id] ||= new El(id)), createElement: (tag) => new El(tag),
-    body: new El("body") };
+    body: new El("body"), pointerLockElement: null,
+    addEventListener: (type, fn) => (docListeners[type] ||= []).push(fn),
+    exitPointerLock: () => { document.pointerLockElement = null; docFire("pointerlockchange"); } };
+  document.getElementById("view3d").requestPointerLock = function lock() {
+    document.pointerLockElement = this;
+    docFire("pointerlockchange");
+  };
+  const view3d = { status: { ready: true, loaded: 0, failed: 0, total: 0, missing: [] }, floorY: 0, picked: null,
+    resize() {}, frame() {}, pick() { return this.picked; }, pointOf() { return null; }, colors() { return 2; } };
+  if (webgl) {
+    globalThis.WebGL2RenderingContext = class {};
+    globalThis.view3dStub = view3d;
+  } else {
+    delete globalThis.WebGL2RenderingContext;
+  }
   globalThis.window = globalThis;
   globalThis.addEventListener = (type, fn) => (windowListeners[type] ||= []).push(fn);
   globalThis.devicePixelRatio = 1;
@@ -67,7 +96,11 @@ async function page() {
   const v = globalThis.vesper;
   const screen = (x, z) => v.toScreen(x, z);
   const sentOf = (type) => sent.filter((m) => m.type === type);
-  return { v, el: (id) => document.getElementById(id), key, tick, receive, sent, sentOf, screen };
+  const frame = () => nextFrame && nextFrame();
+  const aimAt = (target) => { view3d.picked = target; tick(101); frame(); }; // the crosshair is checked every 100 ms
+  const locked = () => document.pointerLockElement === document.getElementById("view3d");
+  if (webgl) for (let k = 0; k < 5; k += 1) await new Promise((r) => setImmediate(r)); // the 3D view starts
+  return { v, el: (id) => document.getElementById(id), key, tick, receive, sent, sentOf, screen, frame, aimAt, locked };
 }
 
 test("a walking key released after Option (macOS renames the key) stops the walk", { skip }, async () => {
@@ -152,4 +185,50 @@ test("the residents list says between tasks, between rooms, and the reason only 
     p.receive({ type: "pose", actor: "alex", x: 2.9, z: 4.5, yaw: 0, room: null });
     assert.match(panel(), /alex · between rooms/);
     assert.match(panel(), /between tasks/);
+  });
+
+test("in 3D, F uses what the crosshair is on, as a click does, even out of reach: never the thing in reach", { skip },
+  async () => {
+    const p = await page({ webgl: true });
+    assert.equal(p.v.mode, "3d");
+    assert.ok(p.v.state.reach.length && !p.v.state.reach.some((r) => r.target === "hall-porch"));
+    p.aimAt({ target: "hall-porch", kind: "door" }); // the front door, across the house: the server says too far
+    p.key("keydown", { key: "f", code: "KeyF" });
+    p.el("view3d").fire("click"); // the first click captures the pointer
+    p.el("view3d").fire("click"); // the second uses what the crosshair is on
+    assert.deepEqual(p.sentOf("interact").map((m) => m.target), ["hall-porch", "hall-porch"]);
+  });
+
+test("in 3D, E is F when the crosshair is on something, and the thing in reach when it is on nothing", { skip },
+  async () => {
+    const p = await page({ webgl: true });
+    const near = p.v.state.reach[0].target;
+    p.aimAt({ target: "hall-porch", kind: "door" });
+    p.key("keydown", { key: "e", code: "KeyE" });
+    p.aimAt(null); // a wall, or the floor
+    p.key("keydown", { key: "e", code: "KeyE" });
+    p.key("keydown", { key: "f", code: "KeyF" }); // F with nothing under the crosshair does what a click does: nothing
+    assert.deepEqual(p.sentOf("interact").map((m) => m.target), ["hall-porch", near]);
+  });
+
+test("in 3D, M opens the full map and lets the pointer go, so a click lands on the map, not the hidden crosshair",
+  { skip }, async () => {
+    const p = await page({ webgl: true });
+    p.aimAt({ target: "hall-porch", kind: "door" });
+    p.el("view3d").fire("click");
+    assert.equal(p.locked(), true);
+    p.key("keydown", { key: "m", code: "KeyM" });
+    assert.equal(p.locked(), false);
+    assert.equal(p.sentOf("interact").length, 0);
+  });
+
+test("in 3D, the hint names the keys that act: E or F on the crosshair's thing, E alone on the thing in reach",
+  { skip }, async () => {
+    const p = await page({ webgl: true });
+    const near = p.v.state.reach[0].target;
+    assert.match(p.el("hint").textContent, new RegExp(`^E: .*${near}`)); // nothing under the crosshair: F does nothing
+    p.aimAt({ target: near, kind: "device" });
+    assert.match(p.el("hint").textContent, new RegExp(`^E or F: .*${near}`));
+    p.aimAt({ target: "hall-porch", kind: "door" }); // out of reach: the prompt by the crosshair says why
+    assert.equal(p.el("hint").textContent, "");
   });

@@ -21,7 +21,7 @@ const LOOK_DEG = 0.15; // degrees the view turns per pixel of mouse movement
 const KEYS_MAP = "WASD or arrows: walk · Shift: run · click a device or a door, or E or F: use it · Q: next thing in " +
   "reach · Tab: next panel";
 const KEYS_3D = "Click the view to look around (Esc lets go) · WASD: walk · Shift: run · click or F: use what the " +
-  "crosshair is on · V: first or third person · M: map · Q: next thing in reach · Tab: next panel";
+  "crosshair is on · E: the same, or with nothing there the thing in reach · V: first or third person · M: map · Q: next thing in reach · Tab: next panel";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("map");
@@ -162,11 +162,6 @@ function look(dx, dy) {
   cam.yaw = (cam.yaw + dx * LOOK_DEG) % 360;
   cam.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, cam.pitch - dy * LOOK_DEG));
   updateWhere();
-}
-
-function crosshairTarget() { // what the crosshair is on, when that is in reach
-  const c = vesper.crosshair;
-  return c && state.reach.some((r) => r.target === c.target) ? c.target : null;
 }
 
 function useCrosshair() {
@@ -314,10 +309,13 @@ function updateHint() {
   const reach = state.reach;
   if (!reach.length) { $("hint").textContent = ""; return; }
   selected %= reach.length;
-  const aimed = mode === "3d" ? crosshairTarget() : null; // in 3D, E or F uses what the crosshair is on first
+  // In 3D, E and F use what the crosshair is on; with nothing there, E alone uses the thing in reach (Q picks it)
+  const aimed = mode === "3d" && vesper.crosshair ? vesper.crosshair.target : null;
   const chosen = aimed ? reach.find((r) => r.target === aimed) : reach[selected];
+  if (!chosen) { $("hint").textContent = ""; return; } // out of reach: the prompt by the crosshair says why
   const more = reach.length > 1 && !aimed ? ` · Q: next (${reach.length} in reach)` : "";
-  $("hint").textContent = hintFor([chosen], state.devices, state.effects) + more;
+  const keys = mode === "3d" && !aimed ? "E" : "E or F";
+  $("hint").textContent = hintFor([chosen], state.devices, state.effects, keys) + more;
 }
 
 function toast(text, bad = false) {
@@ -345,17 +343,18 @@ window.addEventListener("keydown", (e) => {
     }
   } else if (e.repeat) {
     return; // holding E or F uses the thing once
-  } else if (key === "e" || key === "f") { // F is PUBG's interact key
-    const aimed = mode === "3d" ? crosshairTarget() : null;
-    const target = aimed || (state.reach.length ? state.reach[selected % state.reach.length].target : null);
-    send({ type: "interact", target });
+  } else if (mode === "3d" && (key === "f" || (key === "e" && vesper.crosshair))) { // F is PUBG's interact key: it
+    useCrosshair(); // does what a click does, on what the crosshair is on, so out of reach the page says why
+  } else if (key === "e" || key === "f") { // the map, or E with nothing under the crosshair: the thing in reach
+    send({ type: "interact", target: state.reach.length ? state.reach[selected % state.reach.length].target : null });
   } else if (key === "q") {
     selected += 1;
     updateHint();
   } else if (key === "v" && mode === "3d") { // PUBG's first or third person
     cam.mode = cam.mode === "third" ? "first" : "third";
-  } else if (key === "m" && mode === "3d") { // PUBG's full map
+  } else if (key === "m" && mode === "3d") { // PUBG's full map; the pointer is let go, so a click lands on the map
     fullMap = !fullMap;
+    if (fullMap && locked) document.exitPointerLock();
     canvas.classList.toggle("full", fullMap);
     layout();
   }

@@ -37,11 +37,23 @@ def motion(avatar: str, joints, stop, walk, fps: float, displacement, every: int
             "walk": walk[::every], "cycle_m": round(float(displacement[-1]), 4)}
 
 
+# What a motion pickle may name: numpy's arrays, and nothing that runs code (numpy 2 renamed numpy.core).
+MOTION_GLOBALS = {("numpy", "ndarray"), ("numpy", "dtype"), ("numpy.core.multiarray", "_reconstruct"),
+                  ("numpy._core.multiarray", "_reconstruct")}
+
+
 def load_motion_file(path) -> dict:
-    """Habitat's motion pickle as lists (needs numpy: the Habitat environment)."""
+    """Habitat's motion pickle as lists (needs numpy: the Habitat environment). The humanoid folder is found from
+    where vesper runs, so the pickle may name numpy's arrays and nothing else: a planted file cannot run code."""
     import pickle
+
+    class Arrays(pickle.Unpickler):
+        def find_class(self, module, name):
+            if (module, name) not in MOTION_GLOBALS:
+                raise HumanoidError(f"{path}: names {module}.{name}, not numpy's arrays; not a Habitat motion file")
+            return super().find_class(module, name)
     with open(path, "rb") as f:
-        d = pickle.load(f)  # noqa: S301 - Habitat's own humanoid data, which Habitat loads the same way
+        d = Arrays(f).load()
     walk = d["walk_motion"]
 
     def quaternions(rows):

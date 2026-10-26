@@ -3,6 +3,7 @@ imported only here, and only when a scene is loaded, so the rest of the package 
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -92,7 +93,14 @@ def _rows(node) -> list:
 
 
 def _relative(path, root: Path) -> str:
-    return Path(path).resolve().relative_to(root.resolve()).as_posix()
+    """A scene file's place in the HSSD folder, which is how the page asks the server for it. Taken as written first:
+    HSSD's files may be links into a download cache, or a subfolder another disk, and following them leaves the
+    folder; then with links followed, for a folder given as a link to where Habitat found the file."""
+    for p, r in ((os.path.abspath(path), os.path.abspath(root)), (os.path.realpath(path), os.path.realpath(root))):
+        rel = os.path.relpath(p, r)
+        if rel != os.pardir and not rel.startswith(os.pardir + os.sep):
+            return Path(rel).as_posix()
+    raise ExportError(f"{path} is outside the HSSD folder {root}: the page could not be given it")
 
 
 def _render_items(sim, objects, kinds: dict, root: Path) -> list:
