@@ -14,7 +14,7 @@
    - matching, and `analyze()` over a ZIOTP checkout.
 4. Two small runtime additions make the replay possible: `Runtime.add(..., state=...)` installs a twin in a given, already reported state, and a `measured` stimulus applies a measured value to any feature.
 5. `vesper validate realdata` writes a provenance-stamped result; `vesper report` shows it, and labels it exploratory unless it came from the pinned dataset commit.
-6. Task 1 first closes a gap this work exposed: `catalog/vds` was built before the reporting-units fix (b624d8d), so it still holds a temperature change of 100 °C. Commands that run twins now refuse a catalog built by other catalog code.
+6. Task 1 first closes a gap this work exposed: `catalog/vds` was built before the reporting-units fix (98cba8a), so it still holds a temperature change of 100 °C. Commands that run twins now refuse a catalog built by other catalog code.
 
 **Tech Stack:** Python ≥3.11, standard library only. tshark (Wireshark ≥4.x, tested with 4.6.3) as an external binary; tests that need it skip when it is absent.
 

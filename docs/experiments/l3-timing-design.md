@@ -1,7 +1,7 @@
 # L3 timing fidelity: design and pre-registration
 
 **Status: Amendment 1 (2026-10-23), the binding version.**
-- It supersedes the version in commit 3633ed3. That version was never used for any run and must not be cited.
+- It supersedes the version in commit 45345af. That version was never used for any run and must not be cited.
 - Why it was amended, before any run: a fresh code review found three problems.
   1. Its pass rule would fail a perfect pipeline about half the time: the coverage threshold equalled the band's nominal coverage.
   2. Its latency test compared observations with the very distribution VESPER injects, with all paths sharing one random draw.
@@ -9,7 +9,7 @@
 - The commit that adds this amendment is the one to cite. Changing a number below after the first L3 run requires a new, disclosed commit.
 
 **Amendment 2 (2026-10-23, revised 2026-10-24), before any L3 run.** It adds E2, the real-device test (section "E2" below). Nothing in amendment 1 changes, and its commit 7050263 remains the citation for R, G and P. PI decisions behind it: RKA `jrn_01M5MZ2ZNCK1WG5D3628NNWNYY`.
-- Revised before any E2 run, and before the dataset was fetched, after a whole-branch code review. The first version (commit f851fc4) was never used and must not be cited. Its flaws:
+- Revised before any E2 run, and before the dataset was fetched, after a whole-branch code review. The first version (commit 8fa68c7) was never used and must not be cited. Its flaws:
   1. It replayed each segment as one continuous run, so a device whose clock runs a few seconds off per heartbeat drifted out of the matching window and failed while following its rule.
   2. It counted change-driven intervals, which agree by construction, as evidence.
   3. It keyed streams without the source endpoint.

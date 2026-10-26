@@ -341,6 +341,6 @@ What can start now, during another project's run (unit tests only):
 - W4 against fakes;
 - W5's catalog bundle and `doctor`.
 
-The spikes, the world service and every live test wait for the end of the run and the PI's go. Plan D (Matter tier) is merged (2026-10-24, 0ec6a89). W1a (a home from a real HSSD scene through the world service) is merged (2026-10-26, 2f07a3c); W1b, the 3D view, is next.
+The spikes, the world service and every live test wait for the end of the run and the PI's go. Plan D (Matter tier) is merged (2026-10-24, 5eb2aed). W1a (a home from a real HSSD scene through the world service) is merged (2026-10-26, 544477b); W1b, the 3D view, is next.
 
 **Out of scope:** robots and robot training (PI, 2026-10-24); radio and network-layer emulation; several players at once; LLM residents (later #3 work, which uses `vesper lab run`); automatic home composition (later #2 work); a hosted service; the world service on native Windows (it runs in WSL2, §7).

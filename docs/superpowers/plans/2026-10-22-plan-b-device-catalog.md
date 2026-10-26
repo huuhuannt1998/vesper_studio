@@ -16,7 +16,7 @@
 
 **Tech Stack:** Python 3.12 venv (uv), httpx, jsonschema, json5, pytest; Node ≥20 and npm only for the Zigbee export.
 
-**Spec:** `docs/superpowers/specs/2026-10-22-vesper-device-twins-design.md`: §1 ladder and criterion 1, §2 catalog units, §3 VDS, §5 licensing and errors. Amended in 11f0758: Matter comes from Apache-2.0 sources only.
+**Spec:** `docs/superpowers/specs/2026-10-22-vesper-device-twins-design.md`: §1 ladder and criterion 1, §2 catalog units, §3 VDS, §5 licensing and errors. Amended in f2b6184: Matter comes from Apache-2.0 sources only.
 
 **Provenance of this plan's code.** All code below was written and run before the plan was saved, in a scratch tree:
 - 110 offline tests pass, and the 2 opt-in live tests pass against the real sources.
@@ -53,7 +53,7 @@
   | DCL | live, versioned by chain height |
 
 - **Git:**
-  - work on branch `plan-b/device-catalog` (it already holds spec amendments 11f0758 and 6e74e4d);
+  - work on branch `plan-b/device-catalog` (it already holds spec amendments f2b6184 and 28e35df);
   - commits are authorized exactly as listed; no push (`dec_01M5K0PHHR183BMCAJEBG1M0XZ`);
   - stage explicit paths only, never `git add -A`;
   - never stage `data/*`.

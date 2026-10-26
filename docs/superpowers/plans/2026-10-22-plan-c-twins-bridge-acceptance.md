@@ -22,7 +22,7 @@
 
 **Tech Stack:** Python ≥3.11 (repo venv 3.12), paho-mqtt 2.1 (MQTT client), httpx (HA REST API), PyYAML (home files); pytest, ruff and Jinja2 (dev only: the in-memory HA renders templates as HA does). Runtime services: native Mosquitto, and Home Assistant Core 2026.10.2 in its own uv venv (Python 3.14).
 
-**Spec:** `docs/superpowers/specs/2026-10-22-vesper-device-twins-design.md` (§1 success criteria 2 and 3, §2 units `twins/generator`, `twins/runtime`, `exposure/z2m_bridge` and `validation/`, §3.3, §4 rows L0/L1 and L2 scale tier, §5). Plan B (the catalog) is merged on `main` (c2a73fd).
+**Spec:** `docs/superpowers/specs/2026-10-22-vesper-device-twins-design.md` (§1 success criteria 2 and 3, §2 units `twins/generator`, `twins/runtime`, `exposure/z2m_bridge` and `validation/`, §3.3, §4 rows L0/L1 and L2 scale tier, §5). Plan B (the catalog) is merged on `main` (8fdf24b).
 
 ## Global Constraints
 
