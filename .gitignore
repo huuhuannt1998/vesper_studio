@@ -21,6 +21,7 @@ __pycache__/
 .installed.cfg
 .Python
 build/
+!vesper/lab/ui/vendor/three/build/
 develop-eggs/
 dist/
 eggs/

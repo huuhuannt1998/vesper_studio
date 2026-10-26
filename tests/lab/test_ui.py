@@ -70,6 +70,17 @@ def test_the_vendored_three_js_is_the_pinned_release_unchanged():
         assert hashlib.sha256((vendor / name).read_bytes()).hexdigest() == digest, name
 
 
+def test_git_keeps_every_vendored_file():
+    """The repository's `build/` rule (Python's builds) once dropped three.js's own build/ from git: a clone had no
+    three.js, though every test passed in the working copy."""
+    vendor = UI_DIR / "vendor" / "three"
+    if subprocess.run(["git", "-C", str(vendor), "rev-parse"], capture_output=True).returncode != 0:
+        pytest.skip("not in a git work tree")
+    files = [str(p) for p in vendor.rglob("*") if p.is_file()]
+    ignored = subprocess.run(["git", "-C", str(vendor), "check-ignore", *files], capture_output=True, text=True)
+    assert ignored.stdout == "", f"git ignores: {ignored.stdout}"
+
+
 def test_the_page_knows_every_catalog_category():
     from vesper.catalog.normalize.common import CATEGORIES
     text = (UI_DIR / "mapview.js").read_text()
