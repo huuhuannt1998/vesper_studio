@@ -219,6 +219,8 @@ Reactions read the devices' states as the resident would perceive them in the ro
 
 ## 6. The security lab (first version)
 
+**Superseded (PI, 2026-10-26)** by `2026-10-26-vesper-security-lab-design.md`: the home network (W7a, W7b) and the paper-to-scenario MCP server (W4a, W4b), with Phantom-Delay as its test case. This section is kept for its history.
+
 **Vantage points.** Each attack declares where it acts from. All are local to VESPER's own services on 127.0.0.1:
 1. a rogue MQTT client on VESPER's broker (a compromised device or app on the home network, at the application layer);
 2. a compromised device: a twin whose reports or replies an attack rewrites;
@@ -333,7 +335,7 @@ Each has its own plan:
 1. **Plan W1, world service:** the protocol, scene loading, the map-file export, the navmesh, rooms and doors, the avatars (several), rendering; with the spikes R1–R4 first.
 2. **Plan W2, the game app (a vertical slice first):** walk, trip a sensor, Home Assistant turns a lamp on, and both views show it. Then the placement editor, the full rules, the recorder, replay and `vesper lab run`.
 3. **Plan W3, residents:** routines, the activity → device tables, reactions, profiles, several residents, the schedule converters from the earlier work, and the logical-clock mode with VESPER's rule engine (§5b).
-4. **Plan W4, the security lab:** the vantage points, the plugin API, A1–A3 and D1–D2, the console.
+4. **Plan W4, the security lab** (`2026-10-26-vesper-security-lab-design.md`): W4a the scenario engine, W4b the paper-to-scenario MCP server; on the home network of W7a (link emulation, every OS) and W7b (real 802.11, Linux).
 5. **Plan W5, packaging:** `vesper setup habitat|scenes`, `doctor`, the released catalog, the docs, the release checklist.
 6. **Plan W6, VESPER Studio for macOS and Windows (§7):** the desktop shell, its guided setup over W5's commands, WSL2 for the world service on Windows, and unsigned builds of both apps from each commit to main. It starts after W1b (the 3D view) and W5.
 
@@ -343,6 +345,6 @@ What can start now, during another project's run (unit tests only):
 - W4 against fakes;
 - W5's catalog bundle and `doctor`.
 
-The spikes, the world service and every live test wait for the end of the run and the PI's go. Plan D (Matter tier) is merged (2026-10-24, 5eb2aed). W1a (a home from a real HSSD scene through the world service) is merged (2026-10-26, 544477b), and W1b (the 3D view: three.js from the scene's files placed by Habitat, Habitat's humanoids, PUBG's controls) after it. Next: W5 (setup), W4 (the security lab, Phantom-Delay first), W6 (the desktop app).
+The spikes, the world service and every live test wait for the end of the run and the PI's go. Plan D (Matter tier) is merged (2026-10-24, 5eb2aed). W1a (a home from a real HSSD scene through the world service) is merged (2026-10-26, 544477b), and W1b (the 3D view: three.js from the scene's files placed by Habitat, Habitat's humanoids, PUBG's controls) after it. Next (PI, 2026-10-26): W7a (the home network), W4a (the scenario engine), W4b (the paper-to-scenario MCP server, tested on Phantom-Delay), then W5 (setup), W6 (the desktop app) and W7b (real 802.11).
 
-**Out of scope:** robots and robot training (PI, 2026-10-24); radio and network-layer emulation; several players at once; LLM residents (later #3 work, which uses `vesper lab run`); automatic home composition (later #2 work); a hosted service; the world service on native Windows (it runs in WSL2, §7).
+**Out of scope:** robots and robot training (PI, 2026-10-24); radio emulation outside W7b; several players at once; LLM residents (later #3 work, which uses `vesper lab run`); automatic home composition (later #2 work); a hosted service; the world service on native Windows (it runs in WSL2, §7).
