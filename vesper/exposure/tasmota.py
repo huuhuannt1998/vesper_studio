@@ -9,7 +9,10 @@ it for one.
   sends a light's commands: run in order, as one command), `cmnd/<topic>/STATE`, `cmnd/<topic>/STATUS` (10, 11);
   results on `stat/<topic>/RESULT` and `stat/<topic>/POWER[n]`. Commands are case-insensitive, as Tasmota's. A
   transition (Fade, Speed) is taken and not modelled: a light changes at once.
-- State: `tele/<topic>/STATE`, the whole state, every TelePeriod (the twin's periodic report) and on request.
+- State: `tele/<topic>/STATE`, the whole state, once a TelePeriod (300 s, Tasmota's default) and on request.
+- Every connection announces the device again (discovery, LWT Online, its state), as Tasmota does on each MQTT
+  connect. A command's result is published once, by the device: the twin's own report of a platform command (a
+  command reaches a Tasmota twin only through its device) is not a second result.
 
 The device is virtual: no firmware, no hardware, no network but VESPER's. Its MAC is a locally administered address
 derived from the twin's id, so it is stable and never a real device's.
@@ -30,6 +33,7 @@ SOFTWARE = "14.3.0"  # the Tasmota release whose discovery and topics this follo
 OPTIONS = {k: 0 for k in ("4", "11", "13", "17", "20", "30", "68", "73", "82", "114", "117")}
 RELAYS_ANNOUNCED = 8  # Tasmota announces eight relay slots, unused ones 0
 TRANSITIONS = ("FADE", "SPEED")  # taken, not modelled
+TELE_PERIOD_S = 300.0  # Tasmota's TelePeriod default
 
 
 def mac_of(twin_id: str) -> str:
@@ -83,6 +87,7 @@ class TasmotaDevice:
         self.mac = mac_of(self.twin_id)
         self.topic = topic_of(self.mac)
         self._lock = threading.Lock()
+        self._tele, self._stopped = False, False
         self.client.on_message = self._on_message
         self.client.on_connect = self._on_connect
         (self.events or self.runtime).subscribe(self._on_event)
@@ -94,10 +99,15 @@ class TasmotaDevice:
 
     # -- life cycle -----------------------------------------------------------------------------
     def start(self) -> None:
+        """The connection is up: subscribe and announce (what every connection does); never once stopped."""
+        if self._stopped:
+            return
         self._subscribe()
         self._announce()
+        self._begin_tele()
 
     def stop(self) -> None:
+        self._stopped = True
         self._pub(f"tele/{self.topic}/LWT", "Offline", retain=True)
 
     def retract(self) -> None:
@@ -109,9 +119,24 @@ class TasmotaDevice:
         self.client.subscribe(f"cmnd/{self.topic}/#")
 
     def _on_connect(self, client, userdata, flags, reason, properties=None) -> None:
-        """paho reconnects with a clean session: subscribe again and say online (the broker published the will)."""
-        self._subscribe()
-        self._pub(f"tele/{self.topic}/LWT", "Online", retain=True)
+        """Each connection (paho's are clean sessions): subscribe again and announce the device again, its LWT
+        Online (the broker published the will) and its state."""
+        if getattr(reason, "is_failure", False):
+            return
+        self.start()
+
+    def _begin_tele(self) -> None:
+        if not self._tele:
+            self._tele = True
+            clock = self.runtime.clock
+            clock.call_at(clock.now() + TELE_PERIOD_S, self._tele_period)
+
+    def _tele_period(self) -> None:
+        if self._stopped:
+            return
+        self._publish_state()
+        clock = self.runtime.clock
+        clock.call_at(clock.now() + TELE_PERIOD_S, self._tele_period)
 
     def _announce(self) -> None:
         relays, pwm = self.binding["relays"], self.binding["pwm"]
@@ -148,13 +173,8 @@ class TasmotaDevice:
         self._pub(f"tele/{self.topic}/STATE", json.dumps(body))
 
     def _on_event(self, event) -> None:
-        if event.twin_id != self.twin_id:
-            return
-        if event.cause == "periodic":
-            self._publish_state()  # TelePeriod
-            return
-        if getattr(self, "_quiet", False):
-            return  # a command's own result is published once, after the command
+        if event.twin_id != self.twin_id or event.cause in ("periodic", "platform"):
+            return  # the device's own TelePeriod; a command's result, published once by `_apply`
         self._result({event.feature: event.value})
 
     def _result(self, values: dict) -> None:
@@ -261,11 +281,7 @@ class TasmotaDevice:
 
     def _apply(self, changes: list[tuple[str, object]]) -> None:
         with self._lock:
-            self._quiet = True
-            try:
-                done = {n: v for n, v in changes if self.runtime.platform_set(self.twin_id, n, v)}
-            finally:
-                self._quiet = False
+            done = {n: v for n, v in changes if self.runtime.platform_set(self.twin_id, n, v)}
         state = self.runtime.state(self.twin_id)
         order = sorted(done, key=lambda n: (n != "POWER" and not n.startswith("POWER"), n))
         if done:

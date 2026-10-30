@@ -1,6 +1,7 @@
 """`vesper lab play` and `vesper lab look`, with the real play server on a free port and a fake browser."""
 import json
 import re
+from types import SimpleNamespace
 import urllib.request
 
 import pytest
@@ -200,6 +201,9 @@ class LabHA:
     def ensure_tasmota(self):
         self.events.append("ensure_tasmota")
 
+    def forget(self, domain):
+        self.events.append(("forget", domain))
+
     def lab_login(self):
         self.events.append("login")
         return "vesper", "s3cret-lab-login"
@@ -229,6 +233,16 @@ def stack_fakes(monkeypatch):
         clients.append((a, FakeClient()))
         return clients[-1][1]
     monkeypatch.setattr(mqtt_mod, "connect", connect)
+
+    class AsyncClient(FakeClient):
+        def loop_start(self):  # paho's thread connects it
+            self.on_connect(self, None, {}, SimpleNamespace(is_failure=False), None)
+
+    def connect_async(*a, **k):
+        CONNECT_KWARGS.append((a, k))
+        clients.append((a, AsyncClient()))
+        return clients[-1][1]
+    monkeypatch.setattr(mqtt_mod, "connect_async", connect_async)
     monkeypatch.setattr(mqtt_mod, "disconnect", lambda c: clients.append(("disconnected", c)))
     return clients
 
@@ -256,8 +270,9 @@ def test_play_with_the_hub_runs_broker_and_home_assistant_and_keeps_the_automati
     # Home Assistant and the bridge reach the broker through the home's network: the relay's hub and coordinator
     # links, on ports of their own (security-lab spec §3.4), never the broker's directly
     (_, hub_port), ((_, coord_port, name), _) = ha.events[2], clients[0]
+    # a home with no Wi-Fi device leaves no Tasmota entities of an earlier home behind
     assert ha.events[:2] == ["start", "onboard"] and ha.events[2][0] == "ensure_mqtt" and ha.events[3:] == [
-        "login", "stop"]
+        ("forget", "tasmota"), "login", "stop"]
     assert name == "vesper-lab-bridge" and len({hub_port, coord_port, 18830}) == 3 and clients[-1][0] == "disconnected"
     assert f"network: Home Assistant's MQTT through the relay's hub link (port {hub_port}), the bridge's through its " \
            f"coordinator link (port {coord_port})" in seen["out"]

@@ -350,7 +350,26 @@ def test_a_lost_station_passes_nothing_and_is_refused_until_it_rejoins_on_a_new_
     c2 = dial(port)
     c2.sendall(PINGREQ)
     assert wait(lambda: up.arrived(PINGREQ) is not None)
-    assert records == []
+    # what it sent out of range is named in the trace, as the in-process link layer names it
+    assert [(r["event"], r["device"], r["direction"], r["reason"]) for r in records] == [
+        ("dropped", "door", "up", "out of range")]
+
+
+def test_home_assistant_s_command_to_a_lost_station_is_dropped_and_named(net):
+    relay, up, port, records = net
+    c = dial(port)
+    c.sendall(connect())
+    assert wait(lambda: up.conns)
+    relay.lose("coordinator")
+    up.conns[0].sendall(text_publish("cmnd/tasmota_0A0B0C/POWER1", "ON"))
+    assert wait(lambda: records)
+    assert [(r["event"], r["device"], r["direction"], r["reason"]) for r in records] == [
+        ("dropped", "tasmota_0A0B0C", "down", "out of range")]
+    up.conns[0].sendall(PINGREQ)
+    time.sleep(0.2)
+    c.settimeout(0.2)
+    with pytest.raises(socket.timeout):
+        c.recv(2)  # nothing reaches a station out of range
 
 
 def test_a_cut_that_ends_while_the_station_is_lost_releases_nothing(net):

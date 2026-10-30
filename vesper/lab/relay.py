@@ -325,8 +325,23 @@ class Relay:
         out.queue.put_nowait((0.0, None))  # the sender closed: the writer drains what it holds, then closes
         await out.task
 
+    def _identify(self, topic: str, payload: bytes) -> tuple[list[str], str | None, tuple[str, ...]]:
+        """A message's topic levels, device and features (a Tasmota device says its own)."""
+        parts = topic.split("/")
+        identify = self._devices.get(parts[1]) if len(parts) > 1 else None
+        if identify:
+            return parts, *identify(parts, payload)
+        return parts, parts[1] if len(parts) > 1 else None, _features(payload)
+
     def _forward(self, link: _Link, conn: _Conn, packet: bytes, direction: str, out: _Direction) -> None:
         loop = self._loop
+        if link.lost:  # out of range: lost with the association; a message is named, as the link layer names it
+            pub = publish_of(packet, conn.level)
+            if pub is not None:
+                _, device, features = self._identify(*pub)
+                self._net(link.name, "dropped", device=device, feature=features[0] if features else None,
+                          direction=direction, sent_t=self._now(), reason="out of range")
+            return
         if packet[0] >> 4 == 1 and len(packet) > 8:  # CONNECT: its protocol level
             _, i = _varint(packet, 1)
             conn.level = packet[i + 2 + int.from_bytes(packet[i:i + 2], "big")]
@@ -343,11 +358,7 @@ class Relay:
             else:
                 out.queue.put_nowait((due, packet))
             return
-        topic, payload = pub
-        parts = topic.split("/")
-        identify = self._devices.get(parts[1]) if len(parts) > 1 else None
-        device, features = identify(parts, payload) if identify else (parts[1] if len(parts) > 1 else None,
-                                                                       _features(payload))
+        parts, device, features = self._identify(*pub)
         if packet[0] & 0x08:  # DUP: a QoS 1 message resent after a reconnect; it may arrive late or twice
             self._net(link.name, "resent", device=device, feature=features[0] if features else None,
                       direction=direction, sent_t=self._now())

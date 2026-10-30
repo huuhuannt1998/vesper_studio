@@ -3,10 +3,12 @@ MQTT connection to VESPER's broker, as a real one has, through its own `wifi/<na
 relay's).
 
 A device's commands and reports cross its links as a Zigbee device's do, and every message from the broker is handed
-to the session's clock thread. A station out of range from the start never connects, so Home Assistant never hears
-of it, until it comes into range and joins. A station that goes out of range is lost: on the live network the relay
-passes nothing of it, and the broker notices only by its keepalive timeout, publishing its will (Home Assistant marks
-it unavailable); back in range, after its rejoin back-off, it connects anew and says it is online.
+to the session's clock thread. Joining never waits for the connection: the device is on the hub at once, its client
+connects (and reconnects) on its own thread, and every connection announces the device. A station out of range from
+the start never connects, so Home Assistant never hears of it, until it comes into range and joins. A station that
+goes out of range is lost: on the live network the relay passes nothing of it, and the broker notices only by its
+keepalive timeout, publishing its will (Home Assistant marks it unavailable); back in range, after its rejoin
+back-off, it connects anew and says it is online.
 """
 from __future__ import annotations
 
@@ -20,10 +22,14 @@ RETRY_S = 10  # Tasmota's MqttRetry: how soon it tries the broker again after lo
 
 
 class TasmotaHub:
-    def __init__(self, session, connect: Callable, port: int, disconnect: Callable = lambda client: None):
-        """`connect(port, client_id, will, keepalive)`: an MQTT client connected to VESPER's broker on `port` (or the
-        relay's port for the device's link); `disconnect(client)` closes one."""
-        self.session, self._connect, self._disconnect, self.port = session, connect, disconnect, port
+    def __init__(self, session, connect: Callable, port: int,
+                 open_client: Callable = lambda client: client.loop_start(),
+                 disconnect: Callable = lambda client: None):
+        """`connect(port, client_id, will, keepalive)`: an MQTT client for VESPER's broker on `port` (or the relay's
+        port for the device's link), not yet connected; `open_client(client)` lets it connect, without waiting;
+        `disconnect(client)` closes one."""
+        self.session, self._connect, self._open, self._disconnect = session, connect, open_client, disconnect
+        self.port = port
         self._wifi = {d.name: d for d in session.home.devices if "tasmota" in d.record["binding"]}
         self.devices: dict[str, TasmotaDevice] = {}
         self._clients: dict = {}
@@ -88,4 +94,4 @@ class TasmotaHub:
         if relay is not None:
             relay.add_device(topic, device.identify)
         self._clients[name], self.devices[name] = client, device
-        device.start()
+        self._open(client)  # the device announces itself on each connection (its on_connect)

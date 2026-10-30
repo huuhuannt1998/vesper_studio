@@ -182,3 +182,22 @@ def test_an_away_task_needs_somewhere_outside_to_go(tmp_path):
     with pytest.raises(HomeError, match=r"residents\[0\]\.routine: tasks\[2\] \(work\) is AWAY, but the map has "
                                         r"no outdoor room to go to"):
         load_lab_home(write_home(tmp_path, text, world_map=indoors), catalog())
+
+
+@pytest.mark.parametrize("devices, message", [
+    ('      - {product: "tasmota:acme:acme_plug_p1", name: "Kettle Plug", at: {room: kitchen, xy: [6.0, 2.0]}}\n',
+     r"devices\[0\]\.name: 'Kettle Plug': a Wi-Fi device's name is lower-case letters, digits and single "
+     r"underscores \(kettle_plug\); Home Assistant names its entities after it"),
+    ('      - {product: "tasmota:acme:acme_plug_p1", name: "café", at: {room: kitchen, xy: [6.0, 2.0]}}\n',
+     r"devices\[0\]\.name: 'café': a Wi-Fi device's name is lower-case letters"),
+    ('      - {product: "tasmota:acme:acme_strip_s4", name: desk, at: {room: kitchen, xy: [6.0, 2.0]}}\n'
+     '      - {product: "tasmota:acme:acme_plug_p1", name: desk_switch_2, at: {room: kitchen, xy: [5.0, 2.0]}}\n',
+     r"devices\[1\]\.name: 'desk_switch_2': Home Assistant would name an entity of it switch\.desk_switch_2, as "
+     r"it names one of 'desk'"),
+])
+def test_a_wi_fi_device_s_name_is_the_entity_id_home_assistant_gives_it_and_no_other_s(tmp_path, devices, message):
+    """Home Assistant's Tasmota integration names entities after the device (`switch.<name>`, a strip's relays
+    `switch.<name>_switch_<n>`) and adds `_2` to a clash, in discovery order: a name that is not its own slug, or
+    that clashes, would leave automations naming the wrong entity."""
+    with pytest.raises(HomeError, match=message):
+        load(tmp_path, HOME.replace("    devices:\n", "    devices:\n" + devices, 1))

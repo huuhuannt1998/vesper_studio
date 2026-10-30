@@ -798,6 +798,8 @@ def _lab_stack(args, home):
             ha.ensure_mqtt(hub_port)
             if any("tasmota" in d.record["binding"] for d in home.devices):
                 ha.ensure_tasmota()  # Home Assistant's Tasmota integration hears the Wi-Fi devices (plan W7a2)
+            else:
+                ha.forget("tasmota")  # no Wi-Fi device of an earlier home lingers in Home Assistant
             yield SimpleNamespace(ha=ha, port=port, hub_port=hub_port, relay=relay, sink=sink, login=ha.lab_login())
         finally:
             _keep_automations(ha, home, rules)
@@ -832,7 +834,7 @@ def _lab_hub(args, session, port: int):
         hub.coordinator_port = via
         hub.start()
         try:
-            hub.wifi = TasmotaHub(session, lambda p, cid, will, keepalive: mqtt.connect(
+            hub.wifi = TasmotaHub(session, lambda p, cid, will, keepalive: mqtt.connect_async(
                 "127.0.0.1", p, cid, will=will, keepalive=keepalive, retry_s=RETRY_S), port, disconnect=mqtt.disconnect)
             try:
                 hub.wifi.start()

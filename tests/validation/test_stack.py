@@ -116,12 +116,14 @@ class FakeServer:
     """
 
     def __init__(self, entries=None, flow_step="broker", flow_result="create_entry", onboarded=False, storage=None,
-                 persists=True, matter_reachable=True, template=(200, "[]")):
+                 persists=True, matter_reachable=True, template=(200, "[]"), tasmota_state="loaded",
+                 tasmota_missing=False):
         self.entries, self.flow_step, self.flow_result, self.requests = entries or [], flow_step, flow_result, []
         self.onboarded, self.storage, self.persists = onboarded, storage, persists
         self.ids = [f"e{i}" for i in range(len(self.entries))]  # entry ids stay put when another entry goes
         self.next_id = len(self.entries)
         self.matter_reachable, self.template, self.templates, self.handler = matter_reachable, template, [], None
+        self.tasmota_state, self.tasmota_missing = tasmota_state, tasmota_missing  # its entry's setup; no HATasmota
 
     def _add(self, entry):
         self.entries.append(entry)
@@ -145,7 +147,8 @@ class FakeServer:
             return httpx.Response(200, json={})
         if path == "/api/config/config_entries/entry":
             domain = request.url.params.get("domain")
-            return httpx.Response(200, json=[{"entry_id": i, "domain": e["domain"], "title": e["domain"]}
+            return httpx.Response(200, json=[{"entry_id": i, "domain": e["domain"], "title": e["domain"],
+                                              "state": self.tasmota_state if e["domain"] == "tasmota" else "loaded"}
                                              for i, e in zip(self.ids, self.entries)
                                              if domain in (None, e["domain"])])
         if path.startswith("/api/config/config_entries/entry/") and request.method == "DELETE":
@@ -162,6 +165,8 @@ class FakeServer:
             return httpx.Response(404, json={"message": "Entity not found."})
         if path == "/api/config/config_entries/flow":
             self.handler = json.loads(request.content)["handler"]
+            if self.handler == "tasmota" and self.tasmota_missing:  # the integration cannot be loaded
+                return httpx.Response(400, json={"message": "Invalid handler specified"})
             # Without a Supervisor, Home Assistant's Matter flow goes straight to its manual step
             # (matter/config_flow.py); Tasmota's user flow goes to its config step (tasmota/config_flow.py)
             step = {"matter": "manual", "tasmota": "config"}.get(self.handler, self.flow_step)
@@ -568,3 +573,13 @@ def test_setup_installs_what_the_tasmota_integration_imports():
     their requirements the integration fails to set up and no Tasmota entity appears (found live, plan W7a2)."""
     from vesper.validation.stack import NEEDED_INTEGRATIONS
     assert {"tasmota", "camera", "stream"} <= set(NEEDED_INTEGRATIONS)
+
+
+@pytest.mark.parametrize("server", [FakeServer(tasmota_state="setup_error"), FakeServer(tasmota_missing=True)],
+                         ids=["fails to set up", "not installed"])
+def test_a_tasmota_integration_that_cannot_run_is_named_with_its_cure(tmp_path, server):
+    """An entry created is not an integration running: Home Assistant runs with --skip-pip, so a venv set up before
+    the Tasmota integration was needed lacks its requirements, and no Wi-Fi device would ever appear."""
+    ha = onboarded(tmp_path, server)
+    with pytest.raises(StackError, match=r"run `vesper setup ha` again"):
+        ha.ensure_tasmota()

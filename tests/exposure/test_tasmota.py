@@ -1,6 +1,7 @@
 """A virtual Tasmota device on MQTT (security-lab spec §3.3, plan W7a2): its own connection, its discovery as Home
 Assistant's Tasmota integration (HATasmota) reads it, its last will, and Tasmota's command and state topics."""
 import json
+from types import SimpleNamespace
 
 from tests.catalog.fixtures import TASMOTA_PIN, TASMOTA_TEMPLATES, tasmota_tarball
 from tests.exposure.fake_mqtt import FakeClient
@@ -190,3 +191,62 @@ def test_the_entities_home_assistant_creates_are_named_after_the_device():
     assert ids("acme_strip_s4", "desk_strip") == [("switch.desk_strip", "switch", "POWER1")] + [
         (f"switch.desk_strip_switch_{n}", "switch", f"POWER{n}") for n in (2, 3, 4)]
     assert ids("brite_dimmer_d1", "hall_light") == [("light.hall_light", "light", "POWER")]
+
+
+class LateLink:
+    """A device's link that delivers its reports later, as the link layer does (on the clock)."""
+
+    def __init__(self, rt):
+        self.fns, self.queue = [], []
+        rt.subscribe(self.queue.append)
+
+    def subscribe(self, fn):
+        self.fns.append(fn)
+
+    def flush(self):
+        queue, self.queue = self.queue, []
+        for event in queue:
+            for fn in self.fns:
+                fn(event)
+
+
+def test_a_command_s_result_is_published_once_though_the_reports_come_later_through_a_link():
+    """Tasmota publishes a command's result once; the twin's own report of the change, arriving later through the
+    device's link, is not a second result."""
+    clock = LogicalClock()
+    rt = Runtime(clock=clock)
+    twin = rt.add(RECORDS["acme_plug_p1"])
+    client, link = FakeClient(), LateLink(rt)
+    d = TasmotaDevice(rt, twin.id, "kitchen_kettle", client, events=link)
+    d.start()
+    client.deliver(f"cmnd/{d.topic}/POWER1", "ON")
+    link.flush()
+    assert [p for top, p, _ in client.raw if top == f"stat/{d.topic}/RESULT"] == ['{"POWER": "ON"}']
+    assert [p for top, p, _ in client.raw if top == f"stat/{d.topic}/POWER"] == ["ON"]
+
+
+def test_the_whole_state_is_published_once_a_tele_period_however_many_features_the_device_has():
+    """Tasmota's TelePeriod is one STATE per device, not one per feature (a dimmer has two, a strip four)."""
+    for template in ("brite_dimmer_d1", "acme_strip_s4"):
+        d, rt, client, clock = device(template, "x")
+        n = len([1 for top, _, _ in client.raw if top == f"tele/{d.topic}/STATE"])
+        clock.advance(301)
+        assert len([1 for top, _, _ in client.raw if top == f"tele/{d.topic}/STATE"]) == n + 1, template
+        clock.advance(300)
+        assert len([1 for top, _, _ in client.raw if top == f"tele/{d.topic}/STATE"]) == n + 2, template
+
+
+def test_every_connection_announces_the_device_again_as_tasmota_does():
+    """A broker restarted without its retained messages learns the device again on its reconnect."""
+    d, rt, client, _ = device()
+    before = len([1 for top, _, _ in client.raw if top == f"{DISCOVERY_PREFIX}/{d.mac}/config"])
+    client.on_connect(client, None, {}, SimpleNamespace(is_failure=False), None)
+    assert len([1 for top, _, _ in client.raw if top == f"{DISCOVERY_PREFIX}/{d.mac}/config"]) == before + 1
+    assert client.raw[-1][0] == f"tele/{d.topic}/STATE" and (f"tele/{d.topic}/LWT", "Online", True) in client.raw
+
+
+def test_a_connection_that_comes_up_after_stop_does_not_say_the_device_is_online_again():
+    d, rt, client, _ = device()
+    d.stop()
+    client.on_connect(client, None, {}, SimpleNamespace(is_failure=False), None)
+    assert client.raw[-1] == (f"tele/{d.topic}/LWT", "Offline", True)

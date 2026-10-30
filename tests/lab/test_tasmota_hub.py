@@ -2,6 +2,7 @@
 own MQTT connection through its own `wifi/<name>` link, against the in-memory client of the exposure tests."""
 import threading
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -19,15 +20,25 @@ BROKER = 18830
 
 
 class Connections:
-    """What the hub's `connect(port, client_id, will, keepalive)` opened: one in-memory client each."""
+    """The hub's `connect(port, client_id, will, keepalive)`: one in-memory client each, not yet connected; its
+    `open(client)` connects it (paho's on_connect), unless `hold`: the connection does not come up."""
 
-    def __init__(self):
+    def __init__(self, hold=False):
         self.clients: dict[str, FakeClient] = {}
+        self.hold = hold
 
     def __call__(self, port, client_id, will, keepalive):
         c = self.clients[client_id] = FakeClient()
         c.port, c.will, c.keepalive = port, will, keepalive
         return c
+
+    def open(self, client):
+        if not self.hold:
+            self.up(client)
+
+    @staticmethod
+    def up(client):
+        client.on_connect(client, None, {}, SimpleNamespace(is_failure=False), None)
 
 
 class FakeRelay:
@@ -57,12 +68,12 @@ def eventually(check, timeout=5.0):
     raise AssertionError("the condition never held")
 
 
-def start(tmp_path, relay=None):
+def start(tmp_path, relay=None, hold=False):
     home = load_lab_home(write_home(tmp_path, with_wifi()), catalog())
     session = Session(home, clock=WallClock(), live_network=relay is not None)
     session.relay = relay
-    connections = Connections()
-    hub = TasmotaHub(session, connections, BROKER)
+    connections = Connections(hold)
+    hub = TasmotaHub(session, connections, BROKER, open_client=connections.open)
     session.start()
     hub.start()
     return session, hub, connections
@@ -87,6 +98,7 @@ def test_each_wi_fi_device_is_a_tasmota_device_on_its_own_connection_with_its_wi
     for name, d in hub.devices.items():
         c = connections.clients[d.topic]
         assert (c.port, c.will, c.keepalive) == (BROKER, (f"tele/{d.topic}/LWT", "Offline"), KEEPALIVE_S)
+        eventually(lambda c=c, d=d: c.last(f"tasmota/discovery/{d.mac}/config") is not None)
         assert c.last(f"tasmota/discovery/{d.mac}/config")["dn"] == name
     assert hub.entities("kettle_plug") == {"POWER": "switch.kettle_plug"}
     assert hub.entities("reading_lamp") == {"POWER": "light.reading_lamp"}
@@ -122,7 +134,7 @@ def test_a_wi_fi_device_out_of_range_from_the_start_joins_once_it_comes_into_ran
         refresh(session)
         eventually(lambda: "reading_lamp" in hub.devices)
         d = hub.devices["reading_lamp"]
-        assert connections.clients[d.topic].last(f"tasmota/discovery/{d.mac}/config")["dn"] == "reading_lamp"
+        eventually(lambda: connections.clients[d.topic].last(f"tasmota/discovery/{d.mac}/config") is not None)
     finally:
         hub.stop()
         session.stop()
@@ -160,3 +172,22 @@ def test_stop_says_each_device_is_offline(tmp_path):
     session.stop()
     for topic, c in clients.items():
         assert c.raw[-1] == (f"tele/{topic}/LWT", "Offline", True)
+
+
+def test_joining_never_waits_for_the_connection_and_the_device_announces_once_it_is_up(tmp_path):
+    """A station's connection may not come up at once (a cut holds its link, the broker is slow): the session's
+    clock never waits for it, the device is on the hub, and it announces itself when its connection is up, as
+    paho's own retries bring it."""
+    session, hub, connections = start(tmp_path, hold=True)
+    try:
+        assert sorted(hub.devices) == ["kettle_plug", "reading_lamp"]
+        d = hub.devices["kettle_plug"]
+        c = connections.clients[d.topic]
+        time.sleep(0.2)
+        assert c.last(f"tasmota/discovery/{d.mac}/config") is None
+        Connections.up(c)
+        eventually(lambda: c.last(f"tasmota/discovery/{d.mac}/config") is not None)
+        assert (f"tele/{d.topic}/LWT", "Online", True) in c.raw
+    finally:
+        hub.stop()
+        session.stop()

@@ -489,17 +489,32 @@ class HomeAssistant:
         if result.get("type") != "create_entry":
             raise StackError(f"the Matter integration was not configured: {result}")
 
-    def ensure_tasmota(self, prefix: str = "tasmota/discovery") -> None:
+    def ensure_tasmota(self, prefix: str = "tasmota/discovery", timeout: float = 30.0) -> None:
         """Home Assistant's Tasmota integration (one entry), reading the virtual Tasmota devices' discovery under
         `prefix`, freshly on every run (as `ensure_mqtt`)."""
+        cure = "run `vesper setup ha` again: it installs the integration's requirements"
         self._remove_entries("tasmota")
         flow = self.api("POST", "/api/config/config_entries/flow", json={"handler": "tasmota"}).json()
         if flow.get("step_id") != "config":
-            raise StackError(f"unexpected Tasmota config flow step: {flow}")
+            raise StackError(f"Home Assistant cannot start its Tasmota integration ({flow}); {cure}")
         result = self.api("POST", f"/api/config/config_entries/flow/{flow['flow_id']}",
                           json={"discovery_prefix": prefix}).json()
         if result.get("type") != "create_entry":
             raise StackError(f"the Tasmota integration was not configured: {result}")
+        deadline = time.monotonic() + timeout  # created is not running: its setup may fail on a missing requirement
+        while True:
+            states = [e.get("state") for e in self.api("GET", "/api/config/config_entries/entry",
+                                                         params={"domain": "tasmota"}).json()]
+            if states == ["loaded"]:
+                return
+            if any(st not in ("not_loaded", "setup_in_progress") for st in states) or time.monotonic() > deadline:
+                raise StackError(f"Home Assistant's Tasmota integration did not set up ({', '.join(map(str, states))};"
+                                 f" its log says why); {cure}")
+            time.sleep(0.5)
+
+    def forget(self, domain: str) -> None:
+        """No entry of `domain` survives from an earlier run: its devices and entities go with it."""
+        self._remove_entries(domain)
 
     def matter_entities(self) -> dict[str, list[str]]:
         """Home Assistant's Matter entities, grouped by their device's serial number (the twin's node serial)."""

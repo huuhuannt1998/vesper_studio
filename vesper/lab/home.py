@@ -19,11 +19,13 @@ Every mistake names its field and, where one exists, the nearest valid choice.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
+from vesper.exposure.tasmota import expected_entities
 from vesper.exposure.z2m_bridge import topic_safe
 from vesper.twins.twin import Twin, TwinError
 from vesper.lab.geometry import Point, centroid, distance, point_in_polygon
@@ -113,6 +115,7 @@ def load_lab_home(path: Path, catalog: dict[str, dict]) -> LabHome:
     names = [d.get("name") for d in raw]
     for k, d in enumerate(raw):
         devices.append(_device(k, d, catalog, world_map, doors, names))
+    _check_wifi_names(devices)
     avatar = _mapping(spec.get("avatar") or {}, "avatar")
     start = _mapping(avatar.get("start") or {}, "avatar.start").get("room")
     if start is None:
@@ -186,6 +189,29 @@ def spawn_point(world_map: WorldMap, room_id: str) -> Point:
     if best is None:
         raise HomeError(f"room {room_id!r} has no walkable floor")
     return best[1]
+
+
+WIFI_NAME = re.compile(r"[a-z0-9]+(?:_[a-z0-9]+)*")  # its own slug: the entity id Home Assistant gives it
+
+
+def _check_wifi_names(devices: list[PlacedDevice]) -> None:
+    """Home Assistant's Tasmota integration names a Wi-Fi device's entities after the device (`switch.<name>`, a
+    strip's relays `switch.<name>_switch_<n>`), and adds `_2` to a clash in discovery order: so a Wi-Fi device's name
+    must be its own slug, and no two of its entities may share an id."""
+    owner: dict[str, str] = {}
+    for k, d in enumerate(devices):
+        if "tasmota" not in d.record["binding"]:
+            continue
+        if not WIFI_NAME.fullmatch(d.name):
+            slug = re.sub(r"[^a-z0-9]+", "_", d.name.lower()).strip("_") if d.name.isascii() else ""
+            raise HomeError(f"devices[{k}].name: {d.name!r}: a Wi-Fi device's name is lower-case letters, digits and "
+                            f"single underscores{f' ({slug})' if slug else ''}; Home Assistant names its entities "
+                            "after it")
+        for e in expected_entities(d.record, d.name):
+            if e.entity_id in owner:
+                raise HomeError(f"devices[{k}].name: {d.name!r}: Home Assistant would name an entity of it "
+                                f"{e.entity_id}, as it names one of {owner[e.entity_id]!r}")
+            owner[e.entity_id] = d.name
 
 
 def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, names: list) -> PlacedDevice:

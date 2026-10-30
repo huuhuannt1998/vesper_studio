@@ -26,6 +26,19 @@ def connect(host: str, port: int, client_id: str, timeout: float = 10.0,
     return client
 
 
+def connect_async(host: str, port: int, client_id: str, will: tuple[str, str] | None = None, keepalive: int = 60,
+                  retry_s: int | None = None) -> mqtt.Client:
+    """A client that connects once its loop starts (`client.loop_start()`), on its own thread, never blocking the
+    caller, and retries (at most `retry_s` apart) until it is connected, and whenever it loses the broker."""
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
+    if will:
+        client.will_set(will[0], will[1], qos=1, retain=True)
+    if retry_s:
+        client.reconnect_delay_set(1, retry_s)
+    client.connect_async(host, port, keepalive=keepalive)
+    return client
+
+
 def disconnect(client: mqtt.Client) -> None:
     client.disconnect()
     client.loop_stop()

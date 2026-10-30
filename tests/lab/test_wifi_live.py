@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests.lab.homes import catalog, with_wifi, write_home
-from vesper.exposure.mqtt import connect, disconnect
+from vesper.exposure.mqtt import connect, connect_async, disconnect
 from vesper.lab import linklayer, tasmota_hub
 from vesper.lab.home import load_lab_home
 from vesper.lab.linklayer import Effect
@@ -66,7 +66,7 @@ class Live:
         self.session.relay = self.relay
         sink.attach(self.session)
         self.session.start()
-        self.hub = TasmotaHub(self.session, lambda p, cid, will, keepalive: connect(
+        self.hub = TasmotaHub(self.session, lambda p, cid, will, keepalive: connect_async(
             "127.0.0.1", p, cid, will=will, keepalive=keepalive, retry_s=1), 18830, disconnect=disconnect)
         self.hub.start()
 
