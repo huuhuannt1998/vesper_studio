@@ -193,3 +193,27 @@ def test_a_link_is_up_only_in_range_and_not_cut_so_a_cut_ending_on_a_dead_link_s
     clock.advance(1)
     assert [(r["link"], r["event"], r.get("reason")) for r in records] == [
         ("zigbee/lamp", "down", "out of range"), ("zigbee/lamp", "dropped", "out of range")]
+
+
+def test_a_wi_fi_device_back_in_range_rejoins_only_after_its_back_off(monkeypatch):
+    """A station that lost its access point reconnects after a back-off (about 11 s measured on a real Linux
+    station); meanwhile its messages are lost."""
+    from vesper.lab.linklayer import WIFI_REJOIN_S
+    from vesper.lab.network import WIFI
+    plug = PlacedDevice("plug", "tasmota:acme:acme_plug_p1", {"binding": {"tasmota": {}}}, "hall", None, (0.0, 3.0),
+                        "floor", None)
+    monkeypatch.setitem(WIFI, "drop_dbm", -27.0)  # 1.5 m: -25.3 dBm with the front door open, -28.3 shut
+    doors = {"hall-porch": False}
+    links, clock, rt, heard, records = layer(devices=[plug], doors=doors)
+    assert not links.is_up("wifi/plug")
+    doors["hall-porch"] = True
+    links.refresh()
+    assert not links.is_up("wifi/plug")  # in range again, still rejoining
+    rt.report(clock, "tw-plug", "POWER", "ON")
+    clock.advance(WIFI_REJOIN_S + 0.5)
+    assert links.is_up("wifi/plug")
+    rt.report(clock, "tw-plug", "POWER", "OFF")
+    clock.advance(1)
+    assert [v for _, _, _, v in heard] == ["OFF"]
+    assert [(r["link"], r["event"], r.get("reason")) for r in records if r["event"] in ("down", "up")] == [
+        ("wifi/plug", "down", "out of range"), ("wifi/plug", "up", "rejoined")]

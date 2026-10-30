@@ -9,7 +9,7 @@ from vesper.catalog.errors import IngestError
 def test_build_command(raw_root, tmp_path, capsys):
     out = tmp_path / "vds"
     assert cli.main(["catalog", "build", "--raw-root", str(raw_root), "--out", str(out)]) == 0
-    assert "built 23 records" in capsys.readouterr().out
+    assert "built 26 records" in capsys.readouterr().out  # 13 Zigbee, 7 Matter, 3 Z-Wave, 3 Tasmota
     assert len(json.loads((out / "zigbee.json").read_text())) == 13
 
 
@@ -37,7 +37,7 @@ def test_sync_runs_every_source_and_reports_failures(tmp_path, monkeypatch, caps
 
     monkeypatch.setattr(cli, "_sync_one", fake)
     assert cli.main(["catalog", "sync", "--raw-root", str(tmp_path)]) == 1
-    assert ran == ["ha", "zigbee", "matter_zap", "dcl", "zwave"]
+    assert ran == ["ha", "zigbee", "matter_zap", "dcl", "zwave", "tasmota"]
     assert "FAILED dcl: ledger down" in capsys.readouterr().err
 
 
@@ -63,5 +63,5 @@ def test_an_unexpected_error_in_one_source_does_not_stop_the_others(tmp_path, mo
 
     monkeypatch.setattr(cli, "_sync_one", fake)
     assert cli.main(["catalog", "sync", "--raw-root", str(tmp_path)]) == 1
-    assert ran == ["ha", "zigbee", "matter_zap", "dcl", "zwave"]
+    assert ran == ["ha", "zigbee", "matter_zap", "dcl", "zwave", "tasmota"]
     assert "FAILED matter_zap: KeyError: 'download_url'" in capsys.readouterr().err

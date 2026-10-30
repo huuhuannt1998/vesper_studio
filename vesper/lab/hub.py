@@ -3,8 +3,9 @@ Zigbee2MQTT bridge `vesper twins run` uses, so that an unmodified Home Assistant
 
 Every message from the broker is handed to the session's clock thread, like every other change to the world:
 the rules, the world and the trace are only ever touched there. Home Assistant's commands reach the twins as
-platform commands, so the session traces them (`hub` inputs) and a replay needs no hub. Matter devices are not
-on the hub yet (plan W2d); `skipped` names them.
+platform commands, so the session traces them (`hub` inputs) and a replay needs no hub. Wi-Fi devices are on the
+hub through their own connections (`TasmotaHub`, plan W7a2); Matter devices are not on the hub yet (plan W2d):
+`skipped` names them.
 """
 from __future__ import annotations
 
@@ -39,7 +40,7 @@ class Hub:
     def __init__(self, session, client, *, zhc_version: str = "unknown", base_topic: str = "zigbee2mqtt"):
         self.session = session
         devices = session.home.devices
-        self.skipped = [d.name for d in devices if "zigbee" not in d.record["binding"]]
+        self.skipped = [d.name for d in devices if not {"zigbee", "tasmota"} & set(d.record["binding"])]
         self._placements = {d.name: Placement(session.twin_ids[d.name], d.name) for d in devices
                             if "zigbee" in d.record["binding"]}
         links = session.links  # the home's network: each device's reports and commands cross its hop

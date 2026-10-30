@@ -2,7 +2,8 @@ import json
 
 import pytest
 
-from tests.catalog.fixtures import DCL_MODELS, DCL_VENDORS, ZAP_FILES, ZIGBEE_DOC, ZWAVE_DEVICES, zwave_tarball
+from tests.catalog.fixtures import (DCL_MODELS, DCL_VENDORS, TASMOTA_PIN, TASMOTA_TEMPLATES, ZAP_FILES, ZIGBEE_DOC,
+                                    ZWAVE_DEVICES, tasmota_tarball, zwave_tarball)
 from tests.catalog.ha_2026_10_2 import BINARY_SENSOR, SENSOR, const_source
 from vesper.catalog.snapshot import write_snapshot
 
@@ -16,6 +17,7 @@ def write_all(raw, *, skip=()):
         "dcl": ("height-1", {"models.json": json.dumps(DCL_MODELS).encode(),
                              "vendors.json": json.dumps(DCL_VENDORS).encode()}, "DCL-terms-unverified"),
         "zwave": ("15.31.2", {"config.tgz": zwave_tarball(ZWAVE_DEVICES)}, "MIT"),
+        "tasmota": (TASMOTA_PIN, {"templates.tgz": tasmota_tarball(TASMOTA_TEMPLATES)}, "EPL-2.0"),
     }
     for source, (version, files, lic) in snaps.items():
         if source not in skip:

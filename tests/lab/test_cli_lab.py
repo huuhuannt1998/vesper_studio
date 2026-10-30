@@ -217,3 +217,19 @@ def test_check_names_the_devices_out_of_the_coordinator_s_radio_range(tmp_path, 
     assert cli.main(["lab", "check", str(home), "--catalog", str(cat)]) == 0
     out = capsys.readouterr().out
     assert "out of the Zigbee coordinator's radio range (no mesh routing yet): " in out and "bedroom_lamp" in out
+
+
+def test_check_names_the_wi_fi_devices_out_of_the_router_s_reach(tmp_path, capsys, monkeypatch):
+    """A Wi-Fi device out of the router's reach never connects until it comes into range: `lab check` says which."""
+    from tests.lab.homes import with_wifi
+    from vesper.lab.network import WIFI
+    cat, home = setup(tmp_path)
+    (tmp_path / "wifi").mkdir()
+    home = write_home(tmp_path / "wifi", with_wifi())
+    assert cli.main(["lab", "check", str(home), "--catalog", str(cat)]) == 0
+    assert "Wi-Fi" not in capsys.readouterr().out
+    monkeypatch.setitem(WIFI, "drop_dbm", -46.0)  # the reading lamp (-47.4 dBm) is out of reach
+    assert cli.main(["lab", "check", str(home), "--catalog", str(cat)]) == 0
+    out = capsys.readouterr().out
+    assert "reading_lamp is out of the router's Wi-Fi range: it joins once in range" in out
+    assert "kettle_plug" not in out.split("Wi-Fi range")[0].rsplit("\n", 1)[-1]

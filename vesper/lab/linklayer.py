@@ -21,6 +21,7 @@ from vesper.lab.network import Network, NetworkError, Quality, link_quality
 from vesper.lab.worldmap import WorldMap, suggest
 
 KINDS = ("delay", "drop", "duplicate", "reorder", "throttle", "cut")
+WIFI_REJOIN_S = 11.0  # a station back in range reconnects after this back-off (the old VESPER measured ~11 s)
 DIRECTIONS = ("up", "down", "both")  # up: from the device towards Home Assistant
 
 
@@ -75,7 +76,8 @@ class LinkLayer:
         self._listeners: list[Callable] = []
         self._effects: list[Effect] = []
         self._quality: dict[str, Quality] = {}
-        self._up: dict[str, bool] = {}  # a link is up when it is in range and not cut
+        self._up: dict[str, bool] = {}  # a link is up when it is in range, not rejoining and not cut
+        self._rejoin: dict[str, float] = {}  # a Wi-Fi link back in range: up only from this time
         self._last: dict[tuple[str, str], float] = {}  # (device, direction) -> its last delivery time
 
     # -- set-up ---------------------------------------------------------------------------------
@@ -102,15 +104,29 @@ class LinkLayer:
         """Each link's quality from the home as it is now (a door shut or opened changes what a hop crosses)."""
         doors = self._doors()
         for name, link in self.network.links.items():
-            self._quality[name] = link_quality(link.medium, *link.ends, self.world_map, doors)
+            before = self._quality.get(name)
+            self._quality[name] = q = link_quality(link.medium, *link.ends, self.world_map, doors)
+            if link.medium == "wifi" and before is not None and not before.connected and q.connected:
+                until = self.clock.now() + WIFI_REJOIN_S  # the station rejoins after its back-off
+                self._rejoin[name] = until
+                self.clock.call_at(until, lambda name=name: self._settle(name, "out of range", "rejoined"))
             self._settle(name, "out of range", "in range")
 
     def _cut(self, link: str) -> bool:
         return any(e.kind == "cut" and e.link == link for e in self._effects)
 
+    def _why_down(self, link: str) -> str | None:
+        if self._cut(link):
+            return "cut"
+        if not self._quality[link].connected:
+            return "out of range"
+        if self.clock.now() < self._rejoin.get(link, -math.inf):
+            return "rejoining"
+        return None
+
     def _settle(self, link: str, down_reason: str, up_reason: str) -> None:
-        """Say so when a link goes down or comes up: up is in range and not cut, whatever changed."""
-        up = self._quality[link].connected and not self._cut(link)
+        """Say so when a link goes down or comes up: up is in range, rejoined and not cut, whatever changed."""
+        up = self._why_down(link) is None
         before = self._up.get(link, True)
         self._up[link] = up
         if before and not up:
@@ -162,9 +178,10 @@ class LinkLayer:
         now, delay = self.clock.now(), 0.0
         held = duplicate = reorder = None
         for name in self.carried(device):
-            if not self._quality[name].connected or self._cut(name):
+            why = self._why_down(name)
+            if why is not None:
                 self._net(name, "dropped", device=device, feature=feature, direction=direction, sent_t=now,
-                          reason="out of range" if not self._quality[name].connected else "cut")
+                          reason=why)
                 return
             latency = self._quality[name].latency_s
             if latency:

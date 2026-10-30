@@ -19,11 +19,12 @@ from vesper.catalog.ingest.matter_zap import parse_zap
 from vesper.catalog.normalize.ha_map import unknown_device_classes
 from vesper.catalog.normalize.matter import matter_records
 from vesper.catalog.normalize.zigbee import zigbee_records
+from vesper.catalog.normalize.tasmota import tasmota_notice, tasmota_records
 from vesper.catalog.normalize.zwave import zwave_records
 from vesper.catalog.schema import validate_vds
 from vesper.catalog.snapshot import load_snapshot
 
-PROTOCOLS = ("zigbee", "matter", "zwave")
+PROTOCOLS = ("zigbee", "matter", "zwave", "tasmota")
 
 
 def _input(meta: dict) -> dict:
@@ -51,8 +52,15 @@ def _zwave(raw_root):
     return recs, rejected, {"zwave": _input(meta)}
 
 
-PRODUCERS = {"zigbee": _zigbee, "matter": _matter, "zwave": _zwave}
-REQUIRED_SOURCES = {"zigbee": ("zigbee",), "matter": ("dcl", "matter_zap"), "zwave": ("zwave",)}
+def _tasmota(raw_root):
+    meta, files = load_snapshot(raw_root, "tasmota")
+    recs, rejected = tasmota_records(files["templates.tgz"], meta["version"])
+    return recs, rejected, {"tasmota": _input(meta)}
+
+
+PRODUCERS = {"zigbee": _zigbee, "matter": _matter, "zwave": _zwave, "tasmota": _tasmota}
+REQUIRED_SOURCES = {"zigbee": ("zigbee",), "matter": ("dcl", "matter_zap"), "zwave": ("zwave",),
+                    "tasmota": ("tasmota",)}
 
 
 def _write(path: Path, text: str) -> None:
@@ -136,4 +144,10 @@ def build_catalog(raw_root: Path, out_dir: Path, *, release: bool = False) -> di
     report = {"records": len(records), "rejected": rejected, "skipped_sources": skipped, "linked": links,
               "release": release, "inputs": inputs, "code_sha256": code_fingerprint()}
     _write(out_dir / "build_report.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
+    notice = out_dir / "NOTICE-tasmota.md"  # EPL-2.0: the records carry the templates' license
+    if any(r["id"].startswith("tasmota:") for r in records):
+        meta, files = load_snapshot(raw_root, "tasmota")
+        _write(notice, tasmota_notice(files["templates.tgz"], meta["version"]))
+    elif notice.exists():
+        notice.unlink()
     return report

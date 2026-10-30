@@ -17,8 +17,11 @@ THERMOSTAT = zdef("THERM-1", "Acme", [{"type": "climate", "features": [
 
 
 def catalog():
+    from tests.catalog.fixtures import TASMOTA_PIN, TASMOTA_TEMPLATES, tasmota_tarball
+    from vesper.catalog.normalize.tasmota import tasmota_records
     out = {r["id"]: r for r in zigbee_records().values()}
     out[LOCK] = matter_records()[LOCK]
+    out.update((r["id"], r) for r in tasmota_records(tasmota_tarball(TASMOTA_TEMPLATES), TASMOTA_PIN)[0])
     for r in normalize_zigbee({"version": "26.123.0", "definitions": [THERMOSTAT]}):
         out[r["id"]] = r
     return out
@@ -50,3 +53,16 @@ def write_home(tmp_path, text=HOME, world_map=None):
     path = tmp_path / "home.yaml"
     path.write_text(textwrap.dedent(text))
     return path
+
+
+# A Tasmota (Wi-Fi) kettle plug in the kitchen and a Tasmota dimmer lamp in the bedroom (plan W7a2)
+WIFI_DEVICES = (
+    '      - {product: "tasmota:acme:acme_plug_p1", name: kettle_plug, at: {room: kitchen, xy: [6.0, 2.0], '
+    'mount: floor}}\n'
+    '      - {product: "tasmota:brite:brite_dimmer_d1", name: reading_lamp, at: {room: bedroom, xy: [6.5, 5.5], '
+    'mount: table}}\n')
+
+
+def with_wifi(text=HOME):
+    """HOME with two Tasmota devices placed."""
+    return text.replace("    devices:\n", "    devices:\n" + WIFI_DEVICES, 1)

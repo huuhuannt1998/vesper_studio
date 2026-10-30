@@ -192,3 +192,49 @@ ZWAVE_DEVICES = {
     "0x0086/broken.json": '{"label": ',
     "0x0086/nolabel.json": '{"manufacturerId": "0x0086"}',
 }
+
+
+TASMOTA_PIN = "30d9c9b16014817641f83a0cf8f2f266a0dbaef2"
+
+
+def tasmota_tarball(templates: dict[str, str], pin: str = TASMOTA_PIN) -> bytes:
+    """A GitHub tarball of the templates repository at `pin`: `templates` (file name -> text) under _templates/,
+    plus an image and an unsupported device, which are never read as templates."""
+    import io
+    import tarfile
+
+    buf = io.BytesIO()
+    top = f"templates-{pin}"
+    files = {**{f"_templates/{name}": text for name, text in templates.items()},
+             "LICENSE.md": "Eclipse Public License - v 2.0\n\n(the license text, in the real repository)\n",
+             "assets/device_images/plug.webp": "not a template",
+             "_unsupported/some_tuya_device": "---\ntitle: Unsupported Thing\n---\n"}
+    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        for path, text in files.items():
+            data = text.encode()
+            info = tarfile.TarInfo(f"{top}/{path}")
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def _tasmota(title, model, category, type_, gpio, key="template9"):
+    tpl = '{"NAME":"%s","GPIO":%s,"FLAG":0,"BASE":18}' % (title, gpio)
+    return (f"---\ndate_added: 2024-01-01\ntitle: {title}\nmodel: {model}\nimage: /assets/x.webp\n"
+            f"{key}: '{tpl}'\nlink: https://example.com/{model}\nmlink:\nflash: serial\ncategory: {category}\n"
+            f"type: {type_}\nstandard: [eu]\n---\n\n## Notes\nWritten for VESPER's tests.\n")
+
+
+TASMOTA_TEMPLATES = {
+    # 224 = Relay1, 225 = Relay2 ...; 256 = Relay_i1; 32 = Button1; 288 = Led1; 416 = PWM1 (Tasmota's components)
+    "acme_plug_p1": _tasmota("Acme Smart Plug", "P1", "plug", "Plug", "[32,0,0,0,0,224,0,0,288,0,0,0,0,0]"),
+    "acme_strip_s4": _tasmota("Acme Power Strip", "S4", "plug", "Power Strip",
+                              "[0,224,225,226,0,256,0,0,32,0,0,0,0,0]"),
+    "brite_dimmer_d1": _tasmota("Brite Wall Dimmer", "D1", "light", "Dimmable", "[0,0,0,0,416,0,0,0,32,0,0,0,0,0]"),
+    "brite_bulb_rgbcct": _tasmota("Brite Colour Bulb", "B5", "bulb", "RGBCCT",
+                                  "[0,0,0,0,416,417,418,419,420,0,0,0,0,0]"),
+    "old_numbering_plug": _tasmota("Oldco Plug", "O1", "plug", "Plug", "[17,0,0,0,0,21,0,0,52,0,0,0,0,0]",
+                                   key="template"),
+    "acme_sensor_board": _tasmota("Acme Temp Board", "T1", "sensor", "Sensor", "[0,0,0,0,0,0,0,0,0,0,0,0,0,0]"),
+    "not_front_matter": "Just text with no front matter.\n",
+}

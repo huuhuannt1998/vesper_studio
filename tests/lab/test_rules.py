@@ -166,3 +166,16 @@ def test_a_radar_presence_sensor_keeps_seeing_a_person_who_sits_still(tmp_path):
     go(t, (5.0, 1.5))  # off to the kitchen
     t.clock.advance(OCCUPANCY_TIMEOUT_S + 15)
     assert t.state("hall_radar")["presence"] is False
+
+
+def test_a_tasmota_lamp_and_plug_are_switched_by_hand_through_their_power(tmp_path):
+    """A Tasmota device's on/off is POWER (POWER1 on a power strip), as Tasmota names its relays."""
+    from tests.lab.homes import catalog
+    from vesper.lab.rules import is_on, toggle_command
+    from vesper.twins.clock import LogicalClock
+    from vesper.twins.runtime import Runtime
+    rt = Runtime(clock=LogicalClock())
+    lamp = rt.twins[rt.add(catalog()["tasmota:brite:brite_dimmer_d1"]).id]
+    strip = rt.twins[rt.add(catalog()["tasmota:acme:acme_strip_s4"]).id]
+    assert toggle_command(lamp) == ("operate", "POWER", "TOGGLE") and is_on(lamp) is False
+    assert toggle_command(strip) == ("operate", "POWER1", "TOGGLE") and is_on(strip) is False

@@ -7,15 +7,18 @@ import paho.mqtt.client as mqtt
 
 
 def connect(host: str, port: int, client_id: str, timeout: float = 10.0,
-            will: tuple[str, str] | None = None) -> mqtt.Client:
+            will: tuple[str, str] | None = None, keepalive: int = 60, retry_s: int | None = None) -> mqtt.Client:
     """A connected client with its network loop running on a background thread. `will` is a retained
-    (topic, payload) the broker publishes if this client vanishes without disconnecting."""
+    (topic, payload) the broker publishes if this client vanishes without disconnecting; the broker notices that
+    after 1.5 `keepalive`s of silence. A lost connection is retried, at most `retry_s` apart."""
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
     if will:
         client.will_set(will[0], will[1], qos=1, retain=True)
+    if retry_s:
+        client.reconnect_delay_set(1, retry_s)
     ready = threading.Event()
     client.on_connect = lambda c, userdata, flags, reason, props: ready.set() if not reason.is_failure else None
-    client.connect(host, port)
+    client.connect(host, port, keepalive=keepalive)
     client.loop_start()
     if not ready.wait(timeout):
         client.loop_stop()

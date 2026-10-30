@@ -99,3 +99,15 @@ def test_parse_network_needs_no_home_file():
     assert net.path("lamp") == ["zigbee/lamp", "coordinator", "hub"]
     with pytest.raises(NetworkError):
         parse_network({"router": "hall"}, house(), [lamp])
+
+
+def test_a_wi_fi_device_reaches_home_assistant_over_its_own_link_to_the_router_then_the_hub(tmp_path):
+    from tests.lab.homes import with_wifi
+    home = load_lab_home(write_home(tmp_path, with_wifi()), catalog())
+    net = home.network
+    assert net.path("kettle_plug") == ["wifi/kettle_plug", "hub"]
+    wifi = net.links["wifi/kettle_plug"]
+    assert wifi.medium == "wifi" and wifi.tcp and wifi.devices == ("kettle_plug",)
+    assert wifi.ends == ((6.0, 2.0), net.router.position)
+    assert "kettle_plug" in net.links["hub"].devices and "kettle_plug" not in net.links["coordinator"].devices
+    assert "kettle_plug" not in net.unlinked and "reading_lamp" not in net.unlinked

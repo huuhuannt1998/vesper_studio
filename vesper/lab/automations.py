@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 import yaml
 
 from vesper.exposure.ha_discovery import device_discovery
+from vesper.exposure.tasmota import expected_entities
 from vesper.exposure.z2m_bridge import flatten, ieee_address
 
 DAY_S = 86400
@@ -84,9 +85,18 @@ def _discovered(home):
         yield d.name, twin_id, payload, expected
 
 
+def _wifi(home):
+    """(device name, twin id, expected entities) for each Wi-Fi device on the hub: a Tasmota device (plan W7a2)."""
+    for d in home.devices:
+        if "tasmota" in d.record["binding"]:
+            yield d.name, f"{d.product}@{d.name}", expected_entities(d.record, d.name)
+
+
 def entity_ids(home) -> dict[str, dict[str, str]]:
     """Device name -> feature -> the entity id Home Assistant creates for it (what automations name)."""
-    return {name: {e.feature: e.entity_id for e in expected} for name, _, _, expected in _discovered(home)}
+    ids = {name: {e.feature: e.entity_id for e in expected} for name, _, _, expected in _discovered(home)}
+    ids.update({name: {e.feature: e.entity_id for e in expected} for name, _, expected in _wifi(home)})
+    return ids
 
 
 def _number(value, where: str) -> float:
@@ -158,6 +168,10 @@ class Engine:
                 oid = e.entity_id.split(".", 1)[1]
                 self.entities[e.entity_id] = Entity(e.entity_id, name, twin_id, e.feature, e.platform,
                                                     payload["cmps"].get(oid, {}))
+        for name, twin_id, expected in _wifi(self.home):
+            for e in expected:
+                self.entities[e.entity_id] = Entity(e.entity_id, name, twin_id, e.feature, e.platform,
+                                                    {"tasmota": True})
         self._of_feature: dict[tuple[str, str], list[Entity]] = {}
         for e in self.entities.values():
             self._of_feature.setdefault((e.twin_id, e.feature), []).append(e)
@@ -436,7 +450,12 @@ class Engine:
         brightness = x.get("brightness")
         if domain == "light" and verb == "turn_on" and brightness == 0:
             verb = "turn_off"  # Home Assistant: turning a light on at brightness 0 turns it off
-        if domain == "light":  # the JSON schema light's command (HA mqtt/light/schema_json.py)
+        if e.cfg.get("tasmota"):  # Home Assistant's Tasmota integration: POWER<n>, or a Dimmer (HA tasmota/light.py)
+            command = {e.feature: "ON" if verb == "turn_on" else "OFF"}
+            if domain == "light" and verb == "turn_on" and brightness is not None:
+                dimmer = max(min(round(brightness / 255 * 100), 100), 1)  # its scale_brightness: 1..100
+                command = {"Dimmer": dimmer, e.feature: "ON"}  # as the device applies it: dimming lights it
+        elif domain == "light":  # the JSON schema light's command (HA mqtt/light/schema_json.py)
             command = {"state": "ON" if verb == "turn_on" else "OFF"}
             if verb == "turn_on" and brightness is not None and e.cfg.get("brightness"):
                 scale = e.cfg.get("brightness_scale", 255)

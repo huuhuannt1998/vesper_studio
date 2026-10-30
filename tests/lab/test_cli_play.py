@@ -197,6 +197,9 @@ class LabHA:
     def ensure_mqtt(self, port):
         self.events.append(("ensure_mqtt", port))
 
+    def ensure_tasmota(self):
+        self.events.append("ensure_tasmota")
+
     def lab_login(self):
         self.events.append("login")
         return "vesper", "s3cret-lab-login"
@@ -208,6 +211,9 @@ class LabHA:
         self.events.append("stop")
 
 
+CONNECT_KWARGS = []  # what each connect was given beyond host, port and id
+
+
 def stack_fakes(monkeypatch):
     from tests.exposure.fake_mqtt import FakeClient
     from vesper.exposure import mqtt as mqtt_mod
@@ -216,7 +222,13 @@ def stack_fakes(monkeypatch):
     monkeypatch.setattr(stack_mod, "Mosquitto", LabMosquitto)
     monkeypatch.setattr(stack_mod, "HomeAssistant", LabHA)
     clients = []
-    monkeypatch.setattr(mqtt_mod, "connect", lambda *a, **k: clients.append((a, FakeClient())) or clients[-1][1])
+    CONNECT_KWARGS.clear()
+
+    def connect(*a, **k):
+        CONNECT_KWARGS.append((a, k))
+        clients.append((a, FakeClient()))
+        return clients[-1][1]
+    monkeypatch.setattr(mqtt_mod, "connect", connect)
     monkeypatch.setattr(mqtt_mod, "disconnect", lambda c: clients.append(("disconnected", c)))
     return clients
 
@@ -350,3 +362,34 @@ def test_lab_network_shows_the_router_each_link_and_what_is_not_on_the_network(t
     lamp = next(line for line in out.splitlines() if line.strip().startswith("zigbee/bedroom_lamp"))
     assert "dBm" in lamp and "1 wall" in lamp and "ms" in lamp
     assert "front_lock: a Matter device: on the network with plan W7a3" in out
+
+
+def test_play_with_the_hub_puts_each_wi_fi_device_on_its_own_connection_through_its_own_link(tmp_path, capsys,
+                                                                                             monkeypatch):
+    """A virtual Tasmota device connects as a real one: its own client (Tasmota's keepalive, its retained will),
+    through its own `wifi/<name>` relay link; Home Assistant's Tasmota integration is set up to hear it."""
+    from tests.lab.homes import with_wifi, write_home
+    from vesper.lab.tasmota_hub import KEEPALIVE_S
+    cat, _ = setup(tmp_path)
+    (tmp_path / "wifi").mkdir()
+    home = write_home(tmp_path / "wifi", with_wifi())
+    clients = stack_fakes(monkeypatch)
+    seen = {}
+    monkeypatch.setattr(cli, "_wait_for_interrupt", lambda: seen.setdefault("out", capsys.readouterr().out))
+    assert cli.main(["lab", "play", str(home), "--catalog", str(cat), "--port", "0", "--no-browser", "--hub",
+                     "--root", str(tmp_path / ".vesper")]) == 0
+    (ha,) = LabHA.made
+    assert "ensure_tasmota" in ha.events
+    opened = {c[0][2]: c for c in clients if c[0] != "disconnected"}  # client id -> (args, client)
+    wifi = {cid: args for cid, (args, _) in opened.items() if cid.startswith("tasmota_")}
+    assert len(wifi) == 2
+    ports = {args[1] for args in wifi.values()}
+    bridge_port = opened["vesper-lab-bridge"][0][1]
+    assert len(ports) == 2 and bridge_port not in ports and 18830 not in ports  # each through its own link
+    for cid, (args, client) in ((cid, opened[cid]) for cid in wifi):
+        kwargs = next(k for a, k in CONNECT_KWARGS if a == args)
+        assert kwargs["will"] == (f"tele/{cid}/LWT", "Offline") and kwargs["keepalive"] == KEEPALIVE_S
+        assert client.raw[-1] == (f"tele/{cid}/LWT", "Offline", True)  # stopped: offline
+    assert sum(1 for c in clients if c[0] == "disconnected") == 3
+    assert "kettle_plug: switch.kettle_plug" in seen["out"] and "reading_lamp: light.reading_lamp" in seen["out"]
+    assert "Wi-Fi devices through their own links" in seen["out"]

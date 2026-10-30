@@ -23,7 +23,7 @@ def test_setup_installs_the_pinned_release_and_the_needed_integrations_packages(
     assert reqs == ["aiohasupervisor==0.6.0", "paho-mqtt==2.1.0"]
     assert ["/bin/uv", "venv", "--python", "3.14", str(tmp_path / "ha" / "venv")] in calls
     assert calls[1][-1] == f"homeassistant=={HA_VERSION}" and calls[3][-2:] == reqs
-    assert calls[2][3:] == ["frontend", "mqtt", "hassio", "matter"]
+    assert calls[2][3:] == ["frontend", "mqtt", "hassio", "matter", "tasmota", "camera", "stream"]
 
 
 def test_setup_needs_uv(tmp_path):
@@ -163,11 +163,17 @@ class FakeServer:
         if path == "/api/config/config_entries/flow":
             self.handler = json.loads(request.content)["handler"]
             # Without a Supervisor, Home Assistant's Matter flow goes straight to its manual step
-            # (matter/config_flow.py)
-            step = "manual" if self.handler == "matter" else self.flow_step
+            # (matter/config_flow.py); Tasmota's user flow goes to its config step (tasmota/config_flow.py)
+            step = {"matter": "manual", "tasmota": "config"}.get(self.handler, self.flow_step)
             return httpx.Response(200, json={"flow_id": "f1", "type": "form", "step_id": step})
         if path == "/api/config/config_entries/flow/f1":
             body = json.loads(request.content)
+            if self.handler == "tasmota":
+                if set(body) - {"discovery_prefix"}:
+                    return httpx.Response(400, json={"message": "extra keys not allowed"})
+                self._add({"domain": "tasmota", "data": {"discovery_prefix": body.get("discovery_prefix",
+                                                                                      "tasmota/discovery")}})
+                return httpx.Response(200, json={"type": "create_entry"})
             if self.handler == "matter":
                 if set(body) != {"url"}:
                     return httpx.Response(400, json={"message": "extra keys not allowed"})
@@ -544,3 +550,21 @@ def test_a_lab_login_that_cannot_reach_home_assistant_is_a_stack_error(tmp_path)
     ha.token = lambda: "token-1"
     with pytest.raises(StackError, match="Lab login"):
         ha.lab_login()
+
+
+def test_each_run_recreates_one_tasmota_entry_on_its_discovery_prefix(tmp_path):
+    """Home Assistant's Tasmota integration (plan W7a2) allows one entry; it reads the devices' discovery."""
+    server = FakeServer(entries=[{"domain": "tasmota", "data": {"discovery_prefix": "old/prefix"}},
+                                 {"domain": "mqtt", "data": {"broker": "127.0.0.1", "port": 18830}}])
+    ha = onboarded(tmp_path, server)
+    ha.ensure_tasmota()
+    ha.ensure_tasmota()
+    assert server.entries == [{"domain": "mqtt", "data": {"broker": "127.0.0.1", "port": 18830}},
+                              {"domain": "tasmota", "data": {"discovery_prefix": "tasmota/discovery"}}]
+
+
+def test_setup_installs_what_the_tasmota_integration_imports():
+    """Home Assistant's Tasmota integration loads its camera platform, which imports `stream` (numpy, PyAV): without
+    their requirements the integration fails to set up and no Tasmota entity appears (found live, plan W7a2)."""
+    from vesper.validation.stack import NEEDED_INTEGRATIONS
+    assert {"tasmota", "camera", "stream"} <= set(NEEDED_INTEGRATIONS)

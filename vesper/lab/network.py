@@ -66,12 +66,17 @@ class Network:
 
     def path(self, device: str) -> list[str]:
         """The links a device's traffic crosses on its way to Home Assistant, the device's end first."""
-        return [name for name in (f"zigbee/{device}", "coordinator", "hub")
+        return [name for name in (f"zigbee/{device}", f"wifi/{device}", "coordinator", "hub")
                 if name in self.links and device in self.links[name].devices]
 
 
 def is_zigbee(device) -> bool:
     return "zigbee" in device.record.get("binding", {})
+
+
+def is_wifi(device) -> bool:
+    """A device with its own Wi-Fi connection (plan W7a2: a virtual Tasmota device)."""
+    return "tasmota" in device.record.get("binding", {})
 
 
 def parse_network(raw, world_map: WorldMap, devices) -> Network:
@@ -96,26 +101,32 @@ def parse_network(raw, world_map: WorldMap, devices) -> Network:
         c_room = coord_raw.get("room")
         coordinator = Place(c_room, _position(world_map, c_room, coord_raw.get("xy"), "network.coordinator"), medium)
     zigbee = [d for d in devices if is_zigbee(d)]
+    wifi = [d for d in devices if is_wifi(d)]
     links = {
-        "hub": Link("hub", "internal", (hub.position, hub.position), True, tuple(d.name for d in zigbee)),
+        "hub": Link("hub", "internal", (hub.position, hub.position), True,
+                    tuple(d.name for d in zigbee) + tuple(d.name for d in wifi)),
         "coordinator": Link("coordinator", coordinator.medium, (coordinator.position, router.position), True,
                             tuple(d.name for d in zigbee)),
     }
     for d in zigbee:
         links[f"zigbee/{d.name}"] = Link(f"zigbee/{d.name}", "zigbee", (d.position, coordinator.position), False,
                                          (d.name,))
+    for d in wifi:  # its own MQTT connection, over the router's Wi-Fi
+        links[f"wifi/{d.name}"] = Link(f"wifi/{d.name}", "wifi", (d.position, router.position), True, (d.name,))
+    linked = {d.name for d in zigbee + wifi}
     unlinked = {d.name: "a Matter device: on the network with plan W7a3" for d in devices
-                if not is_zigbee(d) and "matter" in d.record.get("binding", {})}
+                if d.name not in linked and "matter" in d.record.get("binding", {})}
     unlinked.update({d.name: "not on any network yet" for d in devices
-                     if not is_zigbee(d) and d.name not in unlinked})
+                     if d.name not in linked and d.name not in unlinked})
     return Network(router, hub, coordinator, links, unlinked)
 
 
-def out_of_range(network: Network, world_map: WorldMap, doors: dict[str, bool]) -> list[str]:
-    """The Zigbee devices whose hop to the coordinator is out of range as the home starts: with no mesh routing
-    yet (a device relaying for another), they are never heard."""
+def out_of_range(network: Network, world_map: WorldMap, doors: dict[str, bool], medium: str = "zigbee") -> list[str]:
+    """The devices whose own link (`medium`: their hop to the coordinator, or their Wi-Fi to the router) is out of
+    range as the home starts: with no mesh routing yet (a device relaying for another), they are never heard."""
     return [link.devices[0] for name, link in network.links.items()
-            if link.medium == "zigbee" and not link_quality("zigbee", *link.ends, world_map, doors).connected]
+            if link.medium == medium and name.startswith(("zigbee/", "wifi/"))
+            and not link_quality(medium, *link.ends, world_map, doors).connected]
 
 
 def walls_between(world_map: WorldMap, a: Point, b: Point, doors: dict[str, bool]) -> tuple[int, int]:

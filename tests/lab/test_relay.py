@@ -301,3 +301,64 @@ def test_a_sender_that_closes_has_what_it_sent_delivered_first_then_the_close(ne
     assert up.closed.wait(3)
     got = b"".join(d for _, d in up.got)
     assert door in got and got.endswith(bye)
+
+
+def text_publish(topic: str, payload: str, qos: int = 1, pid: int = 1) -> bytes:
+    t = topic.encode()
+    body = len(t).to_bytes(2, "big") + t + (pid.to_bytes(2, "big") if qos else b"") + payload.encode()
+    return bytes([0x30 | (qos << 1)]) + varint(len(body)) + body
+
+
+def test_an_effect_finds_a_tasmota_device_by_its_name_through_what_it_identifies(net):
+    """A Tasmota device's topics carry its MQTT topic (tasmota_XXXXXX), not its name; the device says which of its
+    features a message carries, so an effect aimed at `kettle` and `POWER` finds HA's `POWER1 ON`."""
+    relay, up, port, records = net
+    relay.add_device("tasmota_0A0B0C", lambda parts, payload: ("kettle", ("POWER",) if parts[0] == "cmnd" else ()))
+    c = dial(port)
+    relay.apply(Effect("drop", link="coordinator", direction="up", device="kettle", feature="POWER"))
+    cmd, lwt = text_publish("cmnd/tasmota_0A0B0C/POWER1", "ON"), text_publish("tele/tasmota_0A0B0C/LWT", "Online")
+    c.sendall(cmd + lwt)
+    assert wait(lambda: up.arrived(lwt) is not None)
+    time.sleep(0.1)
+    assert up.arrived(cmd) is None
+    assert [(r["event"], r["device"], r["feature"]) for r in records] == [("dropped", "kettle", "POWER")]
+
+
+def test_a_lost_station_passes_nothing_and_is_refused_until_it_rejoins_on_a_new_connection(net):
+    """A Wi-Fi device out of range: what it sent never arrives (its old TCP connection dies with the association),
+    new connections are refused, and once it rejoins its old connection is gone and a new one passes. The link
+    layer records the link's state; the relay records nothing of its own."""
+    relay, up, port, records = net
+    c = dial(port)
+    c.sendall(connect())
+    assert wait(lambda: up.conns)
+    relay.lose("coordinator")
+    report = publish("zigbee2mqtt/door", {"contact": False})
+    c.sendall(report)
+    time.sleep(0.2)
+    assert up.arrived(report) is None
+    assert dial(port).recv(10) == b""  # refused while lost
+    relay.rejoin("coordinator")
+    assert up.closed.wait(2)  # the old connection is gone: the broker publishes its will
+    c.settimeout(2)
+    try:
+        assert c.recv(10) == b""  # closed, or reset
+    except ConnectionResetError:
+        pass
+    time.sleep(0.2)
+    assert up.arrived(report) is None  # what waited on the dead connection is never delivered
+    c2 = dial(port)
+    c2.sendall(PINGREQ)
+    assert wait(lambda: up.arrived(PINGREQ) is not None)
+    assert records == []
+
+
+def test_a_cut_that_ends_while_the_station_is_lost_releases_nothing(net):
+    relay, up, port, _ = net
+    c = dial(port)
+    c.sendall(connect())
+    assert wait(lambda: up.conns)
+    relay.lose("coordinator")
+    relay.apply(Effect("cut", link="coordinator"))
+    relay.clear("coordinator")
+    assert dial(port).recv(10) == b""  # still lost: the attack's end does not bring the station back

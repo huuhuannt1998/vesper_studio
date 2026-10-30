@@ -24,7 +24,9 @@ import httpx
 HA_VERSION = "2026.10.2"
 HA_PYTHON = "3.14"
 # bootstrap needs frontend; mqtt's flow imports hassio; matter talks to VESPER's Matter Server
-NEEDED_INTEGRATIONS = ("frontend", "mqtt", "hassio", "matter")
+# The integrations whose requirements setup installs. The Tasmota integration loads its camera platform, which
+# imports `stream` (numpy, PyAV): their requirements too, or it fails to set up.
+NEEDED_INTEGRATIONS = ("frontend", "mqtt", "hassio", "matter", "tasmota", "camera", "stream")
 MQTT_PORT, HA_PORT, MATTER_SERVER_PORT = 18830, 18123, 15580
 NODE_MIN = (22, 13)  # the pinned matter-server needs Node 22.13 (spec §3, amended 2026-10-23)
 RECOVERY_MARK = "Activating recovery mode"
@@ -486,6 +488,18 @@ class HomeAssistant:
         result = self.api("POST", f"/api/config/config_entries/flow/{flow['flow_id']}", json={"url": url}).json()
         if result.get("type") != "create_entry":
             raise StackError(f"the Matter integration was not configured: {result}")
+
+    def ensure_tasmota(self, prefix: str = "tasmota/discovery") -> None:
+        """Home Assistant's Tasmota integration (one entry), reading the virtual Tasmota devices' discovery under
+        `prefix`, freshly on every run (as `ensure_mqtt`)."""
+        self._remove_entries("tasmota")
+        flow = self.api("POST", "/api/config/config_entries/flow", json={"handler": "tasmota"}).json()
+        if flow.get("step_id") != "config":
+            raise StackError(f"unexpected Tasmota config flow step: {flow}")
+        result = self.api("POST", f"/api/config/config_entries/flow/{flow['flow_id']}",
+                          json={"discovery_prefix": prefix}).json()
+        if result.get("type") != "create_entry":
+            raise StackError(f"the Tasmota integration was not configured: {result}")
 
     def matter_entities(self) -> dict[str, list[str]]:
         """Home Assistant's Matter entities, grouped by their device's serial number (the twin's node serial)."""

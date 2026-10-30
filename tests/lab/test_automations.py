@@ -3,7 +3,7 @@ on the logical clock, seeing what Home Assistant would see (the devices' reports
 commands its MQTT entities send)."""
 import pytest
 
-from tests.lab.homes import HOME, catalog, write_home
+from tests.lab.homes import HOME, WIFI_DEVICES, catalog, write_home
 from vesper.lab.automations import entity_ids
 from vesper.lab.home import load_lab_home
 from vesper.lab.rules import is_on
@@ -337,3 +337,44 @@ def test_conditions_come_before_mode_single_and_an_empty_time_window_is_always_t
     assert not [r for r in s.records if r["kind"] == "automation_skipped"]
     assert [(f["automation"], f["value"]) for f in fired(s)] == [("blink once", "ON"), ("blink once", "OFF"),
                                                                 ("always", "OFF")]  # brightness 0 turns it off
+
+
+WIFI_ON = """\
+- id: morning
+  alias: Kettle on and the reading lamp at half when someone is in the hall
+  triggers:
+    - trigger: state
+      entity_id: {motion}
+      to: "on"
+  actions:
+    - action: switch.turn_on
+      target:
+        entity_id: switch.kettle_plug
+    - action: light.turn_on
+      target:
+        entity_id: light.reading_lamp
+      data:
+        brightness_pct: 50
+"""
+
+
+def test_a_wi_fi_device_s_entities_are_named_and_commanded_as_home_assistant_s_tasmota_integration_does(tmp_path):
+    """The engine sends what the device would receive from Home Assistant: POWER, and a Dimmer scaled to 1..100,
+    which lights it, as Tasmota does."""
+    _, ids, s = lab(tmp_path, "", extra="")
+    (tmp_path / "automations.yaml").write_text(WIFI_ON.format(motion=ids["hall_motion"]["occupancy"]))
+    text = HOME.replace("    devices:\n", "    devices:\n" + WIFI_DEVICES, 1) + "    automations: automations.yaml\n"
+    home = load_lab_home(write_home(tmp_path, text), catalog())
+    ids = entity_ids(home)
+    assert ids["kettle_plug"] == {"POWER": "switch.kettle_plug"}
+    assert ids["reading_lamp"] == {"POWER": "light.reading_lamp"}
+    s = Session(home, clock=LogicalClock())
+    s.start(spawn_player=False, automations=True)
+    assert s.automations.refused == []
+    s.spawn("player", "female_0", (5.0, 1.0))  # in the kitchen
+    s.walk_to((1.5, 3.0))  # into the hall
+    s.clock.advance(10)
+    kettle, lamp = s.runtime.state(s.twin_ids["kettle_plug"]), s.runtime.state(s.twin_ids["reading_lamp"])
+    assert kettle["POWER"] == "ON" and (lamp["Dimmer"], lamp["POWER"]) == (50, "ON")
+    assert {(f["device"], f["feature"], f["value"]) for f in fired(s)} == {
+        ("kettle_plug", "POWER", "ON"), ("reading_lamp", "Dimmer", 50), ("reading_lamp", "POWER", "ON")}

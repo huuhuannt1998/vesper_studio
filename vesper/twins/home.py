@@ -31,7 +31,7 @@ class Home:
 
 def load_catalog(catalog_dir: Path) -> dict[str, dict]:
     records = {}
-    for name in ("zigbee", "matter", "zwave"):
+    for name in ("zigbee", "matter", "zwave", "tasmota"):
         path = Path(catalog_dir) / f"{name}.json"
         if path.is_file():
             records.update((r["id"], r) for r in json.loads(path.read_text(encoding="utf-8")))

@@ -19,15 +19,17 @@ from vesper.catalog.ingest.dcl import sync_dcl
 from vesper.catalog.ingest.ha import sync_ha
 from vesper.catalog.ingest.matter_zap import sync_matter_zap
 from vesper.catalog.ingest.zigbee import sync_zigbee
+from vesper.catalog.ingest.tasmota import sync_tasmota
 from vesper.catalog.ingest.zwave import sync_zwave
 
-SYNC_ORDER = ("ha", "zigbee", "matter_zap", "dcl", "zwave")
+SYNC_ORDER = ("ha", "zigbee", "matter_zap", "dcl", "zwave", "tasmota")
 
 
 def _sync_one(source: str, raw_root: Path, cache_root: Path, client) -> Path:
     if source == "zigbee":
         return sync_zigbee(raw_root, cache_root)
-    adapters = {"ha": sync_ha, "matter_zap": sync_matter_zap, "dcl": sync_dcl, "zwave": sync_zwave}
+    adapters = {"ha": sync_ha, "matter_zap": sync_matter_zap, "dcl": sync_dcl, "zwave": sync_zwave,
+                "tasmota": sync_tasmota}
     return adapters[source](raw_root, client)
 
 
@@ -541,13 +543,19 @@ def _lab(args) -> int:
 
 
 def _warn_range(home) -> None:
-    """Name the devices no one will hear: out of the coordinator's direct range, with no mesh routing yet."""
+    """Name the devices no one will hear: out of the coordinator's direct range, with no mesh routing yet, or out
+    of the router's Wi-Fi range."""
     from vesper.lab.network import out_of_range
     far = out_of_range(home.network, home.map, home.doors) if home.network is not None else []
     if far:
         print(f"network: {', '.join(far)} {'is' if len(far) == 1 else 'are'} out of the Zigbee coordinator's radio "
               "range (no mesh routing yet): never heard, never commanded; move the coordinator nearer "
               "(`network: coordinator:` in the home file; `vesper lab network` shows each link)")
+    off = out_of_range(home.network, home.map, home.doors, medium="wifi") if home.network is not None else []
+    if off:
+        print(f"network: {', '.join(off)} {'is' if len(off) == 1 else 'are'} out of the router's Wi-Fi range: "
+              f"{'it joins' if len(off) == 1 else 'they join'} once in range; until then never heard, never "
+              "commanded (`network: router:` in the home file; `vesper lab network` shows each link)")
 
 
 def _lab_network(home) -> int:
@@ -723,8 +731,10 @@ def _lab_play(args, home) -> int:
         print(people)
         if lab:
             user, password = lab.login
+            wifi = ", ".join(f"{name} {p}" for name, p in hub.wifi.ports.items())
             print(f"network: Home Assistant's MQTT through the relay's hub link (port {lab.hub_port}), the bridge's "
-                  f"through its coordinator link (port {hub.coordinator_port})")
+                  f"through its coordinator link (port {hub.coordinator_port})"
+                  + (f"; Wi-Fi devices through their own links (ports: {wifi})" if wifi else ""))
             print(f"Home Assistant is in the hub panel ({lab.ha.url}): log in as {user}, password {password} "
                   f"(kept in {Path(args.root) / 'ha' / 'lab-login.json'})")
             _print_entities(home, hub)
@@ -786,6 +796,8 @@ def _lab_stack(args, home):
             ha.start()
             ha.onboard()
             ha.ensure_mqtt(hub_port)
+            if any("tasmota" in d.record["binding"] for d in home.devices):
+                ha.ensure_tasmota()  # Home Assistant's Tasmota integration hears the Wi-Fi devices (plan W7a2)
             yield SimpleNamespace(ha=ha, port=port, hub_port=hub_port, relay=relay, sink=sink, login=ha.lab_login())
         finally:
             _keep_automations(ha, home, rules)
@@ -808,9 +820,11 @@ def _lab_session(home, trace, lab):
 
 @contextmanager
 def _lab_hub(args, session, port: int):
-    """The session's Zigbee devices on the broker, for as long as the block runs."""
+    """The session's Zigbee devices on the broker through the bridge, and its Wi-Fi devices each on its own
+    connection (`hub.wifi`), for as long as the block runs."""
     from vesper.exposure import mqtt
     from vesper.lab.hub import Hub
+    from vesper.lab.tasmota_hub import RETRY_S, TasmotaHub
     via = session.relay.add_link("coordinator", port, client_is_device=True) if session.relay else port
     client = mqtt.connect("127.0.0.1", via, "vesper-lab-bridge", will=OFFLINE_WILL)
     try:
@@ -818,7 +832,13 @@ def _lab_hub(args, session, port: int):
         hub.coordinator_port = via
         hub.start()
         try:
-            yield hub
+            hub.wifi = TasmotaHub(session, lambda p, cid, will, keepalive: mqtt.connect(
+                "127.0.0.1", p, cid, will=will, keepalive=keepalive, retry_s=RETRY_S), port, disconnect=mqtt.disconnect)
+            try:
+                hub.wifi.start()
+                yield hub
+            finally:
+                hub.wifi.stop()
         finally:
             hub.stop()
     finally:
@@ -847,7 +867,10 @@ def _keep_automations(ha, home, rules: str) -> None:
 def _print_entities(home, hub) -> None:
     print("Home Assistant entities, for automations:")
     for d in home.devices:
-        if d.name in hub.skipped:
+        if "tasmota" in d.record["binding"]:
+            later = "" if d.name in hub.wifi.devices else " (out of range: on the hub once it joins)"
+            print(f"  {d.name}: {', '.join(sorted(set(hub.wifi.entities(d.name).values())))}{later}")
+        elif d.name in hub.skipped:
             print(f"  {d.name}: not on the hub (Matter: plan W2d)")
         else:
             print(f"  {d.name}: {', '.join(sorted(set(hub.entities(d.name).values())))}")

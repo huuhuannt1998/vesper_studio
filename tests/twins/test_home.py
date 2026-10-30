@@ -48,3 +48,13 @@ def test_a_catalog_built_by_other_catalog_code_is_refused_with_how_to_rebuild(tm
     (catalog / "build_report.json").write_text(json.dumps({"code_sha256": "0" * 64}))
     with pytest.raises(CatalogError, match="stale.*vesper catalog build"):
         load_catalog(catalog)
+
+
+def test_the_catalog_s_tasmota_products_are_loaded_too(tmp_path):
+    """Tasmota's Wi-Fi products (plan W7a2) are a catalog file of their own, as each protocol's."""
+    from tests.catalog.fixtures import TASMOTA_PIN, TASMOTA_TEMPLATES, tasmota_tarball
+    from vesper.catalog.normalize.tasmota import tasmota_records
+    out = write_catalog(tmp_path / "vds", list(records().values()))
+    plugs = tasmota_records(tasmota_tarball(TASMOTA_TEMPLATES), TASMOTA_PIN)[0]
+    (out / "tasmota.json").write_text(json.dumps(plugs))
+    assert "tasmota:acme:acme_plug_p1" in load_catalog(out)

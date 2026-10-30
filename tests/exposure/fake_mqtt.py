@@ -9,11 +9,18 @@ from paho.mqtt.client import topic_matches_sub
 class FakeClient:
     def __init__(self):
         self.published: list[tuple[str, object, bool]] = []
+        self.raw: list[tuple[str, str, bool]] = []  # as sent: Tasmota's payloads are often plain text ("ON")
         self.subscriptions: list[str] = []
         self.on_message = None
 
     def publish(self, topic, payload, qos=0, retain=False):
-        self.published.append((topic, json.loads(payload) if payload else None, retain))
+        text = payload.decode() if isinstance(payload, bytes) else payload
+        self.raw.append((topic, text, retain))
+        try:
+            value = json.loads(text) if text else None
+        except ValueError:
+            value = text
+        self.published.append((topic, value, retain))
 
     def subscribe(self, topic):
         self.subscriptions.append(topic)

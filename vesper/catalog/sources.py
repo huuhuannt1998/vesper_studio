@@ -22,6 +22,9 @@ SOURCES: dict[str, Source] = {
     "dcl": Source("dcl", None, "DCL-terms-unverified", False, "https://on.dcl.csa-iot.org"),
     "zwave": Source("zwave", "15.31.2", "MIT", True, "npm:@zwave-js/config"),
     "ha": Source("ha", "2026.10.2", "Apache-2.0", True, "github.com/home-assistant/core"),
+    # Tasmota device templates: real Wi-Fi products (EPL-2.0; a release build carries its notice); one commit
+    "tasmota": Source("tasmota", "30d9c9b16014817641f83a0cf8f2f266a0dbaef2", "EPL-2.0", True,
+                      "github.com/blakadder/templates"),
 }
 
 

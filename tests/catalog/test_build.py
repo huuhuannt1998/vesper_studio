@@ -3,6 +3,7 @@ import json
 import pytest
 
 from tests.catalog.conftest import write_all
+from tests.catalog.fixtures import TASMOTA_PIN
 from vesper.catalog import build as build_mod
 from vesper.catalog.build import build_catalog, link_products
 from vesper.catalog.errors import CatalogError
@@ -20,7 +21,10 @@ def test_build_writes_catalog_coverage_and_report(raw_root, tmp_path):
     report = build_catalog(raw_root, out)
     assert report["skipped_sources"] == {} and report["release"] is False
     assert len(load(out, "zigbee")) == 13 and len(load(out, "matter")) == 7 and len(load(out, "zwave")) == 3
-    assert sorted(x["file"].rsplit("/", 1)[1] for x in report["rejected"]) == ["broken.json", "nolabel.json"]
+    assert len(load(out, "tasmota")) == 3
+    assert sorted(x["file"].rsplit("/", 1)[1] for x in report["rejected"]) == [
+        "acme_sensor_board", "brite_bulb_rgbcct", "broken.json", "nolabel.json", "not_front_matter",
+        "old_numbering_plug"]
     assert report["linked"] == []
     cov = json.loads((out / "coverage.json").read_text())
     assert cov["matter"]["total"] == 7 and cov["matter"]["by_category"]["contact_sensor"]["L1"] == 2
@@ -30,7 +34,8 @@ def test_build_writes_catalog_coverage_and_report(raw_root, tmp_path):
 def test_build_is_deterministic(raw_root, tmp_path):
     build_catalog(raw_root, tmp_path / "a")
     build_catalog(raw_root, tmp_path / "b")
-    for name in ("zigbee.json", "matter.json", "zwave.json", "coverage.json", "coverage.csv", "build_report.json"):
+    for name in ("zigbee.json", "matter.json", "zwave.json", "tasmota.json", "coverage.json", "coverage.csv",
+                 "build_report.json"):
         assert (tmp_path / "a" / name).read_bytes() == (tmp_path / "b" / name).read_bytes(), name
 
 
@@ -125,5 +130,6 @@ def test_a_corrupt_snapshot_fails_the_build_and_keeps_the_previous_catalog(raw_r
 def test_inputs_record_every_snapshot_version_and_manifest_digest(raw_root, tmp_path):
     inputs = build_catalog(raw_root, tmp_path / "vds")["inputs"]
     assert {k: v["version"] for k, v in inputs.items()} == {
-        "ha": "2026.10.2", "zigbee": "26.123.0", "dcl": "height-1", "matter_zap": "v1.6.1.0", "zwave": "15.31.2"}
+        "ha": "2026.10.2", "zigbee": "26.123.0", "dcl": "height-1", "matter_zap": "v1.6.1.0", "zwave": "15.31.2",
+        "tasmota": TASMOTA_PIN}
     assert all(len(v["manifest_sha256"]) == 64 for v in inputs.values())

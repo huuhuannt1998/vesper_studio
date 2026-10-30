@@ -15,6 +15,12 @@ of the JSON payload):
   new connections are refused until the cut ends;
 - a `throttle` paces the bytes of a direction.
 
+A Wi-Fi device out of range is not an effect but the link's own state (plan W7a2): while a station is `lose`n, what
+it sent is never delivered and it opens no connection; when it `rejoin`s, its old connection is gone (the broker
+publishes its will) and it connects anew, as a Tasmota device does after its Wi-Fi returns. A Tasmota device's
+topics carry its MQTT topic, not its name: `add_device` lets the device say whose a message is and which of its
+features it carries.
+
 A QoS 1 message resent after a reconnect (MQTT's DUP flag) is named in the trace: it may arrive late or twice.
 """
 from __future__ import annotations
@@ -123,6 +129,7 @@ class _Link:
     server: object = None
     conns: set = field(default_factory=set)
     reset: bool = False  # a reset cut: new connections are refused
+    lost: bool = False  # a Wi-Fi station out of range: nothing passes, no connection opens
     silent: bool = False  # a silent cut: nothing passes
     waiting: list = field(default_factory=list)  # (transport, bytes) held by a silent cut, in order
 
@@ -158,6 +165,7 @@ class Relay:
         self._record, self.allowed, self._now, self._latency = record, set(allowed), now, latency or (lambda _: 0.0)
         self._links: dict[str, _Link] = {}
         self._effects: list[Effect] = []
+        self._devices: dict[str, Callable] = {}  # a topic's second level -> identify(parts, payload)
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._loop.run_forever, name="vesper-relay", daemon=True)
 
@@ -206,6 +214,29 @@ class Relay:
         self._links[name] = link
         return port
 
+    def add_device(self, key: str, identify: Callable[[list[str], bytes], tuple[str, tuple[str, ...]]]) -> None:
+        """Messages whose topic's second level is `key` belong to `identify(parts, payload)`'s (device, features)."""
+        self._call(self._devices.__setitem__, key, identify)
+
+    # -- a station's own state ------------------------------------------------------------------
+    def lose(self, name: str) -> None:
+        """A Wi-Fi station out of range: nothing it sent arrives, and it opens no connection."""
+        self._call(self._lose, self._links[name])
+
+    def rejoin(self, name: str) -> None:
+        """Back in range: its old connection is gone, and it connects anew."""
+        self._call(self._rejoin, self._links[name])
+
+    def _lose(self, link: _Link) -> None:
+        link.lost = True
+        link.waiting = []  # held for connections that will not survive
+
+    def _rejoin(self, link: _Link) -> None:
+        link.lost = False
+        for conn in list(link.conns):
+            for t in conn.transports:
+                t.abort()
+
     # -- effects --------------------------------------------------------------------------------
     @property
     def effects(self) -> list[Effect]:
@@ -253,15 +284,15 @@ class Relay:
             if not any(e.kind == "cut" and e.link == link.name for e in self._effects):
                 link.reset = link.silent = False
                 self._net(link.name, "up", reason="cut ended")
-                waiting, link.waiting = link.waiting, []
+                waiting, link.waiting = ([] if link.lost else link.waiting), []
                 for transport, data in waiting:
                     if not transport.is_closing():
                         transport.write(data)
 
     # -- traffic --------------------------------------------------------------------------------
     async def _accept(self, link: _Link, reader, writer) -> None:
-        if link.reset:
-            writer.close()  # refused while the link is reset
+        if link.reset or link.lost:
+            writer.close()  # refused while the link is reset, or the station is out of range
             return
         try:
             up_reader, up_writer = await asyncio.open_connection(HOST, link.upstream)
@@ -313,8 +344,10 @@ class Relay:
                 out.queue.put_nowait((due, packet))
             return
         topic, payload = pub
-        parts, features = topic.split("/"), _features(payload)
-        device = parts[1] if len(parts) > 1 else None
+        parts = topic.split("/")
+        identify = self._devices.get(parts[1]) if len(parts) > 1 else None
+        device, features = identify(parts, payload) if identify else (parts[1] if len(parts) > 1 else None,
+                                                                       _features(payload))
         if packet[0] & 0x08:  # DUP: a QoS 1 message resent after a reconnect; it may arrive late or twice
             self._net(link.name, "resent", device=device, feature=features[0] if features else None,
                       direction=direction, sent_t=self._now())
@@ -354,8 +387,8 @@ class Relay:
                       deliver_t=now + due + e.hold_s - loop.time(), effect="duplicate")
 
     def _write(self, link: _Link, transport, data: bytes) -> None:
-        if transport.is_closing():
-            return
+        if transport.is_closing() or link.lost:
+            return  # out of range: lost with the association
         if link.silent:
             link.waiting.append((transport, data))  # the link is lost: TCP will retransmit it
         else:

@@ -69,6 +69,12 @@ def hand_settings(twin) -> tuple[str, ...]:
     return tuple(f for f in (t["setpoint_feature"], t["mode_feature"]) if f) if t else ()
 
 
+def _power(feats) -> str | None:
+    """A Tasmota device's on/off (plan W7a2): POWER, or POWER1 (its first relay) on a power strip."""
+    name = "POWER" if "POWER" in feats else "POWER1" if "POWER1" in feats else None
+    return name if name and feats[name]["type"] == "binary" else None
+
+
 def toggle_command(twin) -> tuple[str, str | None, object] | None:
     """What a person's hand does to this device: ("operate", feature, value), ("press", None, None), or None for
     a device nobody operates by hand (a sensor)."""
@@ -80,6 +86,8 @@ def toggle_command(twin) -> tuple[str, str | None, object] | None:
         return ("operate", "state", f["value_off"] if state["state"] == f["value_on"] else f["value_on"])
     if ONOFF in feats:
         return ("operate", ONOFF, not state[ONOFF])
+    if _power(feats):
+        return ("operate", _power(feats), feats[_power(feats)]["value_toggle"])
     if LOCK_STATE in feats:
         return ("operate", LOCK_STATE, "Unlocked" if state[LOCK_STATE] == "Locked" else "Locked")
     if feats.get("action", {}).get("type") == "enum":
@@ -93,6 +101,8 @@ def is_on(twin) -> bool | None:
         return twin.state["state"] == f["value_on"]
     if ONOFF in twin.features:
         return bool(twin.state[ONOFF])
+    if _power(twin.features):
+        return twin.state[_power(twin.features)] == "ON"
     return None
 
 
