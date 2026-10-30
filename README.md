@@ -5,11 +5,11 @@ scenes, with an unmodified Home Assistant as the hub.**
 
 ![The play page in 3D: the player in the example home's bedroom has just switched on an IKEA lamp; the crosshair's prompt says what a click does next, the console shows the lamp's report, and Alex is at dinner in the kitchen](docs/images/lab-play.png)
 
-VESPER Studio maps 13,682 real products from the Zigbee2MQTT, Matter and Z-Wave catalogs to virtual devices, each
-at the highest fidelity its public definition allows. It places them in a home: a small test house, or a real 3D
-scene from the HSSD dataset. Scripted residents live their day there, and Home Assistant sees the devices exactly as
-it would see real ones. You can walk the home yourself, as in a game, or let a day run in seconds. Every session is
-recorded and replays exactly.
+VESPER Studio maps 14,234 real products from the Zigbee2MQTT, Matter and Z-Wave catalogs and Tasmota's device templates
+to virtual devices, each at the highest fidelity its public definition allows. It places them in a home: a small test
+house, or a real 3D scene from the HSSD dataset. Scripted residents live their day there, and Home Assistant sees the
+devices exactly as it would see real ones. You can walk the home yourself, as in a game, or let a day run in seconds.
+Every session is recorded and replays exactly.
 
 It is research software under active development. The research paper is *VESPER* (in preparation). A desktop app
 for macOS and Windows is on the roadmap below. Today VESPER Studio runs from a terminal, with its page in your
@@ -98,8 +98,9 @@ Stop with Ctrl-C. The session's trace is in `examples/lab/test-house/traces/`.
     vesper lab play examples/lab/test-house/home.yaml --hub
 
 VESPER starts its own Mosquitto (port 18830) and Home Assistant (port 18123). It puts the home's Zigbee devices on
-the broker through a Zigbee2MQTT-compatible bridge and shows Home Assistant's dashboard in the page. It prints the
-login and each device's Home Assistant entities.
+the broker through a Zigbee2MQTT-compatible bridge, and each Wi-Fi device on a connection of its own, as a Tasmota
+device, which Home Assistant's Tasmota integration discovers. It shows Home Assistant's dashboard in the page, and
+prints the login and each device's Home Assistant entities.
 
 The example home ships one automation: walking into the hall turns the bedroom lamp on. Edit automations in Home
 Assistant's own editor. They are written back to the home's `automations.yaml` when play stops. VESPER never uses
@@ -122,15 +123,26 @@ measured on a device, and the output says so. A home can place its router and it
       router: {room: hall}
       coordinator: {room: bedroom, link: wifi}      # its own host, on the router's Wi-Fi
 
-With `--hub`, Home Assistant's and the bridge's MQTT connections really cross the network: they go through a relay
-on 127.0.0.1 that only ever forwards to the broker the session started (never ports 1883 or 8123). An attack acts on
-those real connections, on whole MQTT messages: it can delay, drop, duplicate, reorder or throttle them, or cut a
-link. A delay can let the keepalives through, so the connection stays up while a report arrives late (the
-Phantom-Delay attacks). A cut is either a lost link or a reset, after which the broker publishes the bridge's will
-and Home Assistant marks every Zigbee device unavailable. A device whose own hop is down goes unavailable after
-Zigbee2MQTT's availability timeout, alone. Without Home Assistant, on the logical clock, the same effects apply
-in-process. Every effect is an input of the trace, so a replay applies it again, and every message an effect
-touched is in the trace with when it was sent and when it arrived.
+A Wi-Fi device is a virtual Tasmota device: a plug, a switch or a dimmer from Tasmota's device templates, placed as
+any other device:
+
+    - {product: "tasmota:athom:athom_ls4p-tas", name: desk_lamp, at: {room: bedroom, xy: [5.5, 5.0], mount: table}}
+
+It has no firmware and no hardware: VESPER speaks Tasmota's MQTT topics for it, with a locally administered MAC
+address that is never a real device's. Like a real one, it has its own MQTT connection, over its own link to the
+router. Out of the router's range it never connects, and `vesper lab check` names it. A device that goes out of
+range is lost: the broker notices only by its keepalive timeout, publishes its will, and Home Assistant marks it
+unavailable. Back in range, after a back-off of about 11 s, it connects again.
+
+With `--hub`, Home Assistant's and the bridge's MQTT connections really cross the network: they go through a relay on
+127.0.0.1 that only ever forwards to the broker the session started (never ports 1883 or 8123). An attack acts on those
+real connections, on whole MQTT messages: it can delay, drop, duplicate, reorder or throttle them, or cut a link,
+including a Wi-Fi device's own, where an attack names the device as it does a Zigbee one. A delay can let the keepalives
+through, so the connection stays up while a report arrives late (the Phantom-Delay attacks). A cut is either a lost link
+or a reset, after which the broker publishes the bridge's will and Home Assistant marks every Zigbee device unavailable.
+A device whose own hop is down goes unavailable after Zigbee2MQTT's availability timeout, alone. Without Home Assistant,
+on the logical clock, the same effects apply in-process. Every effect is an input of the trace, so a replay applies it
+again, and every message an effect touched is in the trace with when it was sent and when it arrived.
 
 ## A day in seconds, and exact replays
 
@@ -226,8 +238,8 @@ Opt-in tests need real services:
 |---|---|
 | `VESPER_HABITAT=1` | the world service in Habitat (scene 102344022 downloaded) |
 | `VESPER_UI_BROWSER=1` | a real headless browser (the map and the 3D view) |
-| `VESPER_STACK_TESTS=1` | a real Mosquitto (also the home's network end to end) |
-| `VESPER_HA_TESTS=1` | the real Home Assistant of `vesper setup ha` (the network end to end; about a minute) |
+| `VESPER_STACK_TESTS=1` | a real Mosquitto (also the home's network and its Wi-Fi devices end to end) |
+| `VESPER_HA_TESTS=1` | the real Home Assistant of `vesper setup ha` (the network and the Wi-Fi devices end to end; about two minutes) |
 | `VESPER_NETWORK_TESTS=1` | the upstream catalog sources |
 
 Layout:
@@ -236,7 +248,7 @@ Layout:
 |---|---|
 | `vesper/catalog/` | the device catalog: sources, normalization, fidelity levels |
 | `vesper/twins/` | the twins and their runtime (reporting rules, latency) |
-| `vesper/exposure/` | the Zigbee2MQTT-compatible bridge and Home Assistant discovery |
+| `vesper/exposure/` | the Zigbee2MQTT-compatible bridge, the virtual Tasmota devices and Home Assistant discovery |
 | `vesper/validation/` | validation against Home Assistant |
 | `vesper/lab/` | the Lab: homes, the map world, rules, residents, the automation engine, the play server and page (`ui/`), replay |
 | `vesper_world/` | the world service, which runs in the Habitat environment (Python 3.9) |
@@ -248,8 +260,7 @@ Layout:
 ## Roadmap
 
 - **Guided setup:** `vesper setup habitat`, scene downloads, and `vesper doctor`.
-- **The home's network, continued:** Wi-Fi devices with their own connections (virtual Tasmota twins), Matter
-  devices on the hub, and real 802.11 on Linux.
+- **The home's network, continued:** Matter devices on the hub, and real 802.11 on Linux.
 - **The security lab:** attacks and defenses as scenario files, run against VESPER's own local services, with their
   alerts, starting with the Phantom-Delay attacks (Fu et al., DSN 2022). An MCP server will let Claude Desktop, or
   any MCP client, set up a scenario from a research paper.
@@ -261,6 +272,8 @@ Layout:
 The code is under the MIT license (see `LICENSE`).
 - **Device catalog:** built on your machine from pinned upstream sources, under their own licenses:
   - Zigbee2MQTT's converters and Z-Wave JS's configuration (MIT);
+  - Tasmota's device templates (blakadder/templates, EPL-2.0); the build writes `NOTICE-tasmota.md` beside the
+    catalog, with the source and its license;
   - connectedhomeip's Matter data model and Home Assistant's vocabulary (Apache 2.0);
   - the CSA's Distributed Compliance Ledger, whose terms are not yet verified, so its records are left out of a
     release build.

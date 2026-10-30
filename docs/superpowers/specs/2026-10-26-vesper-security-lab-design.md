@@ -47,7 +47,9 @@ Success:
 | **W8** | Device physical profiles and sensing: a datasheet-to-profile pipeline, a 3D sensing model with line of sight, zones shown in the 3D view (§6a) | the 20-sensor spike; its sensing model may follow W7a |
 
 **Progress.** W7a is built in three plans: W7a1 (the topology, the link layer, the relay, Zigbee2MQTT's availability,
-`vesper lab network`; plan 2026-10-26), W7a2 (the virtual Tasmota devices), W7a3 (Matter on the hub).
+`vesper lab network`; plan 2026-10-26), W7a2 (the virtual Tasmota devices; plan 2026-10-30, built), W7a3 (Matter on
+the hub). The W8 spike reported 2026-10-30: about 45% of a motion sensor's physical fields are sourced from public
+documents, and range with horizontal angle for about half of the products.
 
 The MCP server comes after the engine because it can only be as good as what it can set up: before W7a and W4a it
 could not reproduce a network-timing paper such as Phantom-Delay.
