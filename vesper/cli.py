@@ -906,6 +906,11 @@ def _lab_compose(args, catalog) -> int:
     except OSError as e:
         print(f"FAILED: port {args.port}: {e.strerror}; choose another --port", file=sys.stderr)
         return 1
+    import signal
+
+    def terminated(signum, frame):
+        raise KeyboardInterrupt  # a `kill` stops it as Ctrl-C does: the played home's child goes too
+    previous = signal.signal(signal.SIGTERM, terminated)
     try:
         print(f"Compose a home: {server.url} (the home goes to {args.out}; Ctrl-C stops)")
         if not args.no_browser:
@@ -913,6 +918,7 @@ def _lab_compose(args, catalog) -> int:
         _wait_for_interrupt()
     finally:
         server.stop()
+        signal.signal(signal.SIGTERM, previous)
     return 0
 
 

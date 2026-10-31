@@ -113,7 +113,7 @@ def server(tmp_path, monkeypatch):
     (ui / "compose.js").write_text("// compose")
     launch = Launched()
     s = ComposeServer(catalog(), tmp_path / "vds", tmp_path / "results", tmp_path / "out", port=0, ui_dir=ui,
-                      launch=launch, play_port=18999, wait_for_play=lambda port: True)
+                      launch=launch, play_port=18999, wait_for_play=lambda port, alive=None: True)
     s.start()
     yield s, launch
     s.stop()
@@ -182,3 +182,108 @@ def test_vesper_lab_compose_serves_the_page_until_interrupted(tmp_path, capsys, 
     out = tmp_path / "mine"
     assert cli.main(["lab", "compose", str(out), "--catalog", str(cat), "--port", "0", "--no-browser"]) == 0
     assert "Compose a home" in seen["out"] and seen["meta"]["out"] == str(out)
+
+
+def test_l4_is_credited_only_when_every_transition_agrees_and_a_bad_anchor_row_is_skipped(tmp_path, monkeypatch):
+    d = tmp_path / "results"
+    d.mkdir()
+    (d / "anchors-20261031T200000Z.json").write_text(json.dumps({"kind": "anchors", "anchors": [
+        {"product": "zigbee:acme:dim-1", "firmware": "f", "soc": "s", "transitions_agree": "3/5"},
+        {"product": "zigbee:acme:plug-1"},
+        {"product": "zigbee:acme:pir-1", "firmware": "f", "soc": "s", "transitions_agree": "4/4"}]}))
+    monkeypatch.setattr("vesper.lab.compose.build_report", lambda c, r: {"l2": {"validated_products": None}})
+    ev = evidence(tmp_path / "vds", d)
+    assert set(ev["L4"]) == {"zigbee:acme:pir-1"} and ev["L2"] == set()
+    assert product_card(catalog()["zigbee:acme:pir-1"], ev)["firmware"]["anchor"]["soc"] == "s"
+
+
+def test_two_plays_at_once_leave_one_child_and_stopping_ends_every_child(server):
+    import threading
+    s, launch = server
+    call(s, "/api/generate", {"format": "vesper-request/1", "rooms": 3, "devices": []})
+    threads = [threading.Thread(target=lambda: call(s, "/api/play", {})) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(launch.started) == 4 and len(launch.stopped) == 3  # each Play replaced the one before
+    s.stop()
+    assert len(launch.stopped) == 4
+
+
+def test_play_refuses_a_port_another_program_holds_and_says_when_the_child_dies(tmp_path, monkeypatch):
+    import socket
+    from vesper.lab.compose import ComposeServer
+    monkeypatch.setattr("vesper.lab.compose.build_report", lambda c, r: {"l2": {"validated_products": [],
+                                                                                "matter": {"validated_products": []}}})
+    held = socket.socket()
+    held.bind(("127.0.0.1", 0))
+    held.listen()
+    busy = held.getsockname()[1]
+
+    class Dead:
+        def poll(self):
+            return 1
+
+        def terminate(self):
+            pass
+
+        def wait(self, timeout=None):
+            return 1
+    s = ComposeServer(catalog(), tmp_path / "vds", tmp_path / "results", tmp_path / "out", port=0,
+                      launch=lambda home, p: Dead(), play_port=busy)
+    compose_home({"format": "vesper-request/1", "rooms": 2, "devices": []}, catalog(), tmp_path / "out")
+    with pytest.raises(ComposeError, match=f"port {busy} is in use"):
+        s.play()
+    held.close()
+    with pytest.raises(ComposeError, match="vesper lab play stopped"):
+        s.play()
+
+
+def test_generates_at_once_run_one_after_the_other(server, monkeypatch):
+    import threading
+    import time
+    s, _ = server
+    inside, overlap = [], []
+    real = __import__("vesper.lab.compose", fromlist=["compose_home"]).compose_home
+
+    def slow(*a, **k):
+        if inside:
+            overlap.append(1)
+        inside.append(1)
+        time.sleep(0.1)
+        try:
+            return real(*a, **k)
+        finally:
+            inside.pop()
+    monkeypatch.setattr("vesper.lab.compose.compose_home", slow)
+    req = {"format": "vesper-request/1", "rooms": 3, "devices": []}
+    threads = [threading.Thread(target=lambda: call(s, "/api/generate", req)) for _ in range(3)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert overlap == []
+
+
+def test_the_server_answers_localhost_refuses_a_foreign_host_and_a_negative_length(server):
+    import http.client
+    s, _ = server
+    req = {"format": "vesper-request/1", "rooms": 3, "devices": []}
+    assert call(s, "/api/generate", req, origin=f"http://localhost:{s.port}")[0] == 200
+    c = http.client.HTTPConnection("127.0.0.1", s.port, timeout=5)
+    c.request("GET", "/api/meta", headers={"Host": "evil.example"})
+    assert c.getresponse().status == 403
+    c = http.client.HTTPConnection("127.0.0.1", s.port, timeout=5)
+    c.putrequest("POST", "/api/generate")
+    c.putheader("Content-Length", "-5")
+    c.endheaders()
+    assert c.getresponse().status == 400
+
+
+def test_a_request_that_fails_leaves_a_running_play_alone(server):
+    s, launch = server
+    call(s, "/api/generate", {"format": "vesper-request/1", "rooms": 3, "devices": []})
+    call(s, "/api/play", {})
+    assert call(s, "/api/generate", {"format": "vesper-request/1", "program": ["kitchenette"]})[0] == 400
+    assert launch.stopped == []

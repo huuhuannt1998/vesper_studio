@@ -66,3 +66,12 @@ Assure Matter Module's card shows its lock-app firmware anchor (L4, 5/5 transiti
 readings; a row holds the chosen product; generate wrote 6 rooms, 74.4 m², 15 devices; Play started
 `vesper lab play` in 0.8 s, a second Play replaced it, nothing left running. Evidence: L2 from `vesper report`'s
 credit (95 Zigbee, 18 Matter products), L4 from `results/device-twins/anchors-20261031T200000Z.json` (3 anchors).
+
+Final review (fresh reviewer): 4 Important fixed with tests: attributes (aria-label) set as attributes; one
+generate or play at a time (a lock; buttons disabled while pending); Play refuses a port another program holds and
+fails as soon as the child dies (and a SIGTERM stops compose and its child, checked live); concurrent generates run
+one after the other. Minors fixed: localhost and [::1] accepted, a foreign Host refused (DNS rebinding), a negative
+or oversized Content-Length refused, errors while writing the home answered, evidence loading tolerant, L4 only when
+every transition agrees (all anchors files read), no zombie child, a failed generate leaves the play running, a
+picked product keeps its row's category. Deferred minors: in "a number of rooms" mode the "one room type" list
+offers types the layout may lack (generate's error names it); a POST with no Origin is allowed (browsers send one).

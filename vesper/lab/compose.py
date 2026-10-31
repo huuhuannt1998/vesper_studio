@@ -27,17 +27,29 @@ def evidence(catalog_dir: Path, results_dir: Path) -> dict:
     l2: set[str] = set()
     try:
         report = build_report(Path(catalog_dir), Path(results_dir))
-        l2 = set(report["l2"]["validated_products"]) | set(report["l2"]["matter"]["validated_products"])
-    except (OSError, KeyError, ValueError):
-        pass  # no results yet: nothing credited beyond the catalog
+        for ids in (report["l2"].get("validated_products"), (report["l2"].get("matter") or {}).get("validated_products")):
+            l2 |= {i for i in ids or () if isinstance(i, str)}
+    except (OSError, KeyError, ValueError, TypeError, AttributeError):
+        pass  # no results yet, or none readable: nothing credited beyond the catalog
     anchors: dict[str, dict] = {}
     files = sorted(Path(results_dir).glob("anchors-*.json")) if Path(results_dir).is_dir() else []
-    if files:
+    for f in files:  # every anchors file, newer ones over older
         try:
-            anchors = {a["product"]: a for a in json.loads(files[-1].read_text()).get("anchors", [])}
-        except (OSError, ValueError, KeyError, TypeError):
-            anchors = {}
+            rows = json.loads(f.read_text()).get("anchors") or []
+        except (OSError, ValueError, AttributeError):
+            continue
+        for a in rows if isinstance(rows, list) else []:
+            if isinstance(a, dict) and isinstance(a.get("product"), str) and _agrees(a):
+                anchors[a["product"]] = {k: str(a.get(k, "?")) for k in
+                                         ("firmware", "soc", "interface", "transitions_agree", "values_agree")}
     return {"L2": l2, "L4": anchors}
+
+
+def _agrees(anchor: dict) -> bool:
+    """An anchor credits L4 only when the twin made every transition the firmware made ("10/10")."""
+    import re
+    m = re.match(r"\s*(\d+)\s*/\s*(\d+)", str(anchor.get("transitions_agree", "")))
+    return bool(m) and int(m.group(2)) > 0 and m.group(1) == m.group(2)
 
 
 def levels(record: dict, ev: dict) -> dict[str, bool]:
@@ -164,14 +176,19 @@ def _launch_play(home: str, port: int, catalog_dir: Path):
                             stderr=subprocess.DEVNULL)
 
 
-def _wait_for_port(port: int, timeout: float = 30.0) -> bool:
+def _listening(port: int) -> bool:
     import socket
+    with socket.socket() as s:
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _wait_for_port(port: int, timeout: float = 30.0, alive=lambda: True) -> bool:
+    """The child listens on `port` within `timeout`; False as soon as it has died."""
     import time
     end = time.monotonic() + timeout
-    while time.monotonic() < end:
-        with socket.socket() as s:
-            if s.connect_ex(("127.0.0.1", port)) == 0:
-                return True
+    while time.monotonic() < end and alive():
+        if _listening(port):
+            return True
         time.sleep(0.2)
     return False
 
@@ -194,6 +211,8 @@ class ComposeServer:
         self._play = None
         self._httpd = None
         self.port: int | None = None
+        import threading
+        self.lock = threading.Lock()  # one generate or play at a time: they replace the same home and child
 
     @property
     def url(self) -> str:
@@ -211,23 +230,41 @@ class ComposeServer:
                 "out": str(self.out)}
 
     def play(self) -> dict:
-        home = self.out / "home.yaml"
-        if not home.is_file():
-            raise ComposeError("generate the home first")
-        self.stop_play()
-        self._play = self._launch(str(home), self.play_port)
-        if not self._wait(self.play_port):
-            raise ComposeError(f"vesper lab play did not open port {self.play_port}")
-        return {"url": f"http://127.0.0.1:{self.play_port}/"}
+        with self.lock:
+            home = self.out / "home.yaml"
+            if not home.is_file():
+                raise ComposeError("generate the home first")
+            self.stop_play()
+            if _listening(self.play_port):
+                raise ComposeError(f"port {self.play_port} is in use (another `vesper lab play`?); stop it or start "
+                                   "compose with another --play-port")
+            child = self._play = self._launch(str(home), self.play_port)
+            if not self._wait(self.play_port, alive=lambda: child.poll() is None):
+                self.stop_play()
+                raise ComposeError(f"vesper lab play stopped before it opened port {self.play_port}; run "
+                                   f"`vesper lab play {home}` to see why")
+            return {"url": f"http://127.0.0.1:{self.play_port}/"}
+
+    def generate(self, request) -> dict:
+        with self.lock:
+            if not isinstance(request, dict):
+                raise ComposeError("a request is a JSON object")
+            try:
+                made = compose_home(request, self.catalog, self.out)
+            except OSError as e:
+                raise ComposeError(f"the home could not be written: {e}") from e
+            self.stop_play()  # the home it played is replaced (a failed request leaves it playing)
+            return made
 
     def stop_play(self) -> None:
-        if self._play is not None and self._play.poll() is None:
-            self._play.terminate()
+        child, self._play = self._play, None
+        if child is not None and child.poll() is None:
+            child.terminate()
             try:
-                self._play.wait(timeout=10)
-            except Exception:  # noqa: BLE001 - killed below
-                self._play.kill()
-        self._play = None
+                child.wait(timeout=10)
+            except Exception:  # noqa: BLE001 - killed, then reaped
+                child.kill()
+                child.wait(timeout=10)
 
     def start(self) -> None:
         import threading
@@ -264,7 +301,17 @@ class ComposeServer:
             def _json(self, status: int, data) -> None:
                 self._send(status, json.dumps(data).encode())
 
+            def _loopback(self) -> bool:
+                """A page served by this server, by any of loopback's names (not a DNS-rebound one)."""
+                ok = {f"{h}:{server.port}" for h in ("127.0.0.1", "localhost", "[::1]")}
+                if (self.headers.get("Host") or "") not in ok:
+                    return False
+                origin = self.headers.get("Origin")
+                return origin is None or origin.rstrip("/").split("://", 1)[-1] in ok
+
             def do_GET(self):  # noqa: N802 - http.server's name
+                if not self._loopback():
+                    return self._json(403, {"error": "this page is served to 127.0.0.1 only"})
                 u = urlparse(self.path)
                 q = {k: v[0] for k, v in parse_qs(u.query).items()}
                 if u.path in ("/", "/compose.html", "/compose.js", "/mapview.js", "/style.css"):
@@ -291,23 +338,23 @@ class ComposeServer:
                 return self._json(404, {"error": "not found"})
 
             def do_POST(self):  # noqa: N802
-                origin = self.headers.get("Origin")
-                if origin is not None and origin.rstrip("/") != server.url.rstrip("/"):
+                if not self._loopback():
                     return self._json(403, {"error": "another site's page"})
                 try:
                     n = int(self.headers.get("Content-Length") or 0)
-                    body = json.loads(self.rfile.read(min(n, 1_000_000)) or b"{}")
+                    if not 0 <= n <= 1_000_000:
+                        raise ValueError(n)
+                    body = json.loads(self.rfile.read(n) or b"{}")
                 except ValueError:
-                    return self._json(400, {"error": "not JSON"})
+                    return self._json(400, {"error": "not JSON (or no length, or over 1 MB)"})
                 try:
                     if self.path == "/api/generate":
-                        if not isinstance(body, dict):
-                            raise ComposeError("a request is a JSON object")
-                        server.stop_play()  # the home it plays is replaced
-                        return self._json(200, compose_home(body, server.catalog, server.out))
+                        return self._json(200, server.generate(body))
                     if self.path == "/api/play":
                         return self._json(200, server.play())
                 except ComposeError as e:
                     return self._json(400, {"error": str(e)})
+                except Exception as e:  # noqa: BLE001 - said to the page, never a dropped connection
+                    return self._json(500, {"error": f"{type(e).__name__}: {e}"})
                 return self._json(404, {"error": "not found"})
         return Handler

@@ -53,7 +53,11 @@ export function buildRequest(model) {
 if (typeof document !== "undefined") {
   const $ = (id) => document.getElementById(id);
   const el = (tag, props = {}, ...kids) => {
-    const e = Object.assign(document.createElement(tag), props);
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k.includes("-")) e.setAttribute(k, v); // aria-label, data-*: attributes, not properties
+      else e[k] = v;
+    }
     for (const k of kids) e.append(k);
     return e;
   };
@@ -191,7 +195,7 @@ if (typeof document !== "undefined") {
 
   function choose(p) {
     if (!chosenRow) return;
-    Object.assign(chosenRow, { product: p.id, productLabel: label(p), category: p.category });
+    Object.assign(chosenRow, { product: p.id, productLabel: label(p), category: p.category || chosenRow.category });
     chosenRow = null;
     drawRows();
     search();
@@ -241,6 +245,7 @@ if (typeof document !== "undefined") {
     out.className = "outcome";
     out.textContent = "Generating…";
     $("play").disabled = true;
+    $("generate").disabled = true;
     try {
       const made = page.last = await api("/api/generate", request);
       const s = made.summary;
@@ -251,19 +256,25 @@ if (typeof document !== "undefined") {
       page.error = e.message;
       out.className = "outcome bad";
       out.textContent = `Not generated: ${e.message}`;
+    } finally {
+      $("generate").disabled = false;
     }
   }
 
   async function play() {
     const out = $("outcome");
     out.textContent = "Starting the home…";
+    $("play").disabled = true;
     try {
       const { url } = await api("/api/play", {});
+      out.className = "outcome";
       out.textContent = `Playing at ${url}`;
       window.open(url, "_blank");
     } catch (e) {
       out.className = "outcome bad";
       out.textContent = `Not started: ${e.message}`;
+    } finally {
+      $("play").disabled = false;
     }
   }
 
