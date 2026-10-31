@@ -300,22 +300,21 @@ def _place(product, category, rule, target, world_map: WorldMap, per_room: dict,
         at = {"room": room.id, "mount": "ceiling"}
         if k:
             at["xy"] = [round(x0 + (x1 - x0) * (0.25 + 0.5 * (k % 2)), 2), round(z0 + (z1 - z0) * 0.5, 2)]
-        if category == "light":  # its plain wall switch (PI 2026-10-31): the door's other side from wall devices
-            cx, cz = door.center if door else ((x0 + x1) / 2, z0)
-            sx = min(max(cx - 0.6 - 0.3 * k, x0 + 0.15), x1 - 0.15)
-            sz = min(max(cz, z0 + 0.15), z1 - 0.15)
-            at["wall_switch"] = [round(sx, 2), round(sz, 2)]
+        if category == "light":  # its plain wall switch (PI 2026-10-31), by the entrance; a second light's beside it
+            entry = next((w for w in world_map.doorways if room.id in w.rooms and w.outdoor), door)
+            nth = sum(1 for d in out if d["at"].get("room") == room.id and "wall_switch" in d["at"])
+            at["wall_switch"] = _by_door(entry, room, (x0, z0, x1, z1), SWITCH_M + 0.12 * nth)
     elif rule == "corner":  # in the corner farthest from the door, watching the room and the door
         corners = [(x0 + 0.3, z0 + 0.3), (x1 - 0.3, z0 + 0.3), (x1 - 0.3, z1 - 0.3), (x0 + 0.3, z1 - 0.3)]
         far = max(corners, key=lambda c: (c[0] - door.center[0]) ** 2 + (c[1] - door.center[1]) ** 2) \
             if door else corners[0]
         at = {"room": room.id, "mount": "ceiling", "xy": [round(far[0], 2), round(far[1], 2)]}
-    elif rule == "wall":  # beside the door, inside the room, within reach from it
-        cx, cz = door.center if door else ((x0 + x1) / 2, z0)
-        side = 0.6 + 0.3 * k
-        px = min(max(cx + side, x0 + 0.15), x1 - 0.15)
-        pz = min(max(cz, z0 + 0.15), z1 - 0.15)
-        at = {"room": room.id, "mount": "wall", "xy": [round(px, 2), round(pz, 2)]}
+    elif rule == "wall":  # beside the door, past the lights' switches, inside the room, within reach from it
+        box = (x0, z0, x1, z1)
+        xy = _by_door(door, room, box, WALL_M + 0.3 * k)
+        if _by_door(door, room, box, SWITCH_M) == xy or _by_door(door, room, box, WALL_M + 0.3 * k + 0.01) == xy:
+            xy = _by_door(door, room, box, -(SWITCH_M + 0.3 * k))  # no wall left on the latch side: the other side
+        at = {"room": room.id, "mount": "wall", "xy": xy}
     elif rule == "floor":  # along the walls, spread round the room
         spots = [((x0 + x1) / 2, z0 + 0.2), (x1 - 0.2, (z0 + z1) / 2), ((x0 + x1) / 2, z1 - 0.2),
                  (x0 + 0.2, (z0 + z1) / 2)]
@@ -325,6 +324,24 @@ def _place(product, category, rule, target, world_map: WorldMap, per_room: dict,
         c = ((x0 + x1) / 2 + 0.4 * (k % 3), (z0 + z1) / 2)
         at = {"room": room.id, "mount": "table", "xy": [round(c[0], 2), round(c[1], 2)]}
     return {"product": product, "name": name, "at": at}
+
+
+SWITCH_M = 0.6  # a light's wall switch: from the doorway's centre, 0.15 m past a 0.9 m door's latch-side frame
+WALL_M = 1.0  # a wall device (a switch, a button, a thermostat): further along the same wall
+
+
+def _by_door(door, room, box, offset: float) -> list:
+    """A point on the room's wall beside `door`, `offset` along the wall on its latch side (the 3D view hinges a door
+    at its low end, so the latch is at the high end: an open door's leaf never covers it), 0.15 m inside the room."""
+    x0, z0, x1, z1 = box
+    if door is None:
+        return [round(min(x0 + 0.15 + offset, x1 - 0.15), 2), round(z0 + 0.15, 2)]
+    cx, cz = door.center
+    if abs(cx - x0) < 0.2 or abs(cx - x1) < 0.2:  # a door in a wall that runs along z
+        x = x0 + 0.15 if abs(cx - x0) < abs(cx - x1) else x1 - 0.15
+        return [round(x, 2), round(min(max(cz + offset, z0 + 0.15), z1 - 0.15), 2)]
+    z = z0 + 0.15 if abs(cz - z0) < abs(cz - z1) else z1 - 0.15
+    return [round(min(max(cx + offset, x0 + 0.15), x1 - 0.15), 2), round(z, 2)]
 
 
 def _unique(name: str, taken: set) -> str:

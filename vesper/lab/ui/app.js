@@ -8,7 +8,7 @@
 // state to the visual checks (`vesper lab look`).
 import {
   centerView, colorFor, decodeGrid, feedLine, fitView, formatClock, glyphFor, gridBounds, headingName, hintFor,
-  hitTest, moveFor, promptFor, recordLine, stepInterval, tipPosition, walkKey,
+  handPoint, hitTest, moveFor, promptFor, recordLine, stepInterval, tipPosition, walkKey,
 } from "./mapview.js";
 import { PITCH_MAX, aimCamera, compassMarks, moveRelative } from "./scene3d.js";
 
@@ -513,7 +513,7 @@ function hitItems() { // the doors and devices on the screen, for clicks and the
 
 function promptAt(target) {
   const me = state.actors[state.player], d = state.devices[target], door = state.doors[target];
-  const [x, z] = d ? [d.x, d.z] : [door.x, door.z];
+  const [x, z] = d ? handPoint(d) : [door.x, door.z]; // a ceiling light: its reach is from its wall switch
   const switchedBy = Object.values(state.devices).find((o) => (o.controls || []).includes(target));
   return promptFor({
     kind: d ? "device" : "door", name: target, category: d && d.category, effect: state.effects[target],

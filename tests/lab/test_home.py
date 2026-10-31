@@ -221,3 +221,10 @@ def test_a_ceiling_device_keeps_its_wall_switch(tmp_path):
                    'wall_switch: [3.3, 1.0]}}\n')
     home = load_lab_home(write_home(tmp_path, text), catalog())
     assert home.device("kitchen_light").wall_switch == (3.3, 1.0) and home.device("hall_motion").wall_switch is None
+
+
+def test_a_wall_switch_needs_something_to_switch(tmp_path):
+    text = HOME + ('      - {product: "zigbee:acme:pir-1", name: kitchen_motion, at: {room: kitchen, mount: ceiling, '
+                   'wall_switch: [3.3, 1.0]}}\n')
+    with pytest.raises(HomeError, match="kitchen_motion has nothing a wall switch could switch"):
+        load_lab_home(write_home(tmp_path, text), catalog())

@@ -210,3 +210,35 @@ def test_every_generated_ceiling_light_has_a_wall_switch_by_its_room_s_door_with
                    and home.map.room_at(*c).id == d.room for c in cells), d.name
     others = [d for d in home.devices if d.mount == "ceiling" and d.record["identity"]["category"] != "light"]
     assert others and all(d.wall_switch is None for d in others)  # a motion sensor has nothing to switch
+
+
+def _latch_side(home, d):
+    """+1 when the switch is on the latch side of its doorway (the 3D view hinges a door at its low end)."""
+    dw = min((w for w in home.map.doorways if d.room in w.rooms),
+             key=lambda w: (not w.outdoor, (w.center[0] - d.wall_switch[0]) ** 2 + (w.center[1] - d.wall_switch[1]) ** 2))
+    xs = [x for x, _ in home.map.room(d.room).polygon]
+    along_x = abs(dw.center[0] - min(xs)) > 0.2 and abs(dw.center[0] - max(xs)) > 0.2
+    k = 0 if along_x else 1
+    return dw, (d.wall_switch[k] - dw.center[k]) > dw.width / 2
+
+
+@pytest.mark.parametrize("rooms, seed", [(5, 2), (8, 1), (13, 3)])
+def test_a_light_s_switch_is_on_the_latch_side_by_the_entrance_and_two_lights_get_two_switches(tmp_path, rooms, seed):
+    """An open door's leaf never covers the switch; the hall's switch is by the front door; a room's second light
+    has its own switch beside the first (a double plate)."""
+    from vesper.lab.geometry import distance
+    text = REQUEST.replace("rooms: 5", f"rooms: {rooms}").replace("seed: 2", f"seed: {seed}").replace(
+        "      - {category: light, per: room}\n",
+        "      - {category: light, per: room}\n      - {category: light, at: living}\n"
+        "      - {category: contact_sensor, per: room}\n")
+    out = tmp_path / "home"
+    generate_home(request(tmp_path, text), catalog(), out)
+    home = load_lab_home(out / "home.yaml", catalog())
+    lights = [d for d in home.devices if d.record["identity"]["category"] == "light"]
+    for d in lights:
+        dw, latch = _latch_side(home, d)
+        assert latch, (d.name, d.wall_switch, dw.id, dw.center)
+        if any(w.outdoor for w in home.map.doorways if d.room in w.rooms):
+            assert dw.outdoor, d.name  # the hall's switch by the front door
+    living = [d.wall_switch for d in lights if d.room == "living"]
+    assert len(living) == 2 and distance(*living) >= 0.1

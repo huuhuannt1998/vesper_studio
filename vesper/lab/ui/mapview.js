@@ -171,6 +171,9 @@ export function feedLine(r, player) {
   return null;
 }
 
+// Where a hand works a device: a ceiling light at its wall switch (the server's Rules.hand_point), else the device.
+export const handPoint = (d) => d.switch_at || [d.x, d.z];
+
 export function formatClock(startSeconds, t) {
   const total = Math.floor(startSeconds + t) % 86400;
   const pad = (n) => String(n).padStart(2, "0");

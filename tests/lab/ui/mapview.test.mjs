@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import {
   STEP_M, WALK_REPEAT_S, centerView, decodeGrid, feedLine, fitView, formatClock, headingName, hintFor, hitTest, moveFor,
-  promptFor, recordLine, stepFor, stepInterval, tipPosition, walkKey,
+  handPoint, promptFor, recordLine, stepFor, stepInterval, tipPosition, walkKey,
 } from "../../../vesper/lab/ui/mapview.js";
 
 test("the walkable grid decodes bit for bit as Python wrote it (least significant bit first)", () => {
@@ -258,4 +258,9 @@ test("the view's feed shows the attack and the defenses' alerts as they happen",
                "ALERT freshness: front_door");
   assert.equal(feedLine({ kind: "scenario", title: "Case 3", condition: "attack" }, "player"), "Case 3: attack");
   assert.equal(feedLine({ kind: "net", link: "coordinator", event: "held", device: "front_door" }, "player"), null);
+});
+
+test("a hand works a ceiling light at its wall switch, anything else where it is", () => {
+  assert.deepEqual(handPoint({ x: 5, z: 1, switch_at: [3.3, 1.0] }), [3.3, 1.0]);
+  assert.deepEqual(handPoint({ x: 5, z: 1, switch_at: null }), [5, 1]);
 });

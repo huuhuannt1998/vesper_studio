@@ -266,6 +266,9 @@ def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, na
         if mount != "ceiling":
             raise HomeError(f"{where}.at.wall_switch: a wall switch is for a ceiling device, not a {mount} one")
         wall_switch = _point(at["wall_switch"], f"{where}.at.wall_switch")
+        from vesper.lab.rules import toggle_command
+        if toggle_command(Twin.from_vds(catalog[product])) is None:
+            raise HomeError(f"{where}.at.wall_switch: {name} has nothing a wall switch could switch")
         if not point_in_polygon(wall_switch, world_map.room(room).polygon):
             raise HomeError(f"{where}.at.wall_switch: ({wall_switch[0]:g}, {wall_switch[1]:g}) is not in the {room}")
     controls = tuple(_list(d.get("controls") or [], f"{where}.controls"))
