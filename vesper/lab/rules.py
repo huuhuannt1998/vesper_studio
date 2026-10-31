@@ -171,7 +171,7 @@ class Rules:
         p = self.world.pose(actor)
         here = (p.x, p.z)
         out = [(distance(here, self.home.map.doorway(d).center), "door", d) for d in self.world.doors]
-        out += [(distance(here, dev.position), "device", name) for name, dev in self.devices.items()
+        out += [(distance(here, self.hand_point(name)), "device", name) for name in self.devices
                 if self._operable(name)]
         return sorted((t for t in out if t[0] <= INTERACT_M and self._can_touch(actor, t[1], t[2])),
                       key=lambda t: (round(t[0], 6), t[1] != "door", t[2]))
@@ -229,7 +229,7 @@ class Rules:
     def _out_of_reach(self, actor: str, kind: str, target: str) -> str | None:
         """Why `actor` cannot touch the door or device (the page's prompt says it), or None if it can."""
         p = self.world.pose(actor)
-        where = self.home.map.doorway(target).center if kind == "door" else self.devices[target].position
+        where = self.home.map.doorway(target).center if kind == "door" else self.hand_point(target)
         if distance((p.x, p.z), where) > INTERACT_M:
             return "too far"
         return None if self._can_touch(actor, kind, target) else "other side of the wall"
@@ -271,11 +271,18 @@ class Rules:
         return p.room == room or (doorway is not None and room in self.home.map.doorway(doorway).rooms)
 
     def operable(self, name: str) -> bool:
-        """Whether a person's hand works this device (a ceiling device is worked by a switch bound to it)."""
+        """Whether a person's hand works this device (a ceiling device only at its wall switch, or by a switch
+        bound to it)."""
         return self._operable(name)
 
+    def hand_point(self, name: str):
+        """Where a hand works the device: its wall switch, for a ceiling device that has one; else the device."""
+        d = self.devices[name]
+        return d.wall_switch if d.wall_switch is not None else d.position
+
     def _operable(self, name: str) -> bool:
-        return self.devices[name].mount != "ceiling" and toggle_command(self.twin(name)) is not None
+        d = self.devices[name]
+        return (d.mount != "ceiling" or d.wall_switch is not None) and toggle_command(self.twin(name)) is not None
 
     def _door_locked(self, door: str) -> bool:
         return any(d.door == door and is_locked(self.twin(n)) for n, d in self.devices.items())

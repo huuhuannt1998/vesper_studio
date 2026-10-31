@@ -234,3 +234,20 @@ def test_every_floor_faces_up_so_a_navmesh_can_walk_on_it(tmp_path, monkeypatch)
         pts = [o.data.vertices[k] for k in face]
         area = sum(x0 * y1 - x1 * y0 for (x0, y0, _), (x1, y1, _) in zip(pts, pts[1:] + pts[:1])) / 2
         assert area > 0, o.name
+
+
+SWITCHED_LIGHT = ('      - {product: "zigbee:acme:dim-1", name: kitchen_light, at: {room: kitchen, mount: ceiling, '
+                  'wall_switch: [3.3, 1.0]}}\n')
+
+
+def test_a_ceiling_light_s_wall_switch_is_an_empty_on_its_wall_for_the_furniture_to_keep_clear_of(
+        tmp_path, monkeypatch):
+    h = load_lab_home(write_home(tmp_path, LOCKED_HOME + SWITCHED_LIGHT), catalog())
+    light = next(d for d in scene_data(h)["devices"] if d["name"] == "kitchen_light")
+    assert light["switch"] == pytest.approx([3.3, 1.2, 1.0])
+    assert next(d for d in scene_data(h)["devices"] if d["name"] == "front_lock")["switch"] is None
+    script, brief = dress(h)
+    bpy = run_script(script, monkeypatch)
+    plate = bpy.data.objects["switch:kitchen_light"]
+    assert plate.location == pytest.approx((3.3, -1.0, 1.2)) and plate["category"] == "wall_switch"
+    assert "wall switch" in brief.read_text()

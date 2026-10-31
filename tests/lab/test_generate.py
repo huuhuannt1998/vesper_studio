@@ -187,3 +187,26 @@ def test_a_device_that_does_not_go_on_a_door_asked_for_at_one_goes_beside_it_ind
     (button,) = [d for d in home.devices if d.record["identity"]["category"] == "button"]
     front = next(w for w in home.map.doorways if w.outdoor)
     assert button.mount == "wall" and button.room in front.rooms and not home.map.room(button.room).outdoor
+
+
+def test_every_generated_ceiling_light_has_a_wall_switch_by_its_room_s_door_within_reach(tmp_path):
+    """A plain wall switch, part of the light (PI 2026-10-31), so residents can light a dark room."""
+    from vesper.lab.geometry import distance
+    from vesper.lab.rules import INTERACT_M
+    out = tmp_path / "home"
+    generate_home(request(tmp_path), catalog(), out)
+    home = load_lab_home(out / "home.yaml", catalog())
+    g = home.map.grid
+    lights = [d for d in home.devices if d.record["identity"]["category"] == "light"]
+    walls = [d.position for d in home.devices if d.mount == "wall"]
+    for d in lights:
+        assert d.wall_switch is not None, d.name
+        doors = [w.center for w in home.map.doorways if d.room in w.rooms]
+        assert min(distance(d.wall_switch, c) for c in doors) <= 1.5, d.name
+        assert all(distance(d.wall_switch, w) >= 0.3 for w in walls), d.name
+        cells = [(g.origin[0] + (i + 0.5) * g.cell, g.origin[1] + (j + 0.5) * g.cell)
+                 for j in range(g.height) for i in range(g.width) if g.walkable[j * g.width + i]]
+        assert any(distance(c, d.wall_switch) <= INTERACT_M - 0.1 and home.map.room_at(*c)
+                   and home.map.room_at(*c).id == d.room for c in cells), d.name
+    others = [d for d in home.devices if d.mount == "ceiling" and d.record["identity"]["category"] != "light"]
+    assert others and all(d.wall_switch is None for d in others)  # a motion sensor has nothing to switch

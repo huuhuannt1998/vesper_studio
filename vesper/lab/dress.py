@@ -167,7 +167,9 @@ def scene_data(home, world3d=None, models: dict | None = None) -> dict:
                       "box": _doorway_box(m.grid, d.cells)} for d in m.doorways],
         "devices": [{"name": d.name, "category": d.record["identity"].get("category"), "mount": d.mount,
                      "room": d.room, "point": [d.position[0], device_height(d.mount, d.record["identity"].get(
-                         "category")), d.position[1]]} for d in home.devices]}
+                         "category")), d.position[1]],
+                     "switch": None if d.wall_switch is None else [d.wall_switch[0], device_height("wall", "switch"),
+                                                                    d.wall_switch[1]]} for d in home.devices]}
     if world3d is not None:
         data["walls"], data["doorways"] = [], []
         data["hssd"] = {"floor_y": world3d.floor_y, "items": [
@@ -232,6 +234,7 @@ Running it again rebuilds only what it made (walls, floors, lintels, device empt
 - Furnish each room as what it is, inside its own collection.
 - Keep the walkways clear: nothing within a metre of a doorway, and corridors and halls left open. The furniture is
   drawn, not solid: a person walks where the map says the floor is free.
+- Leave the wall in front of each `switch:` empty clear (a ceiling light's wall switch: people walk up to it).
 - Do not move, resize or delete the walls, floors, lintels or device empties; do not add doors (VESPER draws them
   and swings them open and shut) or a ceiling (the camera rises above the walls).
 - Materials and textures are free; use only assets you may share (for example CC0 ones from Poly Haven), and list
@@ -504,6 +507,14 @@ def build():
         obj["category"] = d["category"] or ""
         obj["mount"] = d["mount"] or ""
         devices.objects.link(obj)
+        if d.get("switch"):  # a ceiling light's plain wall switch: worked by hand there
+            sx, sh, sz = d["switch"]
+            plate = built(bpy.data.objects.new("switch:" + d["name"], None))
+            plate.empty_display_type, plate.empty_display_size = "CUBE", 0.05
+            plate.location = (sx, -sz, sh)
+            plate["category"] = "wall_switch"
+            plate["mount"] = "wall"
+            devices.objects.link(plate)
     return root
 
 

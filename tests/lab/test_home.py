@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from tests.lab.homes import HOME, catalog, write_home
@@ -201,3 +203,21 @@ def test_a_wi_fi_device_s_name_is_the_entity_id_home_assistant_gives_it_and_no_o
     that clashes, would leave automations naming the wrong entity."""
     with pytest.raises(HomeError, match=message):
         load(tmp_path, HOME.replace("    devices:\n", "    devices:\n" + devices, 1))
+
+
+@pytest.mark.parametrize("at, says", [
+    ("{room: kitchen, mount: table, xy: [4, 1], wall_switch: [3.3, 1.0]}", "a wall switch is for a ceiling device"),
+    ("{room: kitchen, mount: ceiling, wall_switch: [5.0, 5.0]}", "wall_switch: (5, 5) is not in the kitchen"),
+    ("{room: kitchen, mount: ceiling, wall_switch: [3.3]}", "wall_switch: [3.3] is not a point [x, z] in metres"),
+])
+def test_a_wall_switch_is_a_point_in_its_ceiling_device_s_room(tmp_path, at, says):
+    text = HOME + f'      - {{product: "zigbee:acme:dim-1", name: kitchen_light, at: {at}}}\n'
+    with pytest.raises(HomeError, match=re.escape(says)):
+        load_lab_home(write_home(tmp_path, text), catalog())
+
+
+def test_a_ceiling_device_keeps_its_wall_switch(tmp_path):
+    text = HOME + ('      - {product: "zigbee:acme:dim-1", name: kitchen_light, at: {room: kitchen, mount: ceiling, '
+                   'wall_switch: [3.3, 1.0]}}\n')
+    home = load_lab_home(write_home(tmp_path, text), catalog())
+    assert home.device("kitchen_light").wall_switch == (3.3, 1.0) and home.device("hall_motion").wall_switch is None

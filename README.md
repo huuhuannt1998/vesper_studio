@@ -226,7 +226,9 @@ To choose the rooms and the devices, write a request (`vesper-request/1`) and pa
 
 A category becomes a real catalog product. Each device goes where its kind usually goes: lights and alarms on the
 ceiling, motion sensors in a corner, contact sensors and locks on the door, switches beside the door, plugs along the
-walls. Every position is marked as assumed, and can be moved in the home file. Without a request, a home gets a
+walls. A ceiling light gets a plain wall switch beside its room's door, part of the light (`wall_switch: [x, z]` in
+its `at:`), so the player and the residents switch it there; a hand-written home can give one to any ceiling device.
+Every position is marked as assumed, and can be moved in the home file. Without a request, a home gets a
 starter set: a lock and a contact sensor on the front door, a light in every room, motion sensors, a thermostat and a
 smoke sensor.
 

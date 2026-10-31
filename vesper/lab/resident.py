@@ -546,12 +546,12 @@ class Resident:
         if d.door is not None:
             return self._side(d.door, self._here() if self._here() in self.home.map.doorway(d.door).rooms
                               else self._indoor_side(d.door))
-        spot = self._spot(d.room)
-        gap = distance(d.position, spot)
+        spot, at = self._spot(d.room), self.rules.hand_point(device)  # a ceiling light: its wall switch
+        gap = distance(at, spot)
         if gap <= NEAR_M:
             return spot
         f = NEAR_M / gap
-        return (d.position[0] + (spot[0] - d.position[0]) * f, d.position[1] + (spot[1] - d.position[1]) * f)
+        return (at[0] + (spot[0] - at[0]) * f, at[1] + (spot[1] - at[1]) * f)
 
     def _side(self, door: str, room: str):
         """A walkable point of `room` beside the doorway, clear of the doorway itself."""

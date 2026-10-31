@@ -53,6 +53,7 @@ class PlacedDevice:
     facing: float | None  # degrees, for wall mounts; 0 is +x, 90 is +z
     controls: tuple[str, ...] = ()  # devices this one switches directly (a Zigbee binding)
     state: dict = field(default_factory=dict)  # starting values, checked against the product's features
+    wall_switch: Point | None = None  # a ceiling device's plain wall switch, part of it: worked by hand there
 
 
 @dataclass(frozen=True)
@@ -260,6 +261,13 @@ def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, na
         else:
             c = centroid(world_map.room(room).polygon)
             facing = math.degrees(math.atan2(c[1] - position[1], c[0] - position[0])) % 360
+    wall_switch = None
+    if "wall_switch" in at:
+        if mount != "ceiling":
+            raise HomeError(f"{where}.at.wall_switch: a wall switch is for a ceiling device, not a {mount} one")
+        wall_switch = _point(at["wall_switch"], f"{where}.at.wall_switch")
+        if not point_in_polygon(wall_switch, world_map.room(room).polygon):
+            raise HomeError(f"{where}.at.wall_switch: ({wall_switch[0]:g}, {wall_switch[1]:g}) is not in the {room}")
     controls = tuple(_list(d.get("controls") or [], f"{where}.controls"))
     for target in controls:
         if target not in names:
@@ -271,7 +279,8 @@ def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, na
             state[feature] = twin.coerce(feature, value)
         except TwinError as e:
             raise HomeError(f"{where}.state: {e}") from e
-    return PlacedDevice(name, product, catalog[product], room, door, position, mount, facing, controls, state)
+    return PlacedDevice(name, product, catalog[product], room, door, position, mount, facing, controls, state,
+                        wall_switch)
 
 
 def _doorway(world_map: WorldMap, doorway_id, where: str):

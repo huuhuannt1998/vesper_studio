@@ -383,3 +383,18 @@ def test_between_two_tasks_a_resident_has_none_and_the_trace_says_so(tmp_path):
     t.at("08:01")
     assert t.people[0].task.name == "breakfast" and [r["task"] for r in t.s.records if r["kind"] == "task"][-1] == \
         "breakfast"
+
+
+CEILING_LIGHT = ('      - {product: "zigbee:acme:dim-1", name: kitchen_light, at: {room: kitchen, mount: ceiling, '
+                 'wall_switch: [3.3, 1.0]}}\n')
+
+
+def test_a_ceiling_light_is_switched_at_its_wall_switch_by_the_door(tmp_path):
+    """A plain wall switch, part of the light (PI 2026-10-31): the resident walks to it, not under the light."""
+    t = lab(tmp_path, [task("21:00", 30, "tea", "EATING", "kitchen")], start="20:59", extra=CEILING_LIGHT)
+    t.at("21:03")
+    assert t.on("kitchen_light") is True
+    use = next(r for r in inputs(t.s) if r["op"] == "interact" and r["args"]["target"] == "kitchen_light")
+    p = t.s.world.pose("r0")
+    assert ((p.x - 3.3) ** 2 + (p.z - 1.0) ** 2) ** 0.5 <= 1.0 and use["outcome"]["ok"] is True
+    assert not [r for r in t.s.records if r.get("decision") == "cannot switch it by hand"]

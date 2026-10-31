@@ -90,7 +90,8 @@ def _device(session, d) -> dict:
             "category": identity.get("category"), "room": d.room, "door": d.door, "x": d.position[0],
             "z": d.position[1], "mount": d.mount, "facing": d.facing, "controls": list(d.controls),
             "effect": session.rules.effects.get(d.name), "state": dict(session.rules.twin(d.name).state),
-            "operable": session.rules.operable(d.name)}
+            "operable": session.rules.operable(d.name),
+            "switch_at": list(d.wall_switch) if d.wall_switch is not None else None}  # a ceiling light's wall switch
 
 
 def dressed_model(home) -> Path | None:

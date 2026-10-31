@@ -300,6 +300,11 @@ def _place(product, category, rule, target, world_map: WorldMap, per_room: dict,
         at = {"room": room.id, "mount": "ceiling"}
         if k:
             at["xy"] = [round(x0 + (x1 - x0) * (0.25 + 0.5 * (k % 2)), 2), round(z0 + (z1 - z0) * 0.5, 2)]
+        if category == "light":  # its plain wall switch (PI 2026-10-31): the door's other side from wall devices
+            cx, cz = door.center if door else ((x0 + x1) / 2, z0)
+            sx = min(max(cx - 0.6 - 0.3 * k, x0 + 0.15), x1 - 0.15)
+            sz = min(max(cz, z0 + 0.15), z1 - 0.15)
+            at["wall_switch"] = [round(sx, 2), round(sz, 2)]
     elif rule == "corner":  # in the corner farthest from the door, watching the room and the door
         corners = [(x0 + 0.3, z0 + 0.3), (x1 - 0.3, z0 + 0.3), (x1 - 0.3, z1 - 0.3), (x0 + 0.3, z1 - 0.3)]
         far = max(corners, key=lambda c: (c[0] - door.center[0]) ** 2 + (c[1] - door.center[1]) ** 2) \

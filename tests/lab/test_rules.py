@@ -179,3 +179,21 @@ def test_a_tasmota_lamp_and_plug_are_switched_by_hand_through_their_power(tmp_pa
     strip = rt.twins[rt.add(catalog()["tasmota:acme:acme_strip_s4"]).id]
     assert toggle_command(lamp) == ("operate", "POWER", "TOGGLE") and is_on(lamp) is False
     assert toggle_command(strip) == ("operate", "POWER1", "TOGGLE") and is_on(strip) is False
+
+
+SWITCHED = HOME + ('      - {product: "zigbee:acme:dim-1", name: kitchen_light, at: {room: kitchen, mount: ceiling, '
+                   'wall_switch: [3.3, 1.0]}}\n'
+                   '      - {product: "zigbee:acme:dim-1", name: bedroom_light, at: {room: bedroom, mount: ceiling}}\n')
+
+
+def test_a_ceiling_light_is_used_at_its_wall_switch_and_one_without_is_not_used_by_hand(tmp_path):
+    t = lab(tmp_path, SWITCHED, at=(3.6, 1.2))  # by the kitchen's door, 0.36 m from the switch
+    assert t.rules.operable("kitchen_light") and not t.rules.operable("bedroom_light")
+    assert t.rules.hand_point("kitchen_light") == (3.3, 1.0)
+    assert ("device", "kitchen_light") in [(k, n) for _, k, n in t.rules.reachable("p")]
+    assert t.rules.interact("p", "kitchen_light")["ok"] is True
+    assert is_on(t.rules.twin("kitchen_light")) is True
+    (tmp_path / "far").mkdir()
+    far = lab(tmp_path / "far", SWITCHED, at=(6.5, 2.5))  # under the far end of the room: the switch is 3.4 m away
+    assert "kitchen_light" not in [n for _, _, n in far.rules.reachable("p")]
+    assert far.rules.interact("p", "kitchen_light")["result"] == "too far"

@@ -662,6 +662,17 @@ const deviceRadius = () => (mini() ? 4 : Math.max(8, 0.16 * view.scale));
 
 function drawDevice(d, inReach, isChosen) {
   const [x, z] = devicePoint(d), r = deviceRadius();
+  if (d.switch_at) { // a ceiling light's wall switch: a small plate on the wall, a faint line to its light
+    const [sx, sz] = view.toScreen(d.switch_at[0], d.switch_at[1]);
+    ctx.strokeStyle = "rgba(242, 240, 234, 0.35)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx, sz);
+    ctx.lineTo(x, z);
+    ctx.stroke();
+    ctx.fillStyle = "#f2f0ea";
+    ctx.fillRect(sx - 3, sz - 3, 6, 6);
+  }
   const lock = d.effect && "locked" in d.effect;
   const active = d.state && (d.state.occupancy === true || d.state.presence === true);
   if (active) {

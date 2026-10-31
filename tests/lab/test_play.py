@@ -355,3 +355,17 @@ def test_a_scenario_that_cannot_start_tells_the_page(tmp_path):
     finally:
         server.stop()
         session.stop()
+
+
+def test_hello_says_where_a_ceiling_light_s_wall_switch_is(tmp_path):
+    text = IN_BEDROOM + ('      - {product: "zigbee:acme:dim-1", name: kitchen_light, at: {room: kitchen, '
+                         'mount: ceiling, wall_switch: [3.3, 1.0]}}\n')
+    home = load_lab_home(write_home(tmp_path, text), catalog())
+    session = Session(home, clock=WallClock())
+    session.start()
+    try:
+        devices = {d["name"]: d for d in hello(session)["devices"]}
+        assert devices["kitchen_light"]["switch_at"] == [3.3, 1.0] and devices["kitchen_light"]["operable"]
+        assert devices["bedroom_lamp"]["switch_at"] is None
+    finally:
+        session.stop()

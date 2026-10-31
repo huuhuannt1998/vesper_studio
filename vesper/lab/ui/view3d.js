@@ -212,6 +212,17 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       light.position.set(x, y - 0.1, z);
       scene.add(light);
     }
+    if (d.switch_at) { // a ceiling light's plain wall switch, by the door: aiming at it uses the light
+      const [sx, sz] = d.switch_at;
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.13, 0.09),
+        new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.6 }));
+      plate.position.set(sx, floorY + 1.2, sz);
+      const grip = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
+      grip.position.copy(plate.position);
+      tag(grip, d.name, "device");
+      pickables.push(grip);
+      scene.add(plate, grip);
+    }
     devices[d.name] = { marker, light, base };
   }
 
