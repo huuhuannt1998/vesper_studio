@@ -79,7 +79,7 @@ def _discovered(home):
     """(device name, twin id, discovery payload, expected entities) for each Zigbee device on the hub."""
     for d in home.devices:
         if "zigbee" not in d.record["binding"]:
-            continue  # Matter devices are not on VESPER's hub yet (plan W2d)
+            continue  # Matter devices: `_matter`
         twin_id = f"{d.product}@{d.name}"
         _, payload, expected, _ = device_discovery(d.record, ieee=ieee_address(twin_id), friendly_name=d.name)
         yield d.name, twin_id, payload, expected
@@ -92,10 +92,37 @@ def _wifi(home):
             yield d.name, f"{d.product}@{d.name}", expected_entities(d.record, d.name)
 
 
+# A Matter device's entities, as Home Assistant's Matter integration names them from the node's label (the device
+# name, plan W7a3): `<platform>.<name>` for a one-per-device platform, `<platform>.<name>_<device class>` for a
+# sensor (Experiment 6's entity ids, 2026-10-26). The feature each one's state follows.
+MATTER_PRIMARY = {"light": "On/Off.OnOff", "switch": "On/Off.OnOff", "lock": "Door Lock.LockState",
+                  "binary_sensor/door": "Boolean State.StateValue",
+                  "binary_sensor/occupancy": "Occupancy Sensing.Occupancy"}
+
+
+def _matter(home):
+    """(device name, twin id, [(entity id, every feature behind it, platform, the feature its state follows)]) for
+    each Matter device, the entities VESPER's engine runs: lights, switches, locks, door and occupancy sensors."""
+    from vesper.validation.matter_acceptance import expected_entities as matter_entities
+    for d in home.devices:
+        if "matter" not in d.record["binding"]:
+            continue
+        out = []
+        for e in matter_entities(d.record):
+            primary = MATTER_PRIMARY.get(e.platform if e.device_class is None else f"{e.platform}/{e.device_class}")
+            if primary is None or primary not in e.features:
+                continue
+            suffix = "" if e.device_class is None else f"_{e.device_class}"
+            out.append((f"{e.platform}.{d.name.lower()}{suffix}", e.features, e.platform, primary))
+        yield d.name, f"{d.product}@{d.name}", out
+
+
 def entity_ids(home) -> dict[str, dict[str, str]]:
     """Device name -> feature -> the entity id Home Assistant creates for it (what automations name)."""
     ids = {name: {e.feature: e.entity_id for e in expected} for name, _, _, expected in _discovered(home)}
     ids.update({name: {e.feature: e.entity_id for e in expected} for name, _, expected in _wifi(home)})
+    for name, _, entities in _matter(home):
+        ids[name] = {f: entity_id for entity_id, features, _, _ in entities for f in features}
     return ids
 
 
@@ -172,6 +199,9 @@ class Engine:
             for e in expected:
                 self.entities[e.entity_id] = Entity(e.entity_id, name, twin_id, e.feature, e.platform,
                                                     {"tasmota": True})
+        for name, twin_id, entities in _matter(self.home):
+            for entity_id, _, platform, primary in entities:
+                self.entities[entity_id] = Entity(entity_id, name, twin_id, primary, platform, {"matter": True})
         self._of_feature: dict[tuple[str, str], list[Entity]] = {}
         for e in self.entities.values():
             self._of_feature.setdefault((e.twin_id, e.feature), []).append(e)
@@ -339,6 +369,14 @@ class Engine:
     def _state_of(self, e: Entity, value) -> str:
         if value is None:
             return "unknown"
+        if e.cfg.get("matter"):  # Matter's values (HA matter/binary_sensor.py, lock.py)
+            if e.feature == "Boolean State.StateValue":
+                return "off" if value else "on"  # true while the contact is closed; a door sensor is on when open
+            if e.feature == "Occupancy Sensing.Occupancy":
+                return "on" if int(value) & 1 else "off"
+            if e.platform == "lock":
+                return "locked" if value == "Locked" else "unlocked"
+            return "on" if value else "off"
         f = self.runtime.twins[e.twin_id].features.get(e.feature, {})
         if e.platform in ("binary_sensor", "switch", "light"):
             return "on" if value == f.get("value_on", True) else "off"
@@ -450,7 +488,10 @@ class Engine:
         brightness = x.get("brightness")
         if domain == "light" and verb == "turn_on" and brightness == 0:
             verb = "turn_off"  # Home Assistant: turning a light on at brightness 0 turns it off
-        if e.cfg.get("tasmota"):  # Home Assistant's Tasmota integration: POWER<n>, or a Dimmer (HA tasmota/light.py)
+        if e.cfg.get("matter"):  # Home Assistant's Matter integration: On/Off, or Door Lock (on/off only)
+            command = {e.feature: ("Locked" if verb == "lock" else "Unlocked") if domain == "lock"
+                       else verb == "turn_on"}
+        elif e.cfg.get("tasmota"):  # Home Assistant's Tasmota integration: POWER<n>, or a Dimmer (HA tasmota/light.py)
             command = {e.feature: "ON" if verb == "turn_on" else "OFF"}
             if domain == "light" and verb == "turn_on" and brightness is not None:
                 dimmer = max(min(round(brightness / 255 * 100), 100), 1)  # its scale_brightness: 1..100

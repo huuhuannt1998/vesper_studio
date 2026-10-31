@@ -50,9 +50,11 @@ class NodeSpec:
     discriminator: int
 
 
-def node_spec(record: dict, twin_id: str, index: int, *, vid_mode: str = "product", salt: int = 0) -> NodeSpec:
+def node_spec(record: dict, twin_id: str, index: int, *, vid_mode: str = "product", salt: int = 0,
+              label: str | None = None) -> NodeSpec:
     """The identity a twin presents as a Matter node: the product's vendor and product ids and names, or the
-    test vendor id when the commissioner refuses test attestation under a real one (`vid_mode="test"`)."""
+    test vendor id when the commissioner refuses test attestation under a real one (`vid_mode="test"`).
+    `label`: the node label, which Home Assistant names the device and its entities by (a Lab device's name)."""
     device_type = ((record.get("binding") or {}).get("matter") or {}).get("device_type")
     if not device_type:
         raise ValueError(f"{record['id']} has no Matter device type")
@@ -68,7 +70,7 @@ def node_spec(record: dict, twin_id: str, index: int, *, vid_mode: str = "produc
     digest = hashlib.sha256(twin_id.encode()).hexdigest()
     model = record["identity"]["model"]
     return NodeSpec(twin_id, device_type, vid, pid, record["identity"]["vendor"][:32], model[:32],
-                    "VSP-" + digest[:16].upper(), f"VESPER {index:04d} {model}"[:32], NODE_PORT_BASE + index,
+                    "VSP-" + digest[:16].upper(), (label or f"VESPER {index:04d} {model}")[:32], NODE_PORT_BASE + index,
                     passcode, (DISCRIMINATOR_BASE + salt + index) % 0x1000)
 
 

@@ -80,3 +80,83 @@ def lab_hub(session, port: int, catalog_dir: Path, last_seen=None):
             hub.stop()
     finally:
         mqtt.disconnect(client)
+
+
+class _OnClock:
+    """The Matter host as the tier sees it, with its events handed to the session's clock thread (the twins live
+    there), as the bridge's MQTT messages are."""
+
+    def __init__(self, host, clock):
+        self._host, self._clock = host, clock
+
+    def on_event(self, fn) -> None:
+        self._host.on_event(lambda event: self._clock.call_at(self._clock.now(), lambda: fn(event)))
+
+    def __getattr__(self, name):
+        return getattr(self._host, name)
+
+
+def _on_clock(clock, fn, timeout: float = 30.0):
+    """Run `fn` on the clock's thread and wait for its result."""
+    import concurrent.futures
+    done: concurrent.futures.Future = concurrent.futures.Future()
+
+    def run():
+        try:
+            done.set_result(fn())
+        except BaseException as e:  # noqa: BLE001 - raised again in the caller's thread
+            done.set_exception(e)
+    clock.call_at(clock.now(), run)
+    return done.result(timeout=timeout)
+
+
+@contextmanager
+def lab_matter(session, server_url: str, ha, *, host=None, timeout: float = 60.0, poll: float = 0.25,
+               commission_timeout: float = 60.0):
+    """The session's Matter devices on Home Assistant (plan W7a3): each a node of VESPER's Matter host (`host`),
+    labelled with its device name, commissioned through the Matter Server at `server_url`; yields `entities`
+    (device -> feature -> Home Assistant's entity id, read back from it), `renamed` (an entity id VESPER predicted,
+    -> the one Home Assistant gave) and `failed` (a device that could not be commissioned, -> why). The nodes are
+    removed when the block ends."""
+    import secrets
+
+    from vesper.exposure import matter_tier
+    from vesper.lab.automations import _matter
+    from vesper.validation.acceptance import wait_until
+    from vesper.validation.matter_acceptance import _lookup, expected_entities
+    devices = [d for d in session.home.devices if "matter" in d.record["binding"]]
+    salt = secrets.randbelow(matter_tier.PASSCODE_SPAN)  # setup codes differ in every session
+    specs = {f"{d.product}@{d.name}": matter_tier.node_spec(d.record, f"{d.product}@{d.name}", i, salt=salt,
+                                                           label=d.name) for i, d in enumerate(devices)}
+    tier = matter_tier.MatterTier(session.runtime, _OnClock(host, session.clock), specs)
+    out = SimpleNamespace(entities={}, renamed={}, failed={}, tier=tier)
+    host.start()
+    try:
+        _on_clock(session.clock, tier.start)
+        out.failed.update({tid.split("@", 1)[1]: why for tid, why in tier.failed.items()})
+        for d in devices:
+            tid = f"{d.product}@{d.name}"
+            if d.name in out.failed:
+                continue
+            try:
+                tier.commission(tid, server_url, commission_timeout)
+            except matter_tier.HostError as e:
+                if getattr(host, "dead", None):
+                    raise
+                out.failed[d.name] = str(e)
+                continue
+            expected = expected_entities(d.record)
+            wait_until(lambda: all(_lookup(ha, specs[tid].serial, expected)[0]), timeout, poll)
+            matched, _ = _lookup(ha, specs[tid].serial, expected)
+            out.entities[d.name] = {f: s["entity_id"] for e, s in zip(expected, matched) if s for f in e.features}
+        for name, _, entities in _matter(session.home):
+            for predicted, _, _, primary in entities:
+                actual = out.entities.get(name, {}).get(primary)
+                if actual is not None and actual != predicted:
+                    out.renamed[predicted] = actual
+        yield out
+    finally:
+        try:
+            tier.stop()
+        finally:
+            host.stop()

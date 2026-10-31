@@ -53,7 +53,7 @@ def test_entities_are_named_as_home_assistant_names_them_through_the_bridge(tmp_
     home, ids, _ = lab(tmp_path, "[]\n")
     assert ids["hall_motion"]["occupancy"].startswith("binary_sensor.v") and ids["bedroom_lamp"]["state"].startswith(
         "light.v")
-    assert "front_lock" not in ids  # Matter: not on VESPER's hub yet (plan W2d)
+    assert ids["front_lock"]["Door Lock.LockState"] == "lock.front_lock"  # Matter: named by its node label (W7a3)
 
 
 def test_walking_into_the_hall_lets_the_automation_turn_the_lamp_on(tmp_path):
