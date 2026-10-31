@@ -6,7 +6,7 @@ import tarfile
 
 import pytest
 
-from vesper.catalog.bundle import BundleError, bundle, fetch
+from vesper.catalog_bundle import BundleError, bundle, fetch
 
 
 def catalog(tmp_path):
@@ -34,7 +34,7 @@ def test_a_wrong_hash_or_a_foreign_member_is_refused(tmp_path):
         info = tarfile.TarInfo("vds/../../escape.json")
         info.size = 2
         tar.addfile(info, io.BytesIO(b"{}"))
-    from vesper.catalog.bundle import sha256
+    from vesper.catalog_bundle import sha256
     with pytest.raises(BundleError, match="unexpected member"):
         fetch(str(evil), sha256(evil.read_bytes()), tmp_path / "out")
     assert not (tmp_path / "escape.json").exists()

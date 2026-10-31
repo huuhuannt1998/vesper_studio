@@ -1749,7 +1749,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _catalog_bundle(args) -> int:
-    from vesper.catalog.bundle import BundleError, bundle, fetch
+    from vesper.catalog_bundle import BundleError, bundle, fetch
     try:
         if args.action == "bundle":
             path, digest = bundle(Path(args.catalog), Path(args.out))
