@@ -102,6 +102,22 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     addDoor(id, leaf, new THREE.Matrix4().makeTranslation((x0 + x1) / 2, floorY + DOOR_M / 2, (z0 + z1) / 2));
   }
 
+  const plain = []; // the map-built floor, walls and furniture: hidden under a dressed model
+
+  async function loadDressed() { // the home's own model (`vesper lab dress`), drawn on the map's own axes
+    status.source = "dressed";
+    status.total = 1;
+    try {
+      scene.add((await loader.loadAsync(hello.dressed)).scene);
+      status.loaded = 1;
+    } catch (e) { // the plain look instead
+      status.failed = 1;
+      status.missing.push(hello.dressed);
+      for (const m of plain) m.visible = true;
+    }
+    onProgress(status);
+  }
+
   function buildFromMap() { // the floor, the walls (blocked cells next to floor) and the doors, from the map
     const g = hello.map.grid, cells = decodeGrid(g.walkable, g.width, g.height), [ox, oz] = g.origin, c = g.cell;
     const inside = [], outside = [], walls = [];
@@ -125,9 +141,13 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       scene.add(m);
       return m;
     };
-    if (inside.length) mesh(inside, FLOOR);
-    if (outside.length) mesh(outside, OUTSIDE);
-    if (walls.length) solids.push(mesh(walls, WALL));
+    if (inside.length) plain.push(mesh(inside, FLOOR));
+    if (outside.length) plain.push(mesh(outside, OUTSIDE));
+    if (walls.length) { // with a dressed model the map's walls still stop the camera and the crosshair, unseen
+      const w = mesh(walls, WALL);
+      solids.push(w);
+      plain.push(w);
+    }
     const pieces = new Map(); // furniture, one mesh per colour: what each room is, at a glance (drawn, not solid)
     for (const room of hello.map.rooms) {
       for (const f of furnitureFor(room, hello.map.doorways)) {
@@ -135,7 +155,8 @@ export async function createView3d(container, hello, onProgress = () => {}) {
         pieces.get(f.color).push(new THREE.BoxGeometry(f.w, f.h, f.d).translate(f.x, floorY + f.h / 2, f.z));
       }
     }
-    for (const [color, parts] of pieces) mesh(parts, color);
+    for (const [color, parts] of pieces) plain.push(mesh(parts, color));
+    for (const m of plain) m.visible = !hello.dressed;
     const b = gridBounds(g), ceiling = new THREE.Mesh(new THREE.PlaneGeometry(b.maxX - b.minX, b.maxZ - b.minZ),
       new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
     ceiling.rotation.x = Math.PI / 2;
@@ -262,7 +283,10 @@ export async function createView3d(container, hello, onProgress = () => {}) {
   const people = Promise.all(Object.values(actors).map((p) => p.ready));
 
   if (hello.world3d) await loadScene();
-  else buildFromMap();
+  else {
+    buildFromMap();
+    if (hello.dressed) await loadDressed();
+  }
   await people;
   status.ready = true;
   onProgress(status);

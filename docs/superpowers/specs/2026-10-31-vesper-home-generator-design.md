@@ -1,9 +1,10 @@
 # VESPER home generator: any number of rooms, the devices you pick (design)
 
-Status: design, 2026-10-31 (sub-project W9). The PI's direction: "I want to allow users to put in the number of room,
-pick the device. Then we can build the virtual enviroment. We can use habitat of build our own based on the Blender
-MCP with Claude", pointing at the Room 334 walkthrough ("This is what I want but in larger scale. You know my
-requirements"). The design choices below are the executor's, under the PI's delegation, and are marked as such.
+Status: built 2026-10-31 (sub-project W9, plan `docs/superpowers/plans/2026-10-31-plan-w9-home-generator.md`), but for
+`--look habitat` (§5). The PI's direction: "I want to allow users to put in the number of room, pick the device. Then we
+can build the virtual enviroment. We can use habitat of build our own based on the Blender MCP with Claude", pointing at
+the Room 334 walkthrough ("This is what I want but in larger scale. You know my requirements"). The design choices below
+are the executor's, under the PI's delegation, and are marked as such.
 
 ## 0. Intent
 
@@ -106,7 +107,7 @@ The 3D view already draws a home without a scene from its map. For generated hom
 ## 5. Optional looks
 
 The generated map is always the source of truth for walking, reach and sensing; a look only changes what is drawn.
-- **`--look habitat`:** the HSSD scene (downloaded with `vesper lab scenes`) whose room program is closest, with the
+- **`--look habitat`** (not built yet: one HSSD scene is downloaded, and `vesper lab new --scene` makes HSSD homes): the HSSD scene (downloaded with `vesper lab scenes`) whose room program is closest, with the
   devices placed by §3 through the existing W1a path. Limited to HSSD's scenes (CC BY-NC).
 - **`vesper lab dress <home>`** (Blender): writes a build brief and a Blender Python script from the map: walls,
   doors, rooms with their types, device positions, the scale. A user with Blender and Blender MCP (MIT, installed by

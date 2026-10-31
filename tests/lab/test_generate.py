@@ -80,9 +80,10 @@ def test_an_unknown_room_type_is_named():
 
 
 def test_sixty_rooms_are_planned_in_seconds():
+    """Spec §0: under 5 s on the laptop (it takes about 2 s at background priority on a shared Mac)."""
     t = time.perf_counter()
     floor_plan(program(60), seed=0)
-    assert time.perf_counter() - t < 2.0
+    assert time.perf_counter() - t < 5.0
 
 
 # -- the request, the devices and the written home (spec §1, §3) --------------------------------------------
@@ -164,3 +165,14 @@ def test_a_request_s_mistakes_are_named(tmp_path, old, new, message):
     assert old in REQUEST
     with pytest.raises(GenerateError, match=message):
         generate_home(request(tmp_path, REQUEST.replace(old, new)), catalog(), tmp_path / "home")
+
+
+def test_sixty_rooms_and_two_hundred_devices_are_generated_in_under_five_seconds(tmp_path):
+    from vesper.lab.generate import Request
+    devices = [{"category": "light", "per": "room"}, {"category": "motion_sensor", "per": "room"},
+               {"category": "plug", "count": 100}]
+    t = time.perf_counter()
+    generate_home(Request(tmp_path, program(60), 0, devices), catalog(), tmp_path / "big")
+    elapsed = time.perf_counter() - t
+    assert len(load_lab_home(tmp_path / "big" / "home.yaml", catalog()).devices) >= 200
+    assert elapsed < 5.0

@@ -57,6 +57,7 @@ def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoid
         "world3d": None if world3d is None else {
             "render": "/world/render.json", "floor_y": world3d.floor_y, "items": len(world3d.manifest["items"]),
             "missing": len(world3d.missing), "missing_files": world3d.missing[:10], "hssd": str(world3d.root)},
+        "dressed": "/home/scene.glb" if world3d is None and dressed_model(home) is not None else None,
         "humanoids": None if humanoids is None else {
             name: {"model": f"/humanoids/{name}.glb", "motion": f"/humanoids/{name}.motion.json"}
             for name in sorted(humanoids.models)},
@@ -88,6 +89,12 @@ def _device(session, d) -> dict:
             "z": d.position[1], "mount": d.mount, "facing": d.facing, "controls": list(d.controls),
             "effect": session.rules.effects.get(d.name), "state": dict(session.rules.twin(d.name).state),
             "operable": session.rules.operable(d.name)}
+
+
+def dressed_model(home) -> Path | None:
+    """The home's own model (`vesper lab dress`, home-generator spec §5): `scene.glb` beside its home file."""
+    f = Path(home.path).parent / "scene.glb"
+    return f if f.is_file() else None
 
 
 def device_card(session, name: str) -> dict:
@@ -246,6 +253,11 @@ class PlayServer:
             return None
         if path == "/world/render.json" or path.startswith("/hssd/"):
             return self._scene_file(path)
+        if path == "/home/scene.glb":
+            f = dressed_model(self.session.home)
+            if f is None:
+                return _response(404, "text/plain; charset=utf-8", b"this home has no model of its own")
+            return _response(200, CONTENT_TYPES[".glb"], f.read_bytes())
         if path.startswith("/device/") and path.endswith(".json"):
             try:
                 card = device_card(self.session, path[len("/device/"):-len(".json")])

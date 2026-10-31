@@ -25,6 +25,8 @@ browser.
 | See the home's network: the router, and each link's signal and latency | `vesper lab network` | the catalog |
 | Replay any session and check that it reproduces exactly | `vesper lab replay` | the catalog |
 | Reproduce a paper's attack and defense on a home, claim by claim | `vesper lab scenario run` | the catalog; live: `vesper setup ha`, Mosquitto |
+| Make a home of any size, with the devices you pick, or a hundred of them | `vesper lab generate` | the catalog |
+| Furnish a generated home in Blender, by hand or with Claude | `vesper lab dress` | Blender; optional: Blender MCP |
 | Make a home from a real 3D scene (HSSD) | `vesper lab new --scene` | Habitat, HSSD |
 | Find a product to place in a home | `vesper catalog search`, `vesper catalog show` | the catalog |
 | Turn a persona schedule or an ARAS day into a resident's routine | `vesper lab routine` | — |
@@ -184,6 +186,54 @@ on a run's saved traces. Each run's trace replays like any other session.
 home's `automations.yaml` itself: the same entities, the same triggers and the same commands. It names any
 automation it cannot run. `lab replay` re-runs a trace and checks that every device report comes out the same.
 
+## A home of any size: generated homes
+
+`vesper lab generate` makes a home from a number of rooms, 1 to 60 on one floor:
+
+    vesper lab generate homes/eight --rooms 8
+    vesper lab play homes/eight/home.yaml
+
+The rooms line both sides of a corridor, each with a 0.9 m door onto it, so every room can be reached from the front
+door; a porch is outside. A number of rooms becomes a room list (a living room and a bedroom, then a kitchen, a
+bathroom, more bedrooms with a bathroom for every two, an office, a dining room, a laundry), and each room's size is
+drawn from its type's usual range. The same request and seed give the same home. Generated layouts are synthetic, and
+the home file says so.
+
+To choose the rooms and the devices, write a request (`vesper-request/1`) and pass it with `--request`:
+
+    format: vesper-request/1
+    program: [living, kitchen, bedroom, bedroom, bathroom, office]
+    seed: 3
+    devices:
+      - {product: "zigbee:aqara:mccgq11lm", at: front_door}   # a real product, pinned
+      - {category: lock, at: front_door}                        # a category: VESPER picks a real product
+      - {category: light, per: room}
+      - {category: motion_sensor, per: room, except: [bathroom]}
+      - {category: plug, count: 4}
+
+A category becomes a real catalog product. Each device goes where its kind usually goes: lights and alarms on the
+ceiling, motion sensors in a corner, contact sensors and locks on the door, switches beside the door, plugs along the
+walls. Every position is marked as assumed, and can be moved in the home file. Without a request, a home gets a
+starter set: a lock and a contact sensor on the front door, a light in every room, motion sensors, a thermostat and a
+smoke sensor.
+
+A batch makes many homes and a summary table (rooms, floor area, devices by kind):
+
+    vesper lab generate homes/batch --count 100 --rooms 3-10
+
+In the 3D view every room has simple furniture for what it is, and **I** opens the card of the device under the
+crosshair (or in reach): the product, its model basis and sources, its links and their signal, its Home Assistant
+entities and the automations that use them, and its state.
+
+### Furnished in Blender
+
+`vesper lab dress` writes two files beside a home: `dress/build_home.py`, a Blender script that builds the home's
+floors and walls from its map, and `dress/BRIEF.md`, which says how to furnish it. Run the script in Blender, furnish
+and texture the rooms by hand or ask Claude to do it through [Blender MCP](https://github.com/ahujasid/blender-mcp),
+then export `scene.glb` beside the home. `vesper lab play` then draws that model in place of the plain walls, and the
+map still decides where people can walk and what they can reach. Blender is needed only to make the model, not to play
+it.
+
 ## A home from a real 3D scene (HSSD)
 
 Real homes come from [HSSD](https://huggingface.co/datasets/hssd/hssd-hab), a gated dataset (CC BY-NC 4.0). Accept
@@ -259,7 +309,7 @@ takes screenshots and writes a report. `look-3d.yaml` checks the 3D view: the cr
 
 ## Development
 
-    .venv/bin/python -m pytest          # about 900 tests, a minute or two
+    .venv/bin/python -m pytest          # about 1,100 tests, two minutes
     .venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposure vesper/validation vesper_world \
         tests/lab tests/catalog tests/twins tests/exposure tests/validation tests/world
 
@@ -285,6 +335,7 @@ Layout:
 | `vesper_world/` | the world service, which runs in the Habitat environment (Python 3.9) |
 | `vesper/agents/`, `automation/`, `core/`, `simulation/` | VESPER's first version, kept for its earlier experiments; the Lab does not use them |
 | `examples/lab/test-house/` | the example home |
+| `vesper/lab/generate.py`, `vesper/lab/dress.py` | generated homes, and their Blender build script |
 | `examples/lab/scenarios/phantom-delay/` | the gold Phantom-Delay scenarios (Cases 1 and 3), their home and automations |
 | `docs/superpowers/specs/` | the design documents |
 | `docs/experiments/` | run books and results |
@@ -299,6 +350,8 @@ Layout:
   - an MCP server, so that Claude Desktop or any MCP client can set up a scenario from a research paper.
 - **VESPER Studio for macOS and Windows:** one desktop app, with the setup built in.
 - **The placement editor**, and Matter devices on the hub.
+- **Generated homes, continued:** rooms that are not on a corridor, several storeys, and a matching HSSD scene as
+  another look.
 
 ## License and data
 

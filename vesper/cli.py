@@ -536,10 +536,24 @@ def _lab(args) -> int:
             return _lab_scenario(args, catalog)
         if args.action == "generate":
             return _lab_generate(args, catalog)
+        if args.action == "dress":
+            return _lab_dress(load_lab_home(Path(args.home), catalog))
         return _lab_replay(args, catalog, load_lab_home)
     except (HomeError, MapError, TraceError, SceneError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
         return 1
+
+
+def _lab_dress(home) -> int:
+    """`vesper lab dress` (home-generator spec §5): the build script and the brief, beside the home."""
+    from vesper.lab.dress import dress
+    script, brief = dress(home)
+    glb = Path(home.path).parent / "scene.glb"
+    print(f"{script}: builds {home.scene} in Blender (4.2 or later), from its map")
+    print(f"{brief}: how to furnish it (by hand, or ask Claude through Blender MCP to follow it)")
+    print(f"then export {glb}; `vesper lab play {home.path}` draws it"
+          + (" (there is one already: it is drawn now)" if glb.is_file() else ""))
+    return 0
 
 
 def _lab_generate(args, catalog) -> int:
@@ -1288,6 +1302,10 @@ def main(argv: list[str] | None = None) -> int:
     lab_generate.add_argument("--seed", type=int, default=0)
     lab_generate.add_argument("--count", type=int, help="make this many homes (seeds seed, seed+1, ...)")
     lab_generate.add_argument("--catalog", default="catalog/vds")
+    lab_dress = lab_actions.add_parser("dress", help="a Blender build script and brief for a home: furnish it in "
+                                       "Blender (or with Claude through Blender MCP), export scene.glb, play it")
+    lab_dress.add_argument("home", help="the home's home.yaml")
+    lab_dress.add_argument("--catalog", default="catalog/vds")
     lab_scenario = lab_actions.add_parser("scenario", help="an attack and its defenses on a home: check, run, "
                                           "report (vesper-scenario/1)")
     scenario_actions = lab_scenario.add_subparsers(dest="scenario_action", required=True)
