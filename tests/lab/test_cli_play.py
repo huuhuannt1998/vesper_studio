@@ -378,7 +378,8 @@ def test_lab_network_shows_the_router_each_link_and_what_is_not_on_the_network(t
     assert "assumed" in out  # the radio constants are typical values, not measured
     lamp = next(line for line in out.splitlines() if line.strip().startswith("zigbee/bedroom_lamp"))
     assert "dBm" in lamp and "1 wall" in lamp and "ms" in lamp
-    assert "front_lock: a Matter device: on Home Assistant with --matter-interface; its link's effects come with plan W7a3b" in out
+    assert ("front_lock: a Matter device: on Home Assistant with --matter-interface; its link's effects come with "
+            "plan W7a3b") in out
 
 
 def test_play_with_the_hub_puts_each_wi_fi_device_on_its_own_connection_through_its_own_link(tmp_path, capsys,

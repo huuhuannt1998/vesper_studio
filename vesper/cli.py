@@ -128,6 +128,8 @@ def _install_sigterm() -> None:
 
 
 def _setup(args) -> int:
+    if args.action == "claude-desktop":
+        return _setup_claude_desktop(args)
     from vesper.validation import stack
     try:
         if args.action == "matter":
@@ -711,9 +713,20 @@ def _with_starter(request, catalog, starter):
 
 
 def _lab_scenario(args, catalog) -> int:
-    """`vesper lab scenario check|run|report` (security-lab spec §4.5)."""
+    """`vesper lab scenario check|run|report|score` (security-lab spec §4.5, §5.4)."""
     from vesper.lab.scenario import ScenarioError, load_scenario
     from vesper.lab.scenario_run import rejudge, report, run_scenario
+    if args.scenario_action == "score":
+        from vesper.lab.scenario_score import markdown, score
+        try:
+            result = score([Path(f) for f in args.file], [Path(g) for g in args.gold], catalog)
+        except ScenarioError as e:
+            print(f"FAILED: {e}", file=sys.stderr)
+            return 1
+        print(markdown(result))
+        if args.json:
+            Path(args.json).write_text(json.dumps(result, indent=2, default=list))
+        return 0
     try:
         s = load_scenario(Path(args.file), catalog, mode=getattr(args, "mode", None))
     except ScenarioError as e:
@@ -1377,6 +1390,18 @@ def main(argv: list[str] | None = None) -> int:
     setup_matter_cmd = setup_actions.add_parser("matter", help="the Matter host and Matter Server (needs Node.js)")
     setup_matter_cmd.add_argument("--root", default=".vesper")
 
+    setup_claude = setup_actions.add_parser("claude-desktop", help="register VESPER's MCP server with Claude Desktop "
+                                                                   "(a backup of its config is kept)")
+    _mcp_arguments(setup_claude)
+    setup_claude.add_argument("--config", help="Claude Desktop's config file (default: its usual place)")
+    setup_claude.add_argument("--force", action="store_true", help="replace a different `vesper` entry")
+
+    mcp_cmd = commands.add_parser("mcp", help="the paper-to-scenario MCP server (stdio), for Claude Desktop, LM "
+                                              "Studio or any MCP client")
+    _mcp_arguments(mcp_cmd)
+    mcp_cmd.add_argument("--print-config", action="store_true",
+                         help="print the JSON an MCP client's config needs, then exit")
+
     rep = commands.add_parser("report", help="the fidelity report: coverage, assumptions and every check's result")
     rep.add_argument("--catalog", default="catalog/vds")
     rep.add_argument("--results", default="results/device-twins")
@@ -1568,6 +1593,12 @@ def main(argv: list[str] | None = None) -> int:
                             help="logical (VESPER's engine, in seconds) or live (Home Assistant in the loop, on the "
                                  "wall clock); default: the file's")
             sp.add_argument("--root", default=".vesper", help="where `vesper setup ha` installed the stack (live)")
+    score = scenario_actions.add_parser("score", help="a model's scenario(s) against the hand-written gold ones, "
+                                                     "element by element (security-lab spec §5.4)")
+    score.add_argument("file", nargs="+", help="the draft scenario file(s)")
+    score.add_argument("--gold", action="append", required=True, help="a gold scenario file (repeatable)")
+    score.add_argument("--catalog", default="catalog/vds")
+    score.add_argument("--json", help="also write the score as JSON here")
     lab_routine = lab_actions.add_parser("routine", help="a resident's routine from a persona or an ARAS day")
     lab_routine.add_argument("source", choices=("persona", "aras"))
     lab_routine.add_argument("file", help="a persona schedule (.json) or an ARAS day (DAY_n.txt)")
@@ -1620,6 +1651,99 @@ def _catalog_find(args) -> int:
     return 0
 
 
+def _mcp_arguments(p) -> None:
+    p.add_argument("--homes", action="append", metavar="DIR",
+                   help="a folder whose homes the model may use (repeatable; default ~/vesper-homes and the "
+                        "examples)")
+    p.add_argument("--catalog", default="catalog/vds")
+    p.add_argument("--runs", default="results/scenario-runs", help="where runs write their traces and reports")
+    p.add_argument("--root", default=".vesper", help="`vesper setup ha`'s folder (live runs)")
+    p.add_argument("--allow-live", action="store_true",
+                   help="let the model start live runs (VESPER's own Home Assistant and Mosquitto)")
+
+
+def _mcp_config(args) -> dict:
+    """The entry an MCP client's config needs: every path absolute, as the client starts the server from anywhere."""
+    import shutil
+    vesper = shutil.which("vesper") or str(Path(sys.argv[0]).resolve())
+    homes = [str(Path(h).expanduser().resolve()) for h in (args.homes or _default_homes())]
+    argv = ["mcp", "--catalog", str(Path(args.catalog).resolve()), "--runs", str(Path(args.runs).resolve()),
+            "--root", str(Path(args.root).resolve())]
+    for h in homes:
+        argv += ["--homes", h]
+    return {"command": str(Path(vesper).resolve()), "args": argv + (["--allow-live"] if args.allow_live else [])}
+
+
+def _default_homes() -> list[Path]:
+    out = [Path.home() / "vesper-homes"]
+    examples = Path(__file__).resolve().parents[1] / "examples" / "lab"
+    return out + ([examples] if examples.is_dir() else [])
+
+
+def _mcp(args) -> int:
+    """`vesper mcp`: stdout is the MCP channel, so everything else goes to stderr."""
+    if args.print_config:
+        print(json.dumps({"mcpServers": {"vesper": _mcp_config(args)}}, indent=2))
+        return 0
+    from vesper.catalog.errors import CatalogError
+    from vesper.lab.mcp_server import serve
+    from vesper.twins.home import load_catalog
+    try:
+        catalog = load_catalog(Path(args.catalog))
+    except (FileNotFoundError, CatalogError) as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    roots = [Path(h).expanduser() for h in (args.homes or _default_homes())]
+    missing = [str(r) for r in roots if not r.is_dir()]
+    roots = [r for r in roots if r.is_dir()]
+    if missing:
+        print(f"vesper mcp: no such folder: {', '.join(missing)}", file=sys.stderr)
+    if not roots:
+        print("FAILED: no folder of homes (--homes DIR)", file=sys.stderr)
+        return 1
+    serve(roots, catalog, runs_dir=Path(args.runs), allow_live=args.allow_live, stack_root=Path(args.root),
+          catalog_dir=Path(args.catalog))
+    return 0
+
+
+def _setup_claude_desktop(args) -> int:
+    """Add `vesper` to Claude Desktop's MCP servers, keeping a backup of the file; a different entry stays unless
+    --force."""
+    import shutil
+    if args.config:
+        path = Path(args.config).expanduser()
+    elif sys.platform == "darwin":
+        path = Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+    elif sys.platform == "win32":
+        path = Path(os.environ.get("APPDATA", Path.home())) / "Claude" / "claude_desktop_config.json"
+    else:
+        path = Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
+    try:
+        config = json.loads(path.read_text()) if path.exists() else {}
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"FAILED: {path}: cannot read it ({e}); nothing changed", file=sys.stderr)
+        return 1
+    entry = _mcp_config(args)
+    servers = config.setdefault("mcpServers", {})
+    if servers.get("vesper") not in (None, entry) and not args.force:
+        print(f"FAILED: {path} already has a different `vesper` server; --force replaces it", file=sys.stderr)
+        return 1
+    if servers.get("vesper") == entry:
+        print(f"{path}: VESPER's MCP server is already registered")
+        return 0
+    servers["vesper"] = entry
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        backup = path.with_name(path.name + ".vesper-backup")
+        shutil.copy2(path, backup)
+        print(f"backup: {backup}")
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(config, indent=2) + "\n")
+    os.replace(tmp, path)
+    print(f"{path}: VESPER's MCP server registered; restart Claude Desktop, then use the prompt reproduce_paper")
+    return 0
+
+
 def _dispatch(args) -> int:
     if args.command == "catalog":
         if args.action in ("search", "show"):
@@ -1629,6 +1753,8 @@ def _dispatch(args) -> int:
         return _setup(args)
     if args.command == "report":
         return _report(args)
+    if args.command == "mcp":
+        return _mcp(args)
     if args.command == "twins":
         return _twins_run(args)
     if args.command == "lab":
