@@ -94,7 +94,13 @@ class LinkLayer:
         return [name for name in self.network.path(device) if self.carry_tcp or not self.network.links[name].tcp]
 
     def quality(self, link: str) -> Quality:
-        return self._quality[link]
+        """The link's quality; worked out from the home as it is when the layer has not started yet (the live relay
+        asks from its own thread as soon as a session exists)."""
+        q = self._quality.get(link)
+        if q is None:
+            ln = self.network.links[link]
+            q = link_quality(ln.medium, *ln.ends, self.world_map, self._doors())
+        return q
 
     def is_up(self, link: str) -> bool:
         """In range and not cut."""

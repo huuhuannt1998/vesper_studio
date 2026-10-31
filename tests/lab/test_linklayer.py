@@ -217,3 +217,13 @@ def test_a_wi_fi_device_back_in_range_rejoins_only_after_its_back_off(monkeypatc
     assert [v for _, _, _, v in heard] == ["OFF"]
     assert [(r["link"], r["event"], r.get("reason")) for r in records if r["event"] in ("down", "up")] == [
         ("wifi/plug", "down", "out of range"), ("wifi/plug", "up", "rejoined")]
+
+
+def test_a_link_s_quality_is_known_before_the_layer_starts():
+    """The live relay asks for a link's latency from its own thread, as soon as a new session exists: before the
+    session starts its link layer (a KeyError on 'hub' dropped a connection between two live runs)."""
+    m, devices = house(), [PlacedDevice("lamp", "zigbee:acme:dim-1", ZB, "bedroom", None, (5.0, 5.0), "table", None)]
+    net = parse_network(None, m, devices)
+    links = LinkLayer(net, m, LogicalClock(), FakeRuntime(), {"tw-lamp": "lamp"}, [].append, seed=3,
+                      carry_tcp=False, doors=dict)
+    assert links.quality("hub").latency_s >= 0 and links.quality("coordinator").connected
