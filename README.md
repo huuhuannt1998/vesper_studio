@@ -105,6 +105,14 @@ the broker through a Zigbee2MQTT-compatible bridge, and each Wi-Fi device on a c
 device, which Home Assistant's Tasmota integration discovers. It shows Home Assistant's dashboard in the page, and
 prints the login and each device's Home Assistant entities.
 
+Matter devices join too with `--matter-interface en0` (or `matter_interface: en0` in the home file), after
+`vesper setup matter` (Node.js): VESPER starts its own Matter Server, makes each Matter device a matter.js node named
+after it, and has Home Assistant commission it. Matter cannot run over loopback, so the nodes announce themselves by
+mDNS on that interface's network. A Matter device's name is its own slug (`front_lock`), so its entities are
+`lock.front_lock`, `binary_sensor.back_door_door` and so on, in Home Assistant and in VESPER's own engine alike.
+Delaying or dropping a Matter device's traffic is not built yet; scenario runs with Home Assistant use the Zigbee and
+Wi-Fi devices.
+
 The example home ships one automation: walking into the hall turns the bedroom lamp on. Edit automations in Home
 Assistant's own editor. They are written back to the home's `automations.yaml` when play stops. VESPER never uses
 the standard ports 1883 and 8123, so it does not disturb a Home Assistant you already run.

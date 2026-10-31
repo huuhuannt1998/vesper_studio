@@ -100,21 +100,26 @@ MATTER_PRIMARY = {"light": "On/Off.OnOff", "switch": "On/Off.OnOff", "lock": "Do
                   "binary_sensor/occupancy": "Occupancy Sensing.Occupancy"}
 
 
-def _matter(home):
-    """(device name, twin id, [(entity id, every feature behind it, platform, the feature its state follows)]) for
-    each Matter device, the entities VESPER's engine runs: lights, switches, locks, door and occupancy sensors."""
-    from vesper.validation.matter_acceptance import expected_entities as matter_entities
-    for d in home.devices:
-        if "matter" not in d.record["binding"]:
+def matter_entities(record: dict, name: str) -> list[tuple[str, tuple, str, str]]:
+    """[(entity id, every feature behind it, platform, the feature its state follows)] of a Matter device named
+    `name`, the entities VESPER's engine runs: lights, switches, locks, door and occupancy sensors. The name is its
+    own slug and at most 32 characters (checked when the home loads), so the ids are Home Assistant's exactly."""
+    from vesper.validation.matter_acceptance import expected_entities as expected
+    out = []
+    for e in expected(record):
+        primary = MATTER_PRIMARY.get(e.platform if e.device_class is None else f"{e.platform}/{e.device_class}")
+        if primary is None or primary not in e.features:
             continue
-        out = []
-        for e in matter_entities(d.record):
-            primary = MATTER_PRIMARY.get(e.platform if e.device_class is None else f"{e.platform}/{e.device_class}")
-            if primary is None or primary not in e.features:
-                continue
-            suffix = "" if e.device_class is None else f"_{e.device_class}"
-            out.append((f"{e.platform}.{d.name.lower()}{suffix}", e.features, e.platform, primary))
-        yield d.name, f"{d.product}@{d.name}", out
+        suffix = "" if e.device_class is None else f"_{e.device_class}"
+        out.append((f"{e.platform}.{name}{suffix}", e.features, e.platform, primary))
+    return out
+
+
+def _matter(home):
+    """(device name, twin id, its entities, `matter_entities`) for each Matter device."""
+    for d in home.devices:
+        if "matter" in d.record["binding"]:
+            yield d.name, f"{d.product}@{d.name}", matter_entities(d.record, d.name)
 
 
 def entity_ids(home) -> dict[str, dict[str, str]]:
@@ -488,9 +493,13 @@ class Engine:
         brightness = x.get("brightness")
         if domain == "light" and verb == "turn_on" and brightness == 0:
             verb = "turn_off"  # Home Assistant: turning a light on at brightness 0 turns it off
-        if e.cfg.get("matter"):  # Home Assistant's Matter integration: On/Off, or Door Lock (on/off only)
+        if e.cfg.get("matter"):  # Home Assistant's Matter integration (HA matter/light.py, lock.py)
             command = {e.feature: ("Locked" if verb == "lock" else "Unlocked") if domain == "lock"
                        else verb == "turn_on"}
+            level = "Level Control.CurrentLevel"
+            if (domain == "light" and verb == "turn_on" and brightness is not None
+                    and level in self.runtime.twins[e.twin_id].features):  # MoveToLevelWithOnOff: 1..254
+                command[level] = max(min(round(brightness / 255 * 254), 254), 1)
         elif e.cfg.get("tasmota"):  # Home Assistant's Tasmota integration: POWER<n>, or a Dimmer (HA tasmota/light.py)
             command = {e.feature: "ON" if verb == "turn_on" else "OFF"}
             if domain == "light" and verb == "turn_on" and brightness is not None:

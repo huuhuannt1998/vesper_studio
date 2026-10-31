@@ -5,6 +5,7 @@ for a Lab command, and the hub (the Zigbee bridge and the Wi-Fi devices) for a s
 from __future__ import annotations
 
 import json
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -121,6 +122,34 @@ class _OnClock:
         return getattr(self._host, name)
 
 
+class _ClockRuntime:
+    """The session's runtime as the tier sees it: what changes a twin runs on the clock thread (from another thread
+    it waits there), and the tier's subscription ends with the block (`close`), so no report reaches a stopped host.
+    The tier's slow requests to the host run where it is called, so adding nodes never stops the session's clock."""
+
+    def __init__(self, runtime, clock):
+        self._runtime, self._clock, self._open = runtime, clock, True
+
+    def _here(self, fn):
+        thread = getattr(self._clock, "_thread", None)
+        return fn() if thread is None or thread is threading.current_thread() else _on_clock(self._clock, fn)
+
+    def stimulate(self, *a, **k):
+        return self._here(lambda: self._runtime.stimulate(*a, **k))
+
+    def platform_set(self, *a, **k):
+        return self._here(lambda: self._runtime.platform_set(*a, **k))
+
+    def subscribe(self, fn) -> None:
+        self._runtime.subscribe(lambda event: fn(event) if self._open else None)
+
+    def close(self) -> None:
+        self._open = False
+
+    def __getattr__(self, name):
+        return getattr(self._runtime, name)
+
+
 def _on_clock(clock, fn, timeout: float = 30.0):
     """Run `fn` on the clock's thread and wait for its result."""
     import concurrent.futures
@@ -141,8 +170,8 @@ def lab_matter(session, server_url: str, ha, *, host=None, timeout: float = 60.0
     """The session's Matter devices on Home Assistant (plan W7a3): each a node of VESPER's Matter host (`host`),
     labelled with its device name, commissioned through the Matter Server at `server_url`; yields `entities`
     (device -> feature -> Home Assistant's entity id, read back from it), `renamed` (an entity id VESPER predicted,
-    -> the one Home Assistant gave) and `failed` (a device that could not be commissioned, -> why). The nodes are
-    removed when the block ends."""
+    -> the one Home Assistant gave) and `failed` (a device that could not be commissioned or whose entities did not
+    appear, -> why). The nodes are removed when the block ends."""
     import secrets
 
     from vesper.exposure import matter_tier
@@ -153,11 +182,12 @@ def lab_matter(session, server_url: str, ha, *, host=None, timeout: float = 60.0
     salt = secrets.randbelow(matter_tier.PASSCODE_SPAN)  # setup codes differ in every session
     specs = {f"{d.product}@{d.name}": matter_tier.node_spec(d.record, f"{d.product}@{d.name}", i, salt=salt,
                                                            label=d.name) for i, d in enumerate(devices)}
-    tier = matter_tier.MatterTier(session.runtime, _OnClock(host, session.clock), specs)
+    runtime = _ClockRuntime(session.runtime, session.clock)
+    tier = matter_tier.MatterTier(runtime, _OnClock(host, session.clock), specs)
     out = SimpleNamespace(entities={}, renamed={}, failed={}, tier=tier)
     host.start()
     try:
-        _on_clock(session.clock, tier.start)
+        tier.start()
         out.failed.update({tid.split("@", 1)[1]: why for tid, why in tier.failed.items()})
         for d in devices:
             tid = f"{d.product}@{d.name}"
@@ -171,7 +201,13 @@ def lab_matter(session, server_url: str, ha, *, host=None, timeout: float = 60.0
                 out.failed[d.name] = str(e)
                 continue
             expected = expected_entities(d.record)
-            wait_until(lambda: all(_lookup(ha, specs[tid].serial, expected)[0]), timeout, poll)
+            if not wait_until(lambda: all(_lookup(ha, specs[tid].serial, expected)[0]), timeout, poll):
+                matched, _ = _lookup(ha, specs[tid].serial, expected)
+                missing = [f"{e.platform}{f' ({e.device_class})' if e.device_class else ''}"
+                           for e, s in zip(expected, matched) if s is None]
+                out.failed[d.name] = (f"commissioned, but Home Assistant showed no {', '.join(missing)} within "
+                                      f"{timeout:g} s")
+                continue
             matched, _ = _lookup(ha, specs[tid].serial, expected)
             out.entities[d.name] = {f: s["entity_id"] for e, s in zip(expected, matched) if s for f in e.features}
         for name, _, entities in _matter(session.home):
@@ -181,6 +217,7 @@ def lab_matter(session, server_url: str, ha, *, host=None, timeout: float = 60.0
                     out.renamed[predicted] = actual
         yield out
     finally:
+        runtime.close()
         try:
             tier.stop()
         finally:

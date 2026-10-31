@@ -200,22 +200,30 @@ WIFI_NAME = re.compile(r"[a-z0-9]+(?:_[a-z0-9]+)*")  # its own slug: the entity 
 
 def _check_wifi_names(devices: list[PlacedDevice]) -> None:
     """Home Assistant's Tasmota integration names a Wi-Fi device's entities after the device (`switch.<name>`, a
-    strip's relays `switch.<name>_switch_<n>`), and adds `_2` to a clash in discovery order: so a Wi-Fi device's name
-    must be its own slug, and no two of its entities may share an id."""
+    strip's relays `switch.<name>_switch_<n>`), and its Matter integration a Matter device's after its node label
+    (`lock.<name>`, `binary_sensor.<name>_door`; plan W7a3), adding `_2` to a clash: so such a device's name must be
+    its own slug, a Matter one's fit the label's 32 characters, and no two of their entities may share an id."""
+    from vesper.lab.automations import matter_entities
     owner: dict[str, str] = {}
     for k, d in enumerate(devices):
-        if "tasmota" not in d.record["binding"]:
+        kind = "Wi-Fi" if "tasmota" in d.record["binding"] else "Matter" if "matter" in d.record["binding"] else None
+        if kind is None:
             continue
         if not WIFI_NAME.fullmatch(d.name):
             slug = re.sub(r"[^a-z0-9]+", "_", d.name.lower()).strip("_") if d.name.isascii() else ""
-            raise HomeError(f"devices[{k}].name: {d.name!r}: a Wi-Fi device's name is lower-case letters, digits and "
+            raise HomeError(f"devices[{k}].name: {d.name!r}: a {kind} device's name is lower-case letters, digits and "
                             f"single underscores{f' ({slug})' if slug else ''}; Home Assistant names its entities "
                             "after it")
-        for e in expected_entities(d.record, d.name):
-            if e.entity_id in owner:
+        if kind == "Matter" and len(d.name) > 32:
+            raise HomeError(f"devices[{k}].name: {d.name!r}: a Matter device's name is at most 32 characters: Home "
+                            "Assistant names it by its node label, which holds 32")
+        ids = [e.entity_id for e in expected_entities(d.record, d.name)] if kind == "Wi-Fi" else [
+            entity_id for entity_id, _, _, _ in matter_entities(d.record, d.name)]
+        for entity_id in ids:
+            if entity_id in owner:
                 raise HomeError(f"devices[{k}].name: {d.name!r}: Home Assistant would name an entity of it "
-                                f"{e.entity_id}, as it names one of {owner[e.entity_id]!r}")
-            owner[e.entity_id] = d.name
+                                f"{entity_id}, as it names one of {owner[entity_id]!r}")
+            owner[entity_id] = d.name
 
 
 def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, names: list) -> PlacedDevice:

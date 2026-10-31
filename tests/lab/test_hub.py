@@ -40,7 +40,7 @@ def eventually(check, timeout=5.0):
 
 def test_every_zigbee_device_is_on_the_hub_and_matter_ones_are_named(lab):
     session, hub, mqtt = lab
-    assert hub.skipped == ["front_lock"]  # Matter: plan W2d
+    assert hub.skipped == ["front_lock"]  # Matter: through the Matter Server (plan W7a3)
     entities = set(FakeHA(mqtt)._entities())
     for name in ("front_door", "hall_motion", "bedroom_lamp", "bedroom_button", "kitchen_climate"):
         assert set(hub.entities(name).values()) <= entities and hub.entities(name)

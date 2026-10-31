@@ -935,6 +935,9 @@ def _lab_play(args, home, scenario=None) -> int:
         _warn_range(home)
         print(drawn)
         print(people)
+        if args.matter_interface and not lab:
+            print("--matter-interface goes with --hub (Home Assistant); without it the Matter devices are VESPER's "
+                  "twins only")
         if banner:
             print(f'scenario "{banner["title"]}", {banner["condition"]}: its timeline begins when a page is ready; '
                   'the page watches (the scenario plays the player)')
@@ -978,16 +981,8 @@ def _prepare_scenario(stack, scenario, condition, session, lab, hub):
 
 def _on_clock(session, fn, timeout: float = 10.0):
     """Run `fn` on the session's clock thread and wait for it."""
-    import concurrent.futures
-    done: concurrent.futures.Future = concurrent.futures.Future()
-
-    def run():
-        try:
-            done.set_result(fn())
-        except BaseException as e:  # noqa: BLE001 - raised again in the caller's thread
-            done.set_exception(e)
-    session.clock.call_at(session.clock.now(), run)
-    return done.result(timeout=timeout)
+    from vesper.lab.live import _on_clock as on_clock
+    return on_clock(session.clock, fn, timeout)
 
 
 LOOK_READY_S = 90  # a scene's meshes load in seconds on a GPU, and in tens of seconds in a headless browser
@@ -1030,7 +1025,7 @@ def _lab_stack(args, home, scenario=None):
     Home Assistant's UI go back into the home when it stops."""
     from vesper.lab.live import lab_stack
     return lab_stack(Path(args.root), home, keep=lambda ha, rules: _keep_automations(ha, home, rules, scenario),
-                     matter_interface=getattr(args, "matter_interface", None))
+                     matter_interface=getattr(args, "matter_interface", None) or home.matter_interface)
 
 
 def _lab_session(home, trace, lab):

@@ -1,6 +1,7 @@
 """The home's Matter devices on Home Assistant (security-lab spec §3.3, plan W7a3): each a matter.js node of
 VESPER's Matter host, labelled with its device name and commissioned into Home Assistant through VESPER's Matter
 Server; Home Assistant's entity ids, which VESPER's own engine predicts, read back from Home Assistant."""
+import re
 import threading
 from types import SimpleNamespace
 import time
@@ -246,3 +247,110 @@ def test_play_with_the_hub_and_no_interface_says_how_to_put_the_matter_devices_o
     seen, out = play_hub(tmp_path, monkeypatch, capsys)
     assert seen == {}
     assert "  front_lock: not on Home Assistant (a Matter device: give --matter-interface, e.g. en0" in out
+
+
+import pytest  # noqa: E402
+
+from vesper.lab.home import HomeError  # noqa: E402
+
+
+@pytest.mark.parametrize("name, says", [
+    ("Front-Door", "a Matter device's name is lower-case letters, digits and single underscores (front_door)"),
+    ("a_matter_lock_whose_name_runs_past_32", "at most 32 characters: Home Assistant names it by its node label"),
+])
+def test_a_matter_device_s_name_is_its_own_slug_so_vesper_predicts_home_assistant_s_ids_exactly(tmp_path, name, says):
+    with pytest.raises(HomeError, match=re.escape(says)):
+        home(tmp_path, MATTER.replace("name: back_door", f"name: {name}"))
+
+
+def test_a_device_whose_entities_never_appear_is_reported_as_failed_not_as_on_home_assistant(tmp_path):
+    names = {**FakeHA.USUAL, "back_door": []}
+    session, host, _ = run(tmp_path, names)
+    from vesper.lab.live import lab_matter
+    try:
+        with lab_matter(session, "ws://x", FakeHA(host, names), host=host, timeout=0.1, poll=0.01) as matter:
+            assert "back_door" not in matter.entities
+            assert "no binary_sensor (door) within 0.1 s" in matter.failed["back_door"]
+    finally:
+        session.stop()
+
+
+def test_adding_the_nodes_does_not_stop_the_session_s_clock_and_nothing_reaches_the_host_after(tmp_path):
+    session, host, matter_of = run(tmp_path)
+    real = host.request
+    ticks = []
+
+    def slow(op, wait=True, timeout=None, **a):
+        if op == "add":
+            time.sleep(0.2)
+        return real(op, wait, timeout, **a)
+    host.request = slow
+    clock = session.clock
+    for k in range(5):
+        clock.call_at(clock.now() + 0.05 * (k + 1), lambda: ticks.append(clock.now()))
+    try:
+        with matter_of():
+            assert len(ticks) == 5  # the clock ran while three nodes took 0.6 s to add
+        n = len(host.requests)
+        lock = "matter:115f:0001@front_lock"
+        _on = __import__("vesper.lab.live", fromlist=["_on_clock"])._on_clock
+        _on(clock, lambda: session.runtime.platform_set(lock, "Door Lock.LockState", "Locked"))
+        assert len(host.requests) == n  # the tier no longer forwards reports to a stopped host
+        assert not [x for x in session.runtime.notes if "subscriber failed" in x]
+    finally:
+        session.stop()
+
+
+def test_vesper_s_engine_dims_a_matter_light_as_home_assistant_does(tmp_path):
+    import copy
+    from tests.catalog.test_matter_normalize import records
+    from vesper.twins.clock import LogicalClock
+    text = MATTER.replace("    devices:\n", "    automations: automations.yaml\n    devices:\n", 1)
+    cat = {**catalog(), **records()}
+    dimmable = copy.deepcopy(cat["matter:100b:0018"])  # a light with Level Control, as a Dimmable Light has
+    dimmable["features"].append({"name": "Level Control.CurrentLevel", "type": "numeric",
+                                 "access": ["state", "get", "set"], "category": None, "ha": "light",
+                                 "property": "CurrentLevel", "range": [1, 254]})
+    cat["matter:100b:0018"] = dimmable
+    h = load_lab_home(write_home(tmp_path, text), cat)
+    (tmp_path / "automations.yaml").write_text(
+        "- id: dim\n  alias: Dim the hall\n  triggers: [{trigger: time, at: '07:30:05'}]\n"
+        "  actions: [{action: light.turn_on, target: {entity_id: light.hall_light}, data: {brightness_pct: 30}}]\n")
+    session = Session(h, clock=LogicalClock())
+    session.start(spawn_player=False, automations=True)
+    session.clock.advance(10)
+    state = session.runtime.state("matter:100b:0018@hall_light")
+    assert state["On/Off.OnOff"] is True and state["Level Control.CurrentLevel"] == 76  # round(0.3 * 254)
+    session.stop()
+
+
+def test_the_home_file_s_matter_interface_is_used_when_the_command_gives_none(tmp_path, monkeypatch, capsys):
+    import contextlib
+    from tests.lab.test_cli_lab import setup
+    from vesper import cli
+    from vesper.lab import live
+    stack_with_matter(monkeypatch, tmp_path)
+    seen = {}
+
+    @contextlib.contextmanager
+    def fake_matter(session, url, ha, *, host, **kw):
+        seen["interface"] = host.interface
+        yield SimpleNamespace(entities={}, renamed={}, failed={})
+    monkeypatch.setattr(live, "lab_matter", fake_matter)
+    monkeypatch.setattr(cli, "_wait_for_interrupt", lambda: None)
+    cat, h = setup(tmp_path / "c")
+    h.write_text(h.read_text() + "matter_interface: en1\n")
+    assert cli.main(["lab", "play", str(h), "--catalog", str(cat), "--port", "0", "--no-browser", "--hub",
+                     "--root", str(tmp_path / ".vesper")]) == 0
+    assert seen == {"interface": "en1"}
+
+
+def test_a_matter_interface_without_the_hub_says_it_does_nothing(tmp_path, monkeypatch, capsys):
+    from tests.lab.test_cli_lab import setup
+    from vesper import cli
+    monkeypatch.setattr(cli, "_wait_for_interrupt", lambda: None)
+    cat, h = setup(tmp_path / "c")
+    assert cli.main(["lab", "play", str(h), "--catalog", str(cat), "--port", "0", "--no-browser",
+                     "--matter-interface", "en0"]) == 0
+    assert "--matter-interface goes with --hub (Home Assistant); without it the Matter devices are VESPER's twins" \
+        in capsys.readouterr().out
