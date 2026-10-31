@@ -228,3 +228,16 @@ def test_a_wall_switch_needs_something_to_switch(tmp_path):
                    'wall_switch: [3.3, 1.0]}}\n')
     with pytest.raises(HomeError, match="kitchen_motion has nothing a wall switch could switch"):
         load_lab_home(write_home(tmp_path, text), catalog())
+
+
+def test_a_device_key_the_home_does_not_know_is_refused_not_ignored(tmp_path):
+    """A wall switch written beside `at` instead of inside it was ignored, and the light could not be switched."""
+    text = HOME.replace('name: hall_motion, at: {room: hall, mount: ceiling}}',
+                        'name: hall_motion, at: {room: hall, mount: ceiling}, wall_switch: [1.0, 1.0]}')
+    assert text != HOME
+    with pytest.raises(HomeError, match="a wall switch goes in `at`"):
+        load_lab_home(write_home(tmp_path, text), catalog())
+    text = HOME.replace('name: hall_motion, at: {room: hall, mount: ceiling}}',
+                        'name: hall_motion, at: {room: hall, mount: ceiling, height: 2}}')
+    with pytest.raises(HomeError, match="'height' is not one of"):
+        load_lab_home(write_home(tmp_path, text), catalog())

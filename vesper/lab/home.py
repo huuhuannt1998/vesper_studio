@@ -226,6 +226,10 @@ def _check_wifi_names(devices: list[PlacedDevice]) -> None:
             owner[entity_id] = d.name
 
 
+DEVICE_KEYS = ("product", "name", "at", "controls", "state")
+AT_KEYS = ("door", "room", "xy", "mount", "facing", "wall_switch")
+
+
 def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, names: list) -> PlacedDevice:
     where = f"devices[{k}]"
     product, name = _text(d.get("product"), f"{where}.product"), d.get("name")
@@ -236,7 +240,14 @@ def _device(k: int, d: dict, catalog: dict, world_map: WorldMap, doors: dict, na
                         "'event', a leading 'bridge' or a trailing 'availability')")
     if names.index(name) != k:
         raise HomeError(f"{where}.name: {name!r} is used twice")
+    for key in d:
+        if key not in DEVICE_KEYS:
+            raise HomeError(f"{where}: {key!r} is not one of a device's keys ({', '.join(DEVICE_KEYS)})"
+                            + ("; a wall switch goes in `at`" if key == "wall_switch" else ""))
     at = _mapping(d.get("at") or {}, f"{where}.at")
+    for key in at:
+        if key not in AT_KEYS:
+            raise HomeError(f"{where}.at: {key!r} is not one of {', '.join(AT_KEYS)}")
     door = at.get("door")
     mount = at.get("mount", "door" if door else "table" if "xy" in at else "ceiling")
     if mount not in MOUNTS:
