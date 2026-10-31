@@ -1,0 +1,16 @@
+# The test house set up for the Phantom-Delay gold scenarios (Fu et al., DSN 2022): a contact sensor and a Zigbee
+# lock on the front door, a light in the hall, no residents (the player is the person leaving home).
+#   vesper lab scenario run examples/lab/scenarios/phantom-delay/case3-action-delay.yaml
+version: 2
+scene: test/house
+map: ../../test-house/map.json
+seed: 0
+start_time: "19:30"
+avatar: {model: female_0, start: {room: hall}}
+doors:
+  - {doorway: bedroom-hall, open: true}
+devices:
+  - {product: "zigbee:aqara:mccgq11lm", name: front_door, at: {door: hall-porch}}
+  - {product: "zigbee:kwikset:66492-001", name: front_lock, at: {door: hall-porch}, state: {state: UNLOCK}}
+  - {product: "zigbee:ikea:led1545g12", name: hall_light, at: {room: hall, mount: ceiling}}
+  - {product: "zigbee:philips:9290012607", name: hall_motion, at: {room: hall, mount: ceiling}}

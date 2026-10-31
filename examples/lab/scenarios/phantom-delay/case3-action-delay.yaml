@@ -1,0 +1,78 @@
+# Phantom-Delay, Table III Case 3 (action delay): the front door is locked when it closes; held on the bridge's
+# connection, the door's "closed" event and then the lock command arrive late, and an intruder walks in first.
+#   vesper lab scenario run examples/lab/scenarios/phantom-delay/case3-action-delay.yaml
+format: vesper-scenario/1
+title: "Phantom-Delay Case 3: the lock-on-close action delayed, an intruder walks in"
+source:
+  paper:
+    title: "IoT Phantom-Delay Attacks: Demystifying and Exploiting IoT Timeout Behaviors"
+    authors: "Chenglong Fu, Qiang Zeng, Haotian Chi, Xiaojiang Du, Siva Likitha Valluru"
+    venue: "DSN 2022"
+    doi: "10.1109/DSN53405.2022.00050"
+  passages:
+    threat: "by compromising/controlling one WiFi device in a smart environment, the attacker can delay the IoT
+      messages of other non-compromised IoT devices"
+    no_alarm: "The goal of the attacker is to delay IoT messages of a target IoT device, without triggering any
+      timeout alerts or disconnection."
+    attack: "on detecting “door closed” events, we can delay the following locking command for a period between
+      30 seconds to 58 seconds. By combining the e-Delay on the contact sensor’s event, the length of the attacking
+      window can be extended to be at least 60 seconds, which is enough for burglars to unhurriedly break into a
+      victim’s house after the victim leaves home."
+    defense: "We suggest it should be enforced in standard protocols (such as MQTT) by adding timestamps as message
+      fields and checking them at the receiver’s side."
+    defense_limit: "this solution cannot stop state-update/action delay attacks"
+home: home.yaml
+setup: {automations: automations.yaml}
+actors:
+  - {name: intruder, model: male_1, start: {room: porch}}
+timeline:   # the player leaves home and closes the door behind; the intruder tries the door 25 s later
+  - {at: "19:30:05", actor: player, do: {open: hall-porch}}
+  - {at: "19:30:15", actor: player, do: {walk: {room: porch}}}
+  - {at: "19:30:25", actor: player, do: {close: hall-porch}}
+  - {at: "19:30:50", actor: intruder, do: {open: hall-porch}, cites: [attack]}
+  - {at: "19:30:55", actor: intruder, do: {walk: {room: hall}}, cites: [attack]}
+attack:     # on the bridge's TCP connection, its keepalives passing: e-Delay of the door, c-Delay of the lock
+  - {at: "19:30:01", vantage: network, effect: delay, link: coordinator, direction: up,
+     match: {device: front_door, feature: contact}, hold_s: 30, keep_connection: true, cites: [attack, threat]}
+  - {at: "19:30:01", vantage: network, effect: delay, link: coordinator, direction: down,
+     match: {device: front_lock, feature: state}, hold_s: 30, keep_connection: true, cites: [attack, threat]}
+defenses:
+  - {kind: freshness, max_age_s: 10, action: alert}
+  - {kind: physical_consistency, within_s: 5}
+expect:
+  - claim: the intruder opens the front door before it is locked
+    predicate: {before: [{actor: intruder, opens: hall-porch},
+                         {action: {device: front_lock, feature: state, value: LOCK}}]}
+    conditions: {baseline: false, attack: true, attack+defense: true}
+    cites: [attack]
+  - claim: the intruder gets into the house
+    predicate: {actor: intruder, enters: hall}
+    conditions: {baseline: false, attack: true, attack+defense: true}
+    cites: [attack]
+  - claim: the door stays unlocked for at least 60 s after it closes
+    predicate: {gap: [{actor: player, closes: hall-porch}, {action: {device: front_lock, feature: state,
+                                                                     value: LOCK}}], at_least_s: 60}
+    conditions: {baseline: false, attack: true, attack+defense: true}
+    cites: [attack]
+  - claim: the attack causes no disconnection
+    predicate: {never: {net: {event: down}}}
+    conditions: {baseline: true, attack: true, attack+defense: true}
+    cites: [no_alarm]
+  - claim: timestamp checking flags the delayed door events
+    predicate: {alert: {defense: freshness, device: front_door}}
+    conditions: {baseline: false, attack: false, attack+defense: true}
+    cites: [defense]
+  - claim: the world disagrees with the hub while the door's events are held
+    predicate: {alert: {defense: physical_consistency, device: front_door}}
+    conditions: {baseline: false, attack: false, attack+defense: true}
+runs: {mode: logical, repeat: 5, conditions: [baseline, attack, attack+defense], until: "19:33:00"}
+gaps:
+  - {what: "the cloud leg of the paper's platforms (Alexa, the Ring and August clouds)",
+     why: "VESPER has no cloud; the attack is reproduced on the hub's leg, the bridge's connection to the broker"}
+  - {what: "ARP spoofing and traffic sniffing to find the target connection and messages",
+     why: "VESPER's attacker sits in its own relay by construction (security-lab spec §7) and is told which device
+       and feature to hold; the paper's TCP hijacker reaches the same place after its ARP spoofing"}
+  - {what: "TLS", why: "VESPER's MQTT is plain on loopback; the relay holds whole messages and keeps their order, as
+       TLS forces the paper's attacker to"}
+  - {what: "two vendors' connections (the lock's and the sensor's)", why: "both are Zigbee devices on one bridge
+       here, so one connection carries the held door event and the held lock command"}

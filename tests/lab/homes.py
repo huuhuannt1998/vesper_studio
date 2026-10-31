@@ -16,13 +16,20 @@ THERMOSTAT = zdef("THERM-1", "Acme", [{"type": "climate", "features": [
 ]}])
 
 
+LOCK_ZIGBEE = zdef("LOCK-1", "Acme", [{"type": "lock", "features": [
+    {"name": "state", "label": "State", "access": 7, "type": "binary", "property": "state", "value_on": "LOCK",
+     "value_off": "UNLOCK"},
+    {"name": "lock_state", "label": "Lock state", "access": 1, "type": "enum", "property": "lock_state",
+     "values": ["not_fully_locked", "locked", "unlocked"]}]}])
+
+
 def catalog():
     from tests.catalog.fixtures import TASMOTA_PIN, TASMOTA_TEMPLATES, tasmota_tarball
     from vesper.catalog.normalize.tasmota import tasmota_records
     out = {r["id"]: r for r in zigbee_records().values()}
     out[LOCK] = matter_records()[LOCK]
     out.update((r["id"], r) for r in tasmota_records(tasmota_tarball(TASMOTA_TEMPLATES), TASMOTA_PIN)[0])
-    for r in normalize_zigbee({"version": "26.123.0", "definitions": [THERMOSTAT]}):
+    for r in normalize_zigbee({"version": "26.123.0", "definitions": [THERMOSTAT, LOCK_ZIGBEE]}):
         out[r["id"]] = r
     return out
 

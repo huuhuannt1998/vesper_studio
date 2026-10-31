@@ -1,0 +1,59 @@
+# Phantom-Delay, Table III Case 1 (state-update delay): a notification when the front door opens; the door's
+# event is held for 60 s on the bridge's connection, its keepalives passing, so the notification comes a minute late.
+#   vesper lab scenario run examples/lab/scenarios/phantom-delay/case1-state-update-delay.yaml
+format: vesper-scenario/1
+title: "Phantom-Delay Case 1: the front-door notification a minute late"
+source:
+  paper:
+    title: "IoT Phantom-Delay Attacks: Demystifying and Exploiting IoT Timeout Behaviors"
+    authors: "Chenglong Fu, Qiang Zeng, Haotian Chi, Xiaojiang Du, Siva Likitha Valluru"
+    venue: "DSN 2022"
+    doi: "10.1109/DSN53405.2022.00050"
+  passages:
+    threat: "by compromising/controlling one WiFi device in a smart environment, the attacker can delay the IoT
+      messages of other non-compromised IoT devices"
+    no_alarm: "The goal of the attacker is to delay IoT messages of a target IoT device, without triggering any
+      timeout alerts or disconnection."
+    attack: "we can accurately identify messages of keep-alive (48 bytes) and contact sensor (986 bytes), and delay
+      them for up to 60 seconds"
+    defense: "We suggest it should be enforced in standard protocols (such as MQTT) by adding timestamps as message
+      fields and checking them at the receiver’s side."
+    defense_limit: "this solution cannot stop state-update/action delay attacks"
+home: home.yaml
+setup: {automations: automations.yaml}
+timeline:
+  - {at: "19:30:10", actor: player, do: {open: hall-porch}, cites: [attack]}
+attack:
+  - {at: "19:30:01", vantage: network, effect: delay, link: coordinator, direction: up,
+     match: {device: front_door, feature: contact}, hold_s: 60, keep_connection: true, cites: [attack, threat]}
+defenses:
+  - {kind: freshness, max_age_s: 10, action: alert}
+  - {kind: physical_consistency, within_s: 5}
+expect:
+  - claim: the notification comes at least a minute after the door opened
+    predicate: {gap: [{door: hall-porch, open: true}, {action: {device: hall_light, feature: state, value: "ON"}}],
+                at_least_s: 60}
+    conditions: {baseline: false, attack: true, attack+defense: true}
+    cites: [attack, defense_limit]
+  - claim: the attack causes no disconnection
+    predicate: {never: {net: {event: down}}}
+    conditions: {baseline: true, attack: true, attack+defense: true}
+    cites: [no_alarm]
+  - claim: timestamp checking flags the delayed door event
+    predicate: {alert: {defense: freshness, device: front_door}}
+    conditions: {baseline: false, attack: false, attack+defense: true}
+    cites: [defense]
+  - claim: the world disagrees with the hub within seconds, while the event is held
+    predicate: {alert: {defense: physical_consistency, device: front_door}}
+    conditions: {baseline: false, attack: false, attack+defense: true}
+runs: {mode: logical, repeat: 5, conditions: [baseline, attack, attack+defense], until: "19:33:00"}
+gaps:
+  - {what: "the paper's voice notification (an Amazon Echo routine)", why: "a hall light here: VESPER's automation
+       engine has no notify service, and a light is seen the same way in a logical and a live run"}
+  - {what: "the cloud leg of the paper's platforms (Alexa, the Ring cloud)",
+     why: "VESPER has no cloud; the attack is reproduced on the hub's leg, the bridge's connection to the broker"}
+  - {what: "ARP spoofing and traffic sniffing to find the target connection and messages",
+     why: "VESPER's attacker sits in its own relay by construction (security-lab spec §7) and is told which device
+       and feature to hold; the paper's TCP hijacker reaches the same place after its ARP spoofing"}
+  - {what: "TLS", why: "VESPER's MQTT is plain on loopback; the relay holds whole messages and keeps their order, as
+       TLS forces the paper's attacker to"}

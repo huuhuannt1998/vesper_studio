@@ -27,6 +27,10 @@ class Placement:
     friendly_name: str
 
 
+# The bridge's retained last will: Zigbee2MQTT's bridge state, offline, published by the broker if it vanishes
+OFFLINE_WILL = ("zigbee2mqtt/bridge/state", json.dumps({"state": "offline"}))
+
+
 def ieee_address(twin_id: str) -> str:
     return "0x" + hashlib.sha256(twin_id.encode()).hexdigest()[:16]
 
@@ -87,6 +91,7 @@ class Bridge:
     rejections: list[dict] = field(default_factory=list)
     events: object = None  # where reports come from (anything with `subscribe`): a home's network; default the runtime
     send: object = None  # send(name, feature, run): a command crosses the device's links, `run()` when it arrives
+    last_seen: object = None  # last_seen(observed_t) -> ISO 8601: Zigbee2MQTT's `advanced.last_seen`; None: off
 
     def __post_init__(self):
         self._by_name: dict[str, Placement] = {}
@@ -104,6 +109,7 @@ class Bridge:
         self._lock = threading.Lock()
         self._reported: dict[str, dict] = {}  # per twin: the values it has reported, as Zigbee2MQTT caches them
         self._color_mode: dict[str, str] = {}
+        self._seen: dict[str, str] = {}  # per twin: when the bridge last had a report from it (`last_seen`)
         self._pending: list = []  # QoS 1 deliveries paho may still hold
         self._local = threading.local()
         self.client.on_message = self._on_message
@@ -201,6 +207,8 @@ class Bridge:
                 payload.pop(name.split(".")[0], None)
         if p.twin_id in self._color_mode:
             payload["color_mode"] = self._color_mode[p.twin_id]
+        if p.twin_id in self._seen:
+            payload["last_seen"] = self._seen[p.twin_id]
         return payload
 
     def _publish_state(self, p: Placement) -> None:
@@ -210,6 +218,8 @@ class Bridge:
         p = self._by_twin.get(event.twin_id)
         if p is None:
             return
+        if self.last_seen is not None:
+            self._seen[event.twin_id] = self.last_seen(event.observed_t)
         f = self.runtime.twins[event.twin_id].features[event.feature]
         if f.get("ha") == "event":
             topic = f"{self.base_topic}/{p.friendly_name}"

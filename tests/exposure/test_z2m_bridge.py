@@ -287,3 +287,18 @@ def test_a_device_can_be_marked_unavailable_and_available_again(vds):
     assert client.last("zigbee2mqtt/mccgq11lm/availability") == {"state": "offline"}
     b.set_available("mccgq11lm", True)
     assert client.last("zigbee2mqtt/mccgq11lm/availability") == {"state": "online"}
+
+
+def test_last_seen_carries_when_the_bridge_had_the_device_s_report_as_zigbee2mqtt_s_option_does(vds):
+    """Zigbee2MQTT's `advanced.last_seen` (ISO 8601): what a receiver checks a report's age against (plan W4a1)."""
+    rt = Runtime(clock=LogicalClock())
+    p = Placement(rt.add(vds["MCCGQ11LM"]).id, "door")
+    client = FakeClient()
+    Bridge(rt, [p], client, last_seen=lambda t: f"T+{t:g}").start()
+    assert "last_seen" not in client.last("zigbee2mqtt/door")  # nothing heard from the device yet
+    rt.clock.advance(5)
+    rt.stimulate(p.twin_id, {"type": "contact", "state": "opened"})
+    assert client.last("zigbee2mqtt/door")["last_seen"] == "T+5"
+    plain = FakeClient()
+    Bridge(rt, [Placement(rt.add(vds["PLUG-1"]).id, "plug")], plain).start()
+    assert "last_seen" not in plain.last("zigbee2mqtt/plug")  # off unless asked for

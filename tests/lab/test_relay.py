@@ -381,3 +381,11 @@ def test_a_cut_that_ends_while_the_station_is_lost_releases_nothing(net):
     relay.apply(Effect("cut", link="coordinator"))
     relay.clear("coordinator")
     assert dial(port).recv(10) == b""  # still lost: the attack's end does not bring the station back
+
+
+def test_a_link_added_again_is_the_same_link_on_the_same_port(net):
+    """One relay serves a scenario's many runs, each run's hub asking for its links again."""
+    relay, up, port, _ = net
+    assert relay.add_link("coordinator", up.port, client_is_device=True) == port
+    with pytest.raises(RelayError, match="coordinator: already a link to another service or the other way round"):
+        relay.add_link("coordinator", up.port, client_is_device=False)

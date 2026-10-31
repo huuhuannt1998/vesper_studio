@@ -88,7 +88,8 @@ class LabHome:
         raise HomeError(f"unknown device {name!r}; {suggest(name, [d.name for d in self.devices])}")
 
 
-def load_lab_home(path: Path, catalog: dict[str, dict]) -> LabHome:
+def load_lab_home(path: Path, catalog: dict[str, dict], patch=None) -> LabHome:
+    """`patch(spec)` may change the parsed home before it is checked (a scenario's setup, plan W4a1)."""
     path = Path(path)
     try:
         spec = yaml.safe_load(path.read_text()) or {}
@@ -99,6 +100,8 @@ def load_lab_home(path: Path, catalog: dict[str, dict]) -> LabHome:
     if not isinstance(spec, dict) or spec.get("version") != 2:
         raise HomeError(f"{path}: a version 1 home file (no `version: 2`); it is for `vesper twins run`. "
                         "A Lab home names a scene, a map and where each device is.")
+    if patch is not None:
+        patch(spec)
     try:
         world_map = WorldMap.load(path.parent / _text(spec.get("map", "map.json"), "map"))
     except MapError as e:

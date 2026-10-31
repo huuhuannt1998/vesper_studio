@@ -7,10 +7,8 @@ import os
 import signal
 import sys
 import time
-from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from types import SimpleNamespace
 
 from vesper.catalog.build import build_catalog
 from vesper.catalog.errors import CatalogError
@@ -114,13 +112,11 @@ def _dataset_dirty(path: Path) -> bool | None:
 
 
 def _zhc_version(catalog_dir: Path) -> str:
-    report = Path(catalog_dir) / "build_report.json"
-    if report.is_file():
-        return json.loads(report.read_text()).get("inputs", {}).get("zigbee", {}).get("version", "unknown")
-    return "unknown"
+    from vesper.lab.live import zhc_version
+    return zhc_version(catalog_dir)
 
 
-OFFLINE_WILL = ("zigbee2mqtt/bridge/state", json.dumps({"state": "offline"}))
+OFFLINE_WILL = ("zigbee2mqtt/bridge/state", json.dumps({"state": "offline"}))  # as vesper.exposure.z2m_bridge's
 
 
 def _install_sigterm() -> None:
@@ -536,10 +532,45 @@ def _lab(args) -> int:
             return _lab_day(args, load_lab_home(Path(args.home), catalog))
         if args.action == "routine":
             return _lab_routine(args, load_lab_home(Path(args.home), catalog))
+        if args.action == "scenario":
+            return _lab_scenario(args, catalog)
         return _lab_replay(args, catalog, load_lab_home)
     except (HomeError, MapError, TraceError, SceneError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
         return 1
+
+
+def _lab_scenario(args, catalog) -> int:
+    """`vesper lab scenario check|run|report` (security-lab spec §4.5)."""
+    from vesper.lab.scenario import ScenarioError, load_scenario
+    from vesper.lab.scenario_run import rejudge, report, run_scenario
+    try:
+        s = load_scenario(Path(args.file), catalog, mode=getattr(args, "mode", None))
+    except ScenarioError as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    if args.scenario_action == "check":
+        n = len(s.attack)
+        print(f"{s.title}: {s.home.scene}; {len(s.actors)} actor(s), {len(s.timeline)} timeline steps, {n} attack "
+              f"step{'s' if n != 1 else ''}, {len(s.defenses)} defense(s), {len(s.claims)} claims, "
+              f"{len(s.gaps)} gap(s); {s.runs.mode} runs, {s.runs.repeat} per condition "
+              f"({', '.join(s.runs.conditions)})")
+        return 0
+    out = Path(args.out) if args.out else s.path.parent / "runs" / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    try:
+        runs = (run_scenario(s, out, root=Path(args.root), catalog_dir=Path(args.catalog))
+                if args.scenario_action == "run" else rejudge(s, out))
+    except (OSError, RuntimeError) as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    text, summary = report(s, runs)
+    (out / "report.md").write_text(text)
+    (out / "summary.json").write_text(json.dumps(summary, indent=2))
+    for c in summary["claims"]:
+        print(f"{'reproduced' if c['reproduced'] else 'NOT reproduced'}: {c['claim']}")
+    done = sum(c["reproduced"] for c in summary["claims"])
+    print(f"{done} of {len(summary['claims'])} claims reproduced; report {out / 'report.md'}")
+    return 0
 
 
 def _warn_range(home) -> None:
@@ -776,37 +807,11 @@ def _hub_failure(e: Exception) -> str:
     return str(e) if isinstance(e, StackError) else f"{type(e).__name__}: {e}"
 
 
-@contextmanager
 def _lab_stack(args, home):
-    """VESPER's broker and Home Assistant for a Lab command (the dashboard framed by the page, the home's
-    automations loaded, the Lab login), stopped again whatever happens, a stop signal included."""
-    from vesper.validation import stack
-    root, port = Path(args.root), home.broker[1]
-    from vesper.lab.relay import Relay, SessionSink
-    rules = home.automations.read_text() if home.automations is not None else "[]\n"
-    broker = stack.Mosquitto(root, port=port)
-    sink = SessionSink()  # the session starts once Home Assistant is up; the relay must exist before
-    relay = Relay(record=sink.record, allowed={port}, now=sink.now, latency=sink.latency)
-    try:
-        broker.start()
-        relay.start()
-        hub_port = relay.add_link("hub", port, client_is_device=False)  # Home Assistant's MQTT: the home's network
-        ha = stack.HomeAssistant(root, frameable=True, automations=rules)
-        try:
-            ha.start()
-            ha.onboard()
-            ha.ensure_mqtt(hub_port)
-            if any("tasmota" in d.record["binding"] for d in home.devices):
-                ha.ensure_tasmota()  # Home Assistant's Tasmota integration hears the Wi-Fi devices (plan W7a2)
-            else:
-                ha.forget("tasmota")  # no Wi-Fi device of an earlier home lingers in Home Assistant
-            yield SimpleNamespace(ha=ha, port=port, hub_port=hub_port, relay=relay, sink=sink, login=ha.lab_login())
-        finally:
-            _keep_automations(ha, home, rules)
-            ha.stop()
-    finally:
-        relay.stop()
-        broker.stop()
+    """VESPER's broker, the relay and Home Assistant for a Lab command (`vesper.lab.live`); automations edited in
+    Home Assistant's UI go back into the home when it stops."""
+    from vesper.lab.live import lab_stack
+    return lab_stack(Path(args.root), home, keep=lambda ha, rules: _keep_automations(ha, home, rules))
 
 
 def _lab_session(home, trace, lab):
@@ -820,31 +825,10 @@ def _lab_session(home, trace, lab):
     return session
 
 
-@contextmanager
 def _lab_hub(args, session, port: int):
-    """The session's Zigbee devices on the broker through the bridge, and its Wi-Fi devices each on its own
-    connection (`hub.wifi`), for as long as the block runs."""
-    from vesper.exposure import mqtt
-    from vesper.lab.hub import Hub
-    from vesper.lab.tasmota_hub import RETRY_S, TasmotaHub
-    via = session.relay.add_link("coordinator", port, client_is_device=True) if session.relay else port
-    client = mqtt.connect("127.0.0.1", via, "vesper-lab-bridge", will=OFFLINE_WILL)
-    try:
-        hub = Hub(session, client, zhc_version=_zhc_version(Path(args.catalog)))
-        hub.coordinator_port = via
-        hub.start()
-        try:
-            hub.wifi = TasmotaHub(session, lambda p, cid, will, keepalive: mqtt.connect_async(
-                "127.0.0.1", p, cid, will=will, keepalive=keepalive, retry_s=RETRY_S), port, disconnect=mqtt.disconnect)
-            try:
-                hub.wifi.start()
-                yield hub
-            finally:
-                hub.wifi.stop()
-        finally:
-            hub.stop()
-    finally:
-        mqtt.disconnect(client)
+    """The session's Zigbee and Wi-Fi devices on the broker, for as long as the block runs (`vesper.lab.live`)."""
+    from vesper.lab.live import lab_hub
+    return lab_hub(session, port, Path(args.catalog))
 
 
 def _keep_automations(ha, home, rules: str) -> None:
@@ -1227,6 +1211,23 @@ def main(argv: list[str] | None = None) -> int:
     lab_day.add_argument("--from", dest="start", default="00:00", help="the time of day it starts (default 00:00)")
     lab_day.add_argument("--hours", type=float, default=24.0, help="how long (default 24)")
     lab_day.add_argument("--trace", help="the trace file (default: traces/<time>-day-<pid>.jsonl next to the home)")
+    lab_scenario = lab_actions.add_parser("scenario", help="an attack and its defenses on a home: check, run, "
+                                          "report (vesper-scenario/1)")
+    scenario_actions = lab_scenario.add_subparsers(dest="scenario_action", required=True)
+    for name, text in (("check", "check a scenario file against its home"),
+                       ("run", "run every condition and repeat, write the traces and the report"),
+                       ("report", "check the claims again on the traces of an earlier run")):
+        sp = scenario_actions.add_parser(name, help=text)
+        sp.add_argument("file")
+        sp.add_argument("--catalog", default="catalog/vds")
+        if name != "check":
+            sp.add_argument("--out", required=name == "report",
+                            help="the run's folder (default for run: runs/<time> next to the scenario)")
+        if name == "run":
+            sp.add_argument("--mode", choices=("logical", "live"),
+                            help="logical (VESPER's engine, in seconds) or live (Home Assistant in the loop, on the "
+                                 "wall clock); default: the file's")
+            sp.add_argument("--root", default=".vesper", help="where `vesper setup ha` installed the stack (live)")
     lab_routine = lab_actions.add_parser("routine", help="a resident's routine from a persona or an ARAS day")
     lab_routine.add_argument("source", choices=("persona", "aras"))
     lab_routine.add_argument("file", help="a persona schedule (.json) or an ARAS day (DAY_n.txt)")

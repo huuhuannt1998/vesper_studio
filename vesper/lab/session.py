@@ -54,6 +54,8 @@ class Session:
         self.rules = Rules(home, self.runtime, self.world, self.twin_ids,
                            record=lambda r: self._write({**r, "kind": "rule"}))
         self.relay = None  # the live network's relay, when Home Assistant is in the loop (set by the hub)
+        self.report_filters: list = []  # fn(event) -> deliver it?: a defense at the hub's edge (plan W4a1)
+        self._hub: list = []  # who hears the reports as the hub does
         self.links = None
         if home.network is not None:
             from vesper.lab.linklayer import LinkLayer
@@ -170,8 +172,21 @@ class Session:
             deliver()
 
     def subscribe_reports(self, fn) -> None:
-        """`fn(event)` hears each twin's report as the hub would: once it has crossed the device's links."""
-        (self.links or self.runtime).subscribe(fn)
+        """`fn(event)` hears each twin's report as the hub would: once it has crossed the device's links, and
+        passed the defenses at the hub's edge (`report_filters`)."""
+        if not self._hub:
+            (self.links or self.runtime).subscribe(self._to_hub)
+        self._hub.append(fn)
+
+    def _to_hub(self, event) -> None:
+        if all(f(event) for f in list(self.report_filters)):
+            for fn in list(self._hub):
+                fn(event)
+
+    def scenario_record(self, record: dict) -> None:
+        """A scenario run's own record: what a defense saw or did (an alert, a dropped report), or when the run's
+        timeline began; ground truth of the run, not an input."""
+        self._write(record)
 
     def network_effect(self, effect) -> None:
         """Put an effect on a link (an attack): an input, so a replay puts it on again at the same time. On the live

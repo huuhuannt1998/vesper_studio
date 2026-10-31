@@ -205,6 +205,11 @@ class Relay:
             raise RelayError(f"{name}: never the standard port {upstream_port}")
         if upstream_port not in self.allowed:
             raise RelayError(f"{name}: port {upstream_port} is not a service this session started")
+        if name in self._links:  # asked again (a scenario's next run): the same link
+            old = self._links[name]
+            if (old.upstream, old.client_is_device) != (upstream_port, client_is_device):
+                raise RelayError(f"{name}: already a link to another service or the other way round")
+            return old.server.sockets[0].getsockname()[1]
         link = _Link(name, upstream_port, client_is_device)
 
         async def listen():

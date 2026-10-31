@@ -37,7 +37,8 @@ class ClockThreadClient:
 
 
 class Hub:
-    def __init__(self, session, client, *, zhc_version: str = "unknown", base_topic: str = "zigbee2mqtt"):
+    def __init__(self, session, client, *, zhc_version: str = "unknown", base_topic: str = "zigbee2mqtt",
+                 last_seen=None):
         self.session = session
         devices = session.home.devices
         self.skipped = [d.name for d in devices if not {"zigbee", "tasmota"} & set(d.record["binding"])]
@@ -45,7 +46,7 @@ class Hub:
                             if "zigbee" in d.record["binding"]}
         links = session.links  # the home's network: each device's reports and commands cross its hop
         self.bridge = Bridge(session.runtime, list(self._placements.values()), ClockThreadClient(client, session.clock),
-                             base_topic=base_topic, zhc_version=zhc_version, events=links,
+                             base_topic=base_topic, zhc_version=zhc_version, events=links, last_seen=last_seen,
                              send=(lambda name, feature, run: links.down(name, feature, run)) if links else None)
         self._passive = {name: device_entry(session.runtime.twins[p.twin_id].vds, ieee=ieee_address(p.twin_id),
                                             friendly_name=name)["type"] == "EndDevice"

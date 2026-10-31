@@ -1,0 +1,24 @@
+# Home Assistant automations: the victim rules of the paper's Table III, Cases 1 and 3 (entity ids as Home Assistant
+# names the devices through VESPER's bridge).
+- id: door_opened_notification
+  alias: Case 1, notify when the front door opens
+  description: "The paper's voice notification; here the hall light, which both VESPER's engine and Home Assistant
+    can show."
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.vb43f73cfdb04bc63_contact
+      to: "on"
+  actions:
+    - action: light.turn_on
+      target:
+        entity_id: light.vfe405a2f44a502d7_light
+- id: lock_on_close
+  alias: Case 3, lock the front door when it closes
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.vb43f73cfdb04bc63_contact
+      to: "off"
+  actions:
+    - action: lock.lock
+      target:
+        entity_id: lock.vf9d5b63776e52378_lock
