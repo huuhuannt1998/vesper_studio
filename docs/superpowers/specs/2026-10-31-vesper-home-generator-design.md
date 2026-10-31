@@ -113,6 +113,14 @@ The generated map is always the source of truth for walking, reach and sensing; 
   doors, rooms with their types, device positions, the scale. A user with Blender and Blender MCP (MIT, installed by
   the user) asks Claude to run it, furnish and texture the rooms, and export `scene.glb` into the home folder. The
   3D view draws it aligned to the map. The GLB is kept, so the home plays again without Blender or a model.
+  Built (W9, W9b), for generated homes and HSSD homes alike (PI 2026-10-31: "you can run them all"):
+  - an HSSD home's models are imported where Habitat puts them (their KTX2 textures converted to PNG once, with the
+    3D view's own Basis transcoder, into a cache outside the repository), the furniture grouped by room, the doors
+    apart and not exported; a rerun keeps the edits;
+  - `vesper lab renav` makes the map follow the furniture: Habitat's navmesh from scene.glb, on the same grid, the
+    rooms and doorways kept, the first map kept beside it;
+  - checked: a separate Claude session furnished a generated 12-room home through Blender MCP (34 min, 895 meshes,
+    the brief met on independent checks); an unedited HSSD round trip keeps 99.0% of the walkable floor (IoU).
 - **ProcTHOR houses in Habitat format** (`hssd/ai2thor-hab`, about 12,000 houses) are a candidate for a later look:
   access is gated and no license is stated, so they stay out until it is.
 

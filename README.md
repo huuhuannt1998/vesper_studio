@@ -234,6 +234,21 @@ then export `scene.glb` beside the home. `vesper lab play` then draws that model
 map still decides where people can walk and what they can reach. Blender is needed only to make the model, not to play
 it.
 
+The same works for a home made from an HSSD scene: `vesper lab dress` converts the scene's models for Blender (their
+KTX2 textures become PNG, with the Basis transcoder the 3D view already uses; Node is needed, and the converted files
+stay in `~/.cache/vesper`, or `VESPER_CACHE`, never in a repository), and the script imports each model where Habitat
+puts it, the furniture grouped by room and the doors kept apart. Move, swap or add furniture, export `scene.glb`, and
+`vesper lab play` draws it, with HSSD's own doors.
+
+Furniture in a model is only drawn until the map follows it:
+
+    vesper lab renav homes/eight/home.yaml
+
+has Habitat work out the walkable floor again from `scene.glb`, so people walk round the furniture where it stands;
+the rooms and doorways stay, and the first map is kept as `map.original.json`. It needs the Habitat environment, as
+`vesper lab new --scene` does. An HSSD scene taken through Blender unedited keeps its walkable floor: 99% of it
+(intersection over union) on the one scene tried, every difference within 30 cm of the floor's edge.
+
 ## A home from a real 3D scene (HSSD)
 
 Real homes come from [HSSD](https://huggingface.co/datasets/hssd/hssd-hab), a gated dataset (CC BY-NC 4.0). Accept
