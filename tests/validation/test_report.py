@@ -180,3 +180,20 @@ def test_a_matter_run_with_other_parameters_is_exploratory_and_test_vendor_ids_a
     report = build_report(catalog, r)
     assert report["checks"]["matter"]["exploratory"] is True and report["checks"]["matter"]["passed"] is True
     assert "Matter's test vendor id" in render_markdown(report)
+
+
+def test_l4_counts_a_product_only_when_every_transition_agreed_and_tasmota_l2_is_credited(tmp_path):
+    catalog, _ = write_catalog(tmp_path)
+    r = tmp_path / "results"
+    write_result(r, "anchors-20261031T200000Z.json", {"anchors": [
+        {"product": "matter:1:1", "transitions_agree": "10/10"},
+        {"product": "matter:1:2", "transitions_agree": "4/5"},
+        {"product": "tasmota:a:b", "transitions_agree": "40/40 commands"}]})
+    write_result(r, "tasmota-20261031T200000Z.json", {"summary": {"products": 2, "passed": 1, "entities": 2,
+                                                                  "categories_passing": [], "categories": ["plug"]},
+                                                      "products": [{"id": "tasmota:a:b", "passed": True},
+                                                                   {"id": "tasmota:a:c", "passed": False}]})
+    rep = build_report(catalog, r)
+    assert sorted(rep["l4"]) == ["matter:1:1", "tasmota:a:b"]
+    assert rep["l2"]["tasmota"]["validated_products"] == ["tasmota:a:b"]
+    assert not rep["checks"]["tasmota"]["passed"]

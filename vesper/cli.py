@@ -408,6 +408,61 @@ def _validate_acceptance(args) -> int:
     return 0 if summary["passed"] == summary["products"] else 1
 
 
+def _validate_tasmota(args) -> int:
+    from vesper.exposure.mqtt import connect_async, disconnect
+    from vesper.exposure.tasmota import TasmotaDevice, mac_of, topic_of
+    from vesper.lab.hub import ClockThreadClient
+    from vesper.twins.clock import WallClock
+    from vesper.twins.home import load_catalog
+    from vesper.twins.runtime import Runtime
+    from vesper.validation import stack
+    from vesper.validation import tasmota_acceptance as tacc
+    records = [r for r in load_catalog(Path(args.catalog)).values() if r["id"].startswith("tasmota:")]
+    products = tacc.select_tasmota(records, per_category=args.per_category, seed=args.seed,
+                                   categories=args.category or None)
+    broker = stack.Mosquitto(Path(args.root), port=args.mqtt_port)
+    ha = stack.HomeAssistant(Path(args.root), port=args.ha_port, automations="[]\n")
+    runtime = Runtime(clock=WallClock(), seed=args.seed)
+    devices, clients, results = [], [], []
+    try:
+        broker.start()
+        ha.start()
+        ha.onboard()
+        ha.ensure_mqtt(args.mqtt_port)
+        ha.ensure_tasmota()
+        for i, r in enumerate(products):
+            name = f"vesper acc {i:03d}"
+            tid = runtime.add(r).id
+            topic = topic_of(mac_of(tid))
+            client = connect_async("127.0.0.1", args.mqtt_port, topic, will=TasmotaDevice.will(topic), keepalive=30,
+                                   retry_s=2)
+            device = TasmotaDevice(runtime, tid, name, ClockThreadClient(client, runtime.clock))
+            devices.append((device, r, name))
+            clients.append(client)
+            client.loop_start()
+        for device, r, name in devices:
+            results.append(tacc.check_tasmota_product(ha, runtime, device.twin_id, r, name, timeout=args.timeout))
+    except stack.StackError as e:
+        print(f"FAILED tasmota: {e}", file=sys.stderr)
+        return 1
+    finally:
+        for device, _, _ in devices:
+            device.retract()
+            device.stop()
+        for client in clients:
+            disconnect(client)
+        runtime.clock.close()
+        ha.stop()
+        broker.stop()
+    summary = tacc.summarize(results)
+    report = {"summary": summary, "products": results, "ha_version": stack.HA_VERSION, "seed": args.seed,
+              "per_category": args.per_category}
+    path = _write_report(args.out, "tasmota", report, args)
+    print(f"tasmota: {summary['passed']}/{summary['products']} products passed; categories passing "
+          f"{', '.join(summary['categories_passing']) or 'none'}; report {path}")
+    return 0 if summary["products"] and summary["passed"] == summary["products"] else 1
+
+
 def _validate_matter(args) -> int:
     from vesper.exposure import matter_tier
     from vesper.twins.clock import WallClock
@@ -1459,6 +1514,17 @@ def main(argv: list[str] | None = None) -> int:
     acc.add_argument("--timeout", type=float, default=20.0)
     acc.add_argument("--keep", action="store_true", help="leave the twins discovered in Home Assistant")
     acc.add_argument("--out")
+    tas = checks.add_parser("tasmota", help="Home Assistant's Tasmota integration discovers, displays and controls "
+                                            "VESPER's virtual Wi-Fi devices (L2)")
+    tas.add_argument("--catalog", default="catalog/vds")
+    tas.add_argument("--root", default=".vesper")
+    tas.add_argument("--per-category", type=int, default=5)
+    tas.add_argument("--category", action="append", help="limit to a category (repeatable)")
+    tas.add_argument("--seed", type=int, default=0)
+    tas.add_argument("--mqtt-port", type=int, default=18830)
+    tas.add_argument("--ha-port", type=int, default=18123)
+    tas.add_argument("--timeout", type=float, default=30.0)
+    tas.add_argument("--out")
     mat = checks.add_parser("matter", help="Home Assistant commissions, displays and controls Matter twins (L2)")
     mat.add_argument("--catalog", default="catalog/vds")
     mat.add_argument("--root", default=".vesper")
@@ -1769,6 +1835,8 @@ def _dispatch(args) -> int:
         return _validate_realdata(args)
     if args.action == "matter":
         return _validate_matter(args)
+    if args.action == "tasmota":
+        return _validate_tasmota(args)
     return _validate_roundtrip(args) if args.action == "roundtrip" else _validate_acceptance(args)
 
 

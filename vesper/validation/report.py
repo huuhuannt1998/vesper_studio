@@ -18,7 +18,7 @@ from vesper.exposure.ha_discovery import device_discovery
 from vesper.twins.latency import PATHS
 from vesper.validation.realdata import ZIOTP_COMMIT
 
-KINDS = ("discovery", "roundtrip", "acceptance", "matter", "rules", "latency", "realdata")
+KINDS = ("discovery", "roundtrip", "acceptance", "matter", "tasmota", "rules", "latency", "realdata")
 # The pre-registered parameters (docs/experiments/l3-timing-design.md and the run book).
 PREREGISTERED = {
     "rules": {"seed": 0, "hours": 4.0},
@@ -26,6 +26,7 @@ PREREGISTERED = {
                 "product": "zigbee:aqara:mccgq11lm"},
     "acceptance": {"seed": 0, "per_category": 5},
     "matter": {"seed": 0, "per_type": 1, "vid_mode": "product", "category": None},
+    "tasmota": {"seed": 0, "per_category": 5, "category": None},
 }
 # Pre-registered values a result carries in its own fields rather than in its command-line parameters.
 PREREGISTERED_DATA = {"realdata": {"dataset_commit": ZIOTP_COMMIT, "dataset_dirty": False}}
@@ -70,6 +71,10 @@ def _summary(kind: str, data: dict) -> dict:
         return {**{k: s[k] for k in ("products", "device_types", "device_types_passing", "categories_passing")},
                 "products_passed": s["passed"], "vid_mode": data.get("vid_mode"),
                 "passed": s["products"] > 0 and s["passed"] == s["products"]}
+    if kind == "tasmota":
+        s = data["summary"]
+        return {**{k: s[k] for k in ("products", "entities", "categories_passing", "categories")},
+                "products_passed": s["passed"], "passed": s["products"] > 0 and s["passed"] == s["products"]}
     if kind == "roundtrip":
         return {"passed": bool(data.get("complete")) and not data.get("different") and bool(data.get("checked")),
                 **{k: data.get(k) for k in ("checked", "identical", "l1_with_diffs", "missing", "duplicates")}}
@@ -111,14 +116,39 @@ def build_report(catalog_dir: Path, results_dir: Path) -> dict:
         else []
     matter = latest(results_dir, "matter")
     matter_validated = sorted(p["id"] for p in matter[1]["products"] if p["passed"]) if matter and matter[1] else []
+    tasmota = latest(results_dir, "tasmota")
+    tasmota_validated = sorted(p["id"] for p in tasmota[1]["products"] if p["passed"]) \
+        if tasmota and tasmota[1] else []
+    anchors = _anchors(results_dir)
     eligible = sum(1 for r in records if r["id"].startswith("zigbee:") and r["fidelity"]["reached"]["L1"]
                    and device_discovery(r, ieee="0x" + "0" * 16, friendly_name="x")[2])
     return {"catalog_stale": staleness(catalog_dir), "sources": sources, "coverage": coverage,
             "assumed": dict(assumed.most_common()),
             "checks": checks, "l2": {"kind": "z2m-api", "eligible_zigbee": eligible, "validated_products": validated,
-                                     "matter": {"kind": "matter-server", "validated_products": matter_validated}},
+                                     "matter": {"kind": "matter-server", "validated_products": matter_validated},
+                                     "tasmota": {"kind": "hatasmota", "validated_products": tasmota_validated}},
+            "l4": anchors,
             "timing_paths": {n: {"source": p.source, "basis": p.basis, "median_s": p.median()}
                              for n, p in PATHS.items()}}
+
+
+def _anchors(results_dir: Path) -> dict:
+    """L4: the products whose twin agreed with emulated firmware in every transition (every anchors file read; the
+    newest entry of a product counts)."""
+    out = {}
+    for f in sorted(Path(results_dir).glob("anchors-*.json")):
+        try:
+            data = json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+        for a in data.get("anchors") or []:
+            got, _, total = str(a.get("transitions_agree", "")).partition("/")
+            n = re.match(r"\d+", total or "")
+            if a.get("product") and n and got.strip().isdigit() and int(got) == int(n.group()):
+                out[a["product"]] = {**a, "file": f.name}
+            elif a.get("product"):
+                out.pop(a["product"], None)
+    return out
 
 
 def _details(kind: str, c: dict) -> str:
@@ -145,6 +175,9 @@ def _details(kind: str, c: dict) -> str:
     if kind == "acceptance":
         return (f"{c.get('products_passed')}/{c.get('products')} products; categories passing "
                 f"{len(c.get('categories_passing') or [])}")
+    if kind == "tasmota":
+        return (f"{c.get('products_passed')}/{c.get('products')} products, {c.get('entities')} entities; categories "
+                f"passing {', '.join(c.get('categories_passing') or []) or 'none'}")
     if kind == "matter":
         ids = "Matter's test vendor id" if c.get("vid_mode") == "test" else "product vendor ids"
         return (f"{c.get('products_passed')}/{c.get('products')} products; device types fully passing "
@@ -166,12 +199,17 @@ def render_markdown(report: dict) -> str:
     lines += ["", "## Coverage", "", "| Protocol | L0 | L1 | L2 (validated) | L3 | L4 |", "|---|---|---|---|---|---|"]
     for proto, c in sorted(report["coverage"].items()):
         l2 = {"zigbee": len(report["l2"]["validated_products"]),
-              "matter": len(report["l2"]["matter"]["validated_products"])}.get(proto, 0)
-        lines.append(f"| {proto} | {c['L0']} | {c['L1']} | {l2} | {c['L3']} | {c['L4']} |")
+              "matter": len(report["l2"]["matter"]["validated_products"]),
+              "tasmota": len(report["l2"].get("tasmota", {}).get("validated_products", []))}.get(proto, 0)
+        l4 = sum(1 for p in report.get("l4", {}) if p.split(":")[0] == proto)
+        lines.append(f"| {proto} | {c['L0']} | {c['L1']} | {l2} | {c['L3']} | {max(c['L4'], l4)} |")
     lines += ["", f"L2 ({report['l2']['kind']}) is credited only to products that passed acceptance; "
                   f"{report['l2']['eligible_zigbee']} L1 Zigbee products are eligible (they expose at least one "
                   "Home Assistant entity through the bridge). Matter L2 (matter-server) is credited only to "
-                  "products whose node Home Assistant commissioned, displayed and controlled.", "",
+                  "products whose node Home Assistant commissioned, displayed and controlled; Wi-Fi (Tasmota) L2 to "
+                  "products Home Assistant's Tasmota integration discovered, displayed and controlled both ways. L4 "
+                  "is credited to products whose twin agreed with emulated firmware in every transition "
+                  "(results/device-twins/anchors-*.json).", "",
               "## Assumed fields", "",
               "Counted out of coverage (spec §3.2). Most frequent:", "", "| Field | Records |", "|---|---|"]
     lines += [f"| `{k}` | {v} |" for k, v in list(report["assumed"].items())[:15]]
