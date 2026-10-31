@@ -17,6 +17,8 @@ from mcp import Client, StdioServerParameters
 
 from vesper.lab.mcp_server import REPRODUCE_PAPER
 
+NUDGE = ("Continue: the job is not done until the scenario is saved, run, and its report read. Call VESPER's tools "
+         "now; if a tool returned an error, read it and fix the call.")
 RESULT_CHARS = 8000  # a tool result is cut here, as a small context would otherwise fill with one home_describe
 
 
@@ -39,7 +41,8 @@ async def main(a) -> int:
         paper = Path(a.paper).read_text()[:a.paper_chars]
         messages = [{"role": "system", "content": REPRODUCE_PAPER},
                     {"role": "user", "content": Path(a.task).read_text() + "\n\nTHE PAPER (text):\n\n" + paper}]
-        calls = errors = 0
+        calls = errors = nudges = 0
+        reported = False
         async with httpx.AsyncClient(timeout=a.timeout) as http:
             for turn in range(a.max_turns):
                 r = await http.post(f"{a.endpoint}/chat/completions", json={
@@ -52,7 +55,12 @@ async def main(a) -> int:
                 messages.append({k: v for k, v in msg.items() if k in ("role", "content", "tool_calls") and v})
                 write("assistant", turn=turn, content=msg.get("content"), tool_calls=msg.get("tool_calls"))
                 if not msg.get("tool_calls"):
-                    break
+                    if reported or nudges >= a.max_nudges:
+                        break
+                    nudges += 1  # a correction, as a researcher watching an MCP client app would type it
+                    messages.append({"role": "user", "content": NUDGE})
+                    write("nudge", n=nudges)
+                    continue
                 for call in msg["tool_calls"]:
                     calls += 1
                     name = call["function"]["name"]
@@ -64,12 +72,14 @@ async def main(a) -> int:
                             errors += 1
                     except (json.JSONDecodeError, Exception) as e:  # noqa: BLE001 - the model reads the error
                         text, errors = f"error: {e}", errors + 1
+                    reported = reported or (name == "run_report" and '"state": "done"' in text)
                     write("tool", name=name, arguments=call["function"].get("arguments"), result=text[:4000])
                     messages.append({"role": "tool", "tool_call_id": call.get("id", name),
                                      "content": text[:RESULT_CHARS]})
-        write("end", turns=turn + 1, calls=calls, errors=errors)
+        write("end", turns=turn + 1, calls=calls, errors=errors, nudges=nudges, reported=reported)
     log.close()
-    print(f"{turn + 1} turns, {calls} tool calls, {errors} errors; transcript {a.out}")
+    print(f"{turn + 1} turns, {calls} tool calls, {errors} errors, {nudges} nudges, report read: {reported}; "
+          f"transcript {a.out}")
     return 0
 
 
@@ -84,5 +94,6 @@ if __name__ == "__main__":
     p.add_argument("--out", required=True)
     p.add_argument("--max-turns", type=int, default=80)
     p.add_argument("--temperature", type=float, default=0.2)
+    p.add_argument("--max-nudges", type=int, default=5)
     p.add_argument("--timeout", type=float, default=600)
     raise SystemExit(asyncio.run(main(p.parse_args())))

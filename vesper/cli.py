@@ -463,6 +463,24 @@ def _validate_tasmota(args) -> int:
     return 0 if summary["products"] and summary["passed"] == summary["products"] else 1
 
 
+def _matter_conformance(root: Path, url: str, node_id: int) -> dict:
+    """One node's data-model conformance (vesper.validation.matter_conformance), against the data model of the spec
+    version it reports."""
+    from vesper.validation import matter_conformance as mc
+    try:
+        attrs = mc.node_attributes(mc.read_node(url, node_id)["attributes"])
+    except (RuntimeError, OSError, TimeoutError, KeyError, ValueError) as e:
+        return {"error": f"could not read the node: {e}"}
+    version = mc.spec_version(attrs)
+    folder = mc.data_model_dir(root, version)
+    if folder is None:
+        return {"error": f"no data model under {root}"}
+    clusters, devices = mc.load_data_model(folder)
+    problems = mc.check_node(attrs, clusters, devices)
+    return {"spec_version": version, "data_model": folder.name, "endpoints": sorted(attrs),
+            "clusters": sum(len(c) for c in attrs.values()), "problems": problems, "conformant": not problems}
+
+
 def _validate_matter(args) -> int:
     from vesper.exposure import matter_tier
     from vesper.twins.clock import WallClock
@@ -504,6 +522,9 @@ def _validate_matter(args) -> int:
         for tid in specs:
             results.append(macc.check_matter_product(ha, runtime, tier, tid, server.url, timeout=args.timeout,
                                                      poll=0.25, commission_timeout=args.commission_timeout))
+            if args.data_model and results[-1]["node_id"] is not None:
+                results[-1]["conformance"] = _matter_conformance(Path(args.data_model), server.url,
+                                                                 results[-1]["node_id"])
             if len(results) == EMPTY_HA_PRODUCTS_LIMIT and all(r["node_id"] is None for r in results):
                 raise stack.StackError(f"the Matter Server commissioned none of the first {EMPTY_HA_PRODUCTS_LIMIT} "
                                        f"nodes; check {run_dir / 'matter-server.log'} and the interface "
@@ -1539,6 +1560,9 @@ def main(argv: list[str] | None = None) -> int:
     mat.add_argument("--server-port", type=int, default=15580)
     mat.add_argument("--timeout", type=float, default=30.0)
     mat.add_argument("--commission-timeout", type=float, default=120.0)
+    mat.add_argument("--data-model", help="the Matter SDK's data_model folder: also check each node's data-model "
+                                          "conformance (its device types, clusters, revisions, features, attributes "
+                                          "and commands) against the spec version it reports")
     mat.add_argument("--out")
     lab = commands.add_parser("lab", help="VESPER Lab: a game-like virtual smart home")
     lab_actions = lab.add_subparsers(dest="action", required=True)

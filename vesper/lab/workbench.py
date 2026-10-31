@@ -27,6 +27,27 @@ from vesper.lab.scenario import (CONDITIONS, DEFENSE_FIELDS, DEFENSES, DOES, FOR
 from vesper.lab.worldmap import suggest
 
 LISTS = ("actors", "timeline", "attack", "defenses", "expect", "automations", "devices")  # a draft's list sections
+EXAMPLES = {  # one item of each list section, as `scenario_edit ... add` takes it
+    "setup.devices": {"product": "zigbee:aqara:mccgq11lm", "name": "back_door", "at": {"door": "kitchen-garden"}},
+    "automations": {"id": "lock_on_close", "alias": "Lock the door when it closes",
+                    "triggers": [{"trigger": "state", "entity_id": "binary_sensor.<id>_contact", "to": "off"}],
+                    "actions": [{"action": "lock.lock", "target": {"entity_id": "lock.<id>_lock"}}]},
+    "actors": {"name": "intruder", "model": "male_1", "start": {"room": "porch"}},
+    "timeline": {"at": "19:30:50", "actor": "intruder", "do": {"open": "hall-porch"}, "cites": ["attack"]},
+    "attack": {"at": "19:30:01", "vantage": "network", "effect": "delay", "link": "coordinator", "direction": "up",
+               "match": {"device": "front_door", "feature": "contact"}, "hold_s": 30, "keep_connection": True,
+               "cites": ["attack"]},
+    "defenses": {"kind": "freshness", "max_age_s": 10, "action": "alert"},
+    "expect": {"claim": "the intruder gets in before the door is locked",
+               "predicate": {"before": [{"actor": "intruder", "opens": "hall-porch"},
+                                        {"action": {"device": "front_lock", "feature": "state", "value": "LOCK"}}]},
+               "conditions": {"baseline": False, "defense": False, "attack": True, "attack+defense": True},
+               "cites": ["result"]},
+    "gaps": {"what": "the cloud leg", "why": "VESPER has no cloud"},
+    "runs": {"mode": "logical", "repeat": 3, "conditions": ["baseline", "defense", "attack", "attack+defense"],
+             "until": "19:33:00"},
+}
+MESSAGE_CHARS = 600  # an error names what is wrong; it never echoes a whole value back
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 RUN_LIMIT = 50  # runs per scenario run (conditions × repeat) through the server
 
@@ -86,6 +107,7 @@ class Workbench:
             "conditions": list(CONDITIONS), "modes": list(MODES), "live_runs_allowed": self.allow_live,
             "automations": "Home Assistant automation YAML as data (triggers, conditions, actions), entity ids "
                            "from home_describe; VESPER's engine refuses what Home Assistant would refuse",
+            "section_examples": EXAMPLES,
             "limits": ["no hosts, ports, shell commands or code", "the attacker sits in VESPER's own relay and "
                        "link layer: no ARP/DNS spoofing, radio, LAN or cloud", "VESPER has no cloud services",
                        "what cannot be expressed is recorded with the gap tool, never faked"],
@@ -196,9 +218,13 @@ class Workbench:
         else:
             raise WorkbenchError(f"section {section!r}: {suggest(section, ['title', 'setup.devices', 'automations', 'actors', 'timeline', 'attack', 'defenses', 'expect', 'runs', 'gaps'])}")  # noqa: E501
         current = target.get(key)
+        example = EXAMPLES.get("setup.devices" if key == "devices" else key)
         if action == "add":
             if key not in LISTS and key != "gaps":
                 raise WorkbenchError(f"{section} is not a list: replace it")
+            if not isinstance(value, dict):
+                raise WorkbenchError(f"{section}: add takes one item, a mapping (call add once per item); for "
+                                     f"example {example}")
             target[key] = list(current or []) + [value]
         elif action == "replace":
             if index is None:
@@ -338,7 +364,8 @@ class Workbench:
             try:
                 s = load_scenario(path, self.catalog)
             except ScenarioError as e:
-                raise WorkbenchError(str(e)) from e
+                text = str(e)
+                raise WorkbenchError(text if len(text) <= MESSAGE_CHARS else text[:MESSAGE_CHARS] + " ...") from e
             if spec.get("setup", {}).get("automations"):
                 from vesper.lab.session import Session
                 refused = Engine(Session(s.home)).refused

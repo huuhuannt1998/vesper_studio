@@ -146,3 +146,17 @@ def test_a_draft_copies_a_saved_scenario(bench):
     copy = bench.scenario_draft("homes/house", "again", from_scenario="homes/house/scenarios/lock-delay.yaml")
     assert copy["scenario"]["attack"][0]["hold_s"] == 58
     assert copy["scenario"]["setup"]["automations"][0]["id"] == "lock_on_close"
+
+
+def test_adding_a_list_where_one_item_goes_names_the_shape_with_an_example(bench):
+    d = bench.scenario_draft("homes/house", "t")["draft"]
+    with pytest.raises(WorkbenchError, match="add takes one item.*'product'"):
+        bench.scenario_edit(d, "setup.devices", "add", [{"product": "x"}] * 50)
+
+
+def test_an_error_never_echoes_a_long_value_back(bench):
+    d = bench.scenario_draft("homes/house", "t")["draft"]
+    with pytest.raises(WorkbenchError) as e:
+        bench.scenario_edit(d, "setup.devices", "add", {"product": "zigbee:aqara:mccgq11lm", "name": "x" * 5000 + "+",
+                                                        "at": {"room": "hall"}})
+    assert len(str(e.value)) <= 610
