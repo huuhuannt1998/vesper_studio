@@ -27,7 +27,8 @@ def evidence(catalog_dir: Path, results_dir: Path) -> dict:
     l2: set[str] = set()
     try:
         report = build_report(Path(catalog_dir), Path(results_dir))
-        for ids in (report["l2"].get("validated_products"), (report["l2"].get("matter") or {}).get("validated_products")):
+        credit = report["l2"]
+        for ids in (credit.get("validated_products"), (credit.get("matter") or {}).get("validated_products")):
             l2 |= {i for i in ids or () if isinstance(i, str)}
     except (OSError, KeyError, ValueError, TypeError, AttributeError):
         pass  # no results yet, or none readable: nothing credited beyond the catalog
