@@ -30,6 +30,7 @@ browser.
 | Make a home from a real 3D scene (HSSD) | `vesper lab new --scene` | Habitat, HSSD |
 | Find a product to place in a home | `vesper catalog search`, `vesper catalog show` | the catalog |
 | Turn a persona schedule or an ARAS day into a resident's routine | `vesper lab routine` | — |
+| Compose a home in the browser: rooms, real products, their firmware and configuration | `vesper lab compose` | the catalog |
 | Check the page automatically in a headless browser | `vesper lab look` | Chromium |
 | Run the twins on MQTT, and validate them | `vesper twins run`, `vesper validate` | the catalog; some checks `vesper setup ha` |
 
@@ -220,7 +221,21 @@ bathroom, more bedrooms with a bathroom for every two, an office, a dining room,
 drawn from its type's usual range. The same request and seed give the same home. Generated layouts are synthetic, and
 the home file says so.
 
-To choose the rooms and the devices, write a request (`vesper-request/1`) and pass it with `--request`:
+Or compose it in the browser:
+
+    vesper lab compose homes/mine
+
+The page sets the rooms (a number, or a list of room types) and the devices, one row per kind of device and where
+it goes (every room, every room but some, one room, the front door, every exterior door, or a number spread over
+the home). A row takes any real product of its kind, or one picked from the catalog: search by vendor, model or id,
+filter by kind and protocol. A product's card shows its network, its configuration (every setting and reading,
+settable or read-only, with its values), its firmware and an evidence ladder from L0 to L4. Each level shows only
+with its evidence: identity and configuration from the catalog's sources, Home Assistant acceptance from a
+validation run, a firmware anchor where the twin was compared with emulated firmware. **Generate home** writes the
+request and the home to the folder (an earlier home there goes to `previous/`, its traces stay), and **Play it**
+opens it in `vesper lab play`.
+
+To choose the rooms and the devices in a file, write a request (`vesper-request/1`) and pass it with `--request`:
 
     format: vesper-request/1
     program: [living, kitchen, bedroom, bedroom, bathroom, office]

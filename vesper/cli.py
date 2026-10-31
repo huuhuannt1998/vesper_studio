@@ -550,6 +550,8 @@ def _lab(args) -> int:
             return _lab_scenario(args, catalog)
         if args.action == "generate":
             return _lab_generate(args, catalog)
+        if args.action == "compose":
+            return _lab_compose(args, catalog)
         if args.action == "dress":
             return _lab_dress(load_lab_home(Path(args.home), catalog))
         if args.action == "renav":
@@ -889,6 +891,28 @@ def _lab_run(args, home) -> int:
     kinds = [r["kind"] for r in session.records]
     print(f"{kinds.count('input')} inputs, {kinds.count('rule')} rule firings, {kinds.count('report')} reports; "
           f"trace {trace}")
+    return 0
+
+
+def _lab_compose(args, catalog) -> int:
+    """`vesper lab compose OUT` (plan W10): the page to set the rooms, pick real products and generate the home."""
+    import webbrowser
+
+    from vesper.lab.compose import ComposeServer
+    server = ComposeServer(catalog, Path(args.catalog), Path(args.results), Path(args.out), port=args.port,
+                           play_port=args.play_port)
+    try:
+        server.start()
+    except OSError as e:
+        print(f"FAILED: port {args.port}: {e.strerror}; choose another --port", file=sys.stderr)
+        return 1
+    try:
+        print(f"Compose a home: {server.url} (the home goes to {args.out}; Ctrl-C stops)")
+        if not args.no_browser:
+            webbrowser.open(server.url)
+        _wait_for_interrupt()
+    finally:
+        server.stop()
     return 0
 
 
@@ -1442,6 +1466,16 @@ def main(argv: list[str] | None = None) -> int:
     lab_run.add_argument("--home", required=True)
     lab_run.add_argument("--catalog", default="catalog/vds")
     lab_run.add_argument("--trace")
+    lab_compose = lab_actions.add_parser("compose", help="compose a home in the browser: rooms, real devices (their "
+                                                        "firmware and configuration), then generate and play it")
+    lab_compose.add_argument("out", help="the folder the home is written to")
+    lab_compose.add_argument("--catalog", default="catalog/vds")
+    lab_compose.add_argument("--results", default="results/device-twins",
+                             help="validation evidence: the levels a product is credited with (default "
+                                  "results/device-twins)")
+    lab_compose.add_argument("--port", type=int, default=18081, help="the page's port on 127.0.0.1 (default 18081)")
+    lab_compose.add_argument("--play-port", type=int, default=18082, help="the played home's port (default 18082)")
+    lab_compose.add_argument("--no-browser", action="store_true", help="print the page's address, do not open it")
     lab_play = lab_actions.add_parser("play", help="play a home in the browser: the map, the hub and the console")
     lab_play.add_argument("home", nargs="?", help="the home (or give --scenario: its home is played)")
     lab_play.add_argument("--scenario", help="play a scenario: its home, its actors, its attack and its defenses, "
