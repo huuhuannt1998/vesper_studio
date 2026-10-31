@@ -14,7 +14,8 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { colorFor, decodeGrid, gridBounds } from "./mapview.js";
 import {
-  BACK_M, PIVOT_M, RAISE_M, cameraPose, devicePoint, frameAt, hinge, pullIn, roomAt, walkPhase, wallBoxes, wallRuns,
+  BACK_M, PIVOT_M, RAISE_M, cameraPose, devicePoint, frameAt, furnitureFor, hinge, pullIn, roomAt, walkPhase, wallBoxes,
+  wallRuns,
 } from "./scene3d.js";
 
 const SKY = 0xbfd6ea, WALL = 0xe9e4da, FLOOR = 0xd2c9b8, OUTSIDE = 0x9fb98e, DOOR = 0x8a5a2b, LOCKED = 0xc0392b;
@@ -127,6 +128,14 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     if (inside.length) mesh(inside, FLOOR);
     if (outside.length) mesh(outside, OUTSIDE);
     if (walls.length) solids.push(mesh(walls, WALL));
+    const pieces = new Map(); // furniture, one mesh per colour: what each room is, at a glance (drawn, not solid)
+    for (const room of hello.map.rooms) {
+      for (const f of furnitureFor(room, hello.map.doorways)) {
+        if (!pieces.has(f.color)) pieces.set(f.color, []);
+        pieces.get(f.color).push(new THREE.BoxGeometry(f.w, f.h, f.d).translate(f.x, floorY + f.h / 2, f.z));
+      }
+    }
+    for (const [color, parts] of pieces) mesh(parts, color);
     const b = gridBounds(g), ceiling = new THREE.Mesh(new THREE.PlaneGeometry(b.maxX - b.minX, b.maxZ - b.minZ),
       new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
     ceiling.rotation.x = Math.PI / 2;

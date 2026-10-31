@@ -90,6 +90,54 @@ def _device(session, d) -> dict:
             "operable": session.rules.operable(d.name)}
 
 
+def device_card(session, name: str) -> dict:
+    """A device's card (home-generator spec §4): Room 334's panel from VESPER's own records. KeyError if no such
+    device."""
+    from urllib.parse import quote
+
+    from vesper.lab.automations import entity_ids
+    from vesper.lab.network import link_quality
+    d = next((x for x in session.home.devices if x.name == name), None)
+    if d is None:
+        raise KeyError(name)
+    record, home = d.record, session.home
+    identity, fidelity = record["identity"], record.get("fidelity") or {}
+    connections = []
+    if home.network is not None:
+        for link_name in home.network.path(name):
+            link = home.network.links[link_name]
+            q = session.links.quality(link_name) if session.links is not None else link_quality(
+                link.medium, *link.ends, home.map, home.doors)
+            connections.append({"link": link_name, "medium": link.medium, "rssi_dbm": q.rssi_dbm, "walls": q.walls,
+                                "doors": q.doors, "latency_ms": round(q.latency_s * 1000, 1),
+                                "up": session.links.is_up(link_name) if session.links is not None else q.connected})
+    entities = entity_ids(home).get(name, {})
+    automations = []
+    if home.automations is not None and home.automations.is_file():
+        import yaml
+        try:
+            rules = yaml.safe_load(home.automations.read_text()) or []
+        except yaml.YAMLError:
+            rules = []
+        for a in rules if isinstance(rules, list) else []:
+            text = json.dumps(a)
+            if isinstance(a, dict) and any(e in text for e in entities.values()):
+                automations.append(a.get("alias") or a.get("id") or "(unnamed)")
+    protocol = next(iter(record.get("binding") or {}), None)
+    reference = None
+    if protocol == "zigbee" and identity.get("model"):
+        reference = f"https://www.zigbee2mqtt.io/devices/{quote(str(identity['model']).replace('/', '_'))}.html"
+    elif protocol == "tasmota":
+        reference = (record["binding"]["tasmota"] or {}).get("link")
+    return {"name": name, "product": d.product, "vendor": identity.get("vendor"), "model": identity.get("model"),
+            "description": identity.get("description"), "category": identity.get("category"), "protocol": protocol,
+            "where": {"room": d.room, "door": d.door, "mount": d.mount, "position": list(d.position)},
+            "model_basis": {"reached": fidelity.get("reached") or {}, "assumed": fidelity.get("assumed") or [],
+                            "reasons": fidelity.get("reasons") or {}, "sources": record.get("sources") or []},
+            "connections": connections, "interfaces": {"entities": entities, "automations": automations},
+            "state": dict(session.rules.twin(name).state), "reference": reference}
+
+
 def _resident(session, r) -> dict:
     """Who, doing what, where: the page's residents list (spec §2a), kept current by `task` records and poses."""
     task, pose = r.task, session.world.pose(r.name)
@@ -198,6 +246,12 @@ class PlayServer:
             return None
         if path == "/world/render.json" or path.startswith("/hssd/"):
             return self._scene_file(path)
+        if path.startswith("/device/") and path.endswith(".json"):
+            try:
+                card = device_card(self.session, path[len("/device/"):-len(".json")])
+            except KeyError:
+                return _response(404, "text/plain; charset=utf-8", b"no such device")
+            return _response(200, "application/json", json.dumps(card).encode())
         if path.startswith("/humanoids/"):
             return self._humanoid_file(path.removeprefix("/humanoids/"))
         root = self.ui_dir.resolve()

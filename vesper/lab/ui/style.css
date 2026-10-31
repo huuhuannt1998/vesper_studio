@@ -78,3 +78,16 @@ body.mode-3d .toast { top: 44px; }
 .prompt3d:empty { display: none; }
 .loading { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 10px 16px;
   border-radius: 6px; background: rgba(18, 22, 31, 0.85); font-size: 14px; }
+/* A device's card (I), Room 334's panel: the product, its model basis, connections, interfaces and role, state. */
+.card { position: absolute; top: 12px; right: 12px; bottom: 244px; width: min(360px, 46%); overflow: auto;
+  background: rgba(18, 22, 31, 0.96); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+  font-size: 13px; z-index: 5; }
+.card h2 { font-size: 16px; margin: 0 0 2px; }
+.card h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  margin: 12px 0 4px; }
+.card .muted { color: var(--muted); }
+.card table { border-collapse: collapse; width: 100%; }
+.card td { padding: 2px 6px 2px 0; vertical-align: top; overflow-wrap: anywhere; }
+.card .level-yes { color: var(--good, #6cc070); } .card .level-no { color: var(--muted); }
+.card a { color: var(--accent, #7aa2ff); }
+.card td:first-child { white-space: nowrap; }

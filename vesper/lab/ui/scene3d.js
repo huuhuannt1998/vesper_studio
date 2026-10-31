@@ -160,3 +160,55 @@ export function compassMarks(yaw, fov = 120) {
   }
   return marks;
 }
+
+// Furniture for a home drawn from its map (home-generator spec §4): boxes that say what a room is. Each piece is
+// [kind, length along the wall, depth out from it, height, colour, where]; `where` is "back" (against the wall
+// opposite the room's door, centred, or the whole wall for a counter), "side" (the back wall's far end), "middle"
+// (the room's middle, towards the back) or "front" (just in front of the first piece). Pieces are drawn, not walked
+// round: the map has no furniture yet.
+const WOOD = 0x9a7b5a, WHITE = 0xf2f2f2;
+const FURNITURE = {
+  bedroom: [["bed", 1.6, 2.0, 0.55, 0x8c9bb5, "back"], ["nightstand", 0.45, 0.45, 0.55, WOOD, "side"]],
+  "living room": [["sofa", 2.2, 0.9, 0.8, 0x6d7f6a, "back"], ["coffee table", 1.0, 0.6, 0.4, WOOD, "middle"]],
+  kitchen: [["counter", Infinity, 0.6, 0.9, 0xcfc8bb, "back"], ["table", 1.2, 0.8, 0.75, WOOD, "middle"]],
+  bathroom: [["bath", 1.6, 0.75, 0.55, WHITE, "back"], ["sink", 0.6, 0.45, 0.85, WHITE, "side"]],
+  office: [["desk", 1.4, 0.7, 0.75, WOOD, "back"], ["chair", 0.5, 0.5, 0.5, 0x555555, "front"]],
+  "dining room": [["table", 1.8, 0.9, 0.75, WOOD, "middle"]],
+  "laundry room": [["washer", 0.6, 0.6, 0.85, WHITE, "back"], ["dryer", 0.6, 0.6, 0.85, WHITE, "side"]],
+};
+const MARGIN_M = 0.1;
+
+export function furnitureFor(room, doorways) {
+  const kinds = FURNITURE[room.label];
+  if (!kinds || room.outdoor) return [];
+  const xs = room.polygon.map((p) => p[0]), zs = room.polygon.map((p) => p[1]);
+  const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+  const door = doorways.find((d) => d.rooms.includes(room.id));
+  // the door's side of the room (its nearest edge); the furniture goes against the opposite one
+  const [dx, dz] = door ? door.center : [(x0 + x1) / 2, z1];
+  const sides = [["z0", Math.abs(dz - z0)], ["z1", Math.abs(dz - z1)], ["x0", Math.abs(dx - x0)],
+    ["x1", Math.abs(dx - x1)]];
+  const doorSide = sides.reduce((a, b) => (b[1] < a[1] ? b : a))[0];
+  const back = { z0: "z1", z1: "z0", x0: "x1", x1: "x0" }[doorSide];
+  const alongX = back[0] === "z", L = alongX ? x1 - x0 : z1 - z0, D = alongX ? z1 - z0 : x1 - x0;
+  const toWorld = (u, v, w, d) => { // u along the back wall, v out from it
+    if (back === "z0") return { x: x0 + u, z: z0 + v, w, d };
+    if (back === "z1") return { x: x0 + u, z: z1 - v, w, d };
+    if (back === "x0") return { x: x0 + v, z: z0 + u, w: d, d: w };
+    return { x: x1 - v, z: z0 + u, w: d, d: w };
+  };
+  const placed = [];
+  for (const [kind, len, deep, h, color, where] of kinds) {
+    const w = Math.min(len, L - 2 * MARGIN_M), d = Math.min(deep, (D - 2 * MARGIN_M) * 0.6);
+    let u, v;
+    const first = placed[0];
+    if (where === "back") [u, v] = [L / 2, MARGIN_M + d / 2];
+    else if (where === "side") [u, v] = [L - MARGIN_M - w / 2, MARGIN_M + d / 2];
+    else if (where === "front" && first) [u, v] = [first.u, first.v + first.d / 2 + 0.1 + d / 2];
+    else [u, v] = [L / 2, D * 0.45];
+    const overlaps = placed.some((p) => Math.abs(p.u - u) < (p.w + w) / 2 && Math.abs(p.v - v) < (p.d + d) / 2);
+    if (overlaps || w <= 0 || d <= 0 || v + d / 2 > D - MARGIN_M) continue;
+    placed.push({ kind, u, v, w, d, h, color });
+  }
+  return placed.map((p) => ({ kind: p.kind, h: p.h, color: p.color, ...toWorld(p.u, p.v, p.w, p.d) }));
+}

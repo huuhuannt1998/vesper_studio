@@ -127,3 +127,34 @@ test("the compass bar shows the bearings around where the camera looks, north as
   assert.ok(marks.every((m) => m.offset >= -0.5 && m.offset <= 0.5));
   assert.ok(marks.some((m) => m.label === "15"));
 });
+
+// Furniture for a home drawn from its map (home-generator spec §4): what a room is, at a glance
+import { furnitureFor } from "../../../vesper/lab/ui/scene3d.js";
+
+const box = (x0, z0, x1, z1) => [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+
+test("a room's furniture stands inside it, against the wall away from its door, clear of the doorway", () => {
+  const room = { id: "bedroom_1", label: "bedroom", polygon: box(0.1, 0.1, 3.9, 3.9) };
+  const doors = [{ id: "bedroom_1-corridor", rooms: ["bedroom_1", "corridor"], center: [2.0, 4.0] }];
+  const items = furnitureFor(room, doors);
+  assert.ok(items.some((f) => f.kind === "bed"));
+  for (const f of items) {
+    assert.ok(f.x - f.w / 2 >= 0.1 - 1e-9 && f.x + f.w / 2 <= 3.9 + 1e-9, `${f.kind} inside in x`);
+    assert.ok(f.z - f.d / 2 >= 0.1 - 1e-9 && f.z + f.d / 2 <= 3.9 + 1e-9, `${f.kind} inside in z`);
+    assert.ok(Math.hypot(f.x - 2.0, f.z + f.d / 2 - 4.0) > 0.9 || f.z + f.d / 2 < 3.0, `${f.kind} clear of the door`);
+  }
+  const bed = items.find((f) => f.kind === "bed");
+  assert.ok(bed.z - bed.d / 2 <= 0.2 + 1e-9, "the bed's head is against the far wall (10 cm off it)");
+});
+
+test("every room type has its furniture, a corridor and a porch none, a tiny room smaller pieces", () => {
+  for (const label of ["living room", "kitchen", "bathroom", "office", "dining room", "laundry room"]) {
+    assert.ok(furnitureFor({ id: "r", label, polygon: box(0, 0, 4, 4) }, []).length > 0, label);
+  }
+  assert.deepEqual(furnitureFor({ id: "corridor", label: "hallway", polygon: box(0, 0, 20, 1.2) }, []), []);
+  assert.deepEqual(furnitureFor({ id: "porch", label: "porch/terrace/deck/driveway", polygon: box(0, 0, 2, 3),
+                                  outdoor: true }, []), []);
+  for (const f of furnitureFor({ id: "b", label: "bathroom", polygon: box(0, 0, 1.6, 1.8) }, [])) {
+    assert.ok(f.w <= 1.6 - 0.2 + 1e-9 && f.d <= 1.8 - 0.2 + 1e-9, f.kind);
+  }
+});

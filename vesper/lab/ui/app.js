@@ -19,9 +19,9 @@ const FEED_MAX = 5, FEED_S = 8; // the event feed keeps this many lines, each th
 const MINI_PX = 220, MINI_SCALE = 14; // the minimap: its size, and pixels a metre
 const LOOK_DEG = 0.15; // degrees the view turns per pixel of mouse movement
 const KEYS_MAP = "WASD or arrows: walk · Shift: run · click a device or a door, or E or F: use it · Q: next thing in " +
-  "reach · Tab: next panel";
+  "reach · I: inspect · Tab: next panel";
 const KEYS_3D = "Click the view to look around (Esc lets go) · WASD: walk · Shift: run · click or F: use what the " +
-  "crosshair is on · E: the same, or with nothing there the thing in reach · V: first or third person · M: map · Q: next thing in reach · Tab: next panel";
+  "crosshair is on · E: the same, or with nothing there the thing in reach · V: first or third person · M: map · Q: next thing in reach · I: inspect · Tab: next panel";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("map");
@@ -29,6 +29,7 @@ const ctx = canvas.getContext("2d");
 const vesper = (window.vesper = {
   ready: false, connected: false, state: null, lastResult: null, lastError: null, messages: 0, feed: [], prompt: "",
   mode: "map", crosshair: null, // the 3D view's: what the crosshair is on ({target, kind}) or null
+  card: null, // the device card open (I), as the server sent it
   walkTo: (x, z) => send({ type: "walk_to", x, z }), // the looks' scripted walk; play itself has no click-to-walk
   setView: (mode) => setMode(mode), // "map" or "3d": the looks' choice; play picks 3D when the browser has WebGL
   aim: (target) => aim(target), // the looks' aim: turn the view so the crosshair is on a device or door
@@ -351,6 +352,8 @@ window.addEventListener("keydown", (e) => {
   } else if (key === "q") {
     selected += 1;
     updateHint();
+  } else if (key === "i" || (key === "escape" && vesper.card)) { // Room 334's panel for the device you look at
+    inspect(key === "escape");
   } else if (key === "v" && mode === "3d") { // PUBG's first or third person
     cam.mode = cam.mode === "third" ? "first" : "third";
   } else if (key === "m" && mode === "3d") { // PUBG's full map; the pointer is let go, so a click lands on the map
@@ -366,6 +369,65 @@ window.addEventListener("keyup", (e) => {
   sprint = e.shiftKey;
 });
 window.addEventListener("blur", () => held.clear()); // a key released in another window must not walk on
+
+function inspected() { // the device under the crosshair, else under the pointer, else the one in reach
+  const devices = state.devices;
+  if (mode === "3d" && vesper.crosshair && devices[vesper.crosshair.target]) return vesper.crosshair.target;
+  if (hover && devices[hover.target]) return hover.target;
+  const inReach = state.reach.filter((r) => devices[r.target]);
+  return inReach.length ? inReach[selected % inReach.length].target : null;
+}
+
+async function inspect(close) {
+  const box = $("card"), target = close ? null : inspected();
+  if (close || !target || (vesper.card && vesper.card.name === target && !box.hidden)) {
+    box.hidden = true;
+    vesper.card = null;
+    if (!close && !target) toast("Look at a device, or come within reach of one, to inspect it");
+    return;
+  }
+  try {
+    const r = await fetch(`/device/${encodeURIComponent(target)}.json`);
+    if (!r.ok) throw new Error(`${r.status}`);
+    vesper.card = await r.json();
+  } catch (err) {
+    toast(`could not read ${target}'s card (${err.message})`, true);
+    return;
+  }
+  box.innerHTML = cardHtml(vesper.card);
+  box.hidden = false;
+}
+
+function esc(text) {
+  return String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+}
+
+function cardHtml(c) { // Room 334's sections, from VESPER's records
+  const rows = (pairs) => `<table>${pairs.map(([k, v]) => `<tr><td class="muted">${esc(k)}</td><td>${v}</td></tr>`)
+    .join("")}</table>`;
+  const levels = Object.entries(c.model_basis.reached).map(([level, ok]) =>
+    `<span class="${ok ? "level-yes" : "level-no"}" title="${esc(c.model_basis.reasons[level] || "")}">${esc(level)}${
+      ok ? " ✓" : ""}</span>`).join(" ");
+  const sources = c.model_basis.sources.map((s) => esc(`${s.source} ${s.version || ""} (${s.license || "?"})`))
+    .join("<br>");
+  const links = c.connections.map((l) => [l.link, esc(`${l.medium}${l.rssi_dbm == null ? "" :
+    `, ${Math.round(l.rssi_dbm)} dBm, ${l.walls} wall${l.walls === 1 ? "" : "s"}`}, ${l.latency_ms} ms${
+    l.up ? "" : ", down"}`)]);
+  const entities = Object.entries(c.interfaces.entities).map(([f, e]) => [f, `<code>${esc(e)}</code>`]);
+  const where = c.where.door ? `on the ${esc(c.where.door)} door` : `${esc(c.where.room)}, ${esc(c.where.mount)}`;
+  return `<h2>${esc(c.name)}</h2><div class="muted">${esc(c.vendor)} ${esc(c.model)} · ${esc(c.category)} · ${
+    esc(c.protocol)} · ${where}</div>${c.description ? `<p>${esc(c.description)}</p>` : ""}
+    <h3>Model basis</h3>${rows([["fidelity", levels], ["sources", sources || "—"],
+      ["assumed", esc(c.model_basis.assumed.join(", ") || "nothing")]])}
+    <h3>Connections</h3>${links.length ? rows(links) : '<div class="muted">not on the home\'s network yet</div>'}
+    <h3>Interfaces &amp; role</h3>${entities.length ? rows(entities) : '<div class="muted">no Home Assistant ' +
+      "entities yet</div>"}${c.interfaces.automations.length ? `<div>automations: ${esc(
+      c.interfaces.automations.join(", "))}</div>` : ""}
+    <h3>State</h3>${rows(Object.entries(c.state).map(([k, v]) => [k, esc(JSON.stringify(v))]))}
+    ${c.reference ? `<h3>Reference</h3><a href="${esc(c.reference)}" target="_blank" rel="noopener">${
+      esc(c.reference)}</a>` : ""}
+    <div class="muted" style="margin-top:10px">I or Esc closes</div>`;
+}
 
 function step() {
   const d = mode === "3d" ? moveRelative(held, cam.yaw) : moveFor(held);

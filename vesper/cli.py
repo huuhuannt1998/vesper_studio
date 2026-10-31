@@ -534,10 +534,79 @@ def _lab(args) -> int:
             return _lab_routine(args, load_lab_home(Path(args.home), catalog))
         if args.action == "scenario":
             return _lab_scenario(args, catalog)
+        if args.action == "generate":
+            return _lab_generate(args, catalog)
         return _lab_replay(args, catalog, load_lab_home)
     except (HomeError, MapError, TraceError, SceneError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
         return 1
+
+
+def _lab_generate(args, catalog) -> int:
+    """`vesper lab generate` (home-generator spec §1, §6): a home, or a batch of homes, from a number of rooms or a
+    request file."""
+    import csv
+    import random
+
+    from vesper.lab.generate import GenerateError, Request, generate_home, load_request, program, starter, summary_row
+    from vesper.lab.home import load_lab_home
+    out = Path(args.dir)
+    if out.exists():
+        print(f"FAILED: {out} already exists", file=sys.stderr)
+        return 1
+    try:
+        lo, hi = _room_range(args.rooms)
+        if args.count is None and lo != hi:
+            raise GenerateError(f"rooms: a range ({args.rooms}) makes a batch: give --count")
+        base = load_request(Path(args.request)) if args.request else Request(Path("."), program(lo), args.seed, [])
+        if args.count is None:
+            request, left = _with_starter(base, catalog, starter)
+            generate_home(request, catalog, out)
+            home = load_lab_home(out / "home.yaml", catalog)
+            print(f"{len(request.program)} rooms ({', '.join(request.program)}), {len(home.devices)} devices: "
+                  f"{out / 'home.yaml'} (a synthetic layout; positions by rule)")
+            if left:
+                print(f"starter devices left out (none in the catalog, or no such room): {', '.join(left)}")
+            _warn_range(home)
+            return 0
+        rows = []
+        out.mkdir(parents=True)
+        for k in range(args.count):
+            types = base.program if args.request or lo == hi else program(
+                random.Random(f"vesper-batch:{args.seed}:{k}").randint(lo, hi))
+            request, _ = _with_starter(Request(base.path, types, args.seed + k, base.devices), catalog, starter)
+            name = f"home-{k:03d}"
+            generate_home(request, catalog, out / name)
+            rows.append(summary_row(name, load_lab_home(out / name / "home.yaml", catalog)))
+        with (out / "summary.csv").open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"{args.count} homes in {out}, summary {out / 'summary.csv'} (synthetic layouts; positions by rule)")
+        return 0
+    except GenerateError as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+
+
+def _room_range(text) -> tuple[int, int]:
+    """`--rooms`: a number, or a range such as 3-8 (a batch draws each home's number from it)."""
+    from vesper.lab.generate import GenerateError
+    low, dash, high = str(text).partition("-")
+    if not low.isdigit() or (dash and not high.isdigit()):
+        raise GenerateError(f"rooms: {text!r} is not a number or a range such as 3-8")
+    lo, hi = int(low), int(high) if dash else int(low)
+    if lo > hi:
+        raise GenerateError(f"rooms: {text!r} runs backwards")
+    return lo, hi
+
+
+def _with_starter(request, catalog, starter):
+    """A request with no devices gets the starter set; what it left out."""
+    if request.devices:
+        return request, []
+    devices, left = starter(request.program, catalog)
+    return type(request)(request.path, request.program, request.seed, devices), left
 
 
 def _lab_scenario(args, catalog) -> int:
@@ -1211,6 +1280,14 @@ def main(argv: list[str] | None = None) -> int:
     lab_day.add_argument("--from", dest="start", default="00:00", help="the time of day it starts (default 00:00)")
     lab_day.add_argument("--hours", type=float, default=24.0, help="how long (default 24)")
     lab_day.add_argument("--trace", help="the trace file (default: traces/<time>-day-<pid>.jsonl next to the home)")
+    lab_generate = lab_actions.add_parser("generate", help="a home (or a batch) from a number of rooms and the "
+                                          "devices you pick: a synthetic layout")
+    lab_generate.add_argument("dir", help="the new home's directory (a batch: the directory of its homes)")
+    lab_generate.add_argument("--rooms", default="5", help="how many rooms (1-60), or a range such as 3-8 for a batch")
+    lab_generate.add_argument("--request", help="a vesper-request/1 file: rooms or a room list, the devices")
+    lab_generate.add_argument("--seed", type=int, default=0)
+    lab_generate.add_argument("--count", type=int, help="make this many homes (seeds seed, seed+1, ...)")
+    lab_generate.add_argument("--catalog", default="catalog/vds")
     lab_scenario = lab_actions.add_parser("scenario", help="an attack and its defenses on a home: check, run, "
                                           "report (vesper-scenario/1)")
     scenario_actions = lab_scenario.add_subparsers(dest="scenario_action", required=True)
