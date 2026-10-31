@@ -12,7 +12,7 @@ export function homeFacts(h) {
 export function checkRow(c) {
   const state = c.ok ? "ok" : "missing";
   return { state, required: Boolean(c.required), title: `${c.name}: ${c.detail}`,
-           why: c.ok ? "" : `Needed by ${c.needed_by}. ${c.fix}` };
+           why: c.ok ? "" : `Needed by ${c.needed_by}; fix: ${c.fix}` };
 }
 
 async function api(path, body) {
@@ -61,8 +61,14 @@ async function homes() {
   document.getElementById("no-homes").hidden = homes.length > 0;
 }
 
+const SETUP_CHECK = { ha: "home assistant", matter: "matter host", habitat: "habitat" };
+
 async function checks() {
   const { checks } = await api("/api/doctor");
+  for (const b of document.querySelectorAll("[data-setup]")) {
+    const done = checks.some((c) => c.name === SETUP_CHECK[b.dataset.setup] && c.ok);
+    b.textContent = `${done ? "Reinstall" : "Set up"} ${b.dataset.label}`;
+  }
   document.getElementById("checks").replaceChildren(...checks.map((c) => {
     const r = checkRow(c);
     return el("li", { class: `${r.state}${r.required ? " required" : ""}` }, el("span", { class: "dot" }),

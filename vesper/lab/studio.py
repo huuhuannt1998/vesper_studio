@@ -27,7 +27,7 @@ def list_homes(roots: list[Path], catalog: dict) -> list[dict]:
             continue
         for path in sorted(root.rglob("home.yaml")):
             rel = path.parent.relative_to(root)
-            if any(part.startswith(".") or part in ("previous", "scenarios", "runs", "traces") for part in rel.parts):
+            if any(part.startswith(".") or part in ("previous", "runs", "traces") for part in rel.parts):
                 continue
             row = {"name": f"{root.name}/{rel}" if str(rel) != "." else root.name, "path": str(path)}
             try:
