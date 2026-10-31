@@ -322,6 +322,7 @@ Opt-in tests need real services:
 | `VESPER_STACK_TESTS=1` | a real Mosquitto (also the home's network and its Wi-Fi devices end to end) |
 | `VESPER_HA_TESTS=1` | the real Home Assistant of `vesper setup ha` (the network, the Wi-Fi devices and the gold scenarios end to end; about 25 minutes) |
 | `VESPER_NETWORK_TESTS=1` | the upstream catalog sources |
+| `VESPER_BLENDER=<path to Blender>` | `vesper lab dress`'s script in a real Blender (4.2 or later), headless |
 
 Layout:
 

@@ -100,7 +100,8 @@ def test_the_script_exports_the_collection_as_scene_glb_beside_the_home_when_ask
     bpy = run_script(script, monkeypatch, "--export")
     (export,) = bpy.exports
     assert export["filepath"] == str((tmp_path / "scene.glb").resolve())
-    assert (export["export_format"], export["export_yup"], export["use_active_collection"]) == ("GLB", True, True)
+    assert (export["export_format"], export["export_yup"], export["use_active_collection"],
+            export["export_extras"]) == ("GLB", True, True, True)
     assert bpy.context.view_layer.active_layer_collection.collection.name == "VESPER home"
 
 
@@ -179,3 +180,28 @@ def test_a_rebuild_keeps_what_the_dressing_added_whatever_it_is(tmp_path, monkey
     assert sorted(o.name for o in bpy.data.collections["VESPER home"].all_objects if o.get("vesper_built")) == built
     assert [c for c in bpy.data.collections.keys() if c.startswith("VESPER home.")] == []
     assert {"vesper:floor", "vesper:wall"} <= set(bpy.data.materials.keys())
+
+
+@pytest.mark.skipif(not __import__("os").environ.get("VESPER_BLENDER"),
+                    reason="set VESPER_BLENDER to a Blender 4.2+ executable")
+def test_real_blender_builds_and_exports_the_home_with_its_colours_and_device_names(tmp_path):
+    """The script in a real Blender, headless: scene.glb holds the home only, on the map's axes, each material its
+    colour, each device empty its name and category."""
+    import json as _json
+    import os
+    import struct
+    import subprocess
+    h = home(tmp_path)
+    script, _ = dress(h)
+    subprocess.run([os.environ["VESPER_BLENDER"], "-b", "--factory-startup", "--python", str(script), "--",
+                    "--export"], check=True, capture_output=True, timeout=300)
+    raw = (tmp_path / "scene.glb").read_bytes()
+    gltf = _json.loads(raw[20:20 + struct.unpack("<I", raw[12:16])[0]])
+    names = {n.get("name") for n in gltf["nodes"]}
+    assert not names & {"Cube", "Camera", "Light"} and "device:front_lock" in names
+    colours = {m["name"]: m["pbrMetallicRoughness"]["baseColorFactor"] for m in gltf["materials"]}
+    assert colours["vesper:wall"] != colours["vesper:floor"]
+    lock = next(n for n in gltf["nodes"] if n.get("name") == "device:front_lock")
+    x, z = h.device("front_lock").position
+    assert lock["translation"] == pytest.approx([x, 1.0, z], abs=1e-4)
+    assert lock["extras"]["category"] == "lock"

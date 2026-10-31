@@ -188,7 +188,15 @@ def material(name):
     m = bpy.data.materials.get("vesper:" + name)
     if m is None:
         m = bpy.data.materials.new("vesper:" + name)
-        m.diffuse_color = COLORS.get(name, (0.8, 0.8, 0.8, 1.0))
+        colour = COLORS.get(name, (0.8, 0.8, 0.8, 1.0))
+        m.diffuse_color = colour  # the viewport's
+        tree = getattr(m, "node_tree", None)
+        if tree is None and hasattr(m, "use_nodes"):  # Blender 4: nodes on request (5 always has them)
+            m.use_nodes = True
+            tree = m.node_tree
+        bsdf = next((n for n in tree.nodes if n.type == "BSDF_PRINCIPLED"), None) if tree is not None else None
+        if bsdf is not None:  # what the glTF export reads
+            bsdf.inputs["Base Color"].default_value = colour
     return m
 
 
@@ -272,7 +280,7 @@ def export():
     layer = bpy.context.view_layer
     layer.active_layer_collection = layer.layer_collection.children[ROOT]
     options = dict(filepath=DATA["export_to"], export_format="GLB", export_yup=True, export_apply=True,
-                   use_active_collection=True)
+                   use_active_collection=True, export_extras=True)  # extras: each device empty's category
     try:
         bpy.ops.export_scene.gltf(use_active_collection_with_nested=True, **options)
     except TypeError:  # a Blender before the option: nested collections are exported anyway
