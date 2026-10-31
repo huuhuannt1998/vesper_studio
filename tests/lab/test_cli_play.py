@@ -543,3 +543,11 @@ def test_a_scenario_s_automations_file_is_never_rewritten_from_home_assistant(tm
     cli._keep_automations(HA(), s.home, before, scenario=s)
     assert s.home.automations.read_text() == before
     assert list(tmp_path.glob("automations-from-home-assistant.yaml"))  # kept beside it, not lost
+
+
+def test_play_says_it_draws_a_dressed_home_s_own_model(tmp_path, capsys, monkeypatch):
+    cat, home = setup(tmp_path)
+    (home.parent / "scene.glb").write_bytes(b"glTF")
+    monkeypatch.setattr(cli, "_wait_for_interrupt", lambda: None)
+    assert cli.main(["lab", "play", str(home), "--catalog", str(cat), "--port", "0", "--no-browser"]) == 0
+    assert f"3D view: the home's own model, {home.parent / 'scene.glb'}" in capsys.readouterr().out

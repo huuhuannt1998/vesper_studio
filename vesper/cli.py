@@ -1000,6 +1000,10 @@ def _world3d(home, hssd):
     except SceneError as e:
         return None, f"3D view: {e}; the page draws the home from its map"
     if w is None:
+        from vesper.lab.play import dressed_model
+        model = dressed_model(home)
+        if model is not None:
+            return None, f"3D view: the home's own model, {model} (`vesper lab dress`)"
         return None, "3D view: drawn from the map (a home made with `vesper lab new --scene` is drawn from its scene)"
     n = len(w.missing)
     gone = "" if not n else (f"; {n} of its {len(w.assets)} files {'is' if n == 1 else 'are'} missing "
