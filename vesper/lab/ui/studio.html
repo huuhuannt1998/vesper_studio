@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VESPER Studio</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { display: grid; grid-template-rows: auto 1fr; height: 100%; }
+    main { display: grid; grid-template-columns: minmax(380px, 1.4fr) minmax(320px, 1fr); gap: 0; min-height: 0; }
+    main > section { min-height: 0; overflow-y: auto; padding: 16px 20px; }
+    main > section + section { border-left: 1px solid var(--line); background: var(--panel); }
+    h2 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+    p { margin: 4px 0 10px; font-size: 13px; line-height: 1.45; max-width: 68ch; }
+    button, input { font: inherit; font-size: 13px; color: var(--text); background: var(--bg);
+                    border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .4; cursor: default; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    #homes { list-style: none; margin: 12px 0 0; padding: 0; }
+    .home { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center;
+            padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .home b { font-weight: 600; font-size: 14px; }
+    .home .facts { grid-column: 1; font-size: 12px; color: var(--muted); }
+    .home .play { grid-row: 1 / span 2; grid-column: 2; }
+    .home.broken .facts { color: var(--bad); }
+    .new { display: flex; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .new input { flex: 1; }
+    #checks { list-style: none; margin: 10px 0 0; padding: 0; font-size: 13px; }
+    #checks li { display: grid; grid-template-columns: 14px 1fr; gap: 2px 8px; padding: 6px 0;
+                 border-bottom: 1px solid var(--line); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; background: var(--muted); }
+    .ok .dot { background: #3fb37f; }
+    .missing .dot { background: var(--warn); }
+    .missing.required .dot { background: var(--bad); }
+    .why { grid-column: 2; font-size: 12px; color: var(--muted); }
+    .setup { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    pre.job { font: 11px/1.4 ui-monospace, Menlo, monospace; background: var(--bg); border: 1px solid var(--line);
+              border-radius: 4px; padding: 8px; max-height: 180px; overflow: auto; white-space: pre-wrap;
+              margin: 8px 0 0; }
+    .outcome { font-size: 13px; min-height: 1.4em; margin-top: 8px; } .outcome.bad { color: var(--bad); }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; }
+      main > section + section { border-left: 0; border-top: 1px solid var(--line); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>VESPER Studio</h1>
+    <span class="muted">real smart-home products as virtual twins, in homes you can walk</span>
+  </header>
+  <main>
+    <section aria-label="Homes">
+      <h2>Homes</h2>
+      <p class="muted" id="roots"></p>
+      <ul id="homes"></ul>
+      <p id="no-homes" hidden>No home yet. Name one below and compose it: rooms, then real products from the
+        catalog.</p>
+      <form class="new" id="new">
+        <input id="name" placeholder="New home's name, e.g. my-flat" aria-label="New home's name"
+               pattern="[a-z0-9][a-z0-9-]*" required>
+        <button class="primary" type="submit">Compose a new home</button>
+      </form>
+      <div class="outcome" id="outcome" role="status"></div>
+    </section>
+    <section aria-label="Setup">
+      <h2>This computer</h2>
+      <p class="muted">What VESPER found. Every home plays without the optional parts; Home Assistant, Matter and
+        Habitat add the real hub, Matter devices on it, and homes from 3D scenes.</p>
+      <ul id="checks"></ul>
+      <div class="setup">
+        <button data-setup="ha">Set up Home Assistant</button>
+        <button data-setup="matter">Set up Matter</button>
+        <button data-setup="habitat">Set up Habitat</button>
+      </div>
+      <div id="jobs"></div>
+    </section>
+  </main>
+  <script type="module" src="studio.js"></script>
+</body>
+</html>

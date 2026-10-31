@@ -1488,6 +1488,17 @@ def main(argv: list[str] | None = None) -> int:
                                                      "already done")
     setup_all.add_argument("--root", default=".vesper")
     setup_all.add_argument("--no-habitat", action="store_true")
+    studio = commands.add_parser("studio", help="VESPER Studio's lobby: your homes (play, or compose a new one), this "
+                                                "computer's checks and setup, in the browser or the desktop app")
+    studio.add_argument("--homes", action="append", metavar="DIR",
+                        help="a folder of homes (repeatable; new homes go to the first; default ~/vesper-homes and "
+                             "the examples)")
+    studio.add_argument("--catalog", default="catalog/vds")
+    studio.add_argument("--results", default="results/device-twins")
+    studio.add_argument("--root", default=".vesper", help="`vesper setup ha`'s folder")
+    studio.add_argument("--port", type=int, default=18080)
+    studio.add_argument("--play-port", type=int, default=18082)
+    studio.add_argument("--no-browser", action="store_true")
     doc = commands.add_parser("doctor", help="check every prerequisite and say which commands need what is missing")
     doc.add_argument("--root", default=".vesper")
     doc.add_argument("--catalog", default="catalog/vds")
@@ -1782,6 +1793,42 @@ def _catalog_find(args) -> int:
     return 0
 
 
+def _studio(args) -> int:
+    """`vesper studio`: the lobby, at http://127.0.0.1:PORT/ (the desktop app opens the same page)."""
+    import signal
+    import webbrowser
+
+    from vesper.catalog.errors import CatalogError
+    from vesper.lab.studio import StudioServer
+    from vesper.twins.home import load_catalog
+    try:
+        catalog = load_catalog(Path(args.catalog))
+    except (FileNotFoundError, CatalogError) as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    roots = [Path(h).expanduser() for h in (args.homes or _default_homes())]
+    server = StudioServer(catalog, Path(args.catalog), Path(args.results), roots, root=Path(args.root),
+                          port=args.port, play_port=args.play_port)
+    try:
+        server.start()
+    except OSError as e:
+        print(f"FAILED: port {args.port}: {e.strerror}; choose another --port", file=sys.stderr)
+        return 1
+
+    def terminated(signum, frame):
+        raise KeyboardInterrupt
+    previous = signal.signal(signal.SIGTERM, terminated)
+    try:
+        print(f"VESPER Studio: {server.url} (Ctrl-C stops)", flush=True)
+        if not args.no_browser:
+            webbrowser.open(server.url)
+        _wait_for_interrupt()
+    finally:
+        server.stop()
+        signal.signal(signal.SIGTERM, previous)
+    return 0
+
+
 def _doctor(args) -> int:
     from vesper.setup_tools import config_path, doctor
     checks = doctor(Path(args.root), Path(args.catalog))
@@ -1937,6 +1984,8 @@ def _dispatch(args) -> int:
         return _mcp(args)
     if args.command == "doctor":
         return _doctor(args)
+    if args.command == "studio":
+        return _studio(args)
     if args.command == "twins":
         return _twins_run(args)
     if args.command == "lab":

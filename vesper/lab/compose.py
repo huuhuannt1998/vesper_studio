@@ -230,9 +230,10 @@ class ComposeServer:
                 "placed_by_rule": sorted(RULES), "protocols": [p for p in PROTOCOLS if p != "zwave"],
                 "out": str(self.out)}
 
-    def play(self) -> dict:
+    def play(self, home: Path | None = None) -> dict:
+        """Play the composed home (or `home`, a home file the caller has checked) in a child `vesper lab play`."""
         with self.lock:
-            home = self.out / "home.yaml"
+            home = Path(home) if home is not None else self.out / "home.yaml"
             if not home.is_file():
                 raise ComposeError("generate the home first")
             self.stop_play()
