@@ -524,10 +524,23 @@ def _lab(args) -> int:
             return _lab_network(load_lab_home(Path(args.home), catalog))
         if args.action == "run":
             return _lab_run(args, load_lab_home(Path(args.home), catalog))
-        if args.action == "play":
-            return _lab_play(args, load_lab_home(Path(args.home), catalog))
-        if args.action == "look":
-            return _lab_look(args, load_lab_home(Path(args.home), catalog))
+        if args.action in ("play", "look"):
+            if (args.home is None) == (args.scenario is None):
+                print(f"vesper lab {args.action}: give a home or --scenario, not both", file=sys.stderr)
+                return 2
+            if args.condition is not None and args.scenario is None:
+                print(f"vesper lab {args.action}: --condition goes with --scenario", file=sys.stderr)
+                return 2
+            run = _lab_play if args.action == "play" else _lab_look
+            if args.scenario is not None:
+                from vesper.lab.scenario import ScenarioError, load_scenario
+                try:
+                    scenario = load_scenario(Path(args.scenario), catalog)
+                except ScenarioError as e:
+                    print(f"FAILED: {e}", file=sys.stderr)
+                    return 1
+                return run(args, scenario.home, scenario)
+            return run(args, load_lab_home(Path(args.home), catalog))
         if args.action == "day":
             return _lab_day(args, load_lab_home(Path(args.home), catalog))
         if args.action == "routine":
@@ -878,7 +891,9 @@ def _lab_run(args, home) -> int:
     return 0
 
 
-def _lab_play(args, home) -> int:
+def _lab_play(args, home, scenario=None) -> int:
+    """The home in the browser; with a scenario (plan W4c), its home, its actors, its attack and its defenses, played
+    on the wall clock from when the page's session is ready: the page watches."""
     import contextlib
     import webbrowser
 
@@ -894,15 +909,18 @@ def _lab_play(args, home) -> int:
             lab = stack.enter_context(_lab_stack(args, home)) if args.hub else None
             session = _lab_session(home, trace, lab)  # its time starts once the hub is up
             stack.callback(session.stop)
-            session.start()
+            # a scenario plays the player; without the hub, VESPER's engine runs its automations
+            session.start(spawn_player=scenario is None, automations=scenario is not None and lab is None)
             hub = stack.enter_context(_lab_hub(args, session, lab.port)) if lab else None
+            banner, begin = _prepare_scenario(stack, scenario, args.condition or "attack+defense", session, lab,
+                                              hub) if scenario is not None else (None, None)
         except Exception as e:  # noqa: BLE001 - starting the hub: a StackError, a refused connection, HTTP
             print(f"FAILED: {_hub_failure(e)}", file=sys.stderr)
             return 1
         world3d, drawn = _world3d(home, args.hssd)
         humanoids, people = _humanoids(home, args.humanoids)
         server = PlayServer(session, port=args.port, hub_url=lab.ha.url if lab else None, world3d=world3d,
-                            humanoids=humanoids)
+                            humanoids=humanoids, scenario=banner, on_first_page=begin)
         stack.callback(server.stop)
         try:
             server.start()
@@ -914,6 +932,9 @@ def _lab_play(args, home) -> int:
         _warn_range(home)
         print(drawn)
         print(people)
+        if banner:
+            print(f'scenario "{banner["title"]}", {banner["condition"]}: its timeline begins when a page opens; the '
+                  'page watches (the scenario plays the player)')
         if lab:
             user, password = lab.login
             wifi = ", ".join(f"{name} {p}" for name, p in hub.wifi.ports.items())
@@ -928,6 +949,39 @@ def _lab_play(args, home) -> int:
         _wait_for_interrupt()
     print(f"trace {trace}")
     return 0
+
+
+def _prepare_scenario(stack, scenario, condition, session, lab, hub):
+    """A scenario to play in a session (plan W4c): the page's banner, {title, condition, t0}, and `begin()`, which
+    starts its timeline (run on the session's clock, when a page watches; t0 is filled in then). With the hub, it
+    is ready once Home Assistant shows every device, and its defenses hear what Home Assistant hears."""
+    from vesper.lab.scenario_run import HubWatch, _wait_for_home_assistant, start_scenario
+    watch = None
+    if lab is not None:
+        from vesper.exposure import mqtt
+        _wait_for_home_assistant(lab.ha, hub)
+        client = mqtt.connect("127.0.0.1", lab.hub_port, "vesper-scenario-watch")
+        stack.callback(mqtt.disconnect, client)
+        watch = HubWatch(session, client)
+    banner = {"title": scenario.title, "condition": condition, "t0": None}
+
+    def begin():
+        banner["t0"] = start_scenario(session, scenario, condition, hub_watch=watch)
+    return banner, begin
+
+
+def _on_clock(session, fn, timeout: float = 10.0):
+    """Run `fn` on the session's clock thread and wait for it."""
+    import concurrent.futures
+    done: concurrent.futures.Future = concurrent.futures.Future()
+
+    def run():
+        try:
+            done.set_result(fn())
+        except BaseException as e:  # noqa: BLE001 - raised again in the caller's thread
+            done.set_exception(e)
+    session.clock.call_at(session.clock.now(), run)
+    return done.result(timeout=timeout)
 
 
 LOOK_READY_S = 90  # a scene's meshes load in seconds on a GPU, and in tens of seconds in a headless browser
@@ -1024,7 +1078,9 @@ def _wait_for_interrupt() -> None:
         pass
 
 
-def _lab_look(args, home) -> int:
+def _lab_look(args, home, scenario=None) -> int:
+    """The play page in a headless browser, its steps run and checked; with a scenario (plan W4c), its timeline
+    begins once the page is ready, before the first step."""
     import contextlib
 
     from vesper.lab.browser import Browser, BrowserError
@@ -1048,9 +1104,10 @@ def _lab_look(args, home) -> int:
             lab = stack.enter_context(_lab_stack(args, home)) if args.hub else None
             session = _lab_session(home, _new_trace(out, "look"), lab)
             stack.callback(session.stop)
-            session.start()
-            if lab:
-                stack.enter_context(_lab_hub(args, session, lab.port))
+            session.start(spawn_player=scenario is None, automations=scenario is not None and lab is None)
+            hub = stack.enter_context(_lab_hub(args, session, lab.port)) if lab else None
+            banner, begin = _prepare_scenario(stack, scenario, args.condition or "attack+defense", session, lab,
+                                              hub) if scenario is not None else (None, None)
         except Exception as e:  # noqa: BLE001 - starting the hub: a StackError, a refused connection, HTTP
             print(f"FAILED: {_hub_failure(e)}", file=sys.stderr)
             return 1
@@ -1058,8 +1115,10 @@ def _lab_look(args, home) -> int:
         humanoids, people = _humanoids(home, args.humanoids)
         print(drawn)
         print(people)
+        if banner:
+            print(f'scenario "{banner["title"]}", {banner["condition"]}: its timeline begins when the page is ready')
         server = PlayServer(session, port=0, hub_url=lab.ha.url if lab else None, world3d=world3d,
-                            humanoids=humanoids)
+                            humanoids=humanoids, scenario=banner)
         stack.callback(server.stop)
         server.start()
         try:
@@ -1071,7 +1130,8 @@ def _lab_look(args, home) -> int:
         stack.callback(browser.close)
         report = run_look(browser, server.url, steps, out, golden=Path(args.golden) if args.golden else None,
                           update_golden=args.update_golden, ready_timeout=LOOK_READY_S,
-                          session_errors=lambda: server.errors + list(getattr(session.clock, "errors", [])))
+                          session_errors=lambda: server.errors + list(getattr(session.clock, "errors", [])),
+                          on_ready=(lambda: _on_clock(session, begin)) if begin else None)
     for c in report.checks:
         print(f"{'PASS' if c.ok else 'FAIL'} {c.name}" + (f": {c.detail}" if c.detail else ""))
     print(f"{'PASS' if report.ok else 'FAIL'}: {len(report.shots)} shots and the report in {out}")
@@ -1330,7 +1390,11 @@ def main(argv: list[str] | None = None) -> int:
     lab_run.add_argument("--catalog", default="catalog/vds")
     lab_run.add_argument("--trace")
     lab_play = lab_actions.add_parser("play", help="play a home in the browser: the map, the hub and the console")
-    lab_play.add_argument("home")
+    lab_play.add_argument("home", nargs="?", help="the home (or give --scenario: its home is played)")
+    lab_play.add_argument("--scenario", help="play a scenario: its home, its actors, its attack and its defenses, "
+                                             "from when the page's session is ready (the page watches)")
+    lab_play.add_argument("--condition", choices=("baseline", "defense", "attack", "attack+defense"),
+                          help="the scenario's condition (default attack+defense)")
     lab_play.add_argument("--catalog", default="catalog/vds")
     lab_play.add_argument("--port", type=int, default=18080, help="the page's port on 127.0.0.1 (default 18080)")
     lab_play.add_argument("--trace", help="the trace file (default: traces/<time>.jsonl next to the home)")
@@ -1344,7 +1408,11 @@ def main(argv: list[str] | None = None) -> int:
                                "`vesper setup ha`), and show its dashboard in the page")
     lab_play.add_argument("--root", default=".vesper", help="where `vesper setup ha` installed the stack")
     lab_look = lab_actions.add_parser("look", help="drive the play page in a headless browser and check what it shows")
-    lab_look.add_argument("home")
+    lab_look.add_argument("home", nargs="?", help="the home (or give --scenario: its home is played)")
+    lab_look.add_argument("--scenario", help="look at a scenario: its timeline begins when the page is ready, and "
+                                             "the steps (waits and shots) watch it")
+    lab_look.add_argument("--condition", choices=("baseline", "defense", "attack", "attack+defense"),
+                          help="the scenario's condition (default attack+defense)")
     lab_look.add_argument("--catalog", default="catalog/vds")
     lab_look.add_argument("--steps", help="a YAML list of steps (default: one shot of the start)")
     lab_look.add_argument("--out", help="where the shots and the report go (default: looks/<time> next to the home)")

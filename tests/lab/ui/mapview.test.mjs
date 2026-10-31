@@ -226,3 +226,36 @@ test("the tooltip sits right of and below the pointer, and flips where it would 
   assert.deepEqual(tipPosition(100, 680, 200, 60, 880, 700), [114, 606]); // too low: above
   assert.deepEqual(tipPosition(5, 5, 300, 60, 200, 700), [0, 19]); // wider than the map: from its left edge
 });
+
+test("the console tells a scenario's start, its attack, the network's events and the defenses' alerts", () => {
+  assert.equal(recordLine({ t: 0, kind: "scenario", title: "Case 3", condition: "attack+defense", t0: 0 }, 7 * 3600),
+               "07:00:00 scenario \"Case 3\" begins: attack+defense");
+  assert.equal(recordLine({ t: 1, kind: "input", actor: "lab", op: "effect",
+                            args: { kind: "delay", link: "coordinator", direction: "up", device: "front_door",
+                                    feature: "contact", hold_s: 30 } }, 7 * 3600),
+               "07:00:01 attack: delay on coordinator (up), front_door contact, 30 s");
+  assert.equal(recordLine({ t: 2, kind: "net", link: "coordinator", event: "held", device: "front_door",
+                            feature: "contact" }, 7 * 3600),
+               "07:00:02 network: coordinator held front_door contact");
+  assert.equal(recordLine({ t: 3, kind: "alert", defense: "freshness", device: "front_door", age_s: 31.2 }, 7 * 3600),
+               "07:00:03 ALERT freshness: front_door (31.2 s old)");
+  assert.equal(recordLine({ t: 4, kind: "alert", defense: "physical_consistency", device: "front_door",
+                            door: "hall-porch", open: true }, 7 * 3600),
+               "07:00:04 ALERT physical_consistency: front_door did not report the hall-porch door opening");
+  assert.equal(recordLine({ t: 4, kind: "alert", defense: "physical_consistency", device: "front_door",
+                            door: "hall-porch", open: false }, 7 * 3600),
+               "07:00:04 ALERT physical_consistency: front_door did not report the hall-porch door closing");
+  assert.equal(recordLine({ t: 6, kind: "net", link: "zigbee/coordinator", event: "down", reason: "cut" }, 7 * 3600),
+               "07:00:06 network: zigbee/coordinator down (cut)");
+  assert.equal(recordLine({ t: 5, kind: "heard", device: "front_door" }, 7 * 3600), null);
+});
+
+test("the view's feed shows the attack and the defenses' alerts as they happen", () => {
+  assert.equal(feedLine({ kind: "input", actor: "lab", op: "effect",
+                          args: { kind: "delay", link: "coordinator", device: "front_door", hold_s: 60 } }, "player"),
+               "attack: delay front_door (60 s)");
+  assert.equal(feedLine({ kind: "alert", defense: "freshness", device: "front_door", age_s: 60.01 }, "player"),
+               "ALERT freshness: front_door");
+  assert.equal(feedLine({ kind: "scenario", title: "Case 3", condition: "attack" }, "player"), "Case 3: attack");
+  assert.equal(feedLine({ kind: "net", link: "coordinator", event: "held", device: "front_door" }, "player"), null);
+});

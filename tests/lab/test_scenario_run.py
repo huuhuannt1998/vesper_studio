@@ -324,3 +324,39 @@ def test_a_live_run_waits_for_the_wifi_devices_entities_too():
         bridge, wifi = Bridge(), Wifi()
     with pytest.raises(RuntimeError, match="switch.kettle_plug"):
         _wait_for_home_assistant(HA(), Hub(), timeout=0.0)
+
+
+# -- a scenario started in a running session: what `vesper lab play --scenario` shows (plan W4c) ----------------
+def running_session(s, at=50.0):
+    from vesper.lab.session import Session
+    from vesper.twins.clock import LogicalClock
+    session = Session(s.home, clock=LogicalClock())
+    session.start(spawn_player=False, automations=True)
+    session.clock.advance(at)  # the page has been open a while
+    return session
+
+
+def test_a_scenario_started_in_a_running_session_plays_from_that_moment(tmp_path):
+    from vesper.lab.scenario_run import start_scenario
+    s = scenario(tmp_path)
+    session = running_session(s)
+    t0 = start_scenario(session, s, "attack+defense")
+    session.clock.advance(200)
+    records = session.records
+    (start,) = [r for r in records if r["kind"] == "scenario"]
+    assert t0 == 50.0 and start["t0"] == 50.0 and start["condition"] == "attack+defense" and start["title"] == s.title
+    effect = next(r for r in records if r["kind"] == "input" and r["op"] == "effect")
+    assert effect["t"] == 51.0  # the attack's "at: 1" counts from the scenario's start
+    assert [r for r in records if r["kind"] == "alert" and r["defense"] == "freshness"]
+    opened = next(r for r in records if r["kind"] == "input" and r.get("actor") == "intruder"
+                  and r.get("outcome", {}).get("result") == "opened")
+    assert opened["t"] >= 100.0
+
+
+def test_a_baseline_started_in_a_running_session_puts_on_no_attack_and_no_defense(tmp_path):
+    from vesper.lab.scenario_run import start_scenario
+    s = scenario(tmp_path)
+    session = running_session(s)
+    start_scenario(session, s, "baseline")
+    session.clock.advance(200)
+    assert not [r for r in session.records if r["kind"] in ("alert",) or (r["kind"] == "input" and r["op"] == "effect")]

@@ -177,3 +177,17 @@ def test_a_page_that_starts_in_3d_must_draw_it(tmp_path):
     assert [c.name for c in blank.checks if not c.ok] == ["the 3D view is drawn"]
     on_map = run_look(FakeBrowser({VIEW3D_COLOURS: None}), "http://x/", [], tmp_path / "b")
     assert on_map.ok and "the 3D view is drawn" not in [c.name for c in on_map.checks]
+
+
+def test_a_look_tells_its_caller_when_the_page_is_ready_before_its_first_step(tmp_path):
+    b = FakeBrowser(values={READY: lambda: b.calls.append(("ready",)) or True})
+    run_look(b, "http://x/", [{"press": "w"}], tmp_path, on_ready=lambda: b.calls.append(("on_ready",)))
+    names = [c[0] for c in b.calls]
+    assert names.index("on_ready") > names.index("ready") and names.index("on_ready") < names.index("press")
+
+
+def test_a_page_that_never_gets_ready_does_not_start_what_waits_for_it(tmp_path):
+    started = []
+    run_look(FakeBrowser(values={READY: False}), "http://x/", [{"shot": "start"}], tmp_path,
+             on_ready=lambda: started.append(1))
+    assert started == []

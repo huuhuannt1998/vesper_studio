@@ -162,6 +162,12 @@ export function feedLine(r, player) {
   if (r.kind === "rule" && r.rule === "interact" && r.ok && r.actor !== player) return `${r.actor}: ${r.target} ${r.result}`;
   if (r.kind === "resident") return `${r.resident} ${r.decision}`;
   if (r.kind === "task") return r.task ? `${r.resident}: ${r.task}` : null;
+  if (r.kind === "scenario") return `${r.title}: ${r.condition}`;
+  if (r.kind === "input" && r.op === "effect") {
+    const a = r.args;
+    return `attack: ${a.kind}${a.device ? ` ${a.device}` : ` ${a.link}`}${a.hold_s ? ` (${a.hold_s} s)` : ""}`;
+  }
+  if (r.kind === "alert") return `ALERT ${r.defense}: ${r.device}`;
   return null;
 }
 
@@ -198,6 +204,23 @@ function describe(r) {
     if (r.event === "door") return `the ${r.id} door ${r.open ? "opens" : "closes"}`;
     if (r.event === "arrived") return `${r.actor} arrives`;
     if (r.event === "blocked") return `${r.actor} is blocked`;
+  }
+  if (r.kind === "scenario") return `scenario "${r.title}" begins: ${r.condition}`;
+  if (r.kind === "input" && r.op === "effect") { // the scenario's attack, on a link
+    const a = r.args;
+    const what = a.device ? `, ${a.device}${a.feature ? ` ${a.feature}` : ""}` : "";
+    const hold = a.hold_s ? `, ${a.hold_s} s` : "";
+    return `attack: ${a.kind} on ${a.link}${a.direction ? ` (${a.direction})` : ""}${what}${hold}`;
+  }
+  if (r.kind === "net") {
+    if (r.event === "down" || r.event === "up") return `network: ${r.link} ${r.event}${r.reason ? ` (${r.reason})` : ""}`;
+    return `network: ${r.link} ${r.event} ${r.device || ""}${r.feature ? ` ${r.feature}` : ""}`.trimEnd();
+  }
+  if (r.kind === "alert") {
+    if (r.defense === "physical_consistency") {
+      return `ALERT physical_consistency: ${r.device} did not report the ${r.door} door ${r.open ? "opening" : "closing"}`;
+    }
+    return `ALERT ${r.defense}: ${r.device}` + (r.age_s !== undefined ? ` (${Number(r.age_s).toFixed(1)} s old)` : "");
   }
   if (r.kind === "input" && r.op === "command") { // Home Assistant, through the bridge
     const { device, feature, value } = r.args;

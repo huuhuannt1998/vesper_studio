@@ -177,6 +177,18 @@ misnamed value, a device that never acts) is flagged, and a run that could not r
 judged. `vesper lab scenario report` checks the claims again
 on a run's saved traces. Each run's trace replays like any other session.
 
+To watch a scenario play out in the home, give it to `lab play` (or to `lab look`, for screenshots):
+
+    vesper lab play --scenario examples/lab/scenarios/phantom-delay/case3-action-delay.yaml --condition attack
+    vesper lab look --scenario examples/lab/scenarios/phantom-delay/case3-action-delay.yaml --steps shots.yaml
+
+The scenario's home opens with its actors in their places; its timeline begins when the page opens (`look`: when the
+page is ready), on the wall clock. The scenario plays the player, so the page only watches: walking and using are
+switched off, looking around still works. The console shows the scenario's start, the attack's effects, what the
+network held or dropped, and each defense's alert, in its own colour; the view's feed shows the attack and the
+alerts. `--condition` is one of the four (default attack + defense). With `--hub`, Home Assistant runs the
+automations and the defenses hear what it hears, as in a live run.
+
 ## A day in seconds, and exact replays
 
     vesper lab day examples/lab/test-house/home.yaml --hours 24

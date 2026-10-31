@@ -1,6 +1,7 @@
 """`vesper lab play` and `vesper lab look`, with the real play server on a free port and a fake browser."""
 import json
 import re
+import time
 from types import SimpleNamespace
 import urllib.request
 
@@ -408,3 +409,62 @@ def test_play_with_the_hub_puts_each_wi_fi_device_on_its_own_connection_through_
     assert sum(1 for c in clients if c[0] == "disconnected") == 3
     assert "kettle_plug: switch.kettle_plug" in seen["out"] and "reading_lamp: light.reading_lamp" in seen["out"]
     assert "Wi-Fi devices through their own links" in seen["out"]
+
+
+def test_play_a_scenario_plays_its_home_its_attack_and_its_defenses(tmp_path, capsys, monkeypatch):
+    from tests.lab.test_scenario_run import scenario
+    cat, _ = setup(tmp_path / "c")
+    s = scenario(tmp_path)
+    seen = {}
+
+    def interrupted():
+        from websockets.sync.client import connect
+        seen["out"] = capsys.readouterr().out
+        port = re.search(r"http://127\.0\.0\.1:(\d+)/", seen["out"]).group(1)
+        with connect(f"ws://127.0.0.1:{port}/ws", proxy=None, origin=f"http://127.0.0.1:{port}") as ws:
+            seen["hello"] = json.loads(ws.recv(timeout=5))
+            time.sleep(0.3)  # the timeline begins once a page watches
+    monkeypatch.setattr(cli, "_wait_for_interrupt", interrupted)
+    assert cli.main(["lab", "play", "--scenario", str(s.path), "--condition", "attack", "--catalog", str(cat),
+                     "--port", "0", "--no-browser"]) == 0
+    assert 'scenario "Case 3, the lock-on-close action delayed", attack: its timeline begins when a page opens' \
+        in seen["out"]
+    assert seen["hello"]["scenario"]["title"] == "Case 3, the lock-on-close action delayed"
+    (trace,) = (tmp_path / "traces").glob("*.jsonl")
+    records = [json.loads(line) for line in trace.read_text().splitlines()]
+    assert records[0]["automations"]["loaded"] == ["Lock the front door when it closes"]  # VESPER's engine runs the scenario's automations
+    (start,) = [r for r in records if r["kind"] == "scenario"]
+    assert start["condition"] == "attack" and start["defenses"] == []
+
+
+def test_play_takes_a_home_or_a_scenario_not_both_nor_neither(tmp_path, capsys):
+    from tests.lab.test_scenario_run import scenario
+    cat, home = setup(tmp_path / "c")
+    s = scenario(tmp_path)
+    assert cli.main(["lab", "play", str(home), "--scenario", str(s.path), "--catalog", str(cat), "--no-browser"]) == 2
+    assert "a home or --scenario, not both" in capsys.readouterr().err
+    assert cli.main(["lab", "play", "--catalog", str(cat), "--no-browser"]) == 2
+    assert "a home or --scenario" in capsys.readouterr().err
+    assert cli.main(["lab", "play", str(home), "--condition", "attack", "--catalog", str(cat), "--no-browser"]) == 2
+    assert "--condition goes with --scenario" in capsys.readouterr().err
+
+
+def test_look_at_a_scenario_begins_its_timeline_when_the_page_is_ready(tmp_path, capsys, monkeypatch):
+    from tests.lab.test_scenario_run import scenario
+    cat, _ = setup(tmp_path / "c")
+    s = scenario(tmp_path)
+    steps = tmp_path / "look.yaml"
+    steps.write_text("- {wait: 0.3}\n- {shot: begun}\n")
+    fake = FakeBrowser()
+    fake.close = lambda: None
+    monkeypatch.setattr(browser_mod.Browser, "launch", classmethod(lambda cls, path=None, **kw: fake))
+    out = tmp_path / "look"
+    assert cli.main(["lab", "look", "--scenario", str(s.path), "--catalog", str(cat), "--steps", str(steps),
+                     "--out", str(out)]) == 0
+    assert 'scenario "Case 3, the lock-on-close action delayed", attack+defense' in capsys.readouterr().out
+    (trace,) = out.glob("*-look-*.jsonl")
+    records = [json.loads(line) for line in trace.read_text().splitlines()]
+    (start,) = [r for r in records if r["kind"] == "scenario"]
+    assert start["condition"] == "attack+defense" and start["defenses"] == ["freshness", "physical_consistency"]
+    assert not [r for r in records if r["kind"] == "input" and r["op"] == "spawn" and r["actor"] == "player"
+                and r["t"] < start["t0"]]  # no player of the page's own: the scenario's is scripted

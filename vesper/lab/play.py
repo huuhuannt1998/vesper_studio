@@ -50,10 +50,12 @@ class PlayError(RuntimeError):
     """The play server could not start."""
 
 
-def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoids=None) -> dict:
+def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoids=None, scenario=None) -> dict:
     home, world, m = session.home, session.world, session.home.map
     return {
         "type": "hello", "scene": home.scene, "player": PLAYER, "hub": hub_url, "reach_m": INTERACT_M,
+        "scenario": scenario,  # {title, condition, t0} while a scenario plays: the page watches, the player is scripted
+        "start": list(home.avatar["start"]),  # where the player enters: the view's place before anyone is there
         "world3d": None if world3d is None else {
             "render": "/world/render.json", "floor_y": world3d.floor_y, "items": len(world3d.manifest["items"]),
             "missing": len(world3d.missing), "missing_files": world3d.missing[:10], "hssd": str(world3d.root)},
@@ -177,8 +179,11 @@ def _number(msg: dict, key: str) -> float:
 
 class PlayServer:
     def __init__(self, session, *, host: str = "127.0.0.1", port: int = 18080, hub_url: str | None = None,
-                 ui_dir: Path = UI_DIR, world3d=None, humanoids=None):
+                 ui_dir: Path = UI_DIR, world3d=None, humanoids=None, scenario: dict | None = None,
+                 on_first_page=None):
         self.session, self.host, self.hub_url, self.ui_dir = session, host, hub_url, Path(ui_dir)
+        self.scenario = scenario  # {title, condition, t0}: a scenario plays the player, the page only watches
+        self._on_first_page = on_first_page  # run once, on the clock, after the first page's hello
         self.world3d = world3d  # vesper.lab.world3d.World3d, or None: the page draws the home from its map
         self.humanoids = humanoids  # vesper.lab.humanoids.Humanoids, or None: the people are plain figures
         self.port: int | None = None
@@ -302,11 +307,18 @@ class PlayServer:
         try:
             try:
                 snapshot = await self._on_clock(
-                    lambda: hello(self.session, self.hub_url, self._recent, self.world3d, self.humanoids))
+                    lambda: hello(self.session, self.hub_url, self._recent, self.world3d, self.humanoids,
+                                  self.scenario))
             except Exception as e:  # noqa: BLE001 - kept for the look, then the page is closed
                 self._fail(f"hello: {type(e).__name__}: {e}")
                 return
             await ws.send(json.dumps(snapshot))
+            if self._on_first_page is not None:
+                begin, self._on_first_page = self._on_first_page, None
+                try:
+                    await self._on_clock(begin)
+                except Exception as e:  # noqa: BLE001 - a look sees it in the errors
+                    self._fail(f"start: {type(e).__name__}: {e}")
             sender = asyncio.create_task(self._send_queued(ws, queue))
             async for raw in ws:
                 reply = await self._input(raw)
@@ -345,6 +357,8 @@ class PlayServer:
         if not isinstance(msg, dict):
             return {"type": "error", "message": "an input must be a JSON object"}
         kind, s = msg.get("type"), self.session
+        if self.scenario is not None and kind in ("move", "walk_to", "interact"):
+            return {"type": "error", "message": f"{kind}: the scenario plays the player; this page watches it"}
         try:
             if kind == "move":
                 dx, dz = _number(msg, "dx"), _number(msg, "dz")

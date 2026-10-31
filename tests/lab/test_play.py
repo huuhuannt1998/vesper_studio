@@ -280,3 +280,53 @@ def test_the_people_s_humanoids_are_served_and_only_theirs(tmp_path):
     finally:
         server.stop()
         session.stop()
+
+
+def test_a_page_watching_a_scenario_is_told_of_it_and_cannot_move_the_scripted_player(tmp_path):
+    home = load_lab_home(write_home(tmp_path, IN_BEDROOM), catalog())
+    session = Session(home, clock=WallClock())
+    session.start()
+    banner = {"title": "Case 3", "condition": "attack+defense", "t0": 0.0}
+    server = PlayServer(session, port=0, scenario=banner)
+    server.start()
+    try:
+        assert hello(session, scenario=banner)["scenario"] == banner and hello(session)["scenario"] is None
+        with client(server) as ws:
+            assert until(ws, lambda m: m["type"] == "hello")["scenario"] == banner
+            for msg in ({"type": "move", "dx": 1, "dz": 0}, {"type": "walk_to", "x": 1, "z": 1},
+                        {"type": "interact", "target": None}):
+                ws.send(json.dumps(msg))
+                err = until(ws, lambda m: m["type"] == "error")
+                assert "the scenario plays the player" in err["message"]
+    finally:
+        server.stop()
+        session.stop()
+
+
+def test_the_first_page_to_connect_starts_what_waits_for_a_watcher_once_on_the_clock(tmp_path):
+    import threading
+    home = load_lab_home(write_home(tmp_path, IN_BEDROOM), catalog())
+    session = Session(home, clock=WallClock())
+    session.start()
+    calls = []
+    server = PlayServer(session, port=0, on_first_page=lambda: calls.append(threading.current_thread().name))
+    server.start()
+    try:
+        for _ in range(2):
+            with client(server) as ws:
+                until(ws, lambda m: m["type"] == "hello")
+                time.sleep(0.2)
+        assert calls == ["vesper-wallclock"]
+    finally:
+        server.stop()
+        session.stop()
+
+
+def test_hello_says_where_the_player_starts_for_a_view_with_no_player_yet(tmp_path):
+    home = load_lab_home(write_home(tmp_path, IN_BEDROOM), catalog())
+    session = Session(home, clock=WallClock())
+    session.start(spawn_player=False)
+    try:
+        assert hello(session)["start"] == pytest.approx(list(home.avatar["start"]))
+    finally:
+        session.stop()

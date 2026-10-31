@@ -27,6 +27,7 @@ from pathlib import Path
 from vesper.lab.home import spawn_point
 from vesper.lab.predicates import Verdict, evaluate, events, matches
 from vesper.lab.resident import RETRY_S, Resident
+from vesper.lab.scenario import CONDITIONS
 from vesper.lab.rules import is_locked
 from vesper.lab.session import Session
 from vesper.twins.clock import LogicalClock
@@ -143,6 +144,26 @@ def _run_live(scenario, condition: str, k: int, trace: Path, lab, catalog_dir: P
         session.stop()
     _check_clock(session)
     return home.seed, session.records
+
+
+def start_scenario(session, scenario, condition: str, hub_watch: HubWatch | None = None) -> float:
+    """A scenario in a session that is already running (`vesper lab play --scenario`, plan W4c): the defenses its
+    condition runs, its actors in their places and its timeline from now (t0), which it returns. Without a hub the
+    defenses watch the twins' reports (the session runs the automations); with one, `hub_watch` gives them what Home
+    Assistant hears. The caller starts the session without its own player: the scenario's player is scripted."""
+    if condition not in CONDITIONS:
+        raise ValueError(f"unknown condition {condition!r}; the conditions are {', '.join(CONDITIONS)}")
+    if condition in DEFENDED:
+        for d in scenario.defenses:
+            if hub_watch is None:
+                DEFENSES[d.kind](session, d)
+            else:
+                LIVE_DEFENSES[d.kind](session, d, hub_watch)
+    t0 = session.clock.now()
+    session.scenario_record({"kind": "scenario", "t0": t0, "condition": condition, "title": scenario.title,
+                             "defenses": _defenses(scenario, condition)})
+    _play(scenario, session, condition, t0)
+    return t0
 
 
 def _check_clock(session) -> None:

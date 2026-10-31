@@ -115,8 +115,9 @@ def _check_step(k: int, step) -> None:
 
 def run_look(browser, url: str, steps: list[dict], out: Path, *, golden: Path | None = None,
              update_golden: bool = False, tolerance: int = 16, max_diff: float = 0.002,
-             ready_timeout: float = 15.0, session_errors=None) -> Report:
-    """`session_errors()`, when given, lists failures inside the session the page drove."""
+             ready_timeout: float = 15.0, session_errors=None, on_ready=None) -> Report:
+    """`session_errors()`, when given, lists failures inside the session the page drove; `on_ready()` runs once the
+    page is ready, before the first step (a scenario's timeline begins there)."""
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     report = Report(url, out)
@@ -132,6 +133,8 @@ def run_look(browser, url: str, steps: list[dict], out: Path, *, golden: Path | 
     colours = browser.evaluate("vesper.canvasColors()") or 0
     checks.append(Check("the map is drawn", colours >= MIN_COLOURS, f"{colours} colours on the map"))
     _check_3d(browser, checks)
+    if on_ready is not None:
+        on_ready()
     for k, step in enumerate(steps, 1):
         try:
             if not _step(browser, step, report, golden, update_golden, tolerance, max_diff):

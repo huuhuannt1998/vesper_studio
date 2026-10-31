@@ -58,7 +58,11 @@ const ws = new WebSocket(`ws://${location.host}/ws`);
 ws.onopen = () => setStatus("connected", "ok");
 ws.onclose = () => { vesper.connected = false; setStatus("disconnected: restart vesper lab play, then reload", "bad"); };
 ws.onmessage = (e) => { vesper.messages += 1; handle(JSON.parse(e.data)); dirty = true; };
-const send = (msg) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); };
+const PLAYER_INPUTS = new Set(["move", "walk_to", "interact"]);
+const send = (msg) => {
+  if (state && state.hello.scenario && PLAYER_INPUTS.has(msg.type)) return; // the scenario plays the player
+  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+};
 
 function setStatus(text, kind) {
   const s = $("status");
@@ -95,6 +99,9 @@ function onHello(h) {
   vesper.state = state;
   vesper.connected = true;
   $("scene").textContent = h.scene;
+  const sc = $("scenario"); // a scenario plays the player: the page watches it
+  sc.hidden = !h.scenario;
+  sc.textContent = h.scenario ? `scenario: ${h.scenario.title} · ${h.scenario.condition} · watching` : "";
   $("hub").innerHTML = "";
   if (h.hub) {
     const frame = document.createElement("iframe");
@@ -279,7 +286,7 @@ function onRecord(r, live = true) {
   if (line === null) return;
   const li = document.createElement("li");
   li.textContent = line;
-  li.className = r.kind;
+  li.className = r.kind === "input" && r.op === "effect" ? "attack" : r.kind;
   const log = $("log");
   log.append(li);
   while (log.children.length > LOG_MAX) log.firstChild.remove();
@@ -309,7 +316,7 @@ function drawFeed() {
 
 function updateHint() {
   const reach = state.reach;
-  if (!reach.length) { $("hint").textContent = ""; return; }
+  if (!reach.length || state.hello.scenario) { $("hint").textContent = ""; return; } // watching: no hand to use
   selected %= reach.length;
   // In 3D, E and F use what the crosshair is on; with nothing there, E alone uses the thing in reach (Q picks it)
   const aimed = mode === "3d" && vesper.crosshair ? vesper.crosshair.target : null;

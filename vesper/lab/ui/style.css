@@ -37,6 +37,12 @@ aside { display: grid; grid-template-rows: 170px 1fr 230px; gap: 8px; min-height
   font: 12px/1.45 ui-monospace, Menlo, monospace; }
 .log li.report { color: #9fd3ff; }
 .log li.rule { color: #ffd98a; }
+.log li.scenario { color: #e8e8e8; font-weight: 600; }
+.log li.attack { color: #ffb36b; }
+.log li.net { color: #c3a6ff; }
+.log li.alert { color: #ff8a8a; font-weight: 600; }
+.scenario { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #5a3d0c; }
+.scenario[hidden] { display: none; }
 .hint { position: absolute; left: 12px; bottom: 12px; background: rgba(18, 22, 31, 0.85); padding: 6px 10px;
   border-radius: 6px; font-size: 14px; }
 .hint:empty { display: none; }

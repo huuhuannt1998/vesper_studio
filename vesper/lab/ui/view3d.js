@@ -352,20 +352,22 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       if (dev.light) dev.light.intensity = e.on === true ? 4 : 0;
     }
     const me = actors[state.player];
-    if (!me) return;
-    me.group.visible = cam.mode !== "first";
+    const start = state.hello && state.hello.start; // no player yet (a scenario not begun): look from its start
+    const at = me || (start ? { x: start[0], z: start[1] } : null);
+    if (!at) return;
+    if (me) me.group.visible = cam.mode !== "first";
     const now = performance.now();
     if (cam.mode === "third" && now - lastProbe > 80) { // a wall behind pulls the camera in
       lastProbe = now;
-      const pose = cameraPose({ x: me.x, z: me.z, floorY, yaw: cam.yaw, pitch: cam.pitch, mode: "third" });
-      const from = new THREE.Vector3(me.x, floorY + PIVOT_M + RAISE_M, me.z);
+      const pose = cameraPose({ x: at.x, z: at.z, floorY, yaw: cam.yaw, pitch: cam.pitch, mode: "third" });
+      const from = new THREE.Vector3(at.x, floorY + PIVOT_M + RAISE_M, at.z);
       const toward = new THREE.Vector3(...pose.position).sub(from).normalize();
       back.set(from, toward);
       back.far = BACK_M + 0.3;
       const hit = back.intersectObjects(solids, true)[0];
       distance = pullIn(BACK_M, hit ? hit.distance : Infinity);
     }
-    const pose = cameraPose({ x: me.x, z: me.z, floorY, yaw: cam.yaw, pitch: cam.pitch, mode: cam.mode, distance });
+    const pose = cameraPose({ x: at.x, z: at.z, floorY, yaw: cam.yaw, pitch: cam.pitch, mode: cam.mode, distance });
     camera.position.set(...pose.position);
     camera.lookAt(...pose.target);
   }
