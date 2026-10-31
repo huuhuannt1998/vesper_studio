@@ -54,6 +54,7 @@ def _build(args) -> int:
     except CatalogError as e:
         print(f"FAILED build: {e}", file=sys.stderr)
         return 1
+    _remember(catalog=args.out)
     print(f"built {report['records']} records into {args.out} "
           f"({len(report['rejected'])} rejected, {len(report['linked'])} linked across protocols)")
     for source, why in report["skipped_sources"].items():
@@ -143,6 +144,7 @@ def _setup(args) -> int:
     except stack.StackError as e:
         print(f"FAILED setup: {e}", file=sys.stderr)
         return 1
+    _remember(root=args.root)
     print(f"Home Assistant ready in {Path(args.root) / 'ha' / 'venv'} (extra packages: {', '.join(requirements)})")
     return 0
 
@@ -1739,6 +1741,7 @@ def main(argv: list[str] | None = None) -> int:
     lab_replay.add_argument("--home", help="the home file (default: the one the trace names)")
     lab_replay.add_argument("--catalog", default="catalog/vds")
     args = parser.parse_args(argv)
+    _configured_defaults(args)
     if args.command in ("setup", "twins", "validate", "lab"):
         _install_sigterm()
     try:
@@ -1759,6 +1762,7 @@ def _catalog_bundle(args) -> int:
     except (BundleError, OSError) as e:
         print(f"FAILED catalog {args.action}: {e}", file=sys.stderr)
         return 1
+    _remember(catalog=args.out)
     print(f"catalog installed in {args.out}: {len(manifest['files'])} files, catalog code "
           f"{str(manifest.get('code_sha256'))[:12]}")
     return 0
@@ -1967,6 +1971,24 @@ def _setup_claude_desktop(args) -> int:
     os.replace(tmp, path)
     print(f"{path}: VESPER's MCP server registered; restart Claude Desktop, then use the prompt reproduce_paper")
     return 0
+
+
+CONFIGURED = {"catalog": ("catalog/vds", "catalog"), "root": (".vesper", "root"),
+              "results": ("results/device-twins", "results")}
+
+
+def _configured_defaults(args) -> None:
+    """A default path that does not exist here (the app starts VESPER from anywhere) becomes the one VESPER's
+    configuration recorded (`vesper catalog build|fetch`, `vesper setup ha`); a path given on the command line stays."""
+    from vesper.setup_tools import configured
+    for attr, (default, key) in CONFIGURED.items():
+        if getattr(args, attr, None) == default and not Path(default).exists() and configured(key):
+            setattr(args, attr, configured(key))
+
+
+def _remember(**paths) -> None:
+    from vesper.setup_tools import save_config
+    save_config(**{k: Path(v).resolve() for k, v in paths.items()})
 
 
 def _dispatch(args) -> int:

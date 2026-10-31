@@ -84,3 +84,20 @@ def test_a_scene_is_fetched_round_by_round_until_nothing_is_missing(tmp_path, mo
     got = st.setup_scenes(hssd, ["1"], which=lambda t: "/bin/hf" if t == "hf" else None, run=run, say=lambda _: None)
     assert set(fetched) == set(tree) and got == {"1": len(tree)}
     assert st.configured("hssd") == str(hssd.resolve())
+
+
+def test_a_missing_default_path_becomes_the_configured_one_and_a_given_one_stays(tmp_path, monkeypatch):
+    from vesper.cli import _configured_defaults
+    monkeypatch.chdir(tmp_path)  # no catalog/vds here, as when the app starts VESPER
+    st.save_config(catalog=tmp_path / "data" / "vds", root=tmp_path / "data" / ".vesper")
+
+    class Args:
+        catalog, root, results = "catalog/vds", ".vesper", "elsewhere"
+    args = Args()
+    _configured_defaults(args)
+    assert args.catalog == str(tmp_path / "data" / "vds") and args.root == str(tmp_path / "data" / ".vesper")
+    assert args.results == "elsewhere"
+    (tmp_path / "catalog" / "vds").mkdir(parents=True)
+    args = Args()
+    _configured_defaults(args)
+    assert args.catalog == "catalog/vds"  # a default that exists here is kept
