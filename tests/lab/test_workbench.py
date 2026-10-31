@@ -160,3 +160,17 @@ def test_an_error_never_echoes_a_long_value_back(bench):
         bench.scenario_edit(d, "setup.devices", "add", {"product": "zigbee:aqara:mccgq11lm", "name": "x" * 5000 + "+",
                                                         "at": {"room": "hall"}})
     assert len(str(e.value)) <= 610
+
+
+def test_an_empty_draft_is_valid_but_says_what_it_still_lacks(bench):
+    d = bench.scenario_draft("homes/house", "t")["draft"]
+    warnings = bench.scenario_validate(d)["warnings"]
+    assert any("no attack" in w for w in warnings) and any("no claim" in w for w in warnings)
+    assert bench.scenario_validate(drafted(bench))["warnings"] == []
+
+
+def test_re_adding_a_device_the_home_has_says_to_use_it_as_it_is(bench):
+    d = bench.scenario_draft("homes/house", "t")["draft"]
+    with pytest.raises(WorkbenchError, match="already one of the home's devices"):
+        bench.scenario_edit(d, "setup.devices", "add", {"product": "zigbee:aqara:mccgq11lm", "name": "front_door",
+                                                        "at": {"door": "hall-porch"}})

@@ -243,6 +243,12 @@ class Workbench:
             target[key] = items
         else:
             raise WorkbenchError(f"action {action!r} is not add, replace or remove")
+        if key == "devices":
+            home_names = {d.name for d in load_lab_home(self._draft(draft)["home"], self.catalog).devices}
+            for item in target.get("devices") or []:
+                if isinstance(item, dict) and item.get("name") in home_names:
+                    raise WorkbenchError(f"{item['name']} is already one of the home's devices (home_describe): "
+                                         "use it as it is; setup.devices only adds new ones")
         self._check(draft, spec)
         with self._lock:
             self.drafts[draft]["spec"] = spec
@@ -270,7 +276,8 @@ class Workbench:
     def scenario_validate(self, draft: str) -> dict:
         d = self._draft(draft)
         s = self._check(draft, d["spec"])
-        return {"ok": True, "title": s.title, "devices": [x.name for x in s.home.devices], "actors": list(s.actors),
+        return {"ok": True, "warnings": _incomplete(s), "title": s.title, "devices": [x.name for x in s.home.devices],
+                "actors": list(s.actors),
                 "timeline": len(s.timeline), "attack": len(s.attack), "defenses": [x.kind for x in s.defenses],
                 "claims": [c.claim for c in s.claims], "gaps": len(s.gaps), "runs": s.runs.__dict__,
                 "yaml": _dump(self._public(d["spec"]))}
@@ -296,7 +303,7 @@ class Workbench:
             spec.pop("setup", None)
         out.write_text(f"# Written through VESPER's MCP server ({time.strftime('%Y-%m-%d')}); review before citing.\n"
                        + _dump(spec))
-        return {"saved": self._name(out)}
+        return {"saved": self._name(out), "warnings": _incomplete(self._check(draft, d["spec"]))}
 
     # -- runs -----------------------------------------------------------------------------------------
     def scenario_run(self, scenario: str, mode: str | None = None, repeat: int | None = None) -> dict:
@@ -432,6 +439,19 @@ class Workbench:
         if not _is_scenario(path):
             raise WorkbenchError(f"{name!r} is not a {FORMAT} file")
         return path
+
+
+def _incomplete(s) -> list[str]:
+    """What a valid draft still lacks before it can reproduce anything (a valid draft may be empty)."""
+    out = []
+    if not s.attack:
+        out.append("no attack step yet: add one to section attack (capabilities: network_effects)")
+    if not s.claims:
+        out.append("no claim yet: add the paper's claims to section expect; a run of a draft without claims "
+                   "reproduces nothing")
+    if not (s.source.get("passages") or {}):
+        out.append("no quoted passage yet: quote the paper with cite")
+    return out
 
 
 def _is_scenario(path: Path) -> bool:
