@@ -423,16 +423,18 @@ def test_play_a_scenario_plays_its_home_its_attack_and_its_defenses(tmp_path, ca
         port = re.search(r"http://127\.0\.0\.1:(\d+)/", seen["out"]).group(1)
         with connect(f"ws://127.0.0.1:{port}/ws", proxy=None, origin=f"http://127.0.0.1:{port}") as ws:
             seen["hello"] = json.loads(ws.recv(timeout=5))
-            time.sleep(0.3)  # the timeline begins once a page watches
+            ws.send(json.dumps({"type": "ready"}))  # the page is drawn: the timeline begins
+            time.sleep(0.3)
     monkeypatch.setattr(cli, "_wait_for_interrupt", interrupted)
     assert cli.main(["lab", "play", "--scenario", str(s.path), "--condition", "attack", "--catalog", str(cat),
                      "--port", "0", "--no-browser"]) == 0
-    assert 'scenario "Case 3, the lock-on-close action delayed", attack: its timeline begins when a page opens' \
+    assert 'scenario "Case 3, the lock-on-close action delayed", attack: its timeline begins when a page is ready' \
         in seen["out"]
     assert seen["hello"]["scenario"]["title"] == "Case 3, the lock-on-close action delayed"
     (trace,) = (tmp_path / "traces").glob("*.jsonl")
     records = [json.loads(line) for line in trace.read_text().splitlines()]
-    assert records[0]["automations"]["loaded"] == ["Lock the front door when it closes"]  # VESPER's engine runs the scenario's automations
+    # VESPER's engine runs the scenario's automations
+    assert records[0]["automations"]["loaded"] == ["Lock the front door when it closes"]
     (start,) = [r for r in records if r["kind"] == "scenario"]
     assert start["condition"] == "attack" and start["defenses"] == []
 
@@ -468,3 +470,76 @@ def test_look_at_a_scenario_begins_its_timeline_when_the_page_is_ready(tmp_path,
     assert start["condition"] == "attack+defense" and start["defenses"] == ["freshness", "physical_consistency"]
     assert not [r for r in records if r["kind"] == "input" and r["op"] == "spawn" and r["actor"] == "player"
                 and r["t"] < start["t0"]]  # no player of the page's own: the scenario's is scripted
+
+
+def test_a_scenario_s_hub_stamps_last_seen_for_the_freshness_defense(tmp_path, monkeypatch):
+    """Live freshness measures a report's age from the bridge's Zigbee2MQTT `last_seen`, as the scenario runs give
+    it: a hub started for a scenario stamps it, in wall-clock time."""
+    from datetime import datetime
+    from vesper.lab import live
+    from vesper.lab.session import Session
+    from vesper.twins.clock import WallClock
+    seen = {}
+    monkeypatch.setattr(live, "lab_hub", lambda session, port, catalog_dir, last_seen=None: seen.update(f=last_seen))
+    cat, home = setup(tmp_path)
+    from vesper.lab.home import load_lab_home
+    from vesper.twins.home import load_catalog
+    session = Session(load_lab_home(home, load_catalog(cat)), clock=WallClock())
+    try:
+        cli._lab_hub(SimpleNamespace(catalog=str(cat)), session, 1, stamp=True)
+        stamped = datetime.fromisoformat(seen["f"](session.clock.now())).timestamp()
+        assert abs(stamped - time.time()) < 1.0
+        cli._lab_hub(SimpleNamespace(catalog=str(cat)), session, 1)
+        assert seen["f"] is None  # a plain play's bridge does not stamp it
+    finally:
+        session.stop()
+
+
+def test_play_with_the_hub_checks_a_scenario_as_a_live_run(tmp_path, capsys):
+    """With Home Assistant in the loop the defenses hear the bridge only, as in a live run: a scenario whose defenses
+    watch a Wi-Fi device is refused before anything starts, whatever mode its file says."""
+    from tests.lab.homes import with_wifi
+    from tests.lab.test_scenario import LOCKED_HOME, SCENARIO, write
+    cat, _ = setup(tmp_path / "c")
+    text = SCENARIO.replace(
+        "link: coordinator, direction: down,\n         match: {device: front_lock, feature: state},",
+        "link: wifi/kettle_plug, direction: down,\n         match: {device: kettle_plug, feature: POWER},")
+    path = write(tmp_path, text, home=with_wifi(LOCKED_HOME))
+    assert cli.main(["lab", "play", "--scenario", str(path), "--hub", "--catalog", str(cat), "--no-browser",
+                     "--root", str(tmp_path / ".vesper")]) == 1
+    assert "defenses: in a live run the defenses hear the Zigbee bridge's messages only" in capsys.readouterr().err
+
+
+def test_look_reports_a_scenario_that_could_not_start_as_a_failed_check(tmp_path):
+    from vesper.lab.visual import run_look
+
+    def boom():
+        raise RuntimeError("no actor")
+    report = run_look(FakeBrowser(), "http://x/", [{"shot": "start"}], tmp_path, on_ready=boom)
+    failed = [c for c in report.checks if not c.ok]
+    assert failed and "the scenario starts" in failed[0].name and "no actor" in failed[0].detail
+    assert (tmp_path / "report.md").is_file()
+
+
+def test_look_at_a_scenario_refuses_steps_that_move_the_player(tmp_path, capsys):
+    from tests.lab.test_scenario_run import scenario
+    cat, _ = setup(tmp_path / "c")
+    s = scenario(tmp_path)
+    steps = tmp_path / "look.yaml"
+    steps.write_text("- {walk: [1, 1]}\n- {shot: x}\n")
+    assert cli.main(["lab", "look", "--scenario", str(s.path), "--catalog", str(cat), "--steps", str(steps),
+                     "--out", str(tmp_path / "o")]) == 1
+    assert "the scenario plays the player" in capsys.readouterr().err
+
+
+def test_a_scenario_s_automations_file_is_never_rewritten_from_home_assistant(tmp_path):
+    from tests.lab.test_scenario_run import scenario
+    s = scenario(tmp_path)
+    before = s.home.automations.read_text()
+
+    class HA:
+        def read_automations(self):
+            return "- id: edited\n"
+    cli._keep_automations(HA(), s.home, before, scenario=s)
+    assert s.home.automations.read_text() == before
+    assert list(tmp_path.glob("automations-from-home-assistant.yaml"))  # kept beside it, not lost

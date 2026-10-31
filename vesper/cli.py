@@ -535,7 +535,8 @@ def _lab(args) -> int:
             if args.scenario is not None:
                 from vesper.lab.scenario import ScenarioError, load_scenario
                 try:
-                    scenario = load_scenario(Path(args.scenario), catalog)
+                    # with Home Assistant in the loop it is a live run: its defenses hear the bridge only
+                    scenario = load_scenario(Path(args.scenario), catalog, mode="live" if args.hub else None)
                 except ScenarioError as e:
                     print(f"FAILED: {e}", file=sys.stderr)
                     return 1
@@ -906,12 +907,13 @@ def _lab_play(args, home, scenario=None) -> int:
         return 1
     with contextlib.ExitStack() as stack:  # everything started is stopped again, in reverse, whatever happens
         try:
-            lab = stack.enter_context(_lab_stack(args, home)) if args.hub else None
+            lab = stack.enter_context(_lab_stack(args, home, scenario)) if args.hub else None
             session = _lab_session(home, trace, lab)  # its time starts once the hub is up
             stack.callback(session.stop)
             # a scenario plays the player; without the hub, VESPER's engine runs its automations
             session.start(spawn_player=scenario is None, automations=scenario is not None and lab is None)
-            hub = stack.enter_context(_lab_hub(args, session, lab.port)) if lab else None
+            hub = stack.enter_context(_lab_hub(args, session, lab.port, stamp=scenario is not None)) \
+                if lab else None
             banner, begin = _prepare_scenario(stack, scenario, args.condition or "attack+defense", session, lab,
                                               hub) if scenario is not None else (None, None)
         except Exception as e:  # noqa: BLE001 - starting the hub: a StackError, a refused connection, HTTP
@@ -920,7 +922,7 @@ def _lab_play(args, home, scenario=None) -> int:
         world3d, drawn = _world3d(home, args.hssd)
         humanoids, people = _humanoids(home, args.humanoids)
         server = PlayServer(session, port=args.port, hub_url=lab.ha.url if lab else None, world3d=world3d,
-                            humanoids=humanoids, scenario=banner, on_first_page=begin)
+                            humanoids=humanoids, scenario=banner, on_page_ready=begin)
         stack.callback(server.stop)
         try:
             server.start()
@@ -933,8 +935,8 @@ def _lab_play(args, home, scenario=None) -> int:
         print(drawn)
         print(people)
         if banner:
-            print(f'scenario "{banner["title"]}", {banner["condition"]}: its timeline begins when a page opens; the '
-                  'page watches (the scenario plays the player)')
+            print(f'scenario "{banner["title"]}", {banner["condition"]}: its timeline begins when a page is ready; '
+                  'the page watches (the scenario plays the player)')
         if lab:
             user, password = lab.login
             wifi = ", ".join(f"{name} {p}" for name, p in hub.wifi.ports.items())
@@ -947,13 +949,15 @@ def _lab_play(args, home, scenario=None) -> int:
         if not args.no_browser:
             webbrowser.open(server.url)
         _wait_for_interrupt()
+    for error in getattr(session.clock, "errors", [])[:5]:  # a scenario's step that raised on the clock
+        print(f"vesper lab play: a step failed: {error}", file=sys.stderr)
     print(f"trace {trace}")
     return 0
 
 
 def _prepare_scenario(stack, scenario, condition, session, lab, hub):
     """A scenario to play in a session (plan W4c): the page's banner, {title, condition, t0}, and `begin()`, which
-    starts its timeline (run on the session's clock, when a page watches; t0 is filled in then). With the hub, it
+    starts its timeline (run on the session's clock once a page is drawn; t0 is filled in then). With the hub, it
     is ready once Home Assistant shows every device, and its defenses hear what Home Assistant hears."""
     from vesper.lab.scenario_run import HubWatch, _wait_for_home_assistant, start_scenario
     watch = None
@@ -1015,11 +1019,11 @@ def _hub_failure(e: Exception) -> str:
     return str(e) if isinstance(e, StackError) else f"{type(e).__name__}: {e}"
 
 
-def _lab_stack(args, home):
+def _lab_stack(args, home, scenario=None):
     """VESPER's broker, the relay and Home Assistant for a Lab command (`vesper.lab.live`); automations edited in
     Home Assistant's UI go back into the home when it stops."""
     from vesper.lab.live import lab_stack
-    return lab_stack(Path(args.root), home, keep=lambda ha, rules: _keep_automations(ha, home, rules))
+    return lab_stack(Path(args.root), home, keep=lambda ha, rules: _keep_automations(ha, home, rules, scenario))
 
 
 def _lab_session(home, trace, lab):
@@ -1033,28 +1037,35 @@ def _lab_session(home, trace, lab):
     return session
 
 
-def _lab_hub(args, session, port: int):
-    """The session's Zigbee and Wi-Fi devices on the broker, for as long as the block runs (`vesper.lab.live`)."""
-    from vesper.lab.live import lab_hub
-    return lab_hub(session, port, Path(args.catalog))
+def _lab_hub(args, session, port: int, stamp: bool = False):
+    """The session's Zigbee and Wi-Fi devices on the broker, for as long as the block runs (`vesper.lab.live`).
+    `stamp`: the bridge's messages carry Zigbee2MQTT's `last_seen` (wall-clock time), which a scenario's freshness
+    defense measures a report's age from, as in a scenario run."""
+    from vesper.lab import live
+    last_seen = None
+    if stamp:
+        epoch0 = time.time() - session.clock.now()
+        last_seen = lambda t: datetime.fromtimestamp(epoch0 + t, UTC).isoformat()  # noqa: E731
+    return live.lab_hub(session, port, Path(args.catalog), last_seen=last_seen)
 
 
-def _keep_automations(ha, home, rules: str) -> None:
+def _keep_automations(ha, home, rules: str, scenario=None) -> None:
     """Automations edited in Home Assistant's UI go back into the home, which stays self-contained; a file the
-    home does not name is never overwritten."""
+    home does not name is never overwritten, nor a scenario's (its automations are part of what it reproduces):
+    the edits go beside it."""
     try:
         now = ha.read_automations()
     except OSError:
         return
     if now == rules:
         return
-    target = home.automations
+    target = home.automations if scenario is None else None
     if target is None:
         target = home.path.parent / "automations.yaml"
         if target.exists():
             target = home.path.parent / "automations-from-home-assistant.yaml"
     target.write_text(now)
-    print(f"{target.name} updated from Home Assistant" + ("" if home.automations else
+    print(f"{target.name} updated from Home Assistant" + ("" if home.automations and scenario is None else
           f"; add `automations: {target.name}` to {home.path.name} to load it next time"))
 
 
@@ -1097,15 +1108,21 @@ def _lab_look(args, home, scenario=None) -> int:
     if args.hub and home.automations is not None and not home.automations.is_file():
         print(f"FAILED: automations: {home.automations} does not exist", file=sys.stderr)
         return 1
+    moving = [k for k, step in enumerate(steps, 1) if "walk" in step or "click_world" in step]
+    if scenario is not None and moving:
+        print(f"FAILED: step {moving[0]}: the scenario plays the player; a look at a scenario waits, aims, views "
+              "and takes shots", file=sys.stderr)
+        return 1
     out = Path(args.out) if args.out else home.path.parent / "looks" / f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     out.mkdir(parents=True, exist_ok=True)
     with contextlib.ExitStack() as stack:  # everything started is stopped again, in reverse, whatever happens
         try:
-            lab = stack.enter_context(_lab_stack(args, home)) if args.hub else None
+            lab = stack.enter_context(_lab_stack(args, home, scenario)) if args.hub else None
             session = _lab_session(home, _new_trace(out, "look"), lab)
             stack.callback(session.stop)
             session.start(spawn_player=scenario is None, automations=scenario is not None and lab is None)
-            hub = stack.enter_context(_lab_hub(args, session, lab.port)) if lab else None
+            hub = stack.enter_context(_lab_hub(args, session, lab.port, stamp=scenario is not None)) \
+                if lab else None
             banner, begin = _prepare_scenario(stack, scenario, args.condition or "attack+defense", session, lab,
                                               hub) if scenario is not None else (None, None)
         except Exception as e:  # noqa: BLE001 - starting the hub: a StackError, a refused connection, HTTP

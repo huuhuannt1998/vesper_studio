@@ -134,7 +134,13 @@ def run_look(browser, url: str, steps: list[dict], out: Path, *, golden: Path | 
     checks.append(Check("the map is drawn", colours >= MIN_COLOURS, f"{colours} colours on the map"))
     _check_3d(browser, checks)
     if on_ready is not None:
-        on_ready()
+        try:
+            on_ready()
+            checks.append(Check("the scenario starts", True))
+        except Exception as e:  # noqa: BLE001 - a step of the scenario raised, or the clock did not answer
+            checks.append(Check("the scenario starts", False, f"{type(e).__name__}: {e}"))
+            _finish(browser, report, session_errors, skipped=(1, len(steps)) if steps else None)
+            return report
     for k, step in enumerate(steps, 1):
         try:
             if not _step(browser, step, report, golden, update_golden, tolerance, max_diff):

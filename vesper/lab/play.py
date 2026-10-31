@@ -180,10 +180,10 @@ def _number(msg: dict, key: str) -> float:
 class PlayServer:
     def __init__(self, session, *, host: str = "127.0.0.1", port: int = 18080, hub_url: str | None = None,
                  ui_dir: Path = UI_DIR, world3d=None, humanoids=None, scenario: dict | None = None,
-                 on_first_page=None):
+                 on_page_ready=None):
         self.session, self.host, self.hub_url, self.ui_dir = session, host, hub_url, Path(ui_dir)
         self.scenario = scenario  # {title, condition, t0}: a scenario plays the player, the page only watches
-        self._on_first_page = on_first_page  # run once, on the clock, after the first page's hello
+        self._on_page_ready = on_page_ready  # run once, on the clock, when the first page says it is drawn
         self.world3d = world3d  # vesper.lab.world3d.World3d, or None: the page draws the home from its map
         self.humanoids = humanoids  # vesper.lab.humanoids.Humanoids, or None: the people are plain figures
         self.port: int | None = None
@@ -313,12 +313,6 @@ class PlayServer:
                 self._fail(f"hello: {type(e).__name__}: {e}")
                 return
             await ws.send(json.dumps(snapshot))
-            if self._on_first_page is not None:
-                begin, self._on_first_page = self._on_first_page, None
-                try:
-                    await self._on_clock(begin)
-                except Exception as e:  # noqa: BLE001 - a look sees it in the errors
-                    self._fail(f"start: {type(e).__name__}: {e}")
             sender = asyncio.create_task(self._send_queued(ws, queue))
             async for raw in ws:
                 reply = await self._input(raw)
@@ -357,6 +351,15 @@ class PlayServer:
         if not isinstance(msg, dict):
             return {"type": "error", "message": "an input must be a JSON object"}
         kind, s = msg.get("type"), self.session
+        if kind == "ready":  # the page is drawn: what waits for a watcher begins (once, on the clock)
+            if self._on_page_ready is not None:
+                begin, self._on_page_ready = self._on_page_ready, None
+                try:
+                    await self._on_clock(begin)
+                except Exception as e:  # noqa: BLE001 - the page is told; a look sees it in the errors
+                    self._fail(f"start: {type(e).__name__}: {e}")
+                    return {"type": "error", "message": f"the scenario could not start: {type(e).__name__}: {e}"}
+            return None
         if self.scenario is not None and kind in ("move", "walk_to", "interact"):
             return {"type": "error", "message": f"{kind}: the scenario plays the player; this page watches it"}
         try:

@@ -60,7 +60,10 @@ ws.onclose = () => { vesper.connected = false; setStatus("disconnected: restart 
 ws.onmessage = (e) => { vesper.messages += 1; handle(JSON.parse(e.data)); dirty = true; };
 const PLAYER_INPUTS = new Set(["move", "walk_to", "interact"]);
 const send = (msg) => {
-  if (state && state.hello.scenario && PLAYER_INPUTS.has(msg.type)) return; // the scenario plays the player
+  if (state && state.hello.scenario && PLAYER_INPUTS.has(msg.type)) { // the scenario plays the player
+    if (msg.type !== "move") toast("Watching: the scenario plays the player");
+    return;
+  }
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
 };
 
@@ -737,7 +740,10 @@ window.addEventListener("resize", layout);
   if (dirty) {
     dirty = false;
     draw();
-    if (!vesper.ready && state && view && (mode === "map" || (view3d && view3d.status.ready))) vesper.ready = true;
+    if (!vesper.ready && state && view && (mode === "map" || (view3d && view3d.status.ready))) {
+      vesper.ready = true;
+      send({ type: "ready" }); // drawn: a scenario waiting for a watcher begins now
+    }
   }
   requestAnimationFrame(loop);
 })();

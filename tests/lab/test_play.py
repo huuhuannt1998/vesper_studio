@@ -303,18 +303,23 @@ def test_a_page_watching_a_scenario_is_told_of_it_and_cannot_move_the_scripted_p
         session.stop()
 
 
-def test_the_first_page_to_connect_starts_what_waits_for_a_watcher_once_on_the_clock(tmp_path):
+def test_the_first_page_ready_starts_what_waits_for_a_watcher_once_on_the_clock(tmp_path):
     import threading
     home = load_lab_home(write_home(tmp_path, IN_BEDROOM), catalog())
     session = Session(home, clock=WallClock())
     session.start()
     calls = []
-    server = PlayServer(session, port=0, on_first_page=lambda: calls.append(threading.current_thread().name))
+    server = PlayServer(session, port=0, on_page_ready=lambda: calls.append(threading.current_thread().name))
     server.start()
     try:
+        with client(server) as ws:
+            until(ws, lambda m: m["type"] == "hello")
+            time.sleep(0.2)
+            assert calls == []  # connected, not yet drawn: a watcher would miss the opening
         for _ in range(2):
             with client(server) as ws:
                 until(ws, lambda m: m["type"] == "hello")
+                ws.send(json.dumps({"type": "ready"}))
                 time.sleep(0.2)
         assert calls == ["vesper-wallclock"]
     finally:
@@ -329,4 +334,24 @@ def test_hello_says_where_the_player_starts_for_a_view_with_no_player_yet(tmp_pa
     try:
         assert hello(session)["start"] == pytest.approx(list(home.avatar["start"]))
     finally:
+        session.stop()
+
+
+def test_a_scenario_that_cannot_start_tells_the_page(tmp_path):
+    home = load_lab_home(write_home(tmp_path, IN_BEDROOM), catalog())
+    session = Session(home, clock=WallClock())
+    session.start()
+
+    def boom():
+        raise RuntimeError("no actor")
+    server = PlayServer(session, port=0, on_page_ready=boom)
+    server.start()
+    try:
+        with client(server) as ws:
+            until(ws, lambda m: m["type"] == "hello")
+            ws.send(json.dumps({"type": "ready"}))
+            err = until(ws, lambda m: m["type"] == "error")
+            assert "the scenario could not start: RuntimeError: no actor" in err["message"]
+    finally:
+        server.stop()
         session.stop()
