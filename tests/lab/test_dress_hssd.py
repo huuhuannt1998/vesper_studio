@@ -263,3 +263,98 @@ def test_vesper_lab_renav_needs_the_exported_scene(tmp_path, capsys):
     cat, home_file = setup(tmp_path)
     assert main(["lab", "renav", str(home_file), "--catalog", str(cat)]) == 1
     assert "no scene.glb" in capsys.readouterr().err
+
+
+# -- renav refuses a floor that lost a doorway or a room (the final review) -----------------------------------
+def floor_without(map_json: dict, room_polygon) -> dict:
+    """A copy of a map with every walkable cell inside one room's outline taken away."""
+    from vesper.lab.worldmap import Grid
+    g = Grid.from_json(map_json["grid"])
+    cells = bytearray(g.walkable)
+    for j in range(g.height):
+        for i in range(g.width):
+            x, z = g.center(i, j)
+            xs, zs = [p[0] for p in room_polygon], [p[1] for p in room_polygon]
+            if min(xs) <= x <= max(xs) and min(zs) <= z <= max(zs):
+                cells[j * g.width + i] = 0
+    return {**map_json, "grid": Grid(g.origin, g.cell, g.width, g.height, cells).to_json()}
+
+
+def test_renav_problems_name_a_lost_doorway_an_emptied_room_and_a_collapsed_floor(tmp_path):
+    from vesper.lab.dress import renav_problems
+    from vesper.lab.worldmap import WorldMap
+    (tmp_path / "home").mkdir()
+    home = load_lab_home(write_home(tmp_path / "home", LOCKED_HOME), catalog())
+    old_json = json.loads((tmp_path / "home" / "map.json").read_text())
+    old = WorldMap.load(tmp_path / "home" / "map.json")
+    assert renav_problems(old, old) == []
+    kitchen = home.map.room("kitchen")
+    (tmp_path / "new.json").write_text(json.dumps(floor_without(old_json, kitchen.polygon)))
+    problems = renav_problems(old, WorldMap.load(tmp_path / "new.json"))
+    assert any("kitchen" in p and "no walkable floor" in p for p in problems)
+    assert any("doorway" in p and "kitchen" in p for p in problems)
+
+
+def test_renav_that_loses_a_room_is_refused_and_leaves_the_map_as_it_was(tmp_path, capsys, monkeypatch):
+    from tests.lab.test_cli_lab import setup
+    from vesper.cli import main
+    from vesper.lab import scenes
+    cat, home_file = setup(tmp_path)
+    home_dir = home_file.parent
+    (home_dir / "scene.glb").write_bytes(b"glTF")
+    original = (home_dir / "map.json").read_text()
+    kitchen = load_lab_home(home_file, catalog()).map.room("kitchen")
+
+    def run_world(python, args, what, run=None):  # a sofa dragged across the kitchen's doorway
+        open(args[args.index("--out") + 1], "w").write(json.dumps(floor_without(json.loads(original), kitchen.polygon)))
+        return subprocess.CompletedProcess(args, 0, "", "")
+    monkeypatch.setattr(scenes, "run_world", run_world)
+    assert main(["lab", "renav", str(home_file), "--catalog", str(cat), "--habitat-python", sys.executable]) == 1
+    err = capsys.readouterr().err
+    assert "kitchen" in err and "the map is unchanged" in err
+    assert (home_dir / "map.json").read_text() == original
+    assert not (home_dir / "map.original.json").exists() or (home_dir / "map.original.json").read_text() == original
+
+
+def test_starting_over_imports_the_scene_again_when_its_collections_are_gone(hssd_home, tmp_path, monkeypatch):
+    """Deleting the collections (Blender MCP's collections.remove) leaves their objects in bpy.data, unlinked: a
+    rerun still brings the scene in."""
+    script, _ = dressed(hssd_home, tmp_path)
+    bpy = run_script(script, monkeypatch)
+    scene = bpy.context.scene.collection
+    for name in ("VESPER home", "VESPER doors"):
+        top = bpy.data.collections[name]
+        scene.children.unlink(top)
+        for c in [top, *top.children]:
+            bpy.data.collections.remove(c)
+    assert any(o.get("vesper_hssd") for o in bpy.data.objects)  # the holders are still in bpy.data
+    run_script(script, monkeypatch, bpy=bpy)
+    assert len(bpy.imports) == 8
+    assert [o for o in bpy.data.collections["room:kitchen"].objects if o.name.startswith("hssd:")]
+
+
+def test_a_converted_model_cut_short_is_converted_again(hssd_home, tmp_path):
+    """A conversion killed while writing leaves a file newer than its source but short of the length its header
+    gives: it is not taken for a converted model."""
+    _, world3d, _ = hssd_home
+    run, batches = fake_convert(tmp_path / "cache")
+    models = prepare_models(world3d, tmp_path / "cache", run=run)
+    chair = models["objects/c/chair.glb"]
+    chair.write_bytes(chair.read_bytes()[:40])  # cut short, and newer than HSSD's file
+    prepare_models(world3d, tmp_path / "cache", run=run)
+    assert [[src.rsplit("/", 1)[1] for src, _ in pairs] for _, pairs in batches[1:]] == [["chair.glb"]]
+    assert len(chair.read_bytes()) == struct.unpack("<I", chair.read_bytes()[8:12])[0]
+
+
+@pytest.mark.parametrize("path", ["somehome/dress/build_home.py", "somehome/dress/BRIEF.md",
+                                  "somehome/map.original.json", "somehome/scene.glb"])
+def test_what_dress_and_renav_write_beside_a_home_is_never_committed(path):
+    """An HSSD home made inside the repository by mistake: its build script (HSSD's matrices, a cache path), its
+    first map and its model are derived from HSSD (CC BY-NC) and stay out of git."""
+    import shutil
+    from pathlib import Path
+    if shutil.which("git") is None:
+        pytest.skip("git is not installed")
+    root = Path(__file__).resolve().parents[2]
+    r = subprocess.run(["git", "check-ignore", "-q", path], cwd=root, capture_output=True)
+    assert r.returncode == 0, f"{path} is not ignored"

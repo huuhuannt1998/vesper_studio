@@ -582,8 +582,9 @@ def _lab_renav(args, home, catalog) -> int:
     import tempfile
 
     from vesper.lab import scenes
+    from vesper.lab.dress import renav_problems
     from vesper.lab.home import HomeError, load_lab_home
-    from vesper.lab.worldmap import MapError
+    from vesper.lab.worldmap import MapError, WorldMap
     import yaml
     folder = Path(home.path).parent
     glb = folder / "scene.glb"
@@ -599,6 +600,13 @@ def _lab_renav(args, home, catalog) -> int:
         r = scenes.run_world(scenes.habitat_python(args.habitat_python),
                              ["renav", "--glb", str(glb.resolve()), "--map", str(current.resolve()), "--out", str(new),
                               "--floor-y", str(floor_y), "--radius", str(args.radius)], "renav")
+        try:
+            problems = renav_problems(WorldMap.load(current), WorldMap.load(new))
+        except MapError as e:
+            problems = [str(e)]
+        if problems:
+            print(f"FAILED: {'; '.join(problems)}: the map is unchanged", file=sys.stderr)
+            return 1
         backup = folder / "map.original.json"
         if not backup.exists():
             shutil.copy2(current, backup)

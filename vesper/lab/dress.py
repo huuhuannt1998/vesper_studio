@@ -41,7 +41,7 @@ def prepare_models(world3d, cache: Path, run=subprocess.run) -> dict:
     cache = Path(cache)
     models = {a: cache / a for a in sorted(world3d.assets)}
     todo = [[str(world3d.root / a), str(out)] for a, out in models.items()
-            if not out.is_file() or out.stat().st_mtime < (world3d.root / a).stat().st_mtime]
+            if not _whole(out) or out.stat().st_mtime < (world3d.root / a).stat().st_mtime]
     if todo:
         try:
             r = run(["node", str(KTX2PNG), "--batch"], input=json.dumps(todo), capture_output=True, text=True,
@@ -102,6 +102,54 @@ def _doorway_box(grid, cells) -> list[float]:
     i = [x for x, _ in cells]
     j = [z for _, z in cells]
     return [ox + min(i) * c, oz + min(j) * c, ox + (max(i) + 1) * c, oz + (max(j) + 1) * c]
+
+
+FLOOR_SHARE = 0.25  # renav: a new floor under a quarter of the old one is a scene exported wrong, not furniture
+
+
+def _whole(glb: Path) -> bool:
+    """A converted model that is all there: its GLB header gives its own length (a conversion killed while writing
+    leaves less)."""
+    try:
+        with open(glb, "rb") as f:
+            head = f.read(12)
+        return len(head) == 12 and head[:4] == b"glTF" and int.from_bytes(head[8:12], "little") == glb.stat().st_size
+    except OSError:
+        return False
+
+
+def renav_problems(old, new) -> list[str]:
+    """Why a map taken again from an exported scene (`vesper lab renav`) must not replace the old one: a doorway
+    gone (furniture across it), a room that had floor and has none, or a floor collapsed below FLOOR_SHARE of the old
+    one (a scene exported +Z up, say). Empty: it may."""
+    def floor(m, room) -> int:
+        g, n = m.grid, 0
+        for j in range(g.height):
+            for i in range(g.width):
+                if g.is_walkable(i, j) and _inside(room.polygon, *g.center(i, j)):
+                    n += 1
+        return n
+    problems = []
+    kept = {d.id for d in new.doorways}
+    for d in old.doorways:
+        if d.id not in kept:
+            problems.append(f"the doorway {d.id} is closed off (furniture across it?)")
+    for room in old.rooms:
+        if floor(old, room) and not floor(new, room):
+            problems.append(f"the room {room.id} has no walkable floor left")
+    before, after = sum(old.grid.walkable), sum(new.grid.walkable)
+    if after < FLOOR_SHARE * before:
+        problems.append(f"the walkable floor fell from {before / 100:.1f} to {after / 100:.1f} m2 "
+                        "(was the scene exported +Y up?)")
+    return problems
+
+
+def _inside(polygon, x: float, z: float) -> bool:
+    inside = False
+    for (x0, z0), (x1, z1) in zip(polygon, polygon[1:] + polygon[:1]):
+        if (z0 > z) != (z1 > z) and x < x0 + (z - z0) * (x1 - x0) / (z1 - z0):
+            inside = not inside
+    return inside
 
 
 def scene_data(home, world3d=None, models: dict | None = None) -> dict:
@@ -236,7 +284,7 @@ which holds the model's place (move the empty to move the piece):
 - `VESPER doors`, outside `VESPER home`: the doors. VESPER draws and swings them, so they are not exported.
 
 Running the script again keeps your edits and only refreshes the device empties. To start over, delete the
-`VESPER home` and `VESPER doors` collections first.
+`VESPER home` and `VESPER doors` collections first (Outliner: Delete Hierarchy), then run it again.
 
 | Collection | Room |
 |---|---|
@@ -262,7 +310,8 @@ or run `build_home.py` with `--export`: `blender --background your-file.blend --
     vesper lab renav {home.path}
 
 Habitat works out the walkable floor again from `scene.glb`, so people walk round the furniture where it now
-stands. The rooms and doorways stay as they were. Then `vesper lab play {home.path}`; delete `scene.glb` to go back
+stands. The rooms stay as they were; a floor that closes off a doorway or leaves a room without floor is refused,
+and the map stays as it was. Then `vesper lab play {home.path}`; delete `scene.glb` to go back
 to HSSD's own files.
 """
 
@@ -431,7 +480,9 @@ def build():
             polygon.reverse()  # facing up: a navmesh (vesper lab renav) walks only on faces that do
         mesh_object("floor:" + room["id"], polygon, [tuple(range(len(polygon)))], rc,
                     "outdoor" if room["outdoor"] else "floor")
-    if hssd and not any(o.get("vesper_hssd") for o in bpy.data.objects):
+    doors = bpy.data.collections.get("VESPER doors")
+    placed = [o for c in (root, doors) if c is not None for o in c.all_objects]
+    if hssd and not any(o.get("vesper_hssd") for o in placed):  # not in the collections (deleted): bring it in again
         import_hssd(root)
     walls = collection("walls", root)
     for k, (x0, z0, x1, z1) in enumerate(DATA["walls"]):

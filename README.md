@@ -245,7 +245,8 @@ Furniture in a model is only drawn until the map follows it:
     vesper lab renav homes/eight/home.yaml
 
 has Habitat work out the walkable floor again from `scene.glb`, so people walk round the furniture where it stands;
-the rooms and doorways stay, and the first map is kept as `map.original.json`. It needs the Habitat environment, as
+the rooms stay, and the first map is kept as `map.original.json`. A floor that closes off a doorway or leaves a room
+without floor is refused, and the map stays as it was. It needs the Habitat environment, as
 `vesper lab new --scene` does. An HSSD scene taken through Blender unedited keeps its walkable floor: 99% of it
 (intersection over union) on the one scene tried, every difference within 30 cm of the floor's edge.
 

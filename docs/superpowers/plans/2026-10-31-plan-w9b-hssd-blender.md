@@ -69,3 +69,17 @@ eval-w9b.md`).
 - `renav` keeps the old grid (same cells, same doorways) rather than the new navmesh's bounds.
 - Reported, not fixed: Blender MCP's code tool writes files outside Claude Code's permission model.
 - The plan is as-built (process).
+
+## After the final review
+
+No Critical, 3 Important, all fixed test-first, and two minors raised to Important by their effect:
+- `renav` refuses a floor that closes a doorway, leaves a room without floor, or falls below a quarter of the old
+  floor (`renav_problems`); the map stays byte for byte, and the refusal is tested.
+- Starting over works: the import is gated on the models still in the collections, not on any in `bpy.data`.
+- A converted model is trusted only when its GLB header's length is the file's (a killed conversion is redone).
+- `**/dress/` and `**/map.original.json` are gitignored (HSSD-derived for HSSD homes).
+
+Deferred minors: stray doors missing from a dressed HSSD view; renav's temporary stage config not removed; the cache
+not keyed by the converter's version; one bad model aborts the batch without its name; `.gltf` assets, images by uri
+and second buffers not handled; a bad render.json gives a traceback in renav; a map shared between homes; a failed
+import half-way stays partial; upper-storey furniture grouped by ground-floor rooms.

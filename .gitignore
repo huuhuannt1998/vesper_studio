@@ -141,3 +141,7 @@ catalog/vds/
 
 # npm, if run in the Matter host sources (`vesper setup matter` installs into .vesper/matter/host)
 node_modules/
+
+# What vesper lab dress and renav write beside a home (HSSD-derived for HSSD homes: CC BY-NC, never committed)
+**/dress/
+**/map.original.json
