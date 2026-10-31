@@ -24,6 +24,7 @@ browser.
 | Let the residents live a day in seconds, with the home's automations | `vesper lab day` | the catalog |
 | See the home's network: the router, and each link's signal and latency | `vesper lab network` | the catalog |
 | Replay any session and check that it reproduces exactly | `vesper lab replay` | the catalog |
+| Reproduce a paper's attack and defense on a home, claim by claim | `vesper lab scenario run` | the catalog; live: `vesper setup ha`, Mosquitto |
 | Make a home from a real 3D scene (HSSD) | `vesper lab new --scene` | Habitat, HSSD |
 | Find a product to place in a home | `vesper catalog search`, `vesper catalog show` | the catalog |
 | Turn a persona schedule or an ARAS day into a resident's routine | `vesper lab routine` | — |
@@ -144,6 +145,34 @@ A device whose own hop is down goes unavailable after Zigbee2MQTT's availability
 on the logical clock, the same effects apply in-process. Every effect is an input of the trace, so a replay applies it
 again, and every message an effect touched is in the trace with when it was sent and when it arrived.
 
+## Attacks and defenses from a paper: scenarios
+
+A scenario file (`vesper-scenario/1`) sets up an attack from a research paper and its defenses on a home, says what
+the paper claims, and quotes the passages each step and claim rests on. VESPER runs it under three conditions
+(baseline, attack, attack + defense), several times each, and reports claim by claim whether the paper's result was
+reproduced:
+
+    vesper lab scenario check examples/lab/scenarios/phantom-delay/case3-action-delay.yaml
+    vesper lab scenario run   examples/lab/scenarios/phantom-delay/case3-action-delay.yaml
+    vesper lab scenario run   examples/lab/scenarios/phantom-delay/case3-action-delay.yaml --mode live
+
+The examples are the Phantom-Delay attacks (Fu et al., DSN 2022), Table III's Cases 1 and 3:
+- **Case 1:** the front door's event is held on the bridge's connection while its keepalives pass, so the
+  notification comes a minute late.
+- **Case 3:** the door's "closed" event and then the lock command are held, so an intruder walks in before the door
+  locks.
+
+The paper's countermeasure, timestamp checking, flags the delayed events but does not stop the late action, as the
+paper says. VESPER's own `physical_consistency` check compares the world with what the hub heard and raises its
+alert within seconds.
+
+A run on the logical clock uses VESPER's automation engine and takes seconds. With `--mode live`, Home Assistant runs
+the automations and the attack acts on the real MQTT connections through the relay.
+
+Every step names a device, link, door or room of the home, never an address or a port. What VESPER cannot reproduce
+is written in the file as a gap and listed first in the report. `vesper lab scenario report` checks the claims again
+on a run's saved traces. Each run's trace replays like any other session.
+
 ## A day in seconds, and exact replays
 
     vesper lab day examples/lab/test-house/home.yaml --hours 24
@@ -239,7 +268,7 @@ Opt-in tests need real services:
 | `VESPER_HABITAT=1` | the world service in Habitat (scene 102344022 downloaded) |
 | `VESPER_UI_BROWSER=1` | a real headless browser (the map and the 3D view) |
 | `VESPER_STACK_TESTS=1` | a real Mosquitto (also the home's network and its Wi-Fi devices end to end) |
-| `VESPER_HA_TESTS=1` | the real Home Assistant of `vesper setup ha` (the network and the Wi-Fi devices end to end; about two minutes) |
+| `VESPER_HA_TESTS=1` | the real Home Assistant of `vesper setup ha` (the network, the Wi-Fi devices and the gold scenarios end to end; about 25 minutes) |
 | `VESPER_NETWORK_TESTS=1` | the upstream catalog sources |
 
 Layout:
@@ -254,6 +283,7 @@ Layout:
 | `vesper_world/` | the world service, which runs in the Habitat environment (Python 3.9) |
 | `vesper/agents/`, `automation/`, `core/`, `simulation/` | VESPER's first version, kept for its earlier experiments; the Lab does not use them |
 | `examples/lab/test-house/` | the example home |
+| `examples/lab/scenarios/phantom-delay/` | the gold Phantom-Delay scenarios (Cases 1 and 3), their home and automations |
 | `docs/superpowers/specs/` | the design documents |
 | `docs/experiments/` | run books and results |
 
@@ -261,9 +291,10 @@ Layout:
 
 - **Guided setup:** `vesper setup habitat`, scene downloads, and `vesper doctor`.
 - **The home's network, continued:** Matter devices on the hub, and real 802.11 on Linux.
-- **The security lab:** attacks and defenses as scenario files, run against VESPER's own local services, with their
-  alerts, starting with the Phantom-Delay attacks (Fu et al., DSN 2022). An MCP server will let Claude Desktop, or
-  any MCP client, set up a scenario from a research paper.
+- **The security lab, continued:**
+  - more attack vantages: a rogue broker client, a compromised device, a malicious automation;
+  - more defenses: broker ACLs, hardened automations, timeouts;
+  - an MCP server, so that Claude Desktop or any MCP client can set up a scenario from a research paper.
 - **VESPER Studio for macOS and Windows:** one desktop app, with the setup built in.
 - **The placement editor**, and Matter devices on the hub.
 

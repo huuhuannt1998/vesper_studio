@@ -48,7 +48,8 @@ Success:
 
 **Progress.** W7a is built in three plans: W7a1 (the topology, the link layer, the relay, Zigbee2MQTT's availability,
 `vesper lab network`; plan 2026-10-26), W7a2 (the virtual Tasmota devices; plan 2026-10-30, built), W7a3 (Matter on
-the hub). The W8 spike reported 2026-10-30: about 45% of a motion sensor's physical fields are sourced from public
+the hub). W4a1 (the scenario engine's first build and the gold Phantom-Delay scenarios, §4.7) is built; W4a2 adds
+the other vantages and defenses. The W8 spike reported 2026-10-30: about 45% of a motion sensor's physical fields are sourced from public
 documents, and range with horizontal angle for about half of the products.
 
 The MCP server comes after the engine because it can only be as good as what it can set up: before W7a and W4a it
@@ -231,6 +232,41 @@ listed first.
 
 Written by hand from the paper, checked with the PI, kept in `examples/lab/scenarios/phantom-delay/`. It is the
 reference the MCP evaluation scores against, and the first live run of the lab.
+
+### 4.7 W4a1: the first build's decisions (2026-10-31)
+
+**Split.** The paper's demo needs one attack and one defense end to end (PI 2026-10-24, kept 2026-10-30). W4a1 builds
+the file, the `network` vantage and the timeline's actors (the physical vantage), the `freshness` and
+`physical_consistency` defenses, the predicates, logical and live runs, the report, and the gold scenarios. W4a2 adds
+the broker-client, compromised-device and hub vantages, physical tampering, and `broker_acl`,
+`automation_hardening` and `timeouts`.
+
+**The gold cases (PI 2026-10-31).** The paper's Table III Cases 1 (state-update delay: the door's event held 60 s, the
+notification late) and 3 (action delay: the door's event and the lock command held, an intruder walks in) are in
+`case1-state-update-delay.yaml` and `case3-action-delay.yaml`. Case 10 (disabled execution) waits for W7a3. In the
+paper the lock and the door sensor are on two vendors' connections; in VESPER every Zigbee device shares the
+bridge's one connection, so holding the lock's report there would hold the door's too. A Matter lock over Wi-Fi
+gives the lock its own connection. Every quoted passage was checked against the paper's text.
+
+**Actors.** Timeline actions are carried out as the residents carry out theirs: to the near side of a door first,
+through the doors on the way. An actor without a key (the scenario's actors) finds a locked door locked and never
+unlocks a lock, even on its way through a door; the player has a key.
+
+**Defenses.**
+- `freshness` measures a report's age from when the bridge had it (`observed_t`), as a sender's timestamp would
+  carry. In a live run this is Zigbee2MQTT's `last_seen` (an option of the bridge), read at Home Assistant's edge by
+  a client on the relay's hub link that hears exactly what Home Assistant hears. A live run alerts; dropping a
+  message before Home Assistant has it is W4a2's.
+- `physical_consistency` checks the doors: a door that opened or closed in the world must be heard by the hub from
+  its contact sensor within `within_s`. Rooms and motion sensors are not checked yet (their retrigger and blind
+  times would need W8's sensing model).
+
+**Runs.** A live run starts VESPER's stack once for all its runs and gives each run a fresh session and hub, with the
+relay's effects cleared. Its timeline starts at t0, once Home Assistant shows every Zigbee device's main entities,
+and the trace records t0. A missing automations file is an error before anything runs. An automation VESPER's
+engine refuses is listed in the report before the claims.
+
+**Predicates.** `state_at` waits for W4a2; the gold scenarios do not need it.
 
 ## 5. The MCP server (W4b)
 
