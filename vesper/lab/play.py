@@ -57,7 +57,7 @@ def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoid
         "world3d": None if world3d is None else {
             "render": "/world/render.json", "floor_y": world3d.floor_y, "items": len(world3d.manifest["items"]),
             "missing": len(world3d.missing), "missing_files": world3d.missing[:10], "hssd": str(world3d.root)},
-        "dressed": "/home/scene.glb" if world3d is None and dressed_model(home) is not None else None,
+        "dressed": "/home/scene.glb" if dressed_model(home) is not None else None,  # drawn in place of HSSD's
         "humanoids": None if humanoids is None else {
             name: {"model": f"/humanoids/{name}.glb", "motion": f"/humanoids/{name}.motion.json"}
             for name in sorted(humanoids.models)},

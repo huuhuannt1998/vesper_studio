@@ -11,12 +11,46 @@ glTF export turns +Z up into +Y up, so a map point (x, z) at height h is Blender
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
 
 FORMAT = "vesper-dress/1"
 WALL_M = 2.5  # the 3D view's walls and doors (view3d.js)
 DOOR_M = 2.05
 COLLECTION = "VESPER home"
+KTX2PNG = Path(__file__).resolve().parent / "ktx2png.mjs"
+CACHE_ENV = "VESPER_CACHE"
+
+
+class DressError(RuntimeError):
+    """A home that cannot be dressed (an HSSD model missing, Node not installed)."""
+
+
+def model_cache() -> Path:
+    """Where HSSD's models converted for Blender are kept: derived from HSSD, so never in the repository."""
+    return Path(os.environ.get(CACHE_ENV) or Path.home() / ".cache" / "vesper") / "hssd-blender"
+
+
+def prepare_models(world3d, cache: Path, run=subprocess.run) -> dict:
+    """{asset: the model converted for Blender}: each distinct HSSD model of the home once, its KTX2 textures made
+    PNG (`ktx2png.mjs`, the 3D view's own Basis transcoder), kept in `cache` for every later home."""
+    if world3d.missing:
+        raise DressError(f"{len(world3d.missing)} of the scene's models are not in {world3d.root} "
+                         f"(first: {world3d.missing[0]})")
+    cache = Path(cache)
+    models = {a: cache / a for a in sorted(world3d.assets)}
+    todo = [[str(world3d.root / a), str(out)] for a, out in models.items()
+            if not out.is_file() or out.stat().st_mtime < (world3d.root / a).stat().st_mtime]
+    if todo:
+        try:
+            r = run(["node", str(KTX2PNG), "--batch"], input=json.dumps(todo), capture_output=True, text=True,
+                    timeout=3600)
+        except FileNotFoundError:
+            raise DressError("Node is not installed: it converts HSSD's textures for Blender") from None
+        if r.returncode != 0:
+            raise DressError(f"converting HSSD's models failed: {(r.stderr or '').strip()[-300:]}")
+    return models
 
 
 def device_height(mount: str | None, category: str | None) -> float:
@@ -70,10 +104,12 @@ def _doorway_box(grid, cells) -> list[float]:
     return [ox + min(i) * c, oz + min(j) * c, ox + (max(i) + 1) * c, oz + (max(j) + 1) * c]
 
 
-def scene_data(home) -> dict:
-    """What the build script builds, from the home's map and devices; `export_to` is where the model goes."""
+def scene_data(home, world3d=None, models: dict | None = None) -> dict:
+    """What the build script builds, from the home's map and devices; `export_to` is where the model goes. An HSSD
+    home (`world3d`, its models converted: `models`) is HSSD's own meshes at Habitat's places, not walls from its
+    map."""
     m = home.map
-    return {
+    data = {
         "format": FORMAT, "scene": home.scene, "wall_m": WALL_M, "door_m": DOOR_M,
         "export_to": str((Path(home.path).parent / "scene.glb").resolve()),
         "rooms": [{"id": r.id, "label": r.label, "polygon": [list(p) for p in r.polygon], "outdoor": r.outdoor}
@@ -84,13 +120,22 @@ def scene_data(home) -> dict:
         "devices": [{"name": d.name, "category": d.record["identity"].get("category"), "mount": d.mount,
                      "room": d.room, "point": [d.position[0], device_height(d.mount, d.record["identity"].get(
                          "category")), d.position[1]]} for d in home.devices]}
+    if world3d is not None:
+        data["walls"], data["doorways"] = [], []
+        data["hssd"] = {"floor_y": world3d.floor_y, "items": [
+            {"kind": i.get("kind"), "asset": i["asset"], "model": str(models[i["asset"]]), "matrix": i["matrix"],
+             "doorway": i.get("doorway"), "opening": i.get("opening")} for i in world3d.manifest["items"]]}
+    return data
 
 
-def dress(home, out_dir: Path | None = None) -> tuple[Path, Path]:
-    """Write `dress/build_home.py` and `dress/BRIEF.md` beside the home (or in `out_dir`); their paths."""
+def dress(home, out_dir: Path | None = None, *, world3d=None, cache: Path | None = None,
+          run=subprocess.run) -> tuple[Path, Path]:
+    """Write `dress/build_home.py` and `dress/BRIEF.md` beside the home (or in `out_dir`); their paths. An HSSD
+    home's models are converted first, into `cache` (default `model_cache()`)."""
     out = Path(out_dir) if out_dir is not None else Path(home.path).parent / "dress"
+    models = prepare_models(world3d, Path(cache or model_cache()), run=run) if world3d is not None else None
     out.mkdir(parents=True, exist_ok=True)
-    data = scene_data(home)
+    data = scene_data(home, world3d, models)
     script, brief = out / "build_home.py", out / "BRIEF.md"
     script.write_text(SCRIPT.replace("__DATA__", json.dumps(data, indent=1)))
     brief.write_text(_brief(home, data, script))
@@ -102,6 +147,8 @@ def _area(polygon) -> float:
 
 
 def _brief(home, data: dict, script: Path) -> str:
+    if "hssd" in data:
+        return _hssd_brief(home, data, script)
     rows = []
     for r in data["rooms"]:
         devices = [d["name"] for d in data["devices"] if d["room"] == r["id"]]
@@ -161,6 +208,62 @@ export_apply=True, use_active_collection=True)`.
 
 The 3D view draws `scene.glb` in place of the map's plain walls and furniture, with VESPER's doors, devices and
 people. Delete `scene.glb` to go back to the plain look.
+"""
+
+
+def _hssd_brief(home, data: dict, script: Path) -> str:
+    rooms = "\n".join(f"| `room:{r['id']}` | {r['label']}{' (outdoors)' if r['outdoor'] else ''} |"
+                      for r in data["rooms"])
+    target = data["export_to"]
+    return f"""# Editing {home.scene} in Blender
+
+This home is an HSSD scene (CC BY-NC 4.0: keep it, and everything made from it, out of public repositories).
+`build_home.py` brings it into Blender as Habitat places it, so you (or Claude, through Blender MCP) can move, swap,
+add or remove furniture. The result, `scene.glb` beside the home, is what `vesper lab play` draws.
+
+## 1. Bring the scene in
+
+In Blender 4.2 or later: Scripting, open `{script}`, Run Script. Or with Blender MCP connected, ask Claude:
+
+> Run the Python file {script} in Blender, then edit the home as its brief says: {script.parent / "BRIEF.md"}
+
+It imports each of the scene's {len(data['hssd']['items'])} models under an empty named `hssd:<n>:<kind>:<model>`,
+which holds the model's place (move the empty to move the piece):
+- `stage`: the building itself (walls, floors, windows);
+- a collection per room (`room:<id>`), holding its furniture;
+- `hssd:other`: the pieces outside every room;
+- `devices`: an empty where each device is;
+- `VESPER doors`, outside `VESPER home`: the doors. VESPER draws and swings them, so they are not exported.
+
+Running the script again keeps your edits and only refreshes the device empties. To start over, delete the
+`VESPER home` and `VESPER doors` collections first.
+
+| Collection | Room |
+|---|---|
+{rooms}
+
+## 2. Edit
+
+- Keep furniture inside its room and the doorways clear.
+- Do not move the stage, the doors or the device empties.
+- New models: only ones you may share (for example CC0 ones from Poly Haven), each listed with its source and
+  license in `dress/SOURCES.md`.
+
+## 3. Export
+
+With `VESPER home` the active collection, export it as glTF binary, +Y up, modifiers applied, to
+
+    {target}
+
+or run `build_home.py` with `--export`: `blender --background your-file.blend --python {script} -- --export`.
+
+## 4. Make the map follow the furniture
+
+    vesper lab renav {home.path}
+
+Habitat works out the walkable floor again from `scene.glb`, so people walk round the furniture where it now
+stands. The rooms and doorways stay as they were. Then `vesper lab play {home.path}`; delete `scene.glb` to go back
+to HSSD's own files.
 """
 
 
@@ -244,18 +347,92 @@ def cuboid(name, x0, z0, x1, z1, y0, y1, coll, mat):
     return mesh_object(name, vertices, faces, coll, mat)
 
 
+C = [[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]  # glTF's (and Habitat's) +Y up to Blender's +Z up
+
+
+def matmul(a, b):
+    return [[sum(a[r][k] * b[k][c] for k in range(4)) for c in range(4)] for r in range(4)]
+
+
+def blender_matrix(rows16):
+    """A Habitat world matrix (16 numbers, row by row) in Blender's axes: C M C^-1."""
+    m = [list(rows16[r * 4:r * 4 + 4]) for r in range(4)]
+    return matmul(matmul(C, m), [list(r) for r in zip(*C)])
+
+
+def as_matrix(rows):
+    """Blender's matrix from its rows: a plain nested list would be read column by column."""
+    try:
+        from mathutils import Matrix
+    except ImportError:  # outside Blender (the tests' stand-in)
+        return rows
+    return Matrix(rows)
+
+
+def room_at(x, z):
+    """The room whose outline holds the map point (x, z), else None."""
+    for room in DATA["rooms"]:
+        pts, inside = room["polygon"], False
+        for (x0, z0), (x1, z1) in zip(pts, pts[1:] + pts[:1]):
+            if (z0 > z) != (z1 > z) and x < x0 + (z - z0) * (x1 - x0) / (z1 - z0):
+                inside = not inside
+        if inside:
+            return room["id"]
+    return None
+
+
+def import_hssd(root):
+    """Each HSSD model under an empty holding Habitat's matrix (tagged vesper_hssd: a rebuild keeps it, edits and
+    all): the stage in `stage`, furniture in its room's collection, doors apart in "VESPER doors" (not exported:
+    VESPER draws and swings them)."""
+    doors = collection("VESPER doors", bpy.context.scene.collection)
+    stage = collection("stage", root)
+    other = collection("hssd:other", root)
+    for k, item in enumerate(DATA["hssd"]["items"]):
+        if item["kind"] == "stage":
+            coll = stage
+        elif item.get("doorway") or item.get("opening") == "door":  # as the map's export: no door in the floor's way
+            coll = doors
+        else:
+            room = room_at(item["matrix"][3], item["matrix"][11])
+            coll = collection("room:" + room, root) if room else other
+        before = {o.name for o in bpy.data.objects}
+        bpy.ops.import_scene.gltf(filepath=item["model"])
+        new = [o for o in bpy.data.objects if o.name not in before]
+        stem = item["asset"].rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        holder = bpy.data.objects.new("hssd:%03d:%s:%s" % (k, item["kind"], stem), None)
+        holder["vesper_hssd"], holder["asset"] = 1, item["asset"]
+        if item.get("doorway"):
+            holder["doorway"] = item["doorway"]
+        holder.matrix_world = as_matrix(blender_matrix(item["matrix"]))
+        coll.objects.link(holder)
+        for o in new:
+            for c in list(o.users_collection):
+                c.objects.unlink(o)
+            coll.objects.link(o)
+            if o.parent is None:
+                o.parent = holder
+
+
 def build():
-    """The shell, made or remade: the rooms' floors, the walls, the lintels, the device empties. What the dressing
-    added to the collections stays."""
+    """The shell, made or remade: the rooms' floors, the walls, the lintels, the device empties (an HSSD home: its
+    models, imported once). What the dressing added or moved stays."""
     root = collection(ROOT, bpy.context.scene.collection)
     clear_built(root)
     root["vesper"] = DATA["format"]
+    hssd = DATA.get("hssd")
     for room in DATA["rooms"]:
         rc = collection("room:" + room["id"], root)
         rc["label"] = room["label"]
+        if hssd:
+            continue  # the stage has its own floors
         polygon = [(x, -z, 0.0) for x, z in room["polygon"]]
+        if sum(x0 * y1 - x1 * y0 for (x0, y0, _), (x1, y1, _) in zip(polygon, polygon[1:] + polygon[:1])) < 0:
+            polygon.reverse()  # facing up: a navmesh (vesper lab renav) walks only on faces that do
         mesh_object("floor:" + room["id"], polygon, [tuple(range(len(polygon)))], rc,
                     "outdoor" if room["outdoor"] else "floor")
+    if hssd and not any(o.get("vesper_hssd") for o in bpy.data.objects):
+        import_hssd(root)
     walls = collection("walls", root)
     for k, (x0, z0, x1, z1) in enumerate(DATA["walls"]):
         cuboid("wall-%d" % k, x0, z0, x1, z1, 0.0, DATA["wall_m"], walls, "wall")
@@ -263,6 +440,10 @@ def build():
     for d in DATA["doorways"]:
         x0, z0, x1, z1 = d["box"]
         cuboid("lintel:" + d["id"], x0, z0, x1, z1, DATA["door_m"], DATA["wall_m"], lintels, "wall")
+        # the doorway's own floor: the rooms' floors stop short of the walls, and a navmesh taken from the model
+        # (vesper lab renav) needs a way through
+        mesh_object("threshold:" + d["id"], [(x0, -z1, 0.0), (x1, -z1, 0.0), (x1, -z0, 0.0), (x0, -z0, 0.0)],
+                    [(0, 1, 2, 3)], lintels, "floor")
     devices = collection("devices", root)
     for d in DATA["devices"]:
         x, h, z = d["point"]

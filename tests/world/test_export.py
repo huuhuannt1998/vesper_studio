@@ -217,3 +217,51 @@ def test_a_scene_file_outside_the_hssd_folder_is_named_not_a_crash(tmp_path):
     from vesper_world.habitat_scene import _relative
     with pytest.raises(export.ExportError, match="outside the HSSD folder"):
         _relative(tmp_path / "elsewhere" / "x.glb", tmp_path / "hssd-hab")
+
+
+# -- the walkable floor again, from an edited scene (plan W9b) ------------------------------------------------
+def test_renav_keeps_the_map_s_grid_and_rooms_and_takes_the_floor_from_the_new_navmesh():
+    from vesper_world.export import renav_map
+    grid = {"origin": [-1.0, 2.0], "cell": 0.1, "width": 4, "height": 3, "walkable": export.encode([True] * 12)}
+    hall = {"id": "hall", "label": "hallway", "polygon": [[-1, 2], [-0.6, 2], [-0.6, 2.3]], "outdoor": False}
+    old = {"format": "vesper-map/1", "scene": "hssd/1", "grid": grid, "rooms": [hall]}
+    seen = []
+
+    def navigable(x, y, z):  # a sofa now stands on the cells of column 2; a speck of floor apart at the far corner
+        seen.append(y)
+        i, j = round((x + 1.0) / 0.1 - 0.5), round((z - 2.0) / 0.1 - 0.5)
+        return i < 2 or (i == 3 and j == 2)
+    new = renav_map(old, navigable, floor_y=0.25)
+    assert new["grid"]["origin"] == [-1.0, 2.0] and (new["grid"]["width"], new["grid"]["height"]) == (4, 3)
+    assert new["rooms"] == old["rooms"] and new["scene"] == "hssd/1" and set(seen) == {0.25}
+    assert new["grid"]["walkable"] == export.encode([True, True, False, False] * 3)  # the speck is not floor
+
+
+def test_renav_refuses_a_scene_with_no_floor_left():
+    from vesper_world.export import renav_map
+    old = {"format": "vesper-map/1", "scene": "hssd/1",
+           "grid": {"origin": [0.0, 0.0], "cell": 0.1, "width": 2, "height": 2, "walkable": export.encode([True] * 4)},
+           "rooms": []}
+    with pytest.raises(export.ExportError, match="no walkable floor"):
+        renav_map(old, lambda x, y, z: False, floor_y=0.0)
+
+
+def test_the_renav_action_writes_the_map_again_from_the_edited_scene(tmp_path, monkeypatch, capsys):
+    import vesper_world.__main__ as cli
+    old = {"format": "vesper-map/1", "scene": "hssd/1",
+           "grid": {"origin": [0.0, 0.0], "cell": 0.1, "width": 3, "height": 1, "walkable": export.encode([True] * 3)},
+           "rooms": []}
+    (tmp_path / "map.json").write_text(json.dumps(old))
+    (tmp_path / "scene.glb").write_bytes(b"glTF")
+
+    class Edited:
+        @staticmethod
+        def navigable(x, y, z):
+            return x < 0.2  # a cabinet now stands on the third cell
+    loaded = []
+    monkeypatch.setattr(cli, "load_glb", lambda glb, radius: loaded.append((glb, radius)) or Edited)
+    assert main(["renav", "--glb", str(tmp_path / "scene.glb"), "--map", str(tmp_path / "map.json"),
+                 "--out", str(tmp_path / "new.json"), "--floor-y", "0.0"]) == 0
+    assert loaded == [(str(tmp_path / "scene.glb"), 0.2)]
+    assert json.loads((tmp_path / "new.json").read_text())["grid"]["walkable"] == export.encode([True, True, False])
+    assert "3 walkable cells before, 2 after" in capsys.readouterr().out

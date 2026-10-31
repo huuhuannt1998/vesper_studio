@@ -68,10 +68,11 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     doors[id] = { pivot, angle: 0 };
   }
 
-  async function loadScene() {
+  async function loadScene(keep = null) { // HSSD's meshes (`keep`: only those it keeps)
     const manifest = await (await fetch(hello.world3d.render)).json();
-    status.total = manifest.items.length;
-    await Promise.all(manifest.items.map(async (item) => {
+    const items = keep ? manifest.items.filter(keep) : manifest.items;
+    status.total += items.length;
+    await Promise.all(items.map(async (item) => {
       try {
         const gltf = await loader.loadAsync(`/hssd/${item.asset.split("/").map(encodeURIComponent).join("/")}`);
         const matrix = new THREE.Matrix4().set(...item.matrix); // row by row
@@ -106,14 +107,17 @@ export async function createView3d(container, hello, onProgress = () => {}) {
 
   async function loadDressed() { // the home's own model (`vesper lab dress`), drawn on the map's own axes
     status.source = "dressed";
-    status.total = 1;
+    status.total += 1;
     try {
-      scene.add((await loader.loadAsync(hello.dressed)).scene);
-      status.loaded = 1;
-    } catch (e) { // the plain look instead
-      status.failed = 1;
+      const model = (await loader.loadAsync(hello.dressed)).scene;
+      scene.add(model);
+      if (hello.world3d) solids.push(model); // an edited HSSD home: its model is the stage the camera stops at
+      status.loaded += 1;
+    } catch (e) { // the plain look instead: the map's walls, or HSSD's own meshes
+      status.failed += 1;
       status.missing.push(hello.dressed);
       for (const m of plain) m.visible = true;
+      if (hello.world3d) await loadScene((item) => !item.doorway);
     }
     onProgress(status);
   }
@@ -282,8 +286,10 @@ export async function createView3d(container, hello, onProgress = () => {}) {
   hello.actors.forEach((a, k) => { actors[a.actor] = person(a, a.actor === hello.player, k); });
   const people = Promise.all(Object.values(actors).map((p) => p.ready));
 
-  if (hello.world3d) await loadScene();
-  else {
+  if (hello.world3d) { // an edited HSSD home: its own model, and HSSD's doors, which swing
+    await loadScene(hello.dressed ? (item) => item.doorway : null);
+    if (hello.dressed) await loadDressed();
+  } else {
     buildFromMap();
     if (hello.dressed) await loadDressed();
   }

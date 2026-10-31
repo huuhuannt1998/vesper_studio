@@ -538,6 +538,8 @@ def _lab(args) -> int:
             return _lab_generate(args, catalog)
         if args.action == "dress":
             return _lab_dress(load_lab_home(Path(args.home), catalog))
+        if args.action == "renav":
+            return _lab_renav(args, load_lab_home(Path(args.home), catalog), catalog)
         return _lab_replay(args, catalog, load_lab_home)
     except (HomeError, MapError, TraceError, SceneError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
@@ -545,14 +547,71 @@ def _lab(args) -> int:
 
 
 def _lab_dress(home) -> int:
-    """`vesper lab dress` (home-generator spec §5): the build script and the brief, beside the home."""
-    from vesper.lab.dress import dress
-    script, brief = dress(home)
+    """`vesper lab dress` (home-generator spec §5): the build script and the brief, beside the home. An HSSD home's
+    models are converted for Blender first (plan W9b)."""
+    from vesper.lab.dress import DressError, dress, model_cache
+    from vesper.lab.world3d import load_world3d
+    world3d = load_world3d(home)
+    try:
+        script, brief = dress(home, world3d=world3d)
+    except DressError as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    if world3d is not None:
+        print(f"{len(world3d.assets)} HSSD models converted for Blender in {model_cache()} (derived from HSSD, "
+              f"CC BY-NC 4.0: keep them out of the repository)")
     glb = Path(home.path).parent / "scene.glb"
-    print(f"{script}: builds {home.scene} in Blender (4.2 or later), from its map")
-    print(f"{brief}: how to furnish it (by hand, or ask Claude through Blender MCP to follow it)")
+    if world3d is not None:
+        print(f"{script}: brings {home.scene} into Blender (4.2 or later), each model where Habitat puts it")
+        print(f"{brief}: how to edit it (by hand, or ask Claude through Blender MCP to follow it), then "
+              f"`vesper lab renav` so the map follows the furniture")
+    else:
+        print(f"{script}: builds {home.scene} in Blender (4.2 or later), from its map")
+        print(f"{brief}: how to furnish it (by hand, or ask Claude through Blender MCP to follow it)")
     print(f"then export {glb}; `vesper lab play {home.path}` draws it"
           + (" (there is one already: it is drawn now)" if glb.is_file() else ""))
+    return 0
+
+
+def _lab_renav(args, home, catalog) -> int:
+    """`vesper lab renav` (plan W9b): the map's walkable floor taken again from the home's scene.glb, by Habitat's
+    navmesh; the rooms and doorways kept; the first original map kept as map.original.json; the home must still load
+    on the new map, else the old one stays."""
+    import json
+    import shutil
+    import tempfile
+
+    from vesper.lab import scenes
+    from vesper.lab.home import HomeError, load_lab_home
+    from vesper.lab.worldmap import MapError
+    import yaml
+    folder = Path(home.path).parent
+    glb = folder / "scene.glb"
+    current = folder / str((yaml.safe_load(Path(home.path).read_text()) or {}).get("map", "map.json"))
+    if not glb.is_file():
+        print(f"FAILED: {folder} has no scene.glb: dress the home and export it first (vesper lab dress)",
+              file=sys.stderr)
+        return 1
+    render = folder / "render.json"
+    floor_y = json.loads(render.read_text()).get("floor_y") or 0.0 if render.is_file() else 0.0
+    with tempfile.TemporaryDirectory(prefix="vesper-renav-") as tmp:
+        new = Path(tmp) / "map.json"
+        r = scenes.run_world(scenes.habitat_python(args.habitat_python),
+                             ["renav", "--glb", str(glb.resolve()), "--map", str(current.resolve()), "--out", str(new),
+                              "--floor-y", str(floor_y), "--radius", str(args.radius)], "renav")
+        backup = folder / "map.original.json"
+        if not backup.exists():
+            shutil.copy2(current, backup)
+        old_text = current.read_text()
+        shutil.copy2(new, current)
+    try:
+        load_lab_home(Path(home.path), catalog)
+    except (HomeError, MapError) as e:
+        current.write_text(old_text)
+        print(f"FAILED: the home does not load on the new floor, so the map is unchanged: {e}", file=sys.stderr)
+        return 1
+    print((r.stdout or "").strip().splitlines()[-1] if (r.stdout or "").strip() else f"{current}: written")
+    print(f"the first map is kept as {backup}")
     return 0
 
 
@@ -1310,6 +1369,13 @@ def main(argv: list[str] | None = None) -> int:
                                        "Blender (or with Claude through Blender MCP), export scene.glb, play it")
     lab_dress.add_argument("home", help="the home's home.yaml")
     lab_dress.add_argument("--catalog", default="catalog/vds")
+    lab_renav = lab_actions.add_parser("renav", help="the walkable floor again, from the home's scene.glb (its "
+                                       "furniture where it now stands), in the Habitat environment")
+    lab_renav.add_argument("home", help="the home's home.yaml")
+    lab_renav.add_argument("--radius", type=float, default=0.2, help="the walker's radius in metres (default 0.2)")
+    lab_renav.add_argument("--habitat-python", help="the Habitat environment's Python (default: "
+                                                    "$VESPER_HABITAT_PYTHON or ~/miniconda3/envs/vesper/bin/python)")
+    lab_renav.add_argument("--catalog", default="catalog/vds")
     lab_scenario = lab_actions.add_parser("scenario", help="an attack and its defenses on a home: check, run, "
                                           "report (vesper-scenario/1)")
     scenario_actions = lab_scenario.add_subparsers(dest="scenario_action", required=True)

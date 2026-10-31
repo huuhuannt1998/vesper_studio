@@ -110,7 +110,9 @@ def largest_part(cells, width: int, height: int):
                     part[nc] = k
                     queue.append(nc)
         sizes.append(n)
-    keep = max(range(len(sizes)), key=lambda k: sizes[k]) if sizes else -1
+    if not sizes:  # nothing walkable (not every cell: an unvisited cell's part is -1 too)
+        return [False] * len(cells)
+    keep = max(range(len(sizes)), key=lambda k: sizes[k])
     return [p == keep for p in part]
 
 
@@ -149,6 +151,19 @@ def scene_map(scene) -> dict:
             "grid": {"origin": list(origin), "cell": CELL_M, "width": width, "height": height,
                      "walkable": encode(cells)},
             "rooms": rooms_from_regions(on_floor(scene.regions, scene.floor_y)[0])}
+
+
+def renav_map(old: dict, navigable, floor_y: float) -> dict:
+    """An edited scene's map (plan W9b): the old map's grid and rooms, its walkable cells taken again from the
+    edited scene's navmesh (`navigable(x, y, z)`), only the largest connected part kept."""
+    g = old["grid"]
+    (x0, z0), cell, width, height = g["origin"], g["cell"], g["width"], g["height"]
+    cells = [bool(navigable(x0 + (i + 0.5) * cell, floor_y, z0 + (j + 0.5) * cell))
+             for j in range(height) for i in range(width)]
+    cells = largest_part(cells, width, height)
+    if not any(cells):
+        raise ExportError(f"{old.get('scene')}: no walkable floor at height {floor_y:g} m in the edited scene")
+    return {**old, "grid": {**g, "walkable": encode(cells)}}
 
 
 def scene_openings(scene) -> dict:

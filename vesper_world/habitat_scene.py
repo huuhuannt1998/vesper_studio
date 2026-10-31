@@ -86,6 +86,43 @@ def load_scene(hssd: str, scene: str, radius: float = AGENT_RADIUS_M) -> Scene:
         raise
 
 
+def load_glb(glb: str, radius: float = AGENT_RADIUS_M) -> Scene:
+    """A scene exported from Blender (`vesper lab dress`, plan W9b) loaded as Habitat's stage (+Y up, as glTF and
+    Habitat are), its navmesh computed as an HSSD scene's is: the walker's radius and height, the doors not in it."""
+    path = Path(glb)
+    if not path.is_file():
+        raise ExportError(f"{path} does not exist")
+    import tempfile
+
+    import habitat_sim as hs
+    # A bare GLB is taken as +Z up; HSSD's stages, like glTF, are +Y up: a stage config says so
+    config = Path(tempfile.mkdtemp(prefix="vesper-renav-")) / "edited.stage_config.json"
+    config.write_text(json.dumps({"render_asset": str(path.resolve()), "up": [0, 1, 0], "front": [0, 0, -1],
+                                  "origin": [0, 0, 0]}))
+    cfg = hs.SimulatorConfiguration()
+    cfg.scene_id = str(config)
+    cfg.create_renderer = False
+    agent = hs.agent.AgentConfiguration()
+    agent.sensor_specifications = []
+    sim = hs.Simulator(hs.Configuration(cfg, [agent]))
+    try:
+        settings = hs.NavMeshSettings()
+        settings.set_defaults()
+        settings.agent_radius, settings.agent_height = radius, AGENT_HEIGHT_M
+        settings.include_static_objects = True
+        if not sim.recompute_navmesh(sim.pathfinder, settings):
+            raise ExportError(f"{path.name}: Habitat could not build its navmesh")
+        lo, hi = sim.pathfinder.get_bounds()
+        bounds = ((float(lo[0]), float(lo[1]), float(lo[2])), (float(hi[0]), float(hi[1]), float(hi[2])))
+        loaded = Scene(path.name, 0.0, bounds, [])
+        loaded._pathfinder = sim.pathfinder
+        loaded._sim = sim  # kept alive while the pathfinder is used
+        return loaded
+    except BaseException:
+        sim.close()
+        raise
+
+
 def _rows(node) -> list:
     """A scene node's world matrix, row by row (Magnum's Matrix4 is indexed column first)."""
     m = node.absolute_transformation()

@@ -80,7 +80,8 @@ def test_the_script_builds_the_home_in_blender_s_axes_in_one_collection(tmp_path
     lock = bpy.data.objects["device:front_lock"]
     x, z = h.device("front_lock").position
     assert lock.data is None and lock.location == pytest.approx((x, -z, 1.0)) and lock["category"] == "lock"
-    assert len(bpy.data.collections["doorways"].objects) == len(h.map.doorways)  # the lintels over the doors
+    lintels = [o for o in bpy.data.collections["doorways"].objects if o.name.startswith("lintel:")]
+    assert len(lintels) == len(h.map.doorways)  # the lintels over the doors
     assert bpy.exports == []  # building only, unless asked to export
 
 
@@ -205,3 +206,31 @@ def test_real_blender_builds_and_exports_the_home_with_its_colours_and_device_na
     x, z = h.device("front_lock").position
     assert lock["translation"] == pytest.approx([x, 1.0, z], abs=1e-4)
     assert lock["extras"]["category"] == "lock"
+
+
+def test_each_doorway_has_a_threshold_so_the_floor_runs_through_it(tmp_path, monkeypatch):
+    """The rooms' floors stop short of the walls; a doorway's own floor joins them, else a navmesh taken from the
+    model (vesper lab renav) has no way from room to room."""
+    h = home(tmp_path)
+    script, _ = dress(h)
+    bpy = run_script(script, monkeypatch)
+    data = scene_data(h)
+    for d in data["doorways"]:
+        x0, z0, x1, z1 = d["box"]
+        sill = bpy.data.objects["threshold:" + d["id"]]
+        xs, ys, zs = zip(*sill.data.vertices)
+        assert (min(xs), max(xs), min(ys), max(ys), set(zs)) == pytest.approx((x0, x1, -z1, -z0, {0.0}))
+
+
+def test_every_floor_faces_up_so_a_navmesh_can_walk_on_it(tmp_path, monkeypatch):
+    """A navmesh builder (Recast, in Habitat) takes a face pointing down for a ceiling: floors and thresholds wind
+    counter-clockwise seen from above (+Z, Blender's up)."""
+    script, _ = dress(home(tmp_path))
+    bpy = run_script(script, monkeypatch)
+    floors = [o for o in bpy.data.objects.values() if o.name.startswith(("floor:", "threshold:"))]
+    assert floors
+    for o in floors:
+        (face,) = o.data.faces
+        pts = [o.data.vertices[k] for k in face]
+        area = sum(x0 * y1 - x1 * y0 for (x0, y0, _), (x1, y1, _) in zip(pts, pts[1:] + pts[:1])) / 2
+        assert area > 0, o.name
