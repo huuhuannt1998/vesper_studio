@@ -128,7 +128,7 @@ def _fill(grid: Grid, x0: float, z0: float, x1: float, z1: float) -> None:
 
 # -- the request and its devices (spec §1, §3) ------------------------------------------------------------------
 REQUEST_FORMAT = "vesper-request/1"
-PROTOCOLS = ("zigbee", "tasmota", "matter", "zwave")  # on the hub first (Matter joins with plan W7a3)
+PROTOCOLS = ("zigbee", "tasmota", "matter", "zwave")  # on the hub first (Matter with --matter-interface, plan W7a3)
 RULES = {"light": "ceiling", "smoke_sensor": "ceiling", "gas_sensor": "ceiling", "air_quality_sensor": "ceiling",
          "motion_sensor": "corner", "contact_sensor": "door", "lock": "door", "switch": "wall", "button": "wall",
          "thermostat": "wall", "plug": "floor"}  # anything else: a table position

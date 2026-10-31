@@ -2,6 +2,7 @@
 VESPER's Matter host, labelled with its device name and commissioned into Home Assistant through VESPER's Matter
 Server; Home Assistant's entity ids, which VESPER's own engine predicts, read back from Home Assistant."""
 import threading
+from types import SimpleNamespace
 import time
 
 from tests.lab.homes import HOME, catalog, write_home
@@ -160,3 +161,88 @@ def test_vesper_s_engine_runs_an_automation_on_matter_devices_as_home_assistant_
     assert session.runtime.state(lock)["Door Lock.LockState"] == "Locked"
     assert session.runtime.state(light)["On/Off.OnOff"] is True
     session.stop()
+
+
+class FakeServer:
+    made = []
+
+    def __init__(self, root, storage, port=15580, interface=None, **kw):
+        self.storage, self.interface, self.events = storage, interface, []
+        FakeServer.made.append(self)
+
+    @property
+    def url(self):
+        return "ws://127.0.0.1:15580/ws"
+
+    def start(self):
+        self.events.append("start")
+
+    def stop(self):
+        self.events.append("stop")
+
+
+def stack_with_matter(monkeypatch, tmp_path):
+    from tests.lab.test_cli_play import LabHA, stack_fakes
+    from vesper.validation import stack as stack_mod
+    stack_fakes(monkeypatch)
+    FakeServer.made = []
+    monkeypatch.setattr(stack_mod, "MatterServer", FakeServer)
+    monkeypatch.setattr(stack_mod, "ha_has_matter", lambda root: True)
+    monkeypatch.setattr(LabHA, "ensure_matter", lambda self, url: self.events.append(("ensure_matter", url)),
+                        raising=False)
+    monkeypatch.setattr(LabHA, "forget", lambda self, name: self.events.append(("forget", name)), raising=False)
+    host_dir = stack_mod.Paths(tmp_path / ".vesper").matter_host
+    host_dir.mkdir(parents=True)
+    (host_dir / "host.mjs").write_text("// installed")
+    return LabHA
+
+
+def test_the_stack_starts_vesper_s_matter_server_for_a_home_with_matter_devices_on_an_interface(
+        tmp_path, monkeypatch):
+    from vesper.lab.live import lab_stack
+    ha_class = stack_with_matter(monkeypatch, tmp_path)
+    h = home(tmp_path)
+    with lab_stack(tmp_path / ".vesper", h, matter_interface="en0") as lab:
+        (server,) = FakeServer.made
+        assert server.interface == "en0" and server.events == ["start"] and lab.matter_server is server
+        assert ("ensure_matter", server.url) in ha_class.made[-1].events
+    assert server.events == ["start", "stop"]
+    with lab_stack(tmp_path / ".vesper", h) as lab:  # no interface: Matter stays off the hub
+        assert lab.matter_server is None and len(FakeServer.made) == 1
+        assert ("forget", "matter") in ha_class.made[-1].events  # no node of an earlier home lingers
+
+
+def play_hub(tmp_path, monkeypatch, capsys, *extra):
+    import contextlib
+    from tests.lab.test_cli_lab import setup
+    from vesper import cli
+    from vesper.lab import live
+    stack_with_matter(monkeypatch, tmp_path)
+    seen = {}
+
+    @contextlib.contextmanager
+    def fake_matter(session, url, ha, *, host, **kw):
+        seen.update(url=url, interface=host.interface, devices=[d.name for d in session.home.devices
+                                                                if "matter" in d.record["binding"]])
+        yield SimpleNamespace(entities={"front_lock": {"Door Lock.LockState": "lock.front_lock"}}, renamed={},
+                              failed={})
+    monkeypatch.setattr(live, "lab_matter", fake_matter)
+    monkeypatch.setattr(cli, "_wait_for_interrupt", lambda: None)
+    cat, h = setup(tmp_path / "c")
+    assert cli.main(["lab", "play", str(h), "--catalog", str(cat), "--port", "0", "--no-browser", "--hub",
+                     "--root", str(tmp_path / ".vesper"), *extra]) == 0
+    return seen, capsys.readouterr().out
+
+
+def test_play_with_the_hub_puts_the_matter_devices_on_home_assistant_on_the_interface_given(
+        tmp_path, monkeypatch, capsys):
+    seen, out = play_hub(tmp_path, monkeypatch, capsys, "--matter-interface", "en0")
+    assert seen == {"url": "ws://127.0.0.1:15580/ws", "interface": "en0", "devices": ["front_lock"]}
+    assert "Matter: 1 of 1 devices on Home Assistant through VESPER's Matter Server (nodes on en0)" in out
+    assert "  front_lock: lock.front_lock" in out
+
+
+def test_play_with_the_hub_and_no_interface_says_how_to_put_the_matter_devices_on_it(tmp_path, monkeypatch, capsys):
+    seen, out = play_hub(tmp_path, monkeypatch, capsys)
+    assert seen == {}
+    assert "  front_lock: not on Home Assistant (a Matter device: give --matter-interface, e.g. en0" in out

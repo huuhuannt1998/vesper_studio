@@ -20,11 +20,17 @@ def zhc_version(catalog_dir: Path) -> str:
     return "unknown"
 
 
+def has_matter(home) -> bool:
+    return any("matter" in d.record["binding"] for d in home.devices)
+
+
 @contextmanager
-def lab_stack(root: Path, home, keep=None):
+def lab_stack(root: Path, home, keep=None, matter_interface: str | None = None):
     """VESPER's broker and Home Assistant (the dashboard framable by the page, the home's automations loaded, the
     Lab login), Home Assistant's MQTT through the relay's hub link; stopped again whatever happens, a stop signal
-    included. `keep(ha, rules)` runs before Home Assistant stops (play keeps automations edited in its UI)."""
+    included. `keep(ha, rules)` runs before Home Assistant stops (play keeps automations edited in its UI).
+    `matter_interface`: for a home with Matter devices, VESPER's Matter Server too (plan W7a3), its nodes and
+    discovery on that network interface (Matter cannot use loopback); `lab.matter_server` is None without it."""
     from vesper.lab.relay import Relay, SessionSink
     from vesper.validation import stack
     port = home.broker[1]
@@ -32,6 +38,16 @@ def lab_stack(root: Path, home, keep=None):
     broker = stack.Mosquitto(Path(root), port=port)
     sink = SessionSink()  # the session starts once Home Assistant is up; the relay must exist before
     relay = Relay(record=sink.record, allowed={port}, now=sink.now, latency=sink.latency)
+    matter_server = None
+    if matter_interface and has_matter(home):
+        from datetime import UTC, datetime
+        if not (stack.Paths(Path(root)).matter_host / "host.mjs").exists():
+            raise stack.StackError("the Matter host is not installed; run `vesper setup matter` first")
+        if not stack.ha_has_matter(Path(root)):
+            raise stack.StackError("Home Assistant's environment lacks the Matter integration's packages; run "
+                                   "`vesper setup ha` again")
+        run_dir = stack.Paths(Path(root)).matter_runs / f"lab-{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+        matter_server = stack.MatterServer(Path(root), run_dir / "server", interface=matter_interface)
     try:
         broker.start()
         relay.start()
@@ -45,12 +61,21 @@ def lab_stack(root: Path, home, keep=None):
                 ha.ensure_tasmota()  # Home Assistant's Tasmota integration hears the Wi-Fi devices (plan W7a2)
             else:
                 ha.forget("tasmota")  # no Wi-Fi device of an earlier home lingers in Home Assistant
-            yield SimpleNamespace(ha=ha, port=port, hub_port=hub_port, relay=relay, sink=sink, login=ha.lab_login())
+            if matter_server is not None:
+                matter_server.start()
+                ha.ensure_matter(matter_server.url)  # a fresh fabric: no node of an earlier session
+            else:
+                ha.forget("matter")  # no Matter device of an earlier home lingers in Home Assistant
+            yield SimpleNamespace(ha=ha, port=port, hub_port=hub_port, relay=relay, sink=sink, login=ha.lab_login(),
+                                  matter_server=matter_server, matter_interface=matter_interface,
+                                  root=Path(root))
         finally:
             if keep is not None:
                 keep(ha, rules)
             ha.stop()
     finally:
+        if matter_server is not None:
+            matter_server.stop()
         relay.stop()
         broker.stop()
 

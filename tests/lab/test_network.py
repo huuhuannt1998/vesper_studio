@@ -30,7 +30,7 @@ def test_every_zigbee_device_reaches_home_assistant_through_its_hop_the_coordina
     assert net.links["coordinator"].tcp and net.links["hub"].tcp and not net.links["zigbee/hall_motion"].tcp
     assert set(net.links["coordinator"].devices) == {"front_door", "hall_motion", "bedroom_lamp", "bedroom_button",
                                                      "kitchen_climate"}
-    assert net.unlinked == {"front_lock": "a Matter device: on the network with plan W7a3"}
+    assert net.unlinked == {"front_lock": "a Matter device: on Home Assistant with --matter-interface; its link's effects come with plan W7a3b"}
 
 
 def test_the_router_and_the_coordinator_can_be_placed(tmp_path):

@@ -170,7 +170,7 @@ class LinkLayer:
     def _on_report(self, event) -> None:
         device = self.names.get(event.twin_id)
         if device is None or not self.network.path(device):
-            self._deliver(event)  # not on the network yet (plan W7a3): heard at once, as before
+            self._deliver(event)  # no link of its own yet (a Matter device: plan W7a3b): heard at once
             return
         self._send(device, "up", event.feature, lambda: self._deliver(event))
 

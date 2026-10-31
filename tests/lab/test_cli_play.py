@@ -273,13 +273,14 @@ def test_play_with_the_hub_runs_broker_and_home_assistant_and_keeps_the_automati
     (_, hub_port), ((_, coord_port, name), _) = ha.events[2], clients[0]
     # a home with no Wi-Fi device leaves no Tasmota entities of an earlier home behind
     assert ha.events[:2] == ["start", "onboard"] and ha.events[2][0] == "ensure_mqtt" and ha.events[3:] == [
-        ("forget", "tasmota"), "login", "stop"]
+        ("forget", "tasmota"), ("forget", "matter"), "login", "stop"]
     assert name == "vesper-lab-bridge" and len({hub_port, coord_port, 18830}) == 3 and clients[-1][0] == "disconnected"
     assert f"network: Home Assistant's MQTT through the relay's hub link (port {hub_port}), the bridge's through its " \
            f"coordinator link (port {coord_port})" in seen["out"]
     assert "log in as vesper, password s3cret-lab-login" in seen["out"]
     assert seen["hub"] == "http://127.0.0.1:18123"
-    assert "bedroom_lamp: light." in seen["out"] and "front_lock: not on the hub (Matter: plan W2d)" in seen["out"]
+    assert "bedroom_lamp: light." in seen["out"]
+    assert "front_lock: not on Home Assistant (a Matter device: give --matter-interface" in seen["out"]
     assert (home.parent / "automations.yaml").read_text() == RULES + "- alias: added in the UI\n"
     assert "automations.yaml updated" in capsys.readouterr().out
 
@@ -377,7 +378,7 @@ def test_lab_network_shows_the_router_each_link_and_what_is_not_on_the_network(t
     assert "assumed" in out  # the radio constants are typical values, not measured
     lamp = next(line for line in out.splitlines() if line.strip().startswith("zigbee/bedroom_lamp"))
     assert "dBm" in lamp and "1 wall" in lamp and "ms" in lamp
-    assert "front_lock: a Matter device: on the network with plan W7a3" in out
+    assert "front_lock: a Matter device: on Home Assistant with --matter-interface; its link's effects come with plan W7a3b" in out
 
 
 def test_play_with_the_hub_puts_each_wi_fi_device_on_its_own_connection_through_its_own_link(tmp_path, capsys,

@@ -215,7 +215,8 @@ def test_every_generated_ceiling_light_has_a_wall_switch_by_its_room_s_door_with
 def _latch_side(home, d):
     """+1 when the switch is on the latch side of its doorway (the 3D view hinges a door at its low end)."""
     dw = min((w for w in home.map.doorways if d.room in w.rooms),
-             key=lambda w: (not w.outdoor, (w.center[0] - d.wall_switch[0]) ** 2 + (w.center[1] - d.wall_switch[1]) ** 2))
+             key=lambda w: (not w.outdoor, (w.center[0] - d.wall_switch[0]) ** 2
+                            + (w.center[1] - d.wall_switch[1]) ** 2))
     xs = [x for x, _ in home.map.room(d.room).polygon]
     along_x = abs(dw.center[0] - min(xs)) > 0.2 and abs(dw.center[0] - max(xs)) > 0.2
     k = 0 if along_x else 1

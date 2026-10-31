@@ -114,8 +114,8 @@ def parse_network(raw, world_map: WorldMap, devices) -> Network:
     for d in wifi:  # its own MQTT connection, over the router's Wi-Fi
         links[f"wifi/{d.name}"] = Link(f"wifi/{d.name}", "wifi", (d.position, router.position), True, (d.name,))
     linked = {d.name for d in zigbee + wifi}
-    unlinked = {d.name: "a Matter device: on the network with plan W7a3" for d in devices
-                if d.name not in linked and "matter" in d.record.get("binding", {})}
+    matter = "a Matter device: on Home Assistant with --matter-interface; its link's effects come with plan W7a3b"
+    unlinked = {d.name: matter for d in devices if d.name not in linked and "matter" in d.record.get("binding", {})}
     unlinked.update({d.name: "not on any network yet" for d in devices
                      if d.name not in linked and d.name not in unlinked})
     return Network(router, hub, coordinator, links, unlinked)

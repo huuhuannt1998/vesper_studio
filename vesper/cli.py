@@ -914,6 +914,7 @@ def _lab_play(args, home, scenario=None) -> int:
             session.start(spawn_player=scenario is None, automations=scenario is not None and lab is None)
             hub = stack.enter_context(_lab_hub(args, session, lab.port, stamp=scenario is not None)) \
                 if lab else None
+            matter = stack.enter_context(_lab_matter(session, lab)) if lab and lab.matter_server else None
             banner, begin = _prepare_scenario(stack, scenario, args.condition or "attack+defense", session, lab,
                                               hub) if scenario is not None else (None, None)
         except Exception as e:  # noqa: BLE001 - starting the hub: a StackError, a refused connection, HTTP
@@ -945,7 +946,8 @@ def _lab_play(args, home, scenario=None) -> int:
                   + (f"; Wi-Fi devices through their own links (ports: {wifi})" if wifi else ""))
             print(f"Home Assistant is in the hub panel ({lab.ha.url}): log in as {user}, password {password} "
                   f"(kept in {Path(args.root) / 'ha' / 'lab-login.json'})")
-            _print_entities(home, hub)
+            _print_matter(matter, home, lab)
+            _print_entities(home, hub, matter)
         if not args.no_browser:
             webbrowser.open(server.url)
         _wait_for_interrupt()
@@ -1027,7 +1029,8 @@ def _lab_stack(args, home, scenario=None):
     """VESPER's broker, the relay and Home Assistant for a Lab command (`vesper.lab.live`); automations edited in
     Home Assistant's UI go back into the home when it stops."""
     from vesper.lab.live import lab_stack
-    return lab_stack(Path(args.root), home, keep=lambda ha, rules: _keep_automations(ha, home, rules, scenario))
+    return lab_stack(Path(args.root), home, keep=lambda ha, rules: _keep_automations(ha, home, rules, scenario),
+                     matter_interface=getattr(args, "matter_interface", None))
 
 
 def _lab_session(home, trace, lab):
@@ -1073,14 +1076,46 @@ def _keep_automations(ha, home, rules: str, scenario=None) -> None:
           f"; add `automations: {target.name}` to {home.path.name} to load it next time"))
 
 
-def _print_entities(home, hub) -> None:
+def _lab_matter(session, lab):
+    """The session's Matter devices on Home Assistant through the stack's Matter Server (plan W7a3)."""
+    from vesper.exposure import matter_tier
+    from vesper.lab import live
+    from vesper.validation import stack as stack_mod
+    run_dir = Path(lab.matter_server.storage).parent
+    host_js = stack_mod.Paths(lab.root).matter_host / "host.mjs"
+    host = matter_tier.Host(run_dir / "nodes", interface=lab.matter_interface, command=["node", str(host_js)],
+                            log=run_dir / "matter-host.log")
+    return live.lab_matter(session, lab.matter_server.url, lab.ha, host=host)
+
+
+def _print_matter(matter, home, lab) -> None:
+    devices = [d.name for d in home.devices if "matter" in d.record["binding"]]
+    if matter is None or not devices:
+        return
+    print(f"Matter: {len(matter.entities)} of {len(devices)} devices on Home Assistant through VESPER's Matter Server "
+          f"(nodes on {lab.matter_interface})")
+    for name, why in matter.failed.items():
+        print(f"  {name}: not commissioned: {why}")
+    for predicted, actual in matter.renamed.items():
+        print(f"  Home Assistant named {predicted} {actual} (VESPER's engine predicts {predicted})")
+
+
+def _print_entities(home, hub, matter=None) -> None:
     print("Home Assistant entities, for automations:")
     for d in home.devices:
         if "tasmota" in d.record["binding"]:
             later = "" if d.name in hub.wifi.devices else " (out of range: on the hub once it joins)"
             print(f"  {d.name}: {', '.join(sorted(set(hub.wifi.entities(d.name).values())))}{later}")
+        elif "matter" in d.record["binding"]:
+            if matter is not None and d.name in matter.entities:
+                print(f"  {d.name}: {', '.join(sorted(set(matter.entities[d.name].values())))}")
+            elif matter is not None:
+                print(f"  {d.name}: not on Home Assistant ({matter.failed.get(d.name, 'not commissioned')})")
+            else:
+                print(f"  {d.name}: not on Home Assistant (a Matter device: give --matter-interface, e.g. en0, to "
+                      "commission it; its node then announces itself by mDNS on that network)")
         elif d.name in hub.skipped:
-            print(f"  {d.name}: not on the hub (Matter: plan W2d)")
+            print(f"  {d.name}: not on the hub")
         else:
             print(f"  {d.name}: {', '.join(sorted(set(hub.entities(d.name).values())))}")
 
@@ -1127,6 +1162,7 @@ def _lab_look(args, home, scenario=None) -> int:
             session.start(spawn_player=scenario is None, automations=scenario is not None and lab is None)
             hub = stack.enter_context(_lab_hub(args, session, lab.port, stamp=scenario is not None)) \
                 if lab else None
+            matter = stack.enter_context(_lab_matter(session, lab)) if lab and lab.matter_server else None
             banner, begin = _prepare_scenario(stack, scenario, args.condition or "attack+defense", session, lab,
                                               hub) if scenario is not None else (None, None)
         except Exception as e:  # noqa: BLE001 - starting the hub: a StackError, a refused connection, HTTP
@@ -1136,6 +1172,7 @@ def _lab_look(args, home, scenario=None) -> int:
         humanoids, people = _humanoids(home, args.humanoids)
         print(drawn)
         print(people)
+        _print_matter(matter, home, lab)
         if banner:
             print(f'scenario "{banner["title"]}", {banner["condition"]}: its timeline begins when the page is ready')
         server = PlayServer(session, port=0, hub_url=lab.ha.url if lab else None, world3d=world3d,
@@ -1428,6 +1465,9 @@ def main(argv: list[str] | None = None) -> int:
                           help="put Home Assistant in the loop: start VESPER's broker and Home Assistant (after "
                                "`vesper setup ha`), and show its dashboard in the page")
     lab_play.add_argument("--root", default=".vesper", help="where `vesper setup ha` installed the stack")
+    lab_play.add_argument("--matter-interface", help="with --hub: put the home's Matter devices on Home Assistant "
+                       "through VESPER's Matter Server, their nodes on this network interface (e.g. en0; Matter "
+                       "cannot use loopback, so they announce themselves by mDNS on that network)")
     lab_look = lab_actions.add_parser("look", help="drive the play page in a headless browser and check what it shows")
     lab_look.add_argument("home", nargs="?", help="the home (or give --scenario: its home is played)")
     lab_look.add_argument("--scenario", help="look at a scenario: its timeline begins when the page is ready, and "
@@ -1446,6 +1486,9 @@ def main(argv: list[str] | None = None) -> int:
     lab_look.add_argument("--humanoids", help="Habitat's humanoid folder, for the people (default: "
                                               "$VESPER_HUMANOIDS, else data/humanoids/humanoid_data)")
     lab_look.add_argument("--root", default=".vesper", help="where `vesper setup ha` installed the stack")
+    lab_look.add_argument("--matter-interface", help="with --hub: put the home's Matter devices on Home Assistant "
+                       "through VESPER's Matter Server, their nodes on this network interface (e.g. en0; Matter "
+                       "cannot use loopback, so they announce themselves by mDNS on that network)")
     lab_look.add_argument("--width", type=int, default=1280)
     lab_look.add_argument("--height", type=int, default=800)
     lab_day = lab_actions.add_parser("day", help="the home's residents live a day, faster than real time")
