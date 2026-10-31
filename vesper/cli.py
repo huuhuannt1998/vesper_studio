@@ -130,6 +130,8 @@ def _install_sigterm() -> None:
 def _setup(args) -> int:
     if args.action == "claude-desktop":
         return _setup_claude_desktop(args)
+    if args.action in ("habitat", "scenes", "all"):
+        return _setup_more(args)
     from vesper.validation import stack
     try:
         if args.action == "matter":
@@ -1450,6 +1452,13 @@ def main(argv: list[str] | None = None) -> int:
     build.add_argument("--raw-root", default="catalog/raw")
     build.add_argument("--out", default="catalog/vds")
     build.add_argument("--release", action="store_true", help="keep only records whose sources allow redistribution")
+    bundle_cmd = actions.add_parser("bundle", help="pack the built catalog with a SHA-256 manifest (for a release)")
+    bundle_cmd.add_argument("out", help="the bundle file, e.g. vesper-catalog-2026.10.tar.gz")
+    bundle_cmd.add_argument("--catalog", default="catalog/vds")
+    fetch_cmd = actions.add_parser("fetch", help="install a released catalog bundle, checked against its SHA-256")
+    fetch_cmd.add_argument("source", help="the bundle: a local file or an https URL")
+    fetch_cmd.add_argument("--sha256", required=True, help="the bundle's SHA-256 (from the release notes)")
+    fetch_cmd.add_argument("--out", default="catalog/vds")
     search_cmd = actions.add_parser("search", help="find products to place in a home (every word must match)")
     search_cmd.add_argument("words", nargs="*", help="words of the vendor, model, description, category or id")
     search_cmd.add_argument("--category", help="only this category, such as light, plug or motion_sensor")
@@ -1466,6 +1475,22 @@ def main(argv: list[str] | None = None) -> int:
     setup_matter_cmd = setup_actions.add_parser("matter", help="the Matter host and Matter Server (needs Node.js)")
     setup_matter_cmd.add_argument("--root", default=".vesper")
 
+    setup_hab = setup_actions.add_parser("habitat", help="the Habitat environment (conda or micromamba; "
+                                                         "habitat-sim 0.3.3, Python 3.9) for HSSD homes")
+    setup_hab.add_argument("--name", default="vesper-habitat")
+    setup_hab.add_argument("--dry-run", action="store_true", help="print the command, change nothing")
+    setup_scn = setup_actions.add_parser("scenes", help="download HSSD scenes, exactly the files each needs (needs "
+                                                        "`hf auth login` after accepting HSSD's terms)")
+    setup_scn.add_argument("scenes", nargs="+", help="HSSD scene ids, e.g. 102344022")
+    setup_scn.add_argument("--hssd", help="where HSSD goes (default: the configured folder, else "
+                                          "~/vesper-data/hssd-hab)")
+    setup_all = setup_actions.add_parser("all", help="Home Assistant, the Matter host and Habitat, each skipped when "
+                                                     "already done")
+    setup_all.add_argument("--root", default=".vesper")
+    setup_all.add_argument("--no-habitat", action="store_true")
+    doc = commands.add_parser("doctor", help="check every prerequisite and say which commands need what is missing")
+    doc.add_argument("--root", default=".vesper")
+    doc.add_argument("--catalog", default="catalog/vds")
     setup_claude = setup_actions.add_parser("claude-desktop", help="register VESPER's MCP server with Claude Desktop "
                                                                    "(a backup of its config is kept)")
     _mcp_arguments(setup_claude)
@@ -1712,6 +1737,22 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
 
+def _catalog_bundle(args) -> int:
+    from vesper.catalog.bundle import BundleError, bundle, fetch
+    try:
+        if args.action == "bundle":
+            path, digest = bundle(Path(args.catalog), Path(args.out))
+            print(f"{path}\nSHA-256 {digest}")
+            return 0
+        manifest = fetch(args.source, args.sha256, Path(args.out))
+    except (BundleError, OSError) as e:
+        print(f"FAILED catalog {args.action}: {e}", file=sys.stderr)
+        return 1
+    print(f"catalog installed in {args.out}: {len(manifest['files'])} files, catalog code "
+          f"{str(manifest.get('code_sha256'))[:12]}")
+    return 0
+
+
 def _catalog_find(args) -> int:
     """`vesper catalog search` and `vesper catalog show`: products to place in a home (spec §7)."""
     from vesper.catalog.errors import CatalogError
@@ -1739,6 +1780,53 @@ def _catalog_find(args) -> int:
     if len(found) > args.limit:
         print(f"... and {len(found) - args.limit} more (--limit)")
     return 0
+
+
+def _doctor(args) -> int:
+    from vesper.setup_tools import config_path, doctor
+    checks = doctor(Path(args.root), Path(args.catalog))
+    width = max(len(c.name) for c in checks)
+    for c in checks:
+        print(f"{'ok  ' if c.ok else 'MISSING' if c.required else 'no  '} {c.name:<{width}}  {c.detail}"
+              + ("" if c.ok else f"\n{'':{width + 6}}needed by {c.needed_by}; {c.fix}"))
+    print(f"configuration: {config_path()}")
+    return 1 if any(c.required and not c.ok for c in checks) else 0
+
+
+def _setup_more(args) -> int:
+    from vesper.setup_tools import SetupError, configured, setup_habitat, setup_scenes
+    from vesper.validation import stack
+    try:
+        if args.action == "habitat":
+            cmd, python = setup_habitat(name=args.name, dry_run=args.dry_run)
+            print(" ".join(cmd) if args.dry_run else f"Habitat ready: {python} (recorded in VESPER's configuration)")
+            return 0
+        if args.action == "scenes":
+            hssd = Path(args.hssd or configured("hssd") or Path.home() / "vesper-data" / "hssd-hab").expanduser()
+            got = setup_scenes(hssd, args.scenes)
+            print(f"HSSD in {hssd}: " + ", ".join(f"{s} ({n} files fetched)" for s, n in got.items()))
+            return 0
+        root = Path(args.root)
+        if not (root / "ha" / "venv" / "bin" / "hass").is_file():
+            stack.setup_ha(root)
+            print("Home Assistant: installed")
+        else:
+            print("Home Assistant: already installed")
+        if not (stack.Paths(root).matter_host / "host.mjs").is_file():
+            stack.setup_matter(root)
+            print("Matter host: installed")
+        else:
+            print("Matter host: already installed")
+        if not args.no_habitat:
+            from vesper.lab.scenes import habitat_python
+            if habitat_python(None).is_file():
+                print(f"Habitat: already at {habitat_python(None)}")
+            else:
+                print(f"Habitat: ready at {setup_habitat()[1]}")
+        return 0
+    except (SetupError, stack.StackError) as e:
+        print(f"FAILED setup {args.action}: {e}", file=sys.stderr)
+        return 1
 
 
 def _mcp_arguments(p) -> None:
@@ -1836,6 +1924,8 @@ def _setup_claude_desktop(args) -> int:
 
 def _dispatch(args) -> int:
     if args.command == "catalog":
+        if args.action in ("bundle", "fetch"):
+            return _catalog_bundle(args)
         if args.action in ("search", "show"):
             return _catalog_find(args)
         return _sync(args) if args.action == "sync" else _build(args)
@@ -1845,6 +1935,8 @@ def _dispatch(args) -> int:
         return _report(args)
     if args.command == "mcp":
         return _mcp(args)
+    if args.command == "doctor":
+        return _doctor(args)
     if args.command == "twins":
         return _twins_run(args)
     if args.command == "lab":

@@ -52,11 +52,15 @@ class SceneInfo:
 
 
 def hssd_dir(given: str | None) -> Path:
-    return Path(given or os.environ.get(HSSD_ENV) or DEFAULT_HSSD)
+    """A flag, else the environment, else what `vesper setup scenes` recorded, else the repository's folder."""
+    from vesper.setup_tools import configured
+    return Path(given or os.environ.get(HSSD_ENV) or configured("hssd") or DEFAULT_HSSD)
 
 
 def habitat_python(given: str | None) -> Path:
-    return Path(given or os.environ.get(PYTHON_ENV) or DEFAULT_PYTHON)
+    """A flag, else the environment, else what `vesper setup habitat` recorded, else the conda default."""
+    from vesper.setup_tools import configured
+    return Path(given or os.environ.get(PYTHON_ENV) or configured("habitat_python") or DEFAULT_PYTHON)
 
 
 def list_scenes(hssd: Path) -> list[SceneInfo]:
