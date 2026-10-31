@@ -85,3 +85,16 @@ def test_a_matter_twin_takes_booleans_for_its_boolean_attributes():
     from tests.catalog.test_matter_normalize import records as matter_records
     t = Twin.from_vds(matter_records()["matter:100b:0016"])
     assert t.state["Boolean State.StateValue"] is False and t.coerce("Boolean State.StateValue", True) is True
+
+
+def test_a_nullable_feature_holds_null_and_another_does_not():
+    """The firmware anchors read null from nullable Matter attributes (L4); a twin can hold it there only."""
+    vds = {"id": "matter:test:1", "vds_version": 1, "identity": {}, "features": [
+        {"name": "Level Control.OnLevel", "type": "numeric", "range": [0, 254], "access": ["state", "get", "set"],
+         "nullable": True},
+        {"name": "Level Control.CurrentLevel", "type": "numeric", "range": [1, 254],
+         "access": ["state", "get", "set"]}]}
+    t = Twin.from_vds(vds)
+    assert t.coerce("Level Control.OnLevel", None) is None
+    with pytest.raises(TwinError, match="not a number"):
+        t.coerce("Level Control.CurrentLevel", None)

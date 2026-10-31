@@ -91,6 +91,7 @@
         "value_off": {},
         "value_toggle": {},
         "flags": {"type": "array", "items": {"type": "string"}},
+        "nullable": {"type": "boolean"},
         "ha": {"type": ["string", "null"], "pattern": "^[a-z_]+(/[a-z0-9_]+)?$"},
         "source": {"type": "string", "minLength": 1},
         "unsupported_reason": {"type": "string"}

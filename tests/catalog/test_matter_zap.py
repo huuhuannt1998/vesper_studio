@@ -89,3 +89,10 @@ def test_enums_resolve_per_cluster_first():
     assert resolve_type(m, "OperatingModeEnum", 0x0101) == ("enum", ["Normal", "Vacation"])
     assert resolve_type(m, "OperatingModeEnum", 0x0046) == ("enum", ["SIT", "LIT"])
     assert resolve_type(m, "OperatingModeEnum") == ("unsupported", None)  # ambiguous without its cluster
+
+
+def test_an_attribute_s_nullability_is_kept():
+    """Matter attributes marked isNullable can hold null (a lock's LockState before it knows; StartUpOnOff unset)."""
+    m = parse_zap(ZAP_FILES)
+    lock = m.clusters["Door Lock"]
+    assert lock.attributes[0].nullable is True and lock.attributes[3].nullable is False

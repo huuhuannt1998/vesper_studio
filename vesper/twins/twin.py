@@ -74,6 +74,8 @@ class Twin:
         """The value a real device would store for `value`, or TwinError."""
         f = self.feature(name)
         kind = f["type"]
+        if value is None and f.get("nullable"):  # Matter's null: the attribute has no value
+            return None
         if kind == "binary":
             if "value_toggle" in f and _same(value, f["value_toggle"]):
                 return f["value_off"] if self.state[name] == f["value_on"] else f["value_on"]

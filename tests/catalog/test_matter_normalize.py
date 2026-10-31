@@ -86,3 +86,9 @@ def test_a_matter_boolean_is_true_or_false_and_l2_waits_for_validation_evidence(
     state = r["features"][0]
     assert (state["type"], state["value_on"], state["value_off"]) == ("binary", True, False)
     assert "vesper validate matter" in r["fidelity"]["reasons"]["L2"]
+
+
+def test_a_nullable_attribute_is_a_nullable_feature():
+    feats = {f["name"]: f for f in records()["matter:115f:0001"]["features"]}
+    assert feats["Door Lock.LockState"]["nullable"] is True
+    assert "nullable" not in feats["Door Lock.OperatingMode"]

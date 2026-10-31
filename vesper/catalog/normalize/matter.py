@@ -109,6 +109,8 @@ def device_type_features(zap: ZapModel, dt: DeviceType, prov: str) -> list[dict]
                  "category": _category(a.name),
                  "ha": matter_ha(dt.name, cname, a.name) if kind != "unsupported" else None,
                  "source": prov, "property": a.name}
+            if a.nullable and kind != "unsupported":
+                f["nullable"] = True
             if kind == "numeric":
                 unit, scale = ATTRIBUTE_UNITS.get((cname, a.name)) or UNITS.get(a.type, (None, None))
                 if unit:

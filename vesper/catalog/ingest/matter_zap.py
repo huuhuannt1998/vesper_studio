@@ -32,6 +32,7 @@ class Attribute:
     min: int | None
     max: int | None
     define: str = ""  # the id device types use in <requireAttribute>
+    nullable: bool = False  # isNullable: the attribute can hold null (Matter's "no value")
 
 
 @dataclass(frozen=True)
@@ -113,7 +114,8 @@ def parse_zap(files: dict[str, bytes]) -> ZapModel:
             m.clusters[cname] = Cluster(cname, code, tuple(
                 Attribute(name=a.get("name") or (a.text or "").strip(), type=a.get("type", ""),
                           optional=a.get("optional") == "true", writable=a.get("writable") == "true",
-                          min=_int(a.get("min")), max=_int(a.get("max")), define=a.get("define") or "")
+                          min=_int(a.get("min")), max=_int(a.get("max")), define=a.get("define") or "",
+                          nullable=a.get("isNullable") == "true")
                 for a in c.findall("attribute") if a.get("side") == "server"))
         for d in root.iter("deviceType"):
             did = _int(d.findtext("deviceId"))
