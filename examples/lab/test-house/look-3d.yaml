@@ -3,7 +3,7 @@
 # person (V), and the full map (M).
 - {until: "vesper.mode === '3d'", label: "the page opens on the 3D view"}
 - {shot: start}
-- {walk: [4.3, 0.9]}
+- {walk: [4.8, 0.7]}  # from the east: alex dines at the plug, between it and a camera from the hall
 - {until: "vesper.state.reach.some(r => r.target === 'kitchen_plug')", label: "the plug comes into reach", timeout: 15}
 - {aim: kitchen_plug}
 - {wait: 0.5}
