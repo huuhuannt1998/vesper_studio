@@ -176,3 +176,14 @@ def test_sixty_rooms_and_two_hundred_devices_are_generated_in_under_five_seconds
     elapsed = time.perf_counter() - t
     assert len(load_lab_home(tmp_path / "big" / "home.yaml", catalog()).devices) >= 200
     assert elapsed < 5.0
+
+
+@pytest.mark.parametrize("at", ["front_door", "exterior_doors"])
+def test_a_device_that_does_not_go_on_a_door_asked_for_at_one_goes_beside_it_indoors(tmp_path, at):
+    text = REQUEST.replace("{category: button, at: living}", f"{{category: button, at: {at}}}")
+    out = tmp_path / "home"
+    generate_home(request(tmp_path, text), catalog(), out)
+    home = load_lab_home(out / "home.yaml", catalog())
+    (button,) = [d for d in home.devices if d.record["identity"]["category"] == "button"]
+    front = next(w for w in home.map.doorways if w.outdoor)
+    assert button.mount == "wall" and button.room in front.rooms and not home.map.room(button.room).outdoor

@@ -217,7 +217,7 @@ walls. Every position is marked as assumed, and can be moved in the home file. W
 starter set: a lock and a contact sensor on the front door, a light in every room, motion sensors, a thermostat and a
 smoke sensor.
 
-A batch makes many homes and a summary table (rooms, floor area, devices by kind):
+A batch makes many homes and a summary table (rooms, floor area, devices, devices out of range):
 
     vesper lab generate homes/batch --count 100 --rooms 3-10
 

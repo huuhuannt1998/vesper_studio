@@ -570,6 +570,8 @@ def _lab_generate(args, catalog) -> int:
         return 1
     try:
         lo, hi = _room_range(args.rooms)
+        if args.count is not None and args.count < 1:
+            raise GenerateError(f"count: {args.count} is not a number of homes")
         if args.count is None and lo != hi:
             raise GenerateError(f"rooms: a range ({args.rooms}) makes a batch: give --count")
         base = load_request(Path(args.request)) if args.request else Request(Path("."), program(lo), args.seed, [])
@@ -605,13 +607,15 @@ def _lab_generate(args, catalog) -> int:
 
 def _room_range(text) -> tuple[int, int]:
     """`--rooms`: a number, or a range such as 3-8 (a batch draws each home's number from it)."""
-    from vesper.lab.generate import GenerateError
+    from vesper.lab.generate import MAX_ROOMS, GenerateError
     low, dash, high = str(text).partition("-")
     if not low.isdigit() or (dash and not high.isdigit()):
         raise GenerateError(f"rooms: {text!r} is not a number or a range such as 3-8")
     lo, hi = int(low), int(high) if dash else int(low)
     if lo > hi:
         raise GenerateError(f"rooms: {text!r} runs backwards")
+    if dash and hi > MAX_ROOMS:
+        raise GenerateError(f"rooms: {text} goes past {MAX_ROOMS}, the most one floor holds")
     return lo, hi
 
 

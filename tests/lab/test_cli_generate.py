@@ -46,3 +46,17 @@ def test_a_range_of_rooms_is_for_a_batch_and_a_bad_number_is_named(tmp_path, cap
     assert "FAILED: rooms: a range (3-8) makes a batch: give --count" in capsys.readouterr().err
     assert cli.main(["lab", "generate", str(tmp_path / "b"), "--rooms", "many", "--catalog", str(cat)]) == 1
     assert "FAILED: rooms: 'many' is not a number or a range such as 3-8" in capsys.readouterr().err
+
+
+def test_a_batch_of_no_homes_is_refused_before_anything_is_written(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "none"
+    assert cli.main(["lab", "generate", str(out), "--count", "0", "--rooms", "3-5", "--catalog", str(cat)]) == 1
+    assert "count: 0 is not a number of homes" in capsys.readouterr().err and not out.exists()
+
+
+def test_a_batch_whose_room_range_goes_past_sixty_is_refused_before_anything_is_written(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "big"
+    assert cli.main(["lab", "generate", str(out), "--count", "2", "--rooms", "58-100", "--catalog", str(cat)]) == 1
+    assert "rooms: 58-100 goes past 60" in capsys.readouterr().err and not out.exists()

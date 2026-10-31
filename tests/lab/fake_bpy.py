@@ -15,9 +15,14 @@ class _Named(dict):
 
 
 class Mesh(_Named):
-    def __init__(self, name):
+    def __init__(self, name, objects=None):
         super().__init__(name)
         self.vertices, self.faces, self.materials = [], [], []
+        self._objects = objects if objects is not None else {}
+
+    @property
+    def users(self):
+        return sum(1 for o in self._objects.values() if o.data is self)
 
     def from_pydata(self, vertices, edges, faces):
         self.vertices, self.faces = [tuple(v) for v in vertices], [tuple(f) for f in faces]
@@ -102,8 +107,9 @@ def make():
             layer.layer_collection.children.pop(item.name, None)
 
     scene.children = Children(scene, "children")
-    data = SimpleNamespace(meshes=Store(Mesh), objects=Store(Object), collections=Store(Collection),
-                           materials=Store(Material))
+    objects = Store(Object)
+    data = SimpleNamespace(meshes=Store(lambda name: Mesh(name, objects)), objects=objects,
+                           collections=Store(Collection), materials=Store(Material))
     context = SimpleNamespace(scene=SimpleNamespace(collection=scene), view_layer=layer)
 
     def gltf(**kwargs):

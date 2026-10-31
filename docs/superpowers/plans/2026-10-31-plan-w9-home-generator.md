@@ -31,8 +31,7 @@ optional.
    not have, `count` larger than the rooms can hold.
 2. A batch whose `--rooms` range is reversed or whose directory exists.
 3. The device card for a device with no network link (a home without a network), a Matter device (no hub entities).
-4. The Blender script run in a scene that already holds a `VESPER home` collection with the user's furniture in it
-   (the rerun removes it: the brief warns that the collection is rebuilt).
+4. The Blender script run in a scene that already holds a `VESPER home` collection with the user's furniture in it.
 5. A dressed model that fails to load (the plain look comes back) or is misaligned (the brief's axes).
 
 ---
@@ -109,8 +108,9 @@ README (generated homes, Blender), the spec's status, this plan.
   already makes an HSSD home. Cost if wrong: researchers wanting HSSD furniture on a generated program wait.
 - Furniture is drawn, not solid: the map stays the walking truth, so a dressed model cannot block a path the map
   allows. Cost if wrong: a person walks through a sofa a modeller put in a walkway; the brief asks to keep them clear.
-- The Blender script rebuilds its own collection on every run; the brief says to keep added furniture in the room
-  collections, so a rerun removes it too. Cost if wrong: work lost on a rerun after furnishing (the brief warns).
+- The Blender script tags what it builds and a rerun replaces only that; `--export` exports the collection as it is
+  (after the final review: rebuilding the whole collection lost the furniture). Cost if wrong: a user who edits a
+  built wall sees the edit replaced on a rerun.
 - The dressed model is drawn at the map's own axes (Blender (x, -z, h), glTF +Y up), with no alignment step. Cost if
   wrong: a model exported with other options is misplaced; the brief gives the exact export call.
 - The plan is as-built (process).

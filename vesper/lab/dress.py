@@ -126,8 +126,7 @@ The script makes one collection, `{COLLECTION}`, with:
 - `doorways`: a lintel over each opening, {data['door_m']} m up;
 - `devices`: an empty where each device is (`device:<name>`, its category a custom property).
 
-Running it again rebuilds `{COLLECTION}`, furniture and all, and leaves the rest of the scene alone: run it once,
-before you furnish.
+Running it again rebuilds only what it made (walls, floors, lintels, device empties): what you add stays.
 
 ## 2. Furnish and texture
 
@@ -168,8 +167,9 @@ people. Delete `scene.glb` to go back to the plain look.
 SCRIPT = r'''"""Built by `vesper lab dress` (VESPER home generator, spec section 5): run in Blender 4.2 or later.
 
 Builds the home in one collection, "VESPER home": a collection per room with its floor, the walls with door
-openings, a lintel over each doorway, and an empty where each device is. Run again, it rebuilds that collection and
-leaves the rest of the scene. With `-- --export` it also exports the collection to scene.glb beside the home.
+openings, a lintel over each doorway, and an empty where each device is. Run again, it rebuilds only what it made
+(tagged `vesper_built`): furniture added to the collections stays. With `-- --export` it exports the collection as
+it is to scene.glb beside the home.
 
 The map's (x, z) on the floor, y up, become Blender's (x, -z, height): glTF's +Y up export turns them back.
 """
@@ -184,46 +184,45 @@ COLORS = {"floor": (0.82, 0.78, 0.70, 1.0), "outdoor": (0.55, 0.62, 0.48, 1.0), 
 
 
 def material(name):
-    m = bpy.data.materials.get(name)
+    """VESPER's own material (`vesper:floor`, ...), never one of the user's that shares its name."""
+    m = bpy.data.materials.get("vesper:" + name)
     if m is None:
-        m = bpy.data.materials.new(name)
+        m = bpy.data.materials.new("vesper:" + name)
         m.diffuse_color = COLORS.get(name, (0.8, 0.8, 0.8, 1.0))
     return m
 
 
-def clear():
-    """Remove the last build: its objects and its collections, nothing else."""
-    old = bpy.data.collections.get(ROOT)
-    if old is None:
-        return
-    for obj in list(old.all_objects):
+def built(item):
+    item["vesper_built"] = 1  # what a rebuild may replace: never what the dressing added
+    return item
+
+
+def clear_built(root):
+    """Remove the objects (and their meshes) the last build made; furniture and the rest stay."""
+    for obj in list(root.all_objects):
+        if not obj.get("vesper_built"):
+            continue
         mesh = obj.data
         bpy.data.objects.remove(obj, do_unlink=True)
-        if mesh is not None:
+        if mesh is not None and mesh.get("vesper_built") and mesh.users == 0:
             bpy.data.meshes.remove(mesh)
-    if old.name in [c.name for c in bpy.context.scene.collection.children]:
-        bpy.context.scene.collection.children.unlink(old)
-    stack, found = [old], []
-    while stack:
-        c = stack.pop()
-        found.append(c)
-        stack.extend(list(c.children))
-    for c in found:
-        bpy.data.collections.remove(c)
 
 
 def collection(name, parent):
-    c = bpy.data.collections.new(name)
-    parent.children.link(c)
+    c = bpy.data.collections.get(name)
+    if c is None:
+        c = bpy.data.collections.new(name)
+    if c.name not in [x.name for x in parent.children]:
+        parent.children.link(c)
     return c
 
 
 def mesh_object(name, vertices, faces, coll, mat):
-    mesh = bpy.data.meshes.new(name)
+    mesh = built(bpy.data.meshes.new(name))
     mesh.from_pydata(vertices, [], faces)
     mesh.update()
     mesh.materials.append(material(mat))
-    obj = bpy.data.objects.new(name, mesh)
+    obj = built(bpy.data.objects.new(name, mesh))
     coll.objects.link(obj)
     return obj
 
@@ -238,9 +237,10 @@ def cuboid(name, x0, z0, x1, z1, y0, y1, coll, mat):
 
 
 def build():
-    clear()
-    root = bpy.data.collections.new(ROOT)
-    bpy.context.scene.collection.children.link(root)
+    """The shell, made or remade: the rooms' floors, the walls, the lintels, the device empties. What the dressing
+    added to the collections stays."""
+    root = collection(ROOT, bpy.context.scene.collection)
+    clear_built(root)
     root["vesper"] = DATA["format"]
     for room in DATA["rooms"]:
         rc = collection("room:" + room["id"], root)
@@ -258,7 +258,7 @@ def build():
     devices = collection("devices", root)
     for d in DATA["devices"]:
         x, h, z = d["point"]
-        obj = bpy.data.objects.new("device:" + d["name"], None)
+        obj = built(bpy.data.objects.new("device:" + d["name"], None))
         obj.empty_display_type, obj.empty_display_size = "SPHERE", 0.07
         obj.location = (x, -z, h)
         obj["category"] = d["category"] or ""
@@ -268,6 +268,7 @@ def build():
 
 
 def export():
+    """The collection as it is (the shell and what the dressing added) to scene.glb beside the home."""
     layer = bpy.context.view_layer
     layer.active_layer_collection = layer.layer_collection.children[ROOT]
     options = dict(filepath=DATA["export_to"], export_format="GLB", export_yup=True, export_apply=True,
@@ -278,9 +279,15 @@ def export():
         bpy.ops.export_scene.gltf(**options)
 
 
-if __name__ == "__main__":
-    build()
-    args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+def main(argv):
+    """No `--export`: build (or rebuild) the shell. `--export`: export what is there (building it only if it is
+    not). At module level, not under `__main__`: Blender MCP runs the code with exec()."""
+    args = argv[argv.index("--") + 1:] if "--" in argv else []
+    if "--export" not in args or bpy.data.collections.get(ROOT) is None:
+        build()
     if "--export" in args:
         export()
+
+
+main(sys.argv)
 '''

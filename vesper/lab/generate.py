@@ -209,7 +209,8 @@ def place_devices(world_map: WorldMap, request: Request, catalog: dict) -> list[
         product = _product(d, catalog, rng, where)
         category = catalog[product]["identity"].get("category")
         rule = RULES.get(category, "table")
-        for target in _targets(d, world_map, rooms, types, rule, where):
+        targets = _targets(d, world_map, rooms, types, rule, where)
+        for target in targets if rule == "door" else _beside(targets, world_map):
             out.append(_place(product, category, rule, target, world_map, per_room, out))
     return out
 
@@ -267,6 +268,18 @@ def _targets(d: dict, world_map: WorldMap, rooms, types: dict, rule: str, where:
     if rule == "door":  # a contact sensor or a lock goes on the room's door
         return [next(w for w in world_map.doorways if r.id in w.rooms) for r in chosen]
     return chosen
+
+
+def _beside(targets: list, world_map: WorldMap) -> list:
+    """A device that does not go on a door, asked for at one (a doorbell at the front door): the door's indoor
+    room, where its rule places it beside the door."""
+    out = []
+    for t in targets:
+        if isinstance(t, Room):
+            out.append(t)
+            continue
+        out.append(next(world_map.room(r) for r in t.rooms if not world_map.room(r).outdoor))
+    return out
 
 
 def _place(product, category, rule, target, world_map: WorldMap, per_room: dict, out: list) -> dict:

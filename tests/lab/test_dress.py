@@ -135,3 +135,47 @@ def test_play_draws_a_dressed_home_s_model_when_it_has_one(tmp_path):
             server.stop()
     finally:
         session.stop()
+
+
+def furnish(bpy, room, name, data=None):
+    """What a person (or Claude) adds while dressing: an object in a room's collection."""
+    obj = bpy.data.objects.new(name, data)
+    bpy.data.collections[f"room:{room}"].objects.link(obj)
+    return obj
+
+
+def test_blender_mcp_s_exec_of_the_script_builds_the_home(tmp_path, monkeypatch):
+    """Blender MCP runs code as exec(code, {"bpy": bpy}): no __main__, and Blender's own argv."""
+    script, _ = dress(home(tmp_path))
+    bpy = fake_bpy.make()
+    monkeypatch.setitem(sys.modules, "bpy", bpy)
+    monkeypatch.setattr(sys, "argv", ["Blender"])
+    exec(compile(script.read_text(), str(script), "exec"), {"bpy": bpy})
+    assert "VESPER home" in bpy.data.collections and bpy.data.collections["walls"].objects
+
+
+def test_export_keeps_the_furniture_the_dressing_added(tmp_path, monkeypatch):
+    script, _ = dress(home(tmp_path))
+    bpy = run_script(script, monkeypatch)
+    sofa = furnish(bpy, "kitchen", "sofa", bpy.data.meshes.new("sofa"))
+    walls = list(bpy.data.collections["walls"].objects)
+    monkeypatch.setattr(sys, "argv", ["blender", "--background", "f.blend", "--python", str(script), "--", "--export"])
+    exec(compile(script.read_text(), str(script), "exec"), {"bpy": bpy})
+    assert sofa in bpy.data.collections["room:kitchen"].objects and "sofa" in bpy.data.meshes
+    assert list(bpy.data.collections["walls"].objects) == walls  # exported as it is, not rebuilt
+    assert len(bpy.exports) == 1
+
+
+def test_a_rebuild_keeps_what_the_dressing_added_whatever_it_is(tmp_path, monkeypatch):
+    """A lamp's light, a camera: not meshes; a rebuild replaces only what the script built."""
+    script, _ = dress(home(tmp_path))
+    bpy = run_script(script, monkeypatch)
+    lamp = furnish(bpy, "kitchen", "lamp", fake_bpy._Named("lamp light"))
+    sofa = furnish(bpy, "kitchen", "sofa", bpy.data.meshes.new("sofa"))
+    built = sorted(o.name for o in bpy.data.collections["VESPER home"].all_objects if o.get("vesper_built"))
+    exec(compile(script.read_text(), str(script), "exec"), {"bpy": bpy})
+    room = bpy.data.collections["room:kitchen"].objects
+    assert lamp in room and sofa in room and "sofa" in bpy.data.meshes
+    assert sorted(o.name for o in bpy.data.collections["VESPER home"].all_objects if o.get("vesper_built")) == built
+    assert [c for c in bpy.data.collections.keys() if c.startswith("VESPER home.")] == []
+    assert {"vesper:floor", "vesper:wall"} <= set(bpy.data.materials.keys())
