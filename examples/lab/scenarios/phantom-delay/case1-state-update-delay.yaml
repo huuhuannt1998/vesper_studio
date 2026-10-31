@@ -33,20 +33,16 @@ expect:
   - claim: the notification comes at least a minute after the door opened
     predicate: {gap: [{door: hall-porch, open: true}, {action: {device: hall_light, feature: state, value: "ON"}}],
                 at_least_s: 60}
-    conditions: {baseline: false, attack: true, attack+defense: true}
+    conditions: {baseline: false, defense: false, attack: true, attack+defense: true}
     cites: [attack, defense_limit]
-  - claim: the attack causes no disconnection
-    predicate: {never: {net: {event: down}}}
-    conditions: {baseline: true, attack: true, attack+defense: true}
-    cites: [no_alarm]
   - claim: timestamp checking flags the delayed door event
     predicate: {alert: {defense: freshness, device: front_door}}
-    conditions: {baseline: false, attack: false, attack+defense: true}
+    conditions: {baseline: false, defense: false, attack: false, attack+defense: true}
     cites: [defense]
   - claim: the world disagrees with the hub within seconds, while the event is held
     predicate: {alert: {defense: physical_consistency, device: front_door}}
-    conditions: {baseline: false, attack: false, attack+defense: true}
-runs: {mode: logical, repeat: 5, conditions: [baseline, attack, attack+defense], until: "19:33:00"}
+    conditions: {baseline: false, defense: false, attack: false, attack+defense: true}
+runs: {mode: logical, repeat: 5, conditions: [baseline, defense, attack, attack+defense], until: "19:33:00"}
 gaps:
   - {what: "the paper's voice notification (an Amazon Echo routine)", why: "a hall light here: VESPER's automation
        engine has no notify service, and a light is seen the same way in a logical and a live run"}
@@ -57,3 +53,7 @@ gaps:
        and feature to hold; the paper's TCP hijacker reaches the same place after its ARP spoofing"}
   - {what: "TLS", why: "VESPER's MQTT is plain on loopback; the relay holds whole messages and keeps their order, as
        TLS forces the paper's attacker to"}
+  - {what: "the paper's \"without triggering any timeout alerts or disconnection\" (no_alarm)", why: "not measured:
+       VESPER's link layer and relay never close a connection for a held message, and keepalives pass by
+       construction, so no connection could drop here; recording a connection's close and the bridge's availability
+       comes with plan W4a2"}

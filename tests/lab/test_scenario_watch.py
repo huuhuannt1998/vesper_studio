@@ -54,3 +54,16 @@ def test_physical_consistency_can_hear_the_hub_through_the_watch(tmp_path):
     session.clock.advance(10)
     (alert,) = [r for r in session.records if r["kind"] == "alert"]
     assert (alert["device"], alert["open"]) == ("front_door", False)
+
+
+def test_the_watch_records_what_home_assistant_heard_as_heard_events(tmp_path):
+    from vesper.lab.predicates import evaluate
+    session, client, watch = watched(tmp_path)
+    message(client, "zigbee2mqtt/front_door", {"contact": False, "battery": 90})
+    message(client, "zigbee2mqtt/front_door", {"contact": True}, retain=True)  # old news
+    session.clock.advance(0)
+    heard = [r for r in session.records if r["kind"] == "heard"]
+    assert [(r["device"], r["values"]) for r in heard] == [("front_door", {"contact": False, "battery": 90})]
+    assert evaluate({"heard": {"device": "front_door", "feature": "contact", "value": False}}, session.records).holds
+    assert not evaluate({"heard": {"device": "front_door", "feature": "contact", "value": True}},
+                        session.records).holds

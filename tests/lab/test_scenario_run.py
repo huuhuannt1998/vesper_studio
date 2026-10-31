@@ -149,3 +149,178 @@ def test_an_intruder_without_a_key_never_unlocks_a_lock_even_on_its_way_through_
     assert not [r for r in by_intruder if r["outcome"].get("result") == "opened"]
     assert not [r for r in baseline if r["kind"] == "world" and r.get("event") == "room" and r["actor"] == "intruder"
                 and r["room"] == "hall"]
+
+
+def test_an_intruder_without_a_key_walks_through_a_closed_door_whose_lock_is_unlocked(tmp_path):
+    """No key is needed for an unlocked lock: the walk opens the door and goes through."""
+    text = CASE_3.replace("      - {at: 50, actor: intruder, do: {open: hall-porch}, cites: [attack]}\n",
+                          "      - {at: 50, actor: intruder, do: {walk: {room: hall}}}\n")
+    s = scenario(tmp_path, text)
+    (tmp_path / "automations.yaml").write_text("[]\n")  # nothing locks the door
+    runs = run_scenario(load_scenario(tmp_path / "scenario.yaml", catalog()), tmp_path / "out")
+    assert [r for r in runs[0].records if r["kind"] == "world" and r.get("event") == "room"
+            and r["actor"] == "intruder" and r["room"] == "hall"], s.title
+
+
+def test_a_walk_stopped_by_a_locked_door_leaves_the_actor_s_next_actions_in_place(tmp_path):
+    text = CASE_3.replace("      - {at: 50, actor: intruder, do: {open: hall-porch}, cites: [attack]}\n",
+                          "      - {at: 50, actor: intruder, do: {walk: {room: hall}}}\n"
+                          "      - {at: 50.5, actor: intruder, do: {open: hall-porch}}\n")
+    runs = run_scenario(scenario(tmp_path, text), tmp_path / "out")
+    baseline = runs[0].records
+    assert [r for r in baseline if r["kind"] == "resident" and r.get("decision") == "no key"]
+    assert [r for r in baseline if r["kind"] == "input" and r["actor"] == "intruder" and r["op"] == "interact"
+            and r["args"]["target"] == "hall-porch"]
+
+
+def _trace(path, records):
+    from vesper.lab.session import TRACE_FORMAT
+    meta = {"kind": "meta", "format": TRACE_FORMAT, "clock": "wall", "seed": 7, "t": 0.0}
+    path.write_text("".join(json.dumps(r) + "\n" for r in [meta, *records]))
+
+
+LOCK_SENT = {"kind": "input", "actor": "hub", "op": "command",
+             "args": {"device": "front_lock", "feature": "state", "value": "LOCK"}, "outcome": {"accepted": True}}
+INTRUDER_OPENS = {"kind": "input", "actor": "intruder", "op": "interact", "args": {"target": "hall-porch"},
+                  "outcome": {"ok": True, "result": "opened"}}
+
+
+def test_a_live_run_is_judged_from_its_t0_not_on_what_home_assistant_did_while_getting_ready(tmp_path):
+    """Before t0 Home Assistant reacts to the new session's first states (here: it locks the door); that is not
+    the run."""
+    from vesper.lab.scenario_run import rejudge
+    s = scenario(tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+    for condition in s.runs.conditions:
+        for k in (1, 2):
+            _trace(out / f"{condition}-{k}.jsonl", [
+                {**LOCK_SENT, "t": 1.0}, {"kind": "scenario", "t0": 5.0, "t": 5.0},
+                {**INTRUDER_OPENS, "t": 10.0}, {**LOCK_SENT, "t": 20.0}])
+    runs = rejudge(s, out)
+    assert all(r.verdicts[0].holds for r in runs)
+
+
+def test_a_logical_run_s_trace_says_its_timeline_begins_at_0(tmp_path):
+    runs = run_scenario(scenario(tmp_path), tmp_path / "out")
+    assert [r for r in runs[0].records if r["kind"] == "scenario"][0]["t0"] == 0.0
+
+
+def test_a_run_that_fails_is_reported_as_not_run_and_the_others_are_judged(tmp_path):
+    from vesper.lab.scenario_run import _runs, report
+    from vesper.lab.session import read_trace
+    s = scenario(tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    def run_once(scenario, condition, k, trace):
+        if (condition, k) == ("attack", 2):
+            raise RuntimeError("Home Assistant did not show lock.front_lock within 90 s")
+        _trace(trace, [{"kind": "scenario", "t0": 0.0, "t": 0.0}, {**INTRUDER_OPENS, "t": 10.0}])
+        return 7, read_trace(trace)
+
+    runs = _runs(s, out, run_once)
+    failed = [r for r in runs if r.error]
+    assert [(r.condition, r.repeat) for r in failed] == [("attack", 2)] and "within 90 s" in failed[0].error
+    markdown, summary = report(s, runs)
+    assert "attack 2: not run" in markdown and "within 90 s" in markdown
+    assert summary["claims"][0]["conditions"]["attack"] == {"expected": True, "held": 1, "runs": 1, "not_run": 1}
+
+
+def test_the_report_can_be_rebuilt_when_a_run_left_no_trace(tmp_path):
+    from vesper.lab.scenario_run import rejudge
+    s = scenario(tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+    for condition in s.runs.conditions:
+        for k in (1, 2):
+            if (condition, k) != ("baseline", 2):
+                _trace(out / f"{condition}-{k}.jsonl", [{"kind": "scenario", "t0": 0.0, "t": 0.0}])
+    runs = rejudge(s, out)
+    (missing,) = [r for r in runs if r.error]
+    assert (missing.condition, missing.repeat) == ("baseline", 2) and "no trace" in missing.error
+
+
+def test_a_live_step_that_raised_on_the_clock_fails_its_run_with_the_error():
+    """A step that raises on the wall clock's thread is kept in clock.errors; the run is not judged as if it ran."""
+    import pytest
+
+    from vesper.lab.scenario_run import _check_clock
+
+    class Clock:
+        errors = ["NetworkError: a throttle paces a TCP link"]
+
+    class S:
+        clock = Clock()
+    with pytest.raises(RuntimeError, match="a step failed: NetworkError: a throttle"):
+        _check_clock(S())
+
+
+def test_the_defense_condition_runs_the_defenses_without_the_attack_as_their_control(tmp_path):
+    """A defense that alerts on everything would reproduce 'it flags the held report' if it were never run without
+    the attack: the defense condition is that control."""
+    text = CASE_3.replace("conditions: {baseline: false, attack: false, attack+defense: true}",
+                          "conditions: {baseline: false, defense: false, attack: false, attack+defense: true}").replace(
+        "conditions: {baseline: false, attack: true, attack+defense: true}",
+        "conditions: {baseline: false, defense: false, attack: true, attack+defense: true}").replace(
+        "conditions: [baseline, attack, attack+defense]", "conditions: [baseline, defense, attack, attack+defense]")
+    runs = run_scenario(scenario(tmp_path, text), tmp_path / "out")
+    defense = [r for r in runs if r.condition == "defense"]
+    assert len(defense) == 2
+    assert all([x for x in r.records if x["kind"] == "scenario"][0]["defenses"] == ["freshness",
+                                                                                  "physical_consistency"]
+               for r in defense)
+    assert not [x for r in defense for x in r.records if x["kind"] == "alert"]
+    assert [x for x in runs[0].records if x["kind"] == "scenario"][0]["defenses"] == []
+
+
+def test_the_report_flags_an_event_of_a_claim_that_matched_nothing_in_any_run(tmp_path):
+    """A claim over an event that never happens holds or fails for the wrong reason (a misnamed value, a device
+    that never acts): the report says so."""
+    from vesper.lab.scenario_run import report
+    text = CASE_3.replace("predicate: {alert: {defense: freshness, device: front_door}}",
+                          "predicate: {never: {alert: {defense: freshness, device: hall_motion}}}").replace(
+        "conditions: {baseline: false, attack: false, attack+defense: true}\n      - claim: the world",
+        "conditions: {baseline: true, attack: true, attack+defense: true}\n      - claim: the world", 1)
+    s = scenario(tmp_path, text)
+    markdown, summary = report(s, run_scenario(s, tmp_path / "out"))
+    assert summary["claims"][1]["unmatched"] == [{"alert": {"defense": "freshness", "device": "hall_motion"}}]
+    assert summary["claims"][0]["unmatched"] == []
+    assert "matched nothing in any run" in markdown
+
+
+def test_heard_is_when_the_hub_has_the_report_and_report_when_the_device_sent_it(tmp_path):
+    """The door's 'opened' report is sent at once and held 60 s on the bridge's connection: the hub hears it a
+    minute later, in the attack conditions only."""
+    text = CASE_3.replace("predicate: {alert: {defense: freshness, device: front_door}}",
+                          "predicate: {gap: [{report: {device: front_door, feature: contact, value: false}}, "
+                          "{heard: {device: front_door, feature: contact, value: false}}], at_least_s: 59}").replace(
+        "conditions: {baseline: false, attack: false, attack+defense: true}\n      - claim: the world",
+        "conditions: {baseline: false, attack: true, attack+defense: true}\n      - claim: the world", 1)
+    runs = run_scenario(scenario(tmp_path, text), tmp_path / "out")
+    assert holds(runs, "baseline", 1) == [False, False]
+    assert holds(runs, "attack", 1) == [True, True]
+
+
+def test_a_live_run_waits_for_the_wifi_devices_entities_too():
+    import pytest
+
+    from vesper.lab.scenario_run import _wait_for_home_assistant
+
+    class HA:
+        def state(self, entity):
+            return None if entity == "switch.kettle_plug" else {"state": "off"}
+
+    class Wifi:
+        devices = {"kettle_plug": object()}
+
+        def entities(self, name):
+            return {"POWER": f"switch.{name}"}
+
+    class Bridge:
+        expected = {}
+
+    class Hub:
+        bridge, wifi = Bridge(), Wifi()
+    with pytest.raises(RuntimeError, match="switch.kettle_plug"):
+        _wait_for_home_assistant(HA(), Hub(), timeout=0.0)

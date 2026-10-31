@@ -31,11 +31,12 @@ timeline:   # the player leaves home and closes the door behind; the intruder tr
   - {at: "19:30:25", actor: player, do: {close: hall-porch}}
   - {at: "19:30:50", actor: intruder, do: {open: hall-porch}, cites: [attack]}
   - {at: "19:30:55", actor: intruder, do: {walk: {room: hall}}, cites: [attack]}
-attack:     # on the bridge's TCP connection, its keepalives passing: e-Delay of the door, c-Delay of the lock
+attack:     # on the bridge's TCP connection, its keepalives passing: e-Delay of the door (30 s), c-Delay of
+            # the lock (40 s, within the paper's 30-58 s), so the window passes 60 s by more than latency
   - {at: "19:30:01", vantage: network, effect: delay, link: coordinator, direction: up,
      match: {device: front_door, feature: contact}, hold_s: 30, keep_connection: true, cites: [attack, threat]}
   - {at: "19:30:01", vantage: network, effect: delay, link: coordinator, direction: down,
-     match: {device: front_lock, feature: state}, hold_s: 30, keep_connection: true, cites: [attack, threat]}
+     match: {device: front_lock, feature: state}, hold_s: 40, keep_connection: true, cites: [attack, threat]}
 defenses:
   - {kind: freshness, max_age_s: 10, action: alert}
   - {kind: physical_consistency, within_s: 5}
@@ -43,29 +44,25 @@ expect:
   - claim: the intruder opens the front door before it is locked
     predicate: {before: [{actor: intruder, opens: hall-porch},
                          {action: {device: front_lock, feature: state, value: LOCK}}]}
-    conditions: {baseline: false, attack: true, attack+defense: true}
+    conditions: {baseline: false, defense: false, attack: true, attack+defense: true}
     cites: [attack]
   - claim: the intruder gets into the house
     predicate: {actor: intruder, enters: hall}
-    conditions: {baseline: false, attack: true, attack+defense: true}
+    conditions: {baseline: false, defense: false, attack: true, attack+defense: true}
     cites: [attack]
   - claim: the door stays unlocked for at least 60 s after it closes
     predicate: {gap: [{actor: player, closes: hall-porch}, {action: {device: front_lock, feature: state,
                                                                      value: LOCK}}], at_least_s: 60}
-    conditions: {baseline: false, attack: true, attack+defense: true}
+    conditions: {baseline: false, defense: false, attack: true, attack+defense: true}
     cites: [attack]
-  - claim: the attack causes no disconnection
-    predicate: {never: {net: {event: down}}}
-    conditions: {baseline: true, attack: true, attack+defense: true}
-    cites: [no_alarm]
   - claim: timestamp checking flags the delayed door events
     predicate: {alert: {defense: freshness, device: front_door}}
-    conditions: {baseline: false, attack: false, attack+defense: true}
+    conditions: {baseline: false, defense: false, attack: false, attack+defense: true}
     cites: [defense]
   - claim: the world disagrees with the hub while the door's events are held
     predicate: {alert: {defense: physical_consistency, device: front_door}}
-    conditions: {baseline: false, attack: false, attack+defense: true}
-runs: {mode: logical, repeat: 5, conditions: [baseline, attack, attack+defense], until: "19:33:00"}
+    conditions: {baseline: false, defense: false, attack: false, attack+defense: true}
+runs: {mode: logical, repeat: 5, conditions: [baseline, defense, attack, attack+defense], until: "19:33:00"}
 gaps:
   - {what: "the cloud leg of the paper's platforms (Alexa, the Ring and August clouds)",
      why: "VESPER has no cloud; the attack is reproduced on the hub's leg, the bridge's connection to the broker"}
@@ -76,3 +73,7 @@ gaps:
        TLS forces the paper's attacker to"}
   - {what: "two vendors' connections (the lock's and the sensor's)", why: "both are Zigbee devices on one bridge
        here, so one connection carries the held door event and the held lock command"}
+  - {what: "the paper's \"without triggering any timeout alerts or disconnection\" (no_alarm)", why: "not measured:
+       VESPER's link layer and relay never close a connection for a held message, and keepalives pass by
+       construction, so no connection could drop here; recording a connection's close and the bridge's availability
+       comes with plan W4a2"}

@@ -148,9 +148,9 @@ again, and every message an effect touched is in the trace with when it was sent
 ## Attacks and defenses from a paper: scenarios
 
 A scenario file (`vesper-scenario/1`) sets up an attack from a research paper and its defenses on a home, says what
-the paper claims, and quotes the passages each step and claim rests on. VESPER runs it under three conditions
-(baseline, attack, attack + defense), several times each, and reports claim by claim whether the paper's result was
-reproduced:
+the paper claims, and quotes the passages each step and claim rests on. VESPER runs it under four conditions
+(baseline; defense, the defenses without the attack, as their control; attack; attack + defense), several times
+each, and reports claim by claim whether the paper's result was reproduced:
 
     vesper lab scenario check examples/lab/scenarios/phantom-delay/case3-action-delay.yaml
     vesper lab scenario run   examples/lab/scenarios/phantom-delay/case3-action-delay.yaml
@@ -170,7 +170,9 @@ A run on the logical clock uses VESPER's automation engine and takes seconds. Wi
 the automations and the attack acts on the real MQTT connections through the relay.
 
 Every step names a device, link, door or room of the home, never an address or a port. What VESPER cannot reproduce
-is written in the file as a gap and listed first in the report. `vesper lab scenario report` checks the claims again
+is written in the file as a gap and listed first in the report. A claim event that matched nothing in any run (a
+misnamed value, a device that never acts) is flagged, and a run that could not run is reported as such, the others
+judged. `vesper lab scenario report` checks the claims again
 on a run's saved traces. Each run's trace replays like any other session.
 
 ## A day in seconds, and exact replays

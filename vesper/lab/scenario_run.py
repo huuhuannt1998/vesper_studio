@@ -1,7 +1,8 @@
-"""Running a scenario (security-lab spec §4.5, plan W4a1): each condition (baseline, attack, attack + defense),
-`repeat` times, each run its own session, seed and trace; the timeline's actors act at their times, the attack's
-effects are put on at theirs (inputs of the trace, so a replay puts them on again), and the defenses watch in the
-attack + defense condition only. The claims are checked on each run's trace.
+"""Running a scenario (security-lab spec §4.5, plan W4a1): each condition (baseline, defense, attack, attack +
+defense), `repeat` times, each run its own session, seed and trace; the timeline's actors act at their times, the
+attack's effects are put on at theirs (inputs of the trace, so a replay puts them on again), and the defenses watch
+in the defense condition (their control: no attack) and the attack + defense one. The claims are checked on each
+run's trace, from its t0.
 
 Actors are scripted people: the player and the scenario's `actors`. They walk, open and close doors and use devices
 as the residents do (to the near side of a door first, through doors on the way). An actor without a key (the
@@ -9,8 +10,8 @@ scenario's actors, unless `key: true`) finds a locked door locked and does not u
 
 Defenses, as the hub's edge sees the reports:
 - `freshness` (the paper's timestamp checking): a report older than `max_age_s` when it reaches the hub raises an
-  alert, and with `action: drop` is not delivered. A report's time is when the bridge had it (`observed_t`), as a
-  sender's timestamp would carry, and as Zigbee2MQTT's `last_seen` does in a live run.
+  alert, and with `action: drop` is not delivered. A report's time is when the device sent it (`observed_t`), as a
+  sender's timestamp would carry; in a live run the bridge publishes it as Zigbee2MQTT's `last_seen`.
 - `physical_consistency` (only a simulator can offer it): a door that opened or closed in the world must be heard by
   the hub from its contact sensor within `within_s`; if not, an alert. Rooms and motion are not checked yet.
 """
@@ -24,13 +25,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from vesper.lab.home import spawn_point
-from vesper.lab.predicates import Verdict, evaluate
+from vesper.lab.predicates import Verdict, evaluate, events, matches
 from vesper.lab.resident import RETRY_S, Resident
 from vesper.lab.rules import is_locked
 from vesper.lab.session import Session
 from vesper.twins.clock import LogicalClock
 
 SETTLE_S = 300.0  # how long a run goes on after its last step, unless the scenario says until when
+DEFENDED = ("defense", "attack+defense")  # the conditions the defenses run in
 
 
 @dataclass
@@ -41,6 +43,7 @@ class Run:
     trace: Path
     records: list
     verdicts: list[Verdict]  # one per claim, in the scenario's order
+    error: str | None = None  # why the run did not run (Home Assistant not ready, a step that failed): not judged
 
 
 def run_scenario(scenario, out_dir: Path, *, root: Path | None = None, catalog_dir: Path | None = None) -> list[Run]:
@@ -58,23 +61,44 @@ def run_scenario(scenario, out_dir: Path, *, root: Path | None = None, catalog_d
 
 
 def _runs(scenario, out_dir: Path, run_once) -> list[Run]:
+    """Each run in turn; one that fails (Home Assistant not ready in time, a step that raised) is kept as not run,
+    with why, and the others are judged."""
     runs = []
     for condition in scenario.runs.conditions:
         for k in range(1, scenario.runs.repeat + 1):
             trace = out_dir / f"{condition}-{k}.jsonl"
-            seed, records = run_once(scenario, condition, k, trace)
-            runs.append(Run(condition, k, seed, trace, records,
-                            [evaluate(c.predicate, records) for c in scenario.claims]))
+            try:
+                seed, records = run_once(scenario, condition, k, trace)
+            except (RuntimeError, OSError, ValueError) as e:
+                runs.append(Run(condition, k, None, trace, [], [], error=str(e)))
+                continue
+            runs.append(_judge(scenario, condition, k, seed, trace, records))
     return runs
+
+
+def _judge(scenario, condition: str, k: int, seed, trace: Path, records: list) -> Run:
+    return Run(condition, k, seed, trace, records, [evaluate(c.predicate, judged(records)) for c in scenario.claims])
+
+
+def judged(records: list[dict]) -> list[dict]:
+    """What a run's claims are judged on: its records from t0, when its timeline began (a live run's Home
+    Assistant reacts to the new session's first states before that)."""
+    t0 = next((r["t0"] for r in records if r.get("kind") == "scenario"), 0.0)
+    return [r for r in records if r.get("t", 0.0) >= t0]
 
 
 def _run_logical(scenario, condition: str, k: int, trace: Path) -> tuple[int, list]:
     home = dataclasses.replace(scenario.home, seed=scenario.home.seed + k - 1)
     session = Session(home, clock=LogicalClock(), trace=trace)
-    if condition == "attack+defense":
+    if condition in DEFENDED:
         for d in scenario.defenses:
             DEFENSES[d.kind](session, d)
+    session.subscribe_reports(lambda event: session.scenario_record({
+        "kind": "heard", "device": session.device_name(event.twin_id), "feature": event.feature,
+        "value": event.value}))
     session.start(spawn_player=False, automations=True)
+    session.scenario_record({"kind": "scenario", "t0": 0.0, "condition": condition, "repeat": k,
+                             "defenses": _defenses(scenario, condition)})
     _play(scenario, session, condition, t0=0.0)
     try:
         session.clock.advance_to(_until(scenario))
@@ -101,13 +125,14 @@ def _run_live(scenario, condition: str, k: int, trace: Path, lab, catalog_dir: P
         with lab_hub(session, lab.port, catalog_dir,
                      last_seen=lambda t: datetime.fromtimestamp(epoch0 + t, UTC).isoformat()) as hub:
             _wait_for_home_assistant(lab.ha, hub)
-            if condition == "attack+defense" and scenario.defenses:
-                watch = mqtt.connect("127.0.0.1", lab.hub_port, "vesper-scenario-watch")
-                hub_watch = HubWatch(session, watch)
+            watch = mqtt.connect("127.0.0.1", lab.hub_port, "vesper-scenario-watch")
+            hub_watch = HubWatch(session, watch)  # what Home Assistant hears: `heard` records, the defenses
+            if condition in DEFENDED:
                 for d in scenario.defenses:
                     LIVE_DEFENSES[d.kind](session, d, hub_watch)
             t0 = session.clock.now()
-            session.scenario_record({"kind": "scenario", "t0": t0, "condition": condition, "repeat": k})
+            session.scenario_record({"kind": "scenario", "t0": t0, "condition": condition, "repeat": k,
+                                     "defenses": _defenses(scenario, condition)})
             _play(scenario, session, condition, t0)
             end = t0 + _until(scenario)
             while session.clock.now() < end:
@@ -116,7 +141,19 @@ def _run_live(scenario, condition: str, k: int, trace: Path, lab, catalog_dir: P
         if watch is not None:
             mqtt.disconnect(watch)
         session.stop()
+    _check_clock(session)
     return home.seed, session.records
+
+
+def _check_clock(session) -> None:
+    """A step that raised on the wall clock's thread (an effect, an actor's action) is kept in `clock.errors`; the
+    run did not run as the scenario says, so it fails, with the error."""
+    if session.clock.errors:
+        raise RuntimeError(f"a step failed: {'; '.join(session.clock.errors[:3])}")
+
+
+def _defenses(scenario, condition: str) -> list[str]:
+    return [d.kind for d in scenario.defenses] if condition in DEFENDED else []
 
 
 def _play(scenario, session, condition: str, t0: float) -> None:
@@ -142,10 +179,13 @@ MAIN_PLATFORMS = ("binary_sensor", "light", "lock", "switch", "climate", "cover"
 
 
 def _wait_for_home_assistant(ha, hub, timeout: float = 90.0) -> None:
-    """Until Home Assistant shows each Zigbee device's main entities (the first run: discovery; later runs: the new
-    session's retained states)."""
+    """Until Home Assistant shows each Zigbee device's main entities and each joined Wi-Fi device's (the first run:
+    discovery; later runs: the new session's retained states)."""
     want = [e.entity_id for entities in hub.bridge.expected.values() for e in entities
             if e.platform in MAIN_PLATFORMS]
+    wifi = getattr(hub, "wifi", None)
+    if wifi is not None:
+        want += [entity for name in wifi.devices for entity in wifi.entities(name).values()]
     deadline = time.monotonic() + timeout
     while True:
         missing = [e for e in want if (st := ha.state(e)) is None or st["state"] == "unavailable"]
@@ -169,21 +209,25 @@ class ScenarioActor(Resident):
     def __init__(self, session, name: str, model: str, at, key: bool):
         super().__init__(session, name, model, routine=None)
         self.at, self.key = tuple(at), key
+        self._dos: list[tuple] = []  # the scenario's own steps still queued (a stopped walk leaves them)
 
     def start(self) -> None:
         self.session.spawn(self.name, self.model, self.at)
 
     def do(self, verb: str, target) -> None:
         if verb == "walk":
-            self._steps.append(("walk_room", target["room"] if isinstance(target, dict) else target, "scenario"))
+            step = ("walk_room", target["room"] if isinstance(target, dict) else target, "scenario")
         elif verb in ("open", "close"):
-            self._steps.append(("door", target, verb == "open", "scenario"))
+            step = ("door", target, verb == "open", "scenario")
         else:
-            self._steps.append(("toggle", target))
+            step = ("toggle", target)
+        self._dos.append(step)
+        self._steps.append(step)
         if not self._waiting:
             self._next()
 
     def _run(self, step: tuple) -> None:
+        self._dos = [d for d in self._dos if d is not step]
         if step[0] == "toggle":
             self._use(step[1], not bool(self._state(step[1])), "scenario")
         else:
@@ -205,10 +249,12 @@ class ScenarioActor(Resident):
             self._steps.appendleft(("walk_point", self._side(door, self._here()), reason))
 
     def _use(self, device: str, want: bool, reason: str, tries: int = 0, task: str | None = None) -> None:
-        if not self.key and is_locked(self.rules.twin(device)) is not None:
-            # no key: a lock on the way (a walk through its door) stops the walk there, and the trace says so
+        if not self.key and is_locked(self.rules.twin(device)) is True:
+            # no key: a locked lock on the way (a walk through its door) stops that walk there, and the trace says
+            # so; the scenario's next actions stay
             self.session.note({"resident": self.name, "decision": "no key", "device": device, "reason": reason})
-            self._steps.clear()
+            while self._steps and not any(self._steps[0] is d for d in self._dos):
+                self._steps.popleft()
             return
         super()._use(device, want, reason, tries, task)
 
@@ -276,8 +322,8 @@ DEFENSES = {"freshness": Freshness, "physical_consistency": PhysicalConsistency}
 
 class HubWatch:
     """What Home Assistant hears, from its own edge (a live run): an MQTT client on the relay's hub link, the
-    devices' state messages handed to the session's clock thread. The retained states a new subscription gets are
-    old news, not reports, and are skipped."""
+    devices' state messages handed to the session's clock thread and written as `heard` records. The retained
+    states a new subscription gets are old news, not reports, and are skipped."""
 
     def __init__(self, session, client, base_topic: str = "zigbee2mqtt"):
         from vesper.lab.hub import ClockThreadClient
@@ -296,6 +342,7 @@ class HubWatch:
         except ValueError:
             return
         if isinstance(payload, dict):
+            self.session.scenario_record({"kind": "heard", "device": device, "values": payload})
             for fn in list(self.listeners):
                 fn(device, payload)
 
@@ -328,15 +375,21 @@ LIVE_DEFENSES = {"freshness": lambda session, d, watch: LiveFreshness(session, d
 # -- the report ----------------------------------------------------------------------------------------------
 def rejudge(scenario, out_dir: Path) -> list[Run]:
     """The claims checked again on the traces a run saved (the scenario's claims may have changed since)."""
-    from vesper.lab.session import read_trace
+    from vesper.lab.session import TraceError, read_trace
     runs = []
     for condition in scenario.runs.conditions:
         for k in range(1, scenario.runs.repeat + 1):
             trace = Path(out_dir) / f"{condition}-{k}.jsonl"
-            records = read_trace(trace)
-            seed = next((r["seed"] for r in records if r["kind"] == "meta"), None)
-            runs.append(Run(condition, k, seed, trace, records,
-                            [evaluate(c.predicate, records) for c in scenario.claims]))
+            if not trace.exists():
+                runs.append(Run(condition, k, None, trace, [], [], error=f"no trace ({trace.name})"))
+                continue
+            try:
+                records = read_trace(trace)
+            except TraceError as e:
+                runs.append(Run(condition, k, None, trace, [], [], error=str(e)))
+                continue
+            seed = next((r.get("seed") for r in records if r["kind"] == "meta"), None)
+            runs.append(_judge(scenario, condition, k, seed, trace, records))
     return runs
 
 
@@ -350,6 +403,10 @@ def report(scenario, runs: list[Run]) -> tuple[str, dict]:
     lines += [f"{scenario.runs.mode.capitalize()} runs, {scenario.runs.repeat} per condition: "
               f"{', '.join(scenario.runs.conditions)}.", "", "## Gaps", ""]
     lines += [f"- {g.get('what')}: {g.get('why')}" for g in scenario.gaps] or ["None recorded."]
+    failed = [r for r in runs if r.error]
+    if failed:
+        lines += ["", "## Runs not run", "", "Not judged; each claim's counts below are over the runs that ran:", ""]
+        lines += [f"- {r.condition} {r.repeat}: not run: {r.error}" for r in failed]
     refused = _refused(runs)
     if refused:
         lines += ["", "## Automations refused", "",
@@ -360,11 +417,15 @@ def report(scenario, runs: list[Run]) -> tuple[str, dict]:
     for i, claim in enumerate(scenario.claims):
         rows, conditions, wrong = [], {}, []
         for condition in scenario.runs.conditions:
-            these = [r for r in runs if r.condition == condition]
+            these = [r for r in runs if r.condition == condition and not r.error]
+            not_run = sum(1 for r in runs if r.condition == condition and r.error)
             held = sum(r.verdicts[i].holds for r in these)
             expected = claim.conditions[condition]
-            conditions[condition] = {"expected": expected, "held": held, "runs": len(these)}
-            if held != (len(these) if expected else 0):
+            conditions[condition] = {"expected": expected, "held": held, "runs": len(these),
+                                     **({"not_run": not_run} if not_run else {})}
+            if not these:
+                wrong.append(f"{condition}: no run ran")
+            elif held != (len(these) if expected else 0):
                 wrong.append(f"{condition}: expected {'to hold' if expected else 'not to hold'}, held in {held} "
                              f"of {len(these)}")
             first = these[0].verdicts[i] if these else None
@@ -372,15 +433,30 @@ def report(scenario, runs: list[Run]) -> tuple[str, dict]:
             rows.append(f"| {condition} | {'holds' if expected else 'does not hold'} | {held}/{len(these)} | "
                         f"{deciding} |")
         verdict = "**reproduced**" if not wrong else f"**not reproduced** ({'; '.join(wrong)})"
-        lines += [f"### {claim.claim}: {verdict}", "", "| condition | expected | held | deciding records (first run) |",
-                  "|---|---|---|---|", *rows, ""]
+        unmatched = _unmatched(claim, runs)
+        lines += [f"### {claim.claim}: {verdict}", ""]
+        lines += [f"Its event {json.dumps(e)} matched nothing in any run: the claim may hold or fail for the wrong "
+                  "reason (a name or value that never occurs, a device that never acts)." for e in unmatched]
+        lines += ([""] if unmatched else []) + ["| condition | expected | held | deciding records (first run) |",
+                                                "|---|---|---|---|", *rows, ""]
         claims.append({"claim": claim.claim, "reproduced": not wrong, "conditions": conditions, "cites":
-                       list(claim.cites)})
+                       list(claim.cites), "unmatched": unmatched})
     summary = {"scenario": str(scenario.path), "title": scenario.title, "gaps": scenario.gaps, "refused": refused,
                "claims": claims,
                "runs": [{"condition": r.condition, "repeat": r.repeat, "seed": r.seed, "trace": r.trace.name,
-                         "holds": [v.holds for v in r.verdicts]} for r in runs]}
+                         "holds": [v.holds for v in r.verdicts], **({"error": r.error} if r.error else {})}
+                        for r in runs]}
     return "\n".join(lines), summary
+
+
+def _unmatched(claim, runs: list[Run]) -> list[dict]:
+    """The claim's events no record matched in any run that ran."""
+    ran = [judged(r.records) for r in runs if not r.error]
+    out = []
+    for e in events(claim.predicate):
+        if e not in out and not any(matches(e, x) for records in ran for x in records):
+            out.append(e)
+    return out
 
 
 def _refused(runs: list[Run]) -> list[dict]:
@@ -407,6 +483,10 @@ def describe(r: dict) -> str:
         return f"{t} automation {r.get('automation')}: {r.get('device')} {r.get('feature')}={r.get('value')}"
     if kind == "report":
         return f"{t} report {r.get('device')} {r.get('feature')}={r.get('value')}"
+    if kind == "heard":
+        if "values" in r:
+            return f"{t} hub heard {r.get('device')} {json.dumps(r['values'])}"
+        return f"{t} hub heard {r.get('device')} {r.get('feature')}={r.get('value')}"
     if kind == "alert":
         return f"{t} alert {r.get('defense')}: {r.get('device')}"
     if kind == "world":

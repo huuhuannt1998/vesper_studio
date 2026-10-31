@@ -4,9 +4,12 @@ run, each verdict with the trace records that decided it.
 Events:
 - an actor's action: `{actor: intruder, opens: hall-porch}` (also `closes`, `uses` a device, `enters` a room);
 - `{door: hall-porch, open: true}`: the door itself, whoever moved it;
-- `{report: {device, feature, value}}`: a device's report reaching the hub;
-- `{action: {device, feature, value}}`: a command the hub sent, by VESPER's automation engine or by Home Assistant
-  (the same claim reads the same in a logical and a live run);
+- `{report: {device, feature, value}}`: a device sends a report (when it sends it, before any link holds it);
+- `{heard: {device, feature, value}}`: the hub has the report (logical: VESPER's automation engine has it, past the
+  links and the defenses at the hub's edge; live: Home Assistant's edge has the device's state message);
+- `{action: {device, feature, value}}`: a device accepts a command, from VESPER's automation engine or from Home
+  Assistant (when the command reaches it, after any link held it; the same claim reads the same in a logical and a
+  live run);
 - `{alert: {defense, device}}`, `{net: {link, event, device, feature}}`.
 A field left out matches anything. Forms: an event (it happens), `before: [A, B]` (A comes first, or B never),
 `after: [A, B]` (an A comes after the first B), `gap: [A, B]` with `at_least_s`/`at_most_s` (the first B after the
@@ -94,6 +97,15 @@ def _matches(e: dict, r: dict) -> bool:
     (what, want), = e.items()
     if what == "report":
         return kind == "report" and _fits(want, r)
+    if what == "heard":
+        if kind != "heard":
+            return False
+        if "values" not in r:  # logical: one feature
+            return _fits(want, r)
+        values = r["values"]  # live: the device's whole state message
+        return r.get("device") == want.get("device", r.get("device")) and \
+            ("feature" not in want or (want["feature"] in values and
+                                       values[want["feature"]] == want.get("value", values[want["feature"]])))
     if what == "action":
         if kind == "automation":
             return r.get("accepted") is True and _fits(want, r)
@@ -176,12 +188,13 @@ def _check_event(e, home, actors: set, where: str) -> None:
         if set(e) - {"door", "open"} or not isinstance(e.get("open", True), bool):
             raise PredicateError(f"{where}: a door and whether it is open (true or false)")
         return
-    if len(e) != 1 or next(iter(e)) not in ("report", "action", "alert", "net"):
+    if len(e) != 1 or next(iter(e)) not in ("report", "heard", "action", "alert", "net"):
         raise PredicateError(f"{where}: {next(iter(e), '')!r} is not a predicate or an event")
     (what, want), = e.items()
     if not isinstance(want, dict):
         raise PredicateError(f"{where}.{what}: {want!r} is not a mapping")
-    allowed = {"report": {"device", "feature", "value"}, "action": {"device", "feature", "value"},
+    allowed = {"report": {"device", "feature", "value"}, "heard": {"device", "feature", "value"},
+               "action": {"device", "feature", "value"},
                "alert": {"defense", "device", "feature"},
                "net": {"link", "event", "device", "feature", "direction"}}[what]
     if set(want) - allowed:
@@ -190,6 +203,15 @@ def _check_event(e, home, actors: set, where: str) -> None:
     names = {f["name"] for f in device.record["features"]} if device is not None else set()
     if device is not None and "feature" in want and want["feature"] not in names:
         raise PredicateError(f"{where}.{what}.feature: {device.name} has no feature {want['feature']!r}")
+    if device is not None and "feature" in want and "value" in want:
+        feature = next(f for f in device.record["features"] if f["name"] == want["feature"])
+        allowed_values = feature_values(feature)
+        if allowed_values is not None and want["value"] not in allowed_values:
+            raise PredicateError(f"{where}.{what}.value: {want['value']!r} is not a value of {device.name}'s "
+                                 f"{want['feature']} ({', '.join(str(v) for v in allowed_values)})")
+        if feature.get("type") == "numeric" and (isinstance(want["value"], bool)
+                                                 or not isinstance(want["value"], int | float)):
+            raise PredicateError(f"{where}.{what}.value: {want['value']!r} is not a number")
     if what == "alert" and "defense" in want and want["defense"] not in DEFENSES:
         raise PredicateError(f"{where}.alert.defense: {want['defense']!r} is not a defense")
     if what == "net":
@@ -198,6 +220,34 @@ def _check_event(e, home, actors: set, where: str) -> None:
             raise PredicateError(f"{where}.net.link: unknown link {want['link']!r}; {suggest(want['link'], links)}")
         if "event" in want and want["event"] not in NET_EVENTS:
             raise PredicateError(f"{where}.net.event: {want['event']!r} is not one of {', '.join(NET_EVENTS)}")
+
+
+def feature_values(feature: dict) -> list | None:
+    """The values a binary or enum feature takes (None: any of its type)."""
+    if feature.get("type") == "binary":
+        return [feature[k] for k in ("value_on", "value_off", "value_toggle") if k in feature]
+    if feature.get("type") == "enum" and feature.get("values"):
+        return list(feature["values"])
+    return None
+
+
+def events(p: dict) -> list[dict]:
+    """The events a predicate is made of, in order."""
+    form = _form(p)
+    if form is None:
+        return [p]
+    if form in ("before", "after", "gap"):
+        return list(p[form])
+    if form in ("count", "never"):
+        return [p[form]]
+    if form == "not":
+        return events(p["not"])
+    return [e for q in p[form] for e in events(q)]
+
+
+def matches(event: dict, record: dict) -> bool:
+    """Whether a trace record is this event."""
+    return _matches(event, record)
 
 
 def _device(home, name, where: str):

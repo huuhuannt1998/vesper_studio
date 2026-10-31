@@ -23,3 +23,4 @@ def test_a_gold_scenario_reproduces_every_claim_on_the_logical_clock(tmp_path, n
     text, summary = report(s, run_scenario(s, tmp_path))
     assert summary["refused"] == [], text
     assert [c["claim"] for c in summary["claims"] if not c["reproduced"]] == [], text
+    assert [c["claim"] for c in summary["claims"] if c["unmatched"]] == [], text

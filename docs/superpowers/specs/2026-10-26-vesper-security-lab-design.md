@@ -223,8 +223,8 @@ device at a time, and counts. A predicate is evaluated per run; the report gives
 
 ### 4.5 Runs and the report
 
-`vesper lab scenario check|run|report <file>`. A run plays each condition (baseline, attack, attack + defense)
-`repeat` times, live or logical, each with its own trace. The report gives, per claim and condition: holds or not,
+`vesper lab scenario check|run|report <file>`. A run plays each condition (baseline; defense, the defenses without
+the attack; attack; attack + defense) `repeat` times, live or logical, each with its own trace. The report gives, per claim and condition: holds or not,
 in how many runs, the deciding records, and whether the paper's expectation was **reproduced**. The gaps are
 listed first.
 
@@ -245,15 +245,16 @@ the broker-client, compromised-device and hub vantages, physical tampering, and 
 notification late) and 3 (action delay: the door's event and the lock command held, an intruder walks in) are in
 `case1-state-update-delay.yaml` and `case3-action-delay.yaml`. Case 10 (disabled execution) waits for W7a3. In the
 paper the lock and the door sensor are on two vendors' connections; in VESPER every Zigbee device shares the
-bridge's one connection, so holding the lock's report there would hold the door's too. A Matter lock over Wi-Fi
-gives the lock its own connection. Every quoted passage was checked against the paper's text.
+bridge's one connection, so holding the lock's report there would hold the door's too. Case 10 needs the lock on
+its own connection, as a Matter lock over Wi-Fi will have (W7a3). Every quoted passage was checked against the
+paper's text.
 
 **Actors.** Timeline actions are carried out as the residents carry out theirs: to the near side of a door first,
 through the doors on the way. An actor without a key (the scenario's actors) finds a locked door locked and never
 unlocks a lock, even on its way through a door; the player has a key.
 
 **Defenses.**
-- `freshness` measures a report's age from when the bridge had it (`observed_t`), as a sender's timestamp would
+- `freshness` measures a report's age from when the device sent it (`observed_t`), as a sender's timestamp would
   carry. In a live run this is Zigbee2MQTT's `last_seen` (an option of the bridge), read at Home Assistant's edge by
   a client on the relay's hub link that hears exactly what Home Assistant hears. A live run alerts; dropping a
   message before Home Assistant has it is W4a2's.
@@ -266,7 +267,23 @@ relay's effects cleared. Its timeline starts at t0, once Home Assistant shows ev
 and the trace records t0. A missing automations file is an error before anything runs. An automation VESPER's
 engine refuses is listed in the report before the claims.
 
-**Predicates.** `state_at` waits for W4a2; the gold scenarios do not need it.
+**Predicates.** `state_at` waits for W4a2; the gold scenarios do not need it. `report` is a device sending a
+report; `heard` is the hub having it (VESPER's automation engine past the links and the defenses; in a live run,
+Home Assistant's edge); `action` is a device accepting a command.
+
+**After the final review (2026-10-31).**
+- A fourth condition, `defense` (the defenses without the attack), is the defense claims' control.
+- Claims are judged on a run's records from t0; a run that fails (Home Assistant not ready in time, a step that
+  raised on the wall clock's thread) is reported as not run, and the others are judged.
+- A predicate's value must be one its feature takes; the report flags a claim event that matched nothing in any
+  run.
+- A run's `until` must come after every step and after the attack lets go of what it holds.
+- A live run's defenses hear the Zigbee bridge only, so an attack on a Wi-Fi device with defenses is refused in a
+  live run (W4a2); the readiness wait includes the Wi-Fi devices.
+- Clock times are text, even unquoted (YAML 1.1 would read 19:30:10 as a number).
+- The paper's "no disconnection" is a gap, not a claim: no VESPER link closes a connection for a held message, so
+  it could not fail.
+- Case 3 holds the lock command 40 s (within the paper's 30-58 s) so its 60 s window does not rest on latency.
 
 ## 5. The MCP server (W4b)
 

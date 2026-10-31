@@ -1,5 +1,6 @@
 """The scenario file (security-lab spec §4.1, plan W4a1): `vesper-scenario/1`, checked against its home before
 anything runs, every name a device, link, door, room or automation of the home, and every mistake named where it is."""
+import re
 import textwrap
 
 import pytest
@@ -96,7 +97,7 @@ def test_setup_places_more_devices_in_the_home_for_this_scenario_only(tmp_path):
     ("kind: freshness", "kind: firewall", r"defenses\[0\]\.kind: 'firewall' is not a defense"),
     ("mode: logical", "mode: quantum", r"runs\.mode: 'quantum' is not logical or live"),
     ("conditions: [baseline, attack, attack+defense]}", "conditions: [baseline, sabotage]}",
-     r"runs\.conditions: 'sabotage' is not baseline, attack or attack\+defense"),
+     r"runs\.conditions: 'sabotage' is not baseline, defense, attack or attack\+defense"),
     ("{action: {device: front_lock, feature: state,", "{action: {device: front_lok, feature: state,",
      r"expect\[0\]\.predicate\.before\[1\]\.action\.device: unknown device 'front_lok'"),
     ("{actor: intruder, opens: hall-porch}", "{actor: burglar, opens: hall-porch}",
@@ -145,3 +146,53 @@ def test_a_live_run_s_freshness_alerts_and_cannot_drop(tmp_path):
     assert load_scenario(path, catalog()).defenses[0].action == "drop"  # logical: the hub's edge is VESPER's
     with pytest.raises(ScenarioError, match=r"defenses\[0\]\.action: a live run's freshness alerts; dropping"):
         load_scenario(path, catalog(), mode="live")
+
+
+def test_an_unquoted_clock_time_is_a_clock_time_whatever_its_hour(tmp_path):
+    """YAML 1.1 reads 10:00:00 without quotes as the base-60 number 36000; a scenario's times are clock times."""
+    text = SCENARIO.replace('{at: "07:31:20", actor: intruder', '{at: 10:00:00, actor: intruder')
+    s = load_scenario(write(tmp_path, text), catalog())
+    assert s.timeline[1].at == 2.5 * 3600
+
+
+def test_a_throttle_on_a_link_that_carries_no_tcp_is_refused(tmp_path):
+    text = SCENARIO.replace("runs: {mode: logical,", "runs: {mode: live,").replace(
+        "effect: delay, link: coordinator, direction: down,\n         match: {device: front_lock, feature: state}, "
+        "hold_s: 58,", "effect: throttle, link: zigbee/front_lock, direction: down,\n         match: {device: "
+        "front_lock, feature: state}, rate_bps: 100,")
+    with pytest.raises(ScenarioError, match="attack\\[0\\].link: .*zigbee/front_lock carries no TCP"):
+        load_scenario(write(tmp_path, text), catalog())
+
+
+@pytest.mark.parametrize("until, says", [
+    ('"07:31:10"', "runs.until: 70 s is not after timeline[1] (80 s)"),
+    ('"07:31:25"', "runs.until: 85 s is before attack[0] lets go of what it holds (88 s)")])
+def test_a_run_that_ends_before_its_last_step_or_with_messages_still_held_is_refused(tmp_path, until, says):
+    text = SCENARIO.replace("runs: {mode: logical, repeat: 3,", f"runs: {{until: {until}, mode: logical, repeat: 3,")
+    with pytest.raises(ScenarioError, match=re.escape(says)):
+        load_scenario(write(tmp_path, text), catalog())
+
+
+@pytest.mark.parametrize("old, new, says", [
+    ("feature: state,\n                                                                             value: LOCK}",
+     "feature: state,\n                                                                             value: lock}",
+     "expect[0].predicate.before[1].action.value: 'lock' is not a value of front_lock's state (LOCK, UNLOCK)"),
+    ("match: {device: front_lock, feature: state}", "match: {feature: pm25}",
+     "attack[0].match.feature: no device whose messages cross coordinator has a feature 'pm25'")])
+def test_a_value_or_feature_that_cannot_occur_is_refused_before_it_makes_a_claim_vacuous(tmp_path, old, new, says):
+    assert old in SCENARIO
+    with pytest.raises(ScenarioError, match=re.escape(says)):
+        load_scenario(write(tmp_path, SCENARIO.replace(old, new)), catalog())
+
+
+@pytest.mark.parametrize("match", ["match: {device: kettle_plug, feature: POWER}", "match: {}"])
+def test_a_live_run_s_defenses_against_an_attack_on_a_wifi_device_are_refused(tmp_path, match):
+    """At Home Assistant's edge the defenses hear the Zigbee bridge's messages only: a Wi-Fi device's held reports
+    would alert in a logical run and never in a live one."""
+    from tests.lab.homes import with_wifi
+    text = SCENARIO.replace("runs: {mode: logical,", "runs: {mode: live,").replace(
+        "link: coordinator, direction: down,\n         match: {device: front_lock, feature: state},",
+        f"link: wifi/kettle_plug, direction: down,\n         {match},")
+    with pytest.raises(ScenarioError, match="defenses: in a live run the defenses hear the Zigbee bridge's "
+                                            "messages only .* attack\\[0\\] is on kettle_plug"):
+        load_scenario(write(tmp_path, text, home=with_wifi(LOCKED_HOME)), catalog())

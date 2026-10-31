@@ -111,3 +111,19 @@ roadmap), the spec (§4.7, progress), this plan.
 - `state_at` waits for W4a2.
 - The stack and hub helpers moved from the CLI to `vesper/lab/live.py` (shared by play, look and scenarios).
 - The plan is as-built (process).
+
+## After the final review
+
+The review (no Critical, 11 Important) was fixed test-first in one pass: unquoted clock times; `heard` events (the
+hub has the report) beside `report` (the device sent it); the "no disconnection" claim made a gap; predicate values
+checked and unmatched claim events flagged; keyless actors through unlocked locks, a stopped walk keeping the next
+actions; records judged from t0; a failed run reported as not run; live clock errors failing the run and a throttle
+on a non-TCP link refused; `until` after every step and release; live defenses refused on Wi-Fi devices and the
+readiness wait including them; the `defense` control condition. Rulings:
+- A run that fails is not retried: reported as not run, its claims counted over the runs that ran. Cost if wrong: a
+  flaky Home Assistant thins the counts instead of being retried.
+- Live readiness still waits for "not unavailable", not for Home Assistant to equal the new session's states; judging
+  from t0 covers what it did before. Cost if wrong: an automation fired before t0 changes the world the run starts in.
+- An unmatched event is flagged, not failed: a `never` claim can rightly match nothing. Cost if wrong: a reader
+  ignores the flag.
+- Recording a connection's close and the bridge's availability (to measure "no disconnection") is W4a2's.

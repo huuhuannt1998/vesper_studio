@@ -11,6 +11,7 @@ physical vantage: walking, opening and closing doors, using devices), with the `
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -22,7 +23,7 @@ from vesper.lab.predicates import PredicateError, check_predicate
 from vesper.lab.worldmap import MapError, suggest
 
 FORMAT = "vesper-scenario/1"
-CONDITIONS = ("baseline", "attack", "attack+defense")
+CONDITIONS = ("baseline", "defense", "attack", "attack+defense")  # defense: the defenses without the attack
 MODES = ("logical", "live")
 PLAYER = "player"
 VANTAGES = ("network",)
@@ -107,11 +108,30 @@ class Scenario:
     gaps: list[dict] = field(default_factory=list)
 
 
+class _Loader(yaml.SafeLoader):
+    """YAML 1.1 reads 19:30:10 unquoted as the base-60 number 70210 (and 09:30:00 as text): here both are clock
+    times, so the base-60 numbers are left as text."""
+
+
+_Loader.yaml_implicit_resolvers = {
+    k: [(tag, rx) for tag, rx in v if tag not in ("tag:yaml.org,2002:int", "tag:yaml.org,2002:float")]
+    for k, v in yaml.SafeLoader.yaml_implicit_resolvers.items()}
+_Loader.add_implicit_resolver(
+    "tag:yaml.org,2002:int",
+    re.compile(r"^(?:[-+]?0b[0-1_]+|[-+]?0[0-7_]+|[-+]?(?:0|[1-9][0-9_]*)|[-+]?0x[0-9a-fA-F_]+)$"),
+    list("-+0123456789"))
+_Loader.add_implicit_resolver(
+    "tag:yaml.org,2002:float",
+    re.compile(r"^(?:[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+][0-9]+)?|\.[0-9_]+(?:[eE][-+][0-9]+)?"
+               r"|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$"),
+    list("-+0123456789."))
+
+
 def load_scenario(path: Path, catalog: dict[str, dict], mode: str | None = None) -> Scenario:
     """`mode`: run it logical or live whatever the file says (`vesper lab scenario run --mode`)."""
     path = Path(path)
     try:
-        spec = yaml.safe_load(path.read_text()) or {}
+        spec = yaml.load(path.read_text(), Loader=_Loader) or {}
     except OSError as e:
         raise ScenarioError(f"{path}: cannot read it: {e.strerror}") from e
     except yaml.YAMLError as e:
@@ -136,10 +156,45 @@ def load_scenario(path: Path, catalog: dict[str, dict], mode: str | None = None)
     claims = [_claim(k, c, runs, passages, home, {PLAYER, *actors})
               for k, c in enumerate(_list(spec.get("expect") or [], "expect"))]
     gaps = [_mapping(g, f"gaps[{k}]") for k, g in enumerate(_list(spec.get("gaps") or [], "gaps"))]
+    _check_until(runs, timeline, attack)
+    _check_live_defenses(runs, attack, defenses, home)
     return Scenario(path=path, title=_text(spec.get("title"), "title"), source=dict(spec.get("source") or {}),
                     home=home, actors=actors, timeline=sorted(timeline, key=lambda a: a.at),
                     attack=sorted(attack, key=lambda a: a.at), defenses=defenses, claims=claims, runs=runs,
                     gaps=gaps)
+
+
+def _check_until(runs: Runs, timeline: list, attack: list) -> None:
+    """A run's end after every step, and after the attack lets go of what it holds: else the later steps never
+    happen, and a live run's held messages reach the next run."""
+    if runs.until is None:
+        return
+    for name, steps in (("timeline", timeline), ("attack", attack)):
+        for k, step in enumerate(steps):
+            if runs.until <= step.at:
+                raise ScenarioError(f"runs.until: {runs.until:g} s is not after {name}[{k}] ({step.at:g} s)")
+    for k, step in enumerate(attack):
+        e = step.effect
+        if e.kind in ("delay", "reorder"):
+            released = (e.until if e.until is not None else step.at) + e.hold_s
+            if runs.until < released:
+                raise ScenarioError(f"runs.until: {runs.until:g} s is before attack[{k}] lets go of what it holds "
+                                    f"({released:g} s)")
+
+
+def _check_live_defenses(runs: Runs, attack: list, defenses: list, home: LabHome) -> None:
+    """A live run's defenses watch Home Assistant's edge for the Zigbee bridge's messages (with its `last_seen`):
+    an attack on a Wi-Fi device's messages would alert in a logical run and never in a live one."""
+    if runs.mode != "live" or not defenses:
+        return
+    for k, step in enumerate(attack):
+        e = step.effect
+        names = [e.device] if e.device else [d.name for d in home.devices if e.link in home.network.path(d.name)]
+        off_bridge = [n for n in names if "zigbee" not in home.device(n).record["binding"]]
+        if off_bridge and len(off_bridge) == len(names):
+            raise ScenarioError(f"defenses: in a live run the defenses hear the Zigbee bridge's messages only "
+                                f"(the Wi-Fi devices' come with plan W4a2), and attack[{k}] is on "
+                                f"{', '.join(off_bridge)}")
 
 
 # -- the home -----------------------------------------------------------------------------------------
@@ -224,6 +279,8 @@ def _attack(k: int, a, home: LabHome, runs: Runs, passages: dict) -> AttackStep:
     if network is None or link not in network.links:
         names = list(network.links) if network else []
         raise ScenarioError(f"{where}.link: unknown link {link!r}; {suggest(link, names)}")
+    if kind == "throttle" and not network.links[link].tcp:
+        raise ScenarioError(f"{where}.link: a throttle paces a TCP link's bytes, and {link} carries no TCP")
     direction = a.get("direction", "both")
     if direction not in DIRECTIONS:
         raise ScenarioError(f"{where}.direction: {direction!r} is not one of {', '.join(DIRECTIONS)}")
@@ -237,6 +294,10 @@ def _attack(k: int, a, home: LabHome, runs: Runs, passages: dict) -> AttackStep:
                                 f"(its path: {', '.join(network.path(device)) or 'none'})")
         if feature is not None and feature not in {f["name"] for f in d.record["features"]}:
             raise ScenarioError(f"{where}.match.feature: {device} has no feature {feature!r}")
+    elif feature is not None and not any(
+            link in network.path(x.name) and feature in {f["name"] for f in x.record["features"]}
+            for x in home.devices):
+        raise ScenarioError(f"{where}.match.feature: no device whose messages cross {link} has a feature {feature!r}")
     at = _at(a.get("at"), f"{where}.at", home)
     until = _at(a["until"], f"{where}.until", home) if a.get("until") is not None else None
     if until is not None and until <= at:
