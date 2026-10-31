@@ -32,7 +32,9 @@ browser.
 | Turn a persona schedule or an ARAS day into a resident's routine | `vesper lab routine` | — |
 | Compose a home in the browser: rooms, real products, their firmware and configuration | `vesper lab compose` | the catalog |
 | Check the page automatically in a headless browser | `vesper lab look` | Chromium |
+| Have Claude Desktop (or any MCP client) set up a paper's attack and defense, claim by claim | `vesper mcp`, `vesper setup claude-desktop` | the catalog |
 | Run the twins on MQTT, and validate them | `vesper twins run`, `vesper validate` | the catalog; some checks `vesper setup ha` |
+| Check what is installed and what each missing piece is for | `vesper doctor` | — |
 
 ## Requirements
 
@@ -59,6 +61,21 @@ Then build the device catalog once:
     vesper catalog build       # builds the catalog offline (about a minute, 0.6 GB of memory)
 
 Every command that runs twins refuses a catalog built by older catalog code, so rebuild after an update.
+
+Or install a released catalog instead of building it (the release notes give its SHA-256; the bundle is refused if
+it does not match):
+
+    vesper catalog fetch https://github.com/huuhuannt1998/vesper_studio/releases/download/<tag>/vesper-catalog.tar.gz \
+        --sha256 <hash>
+
+Then let VESPER check the rest and set up what you need:
+
+    vesper doctor              # every prerequisite: ok, or missing with the commands that need it and the fix
+    vesper setup all           # Home Assistant, the Matter host and the Habitat environment, each once
+    vesper setup scenes 102344022   # an HSSD scene, exactly its files (after `hf auth login` and HSSD's terms)
+
+`vesper setup habitat` makes a conda (or micromamba) environment with habitat-sim 0.3.3. VESPER remembers where
+Habitat and HSSD are in `~/.config/vesper/config.json`; a flag or an environment variable still wins.
 
 ## Quickstart: play the example home
 
@@ -198,6 +215,22 @@ network held or dropped, and each defense's alert, in its own colour; the view's
 alerts. `--condition` is one of the four (default attack + defense). With `--hub`, Home Assistant runs the
 automations and the defenses hear what it hears, as in a live run (the scenario is checked as a live one). Automations
 edited in Home Assistant's page while a scenario plays go beside its file, never into it.
+
+### From a paper, with Claude: the MCP server
+
+`vesper mcp` is an MCP server through which Claude Desktop, LM Studio or any MCP client builds a scenario from a
+paper. Give the model the paper and the `reproduce_paper` prompt; it reads the threat model, picks a home, quotes the
+passages it relies on, and builds the scenario with typed tools (`capabilities`, `homes`, `home_describe`,
+`catalog_search`, `scenario_draft`, `scenario_edit`, `cite`, `gap`, `scenario_validate`, `scenario_save`,
+`scenario_run`, `run_status`, `run_report`). Every edit is checked against the home before it is kept, so the draft is
+always a valid scenario, and an error names the nearest valid choice. What the paper has and VESPER cannot express is
+recorded as a gap, never faked. No tool takes a host, a port, a command or code; live runs need `--allow-live`.
+
+    vesper setup claude-desktop --homes ~/vesper-homes      # registers the server (a backup of the config is kept)
+    vesper mcp --print-config --homes ~/vesper-homes        # the JSON for any other MCP client
+
+Given only the Phantom-Delay paper's text, Claude built both cases in about ten minutes and reproduced their claims.
+`vesper lab scenario score DRAFT --gold GOLD` compares a model's scenario with a hand-written one, element by element.
 
 ## A day in seconds, and exact replays
 
@@ -397,14 +430,10 @@ Layout:
 
 ## Roadmap
 
-- **Guided setup:** `vesper setup habitat`, scene downloads, and `vesper doctor`.
-- **The home's network, continued:** Matter devices on the hub, and real 802.11 on Linux.
-- **The security lab, continued:**
-  - more attack vantages: a rogue broker client, a compromised device, a malicious automation;
-  - more defenses: broker ACLs, hardened automations, timeouts;
-  - an MCP server, so that Claude Desktop or any MCP client can set up a scenario from a research paper.
-- **VESPER Studio for macOS and Windows:** one desktop app, with the setup built in.
-- **The placement editor**, and Matter devices on the hub.
+- **VESPER Studio for macOS and Windows:** one desktop app around the page, with the setup built in.
+- **The home's network, continued:** link effects on Matter devices, and real 802.11 on Linux.
+- **The security lab, continued:** more attack vantages (a rogue broker client, a compromised device, a malicious
+  automation) and more defenses (broker ACLs, hardened automations, timeouts).
 - **Generated homes, continued:** rooms that are not on a corridor, several storeys, and a matching HSSD scene as
   another look.
 
@@ -419,6 +448,7 @@ The code is under the MIT license (see `LICENSE`).
   - the CSA's Distributed Compliance Ledger, whose terms are not yet verified, so its records are left out of a
     release build.
 
-  `vesper catalog build --release` keeps only records whose sources allow redistribution.
+  `vesper catalog build --release` keeps only records whose sources allow redistribution, and the catalog bundles
+  of a release (`vesper catalog bundle`) are made from such a build. See `THIRD_PARTY_NOTICES.md`.
 - **3D data:** you download HSSD (CC BY-NC 4.0) and Habitat's humanoids yourself, under their own terms. Nothing
   derived from them is distributed.

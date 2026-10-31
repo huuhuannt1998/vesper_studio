@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use VESPER Studio, please cite it as below."
+title: "VESPER Studio: faithful virtual twins of real smart-home products"
+authors:
+  - family-names: Bui
+    given-names: Huan
+  - family-names: Fu
+    given-names: Chenglong
+repository-code: "https://github.com/huuhuannt1998/vesper_studio"
+license: MIT
+type: software
+keywords:
+  - smart home
+  - digital twin
+  - Home Assistant
+  - Matter
+  - Zigbee
