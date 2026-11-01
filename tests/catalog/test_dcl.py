@@ -11,7 +11,7 @@ def ledger(models=DCL_MODELS, vendors=DCL_VENDORS, *, total=None, endless=False,
     seen = []
 
     def handler(request):
-        seen.append(request.url)
+        seen.append(request)
         p, q = request.url.path, request.url.params
         if p.endswith("/blocks/latest"):
             if raw_block is not None:
@@ -33,7 +33,7 @@ def test_fetch_all_follows_next_key_and_checks_the_total():
     client, seen = ledger()
     with client:
         assert fetch_all(client, "/dcl/model/models", "model", page_size=4) == DCL_MODELS
-    assert [u.params.get("pagination.key") for u in seen] == [None, "4="]
+    assert [r.url.params.get("pagination.key") for r in seen] == [None, "4="]
 
 
 def test_a_short_read_is_refused():
@@ -51,7 +51,7 @@ def test_endless_pagination_is_refused():
 def test_sync_versions_the_snapshot_by_chain_height(tmp_path):
     client, _ = ledger()
     with client:
-        sync_dcl(tmp_path, client)
+        sync_dcl(tmp_path, client, height="latest")
     meta, files = load_snapshot(tmp_path, "dcl")
     assert meta["version"] == "height-324957" and meta["models"] == 7 and meta["vendors"] == 2
     assert meta["license"] == "DCL-terms-unverified" and set(files) == {"models.json", "vendors.json"}
@@ -74,4 +74,24 @@ def test_an_empty_vendor_list_is_refused(tmp_path):
 def test_a_malformed_reply_is_an_ingest_error(tmp_path, body):
     client, _ = ledger(raw_block=body)
     with client, pytest.raises(IngestError, match="blocks/latest"):
+        sync_dcl(tmp_path, client, height="latest")
+
+
+def test_sync_reads_the_ledger_at_the_pinned_height_so_a_fresh_sync_gives_the_same_products(tmp_path):
+    from vesper.catalog.sources import SOURCES
+    assert SOURCES["dcl"].version == "height-324961"
+    client, seen = ledger()
+    with client:
         sync_dcl(tmp_path, client)
+    meta, _ = load_snapshot(tmp_path, "dcl")
+    assert meta["version"] == "height-324961" and meta["block_height"] == 324961
+    assert not any(r.url.path.endswith("/blocks/latest") for r in seen)
+    assert {r.headers.get("x-cosmos-block-height") for r in seen} == {"324961"}
+
+
+def test_sync_at_the_latest_height_asks_the_ledger_for_it_and_reads_there(tmp_path):
+    client, seen = ledger()
+    with client:
+        sync_dcl(tmp_path, client, height="latest")
+    data = [r for r in seen if not r.url.path.endswith("/blocks/latest")]
+    assert {r.headers.get("x-cosmos-block-height") for r in data} == {"324957"}

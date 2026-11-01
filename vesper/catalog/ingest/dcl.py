@@ -1,7 +1,9 @@
 """Certified Matter products from the CSA Distributed Compliance Ledger REST API (spec §2).
 
-The ledger is live, so a snapshot is versioned by the chain height at sync time. Its reuse terms are
-not yet verified, so DCL-derived records stay out of release builds (`sources.SOURCES["dcl"]`).
+The ledger is live, so a snapshot is versioned by a chain height. Sync reads the ledger as it stood at the pinned
+height (the Cosmos `x-cosmos-block-height` header), so a fresh sync gives the same products; `height="latest"` reads
+the newest block instead. Its reuse terms are not yet verified, so DCL-derived records stay out of release builds
+(`sources.SOURCES["dcl"]`).
 """
 from __future__ import annotations
 
@@ -22,7 +24,7 @@ LATEST_BLOCK = "/cosmos/base/tendermint/v1beta1/blocks/latest"
 
 
 def fetch_all(client: httpx.Client, path: str, list_key: str, *, page_size: int = 100,
-              max_pages: int = 1000) -> list[dict]:
+              max_pages: int = 1000, height: int | None = None) -> list[dict]:
     """Every record behind a paginated DCL endpoint; refuses a partial result."""
     items: list[dict] = []
     key, total = None, None
@@ -32,7 +34,8 @@ def fetch_all(client: httpx.Client, path: str, list_key: str, *, page_size: int 
             params["pagination.key"] = key
         else:
             params["pagination.count_total"] = "true"
-        page = fetch_json(client, BASE + path, params=params)
+        page = fetch_json(client, BASE + path, params=params,
+                          headers={"x-cosmos-block-height": str(height)} if height else None)
         pagination = page.get("pagination") or {}
         if total is None:
             if "total" not in pagination:
@@ -49,14 +52,19 @@ def fetch_all(client: httpx.Client, path: str, list_key: str, *, page_size: int 
     return items
 
 
-def sync_dcl(raw_root: Path, client: httpx.Client) -> Path:
-    block = fetch_json(client, BASE + LATEST_BLOCK)
-    try:
-        height = int(block["block"]["header"]["height"])
-    except (KeyError, TypeError, ValueError) as e:
-        raise IngestError(f"{BASE + LATEST_BLOCK}: unexpected reply, no block height ({e!r})") from e
-    models = fetch_all(client, MODELS, "model")
-    vendors = fetch_all(client, VENDORS, "vendorInfo")
+def sync_dcl(raw_root: Path, client: httpx.Client, height: int | str | None = None) -> Path:
+    """Snapshot the ledger's models and vendors at `height` (default: the pinned one; "latest": the newest block)."""
+    if height is None:
+        height = int(SOURCES["dcl"].version.removeprefix("height-"))
+    if height == "latest":
+        block = fetch_json(client, BASE + LATEST_BLOCK)
+        try:
+            height = int(block["block"]["header"]["height"])
+        except (KeyError, TypeError, ValueError) as e:
+            raise IngestError(f"{BASE + LATEST_BLOCK}: unexpected reply, no block height ({e!r})") from e
+    height = int(height)
+    models = fetch_all(client, MODELS, "model", height=height)
+    vendors = fetch_all(client, VENDORS, "vendorInfo", height=height)
     if not models:
         raise IngestError("the DCL returned no models")
     if not vendors:  # without vendor names every Matter product would silently fall below L0

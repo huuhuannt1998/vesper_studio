@@ -165,8 +165,11 @@ Every command that runs twins needs the catalog. Build it from the pinned upstre
     vesper catalog sync        # downloads the pinned sources: ~185 MB, a few minutes, needs the network
     vesper catalog build       # builds the catalog offline: about a minute, ~0.6 GB of memory, 63 MB on disk
 
-`sync` fetches exactly the versions VESPER pins (Zigbee2MQTT's converters, the Matter DCL and data model, Tasmota's
-templates, Z-Wave JS's database, Home Assistant's vocabulary) and keeps each with its hash under `catalog/raw/`.
+`sync` fetches exactly the versions VESPER pins (Zigbee2MQTT's converters, the Matter data model, Tasmota's templates,
+Z-Wave JS's database, Home Assistant's vocabulary) and keeps each with its hash under `catalog/raw/`. The Matter DCL is
+a live ledger; `sync` reads it as it stood at a pinned block (324,961), so everyone gets the same Matter products.
+`vesper catalog sync --source dcl --dcl-height latest` reads the newest block instead, and your catalog then differs
+from the pinned one.
 `build` turns them into one device spec per product under `catalog/vds/`, with a coverage summary.
 
 **Rebuild after every update.** The catalog records which catalog code built it, and every command that runs twins

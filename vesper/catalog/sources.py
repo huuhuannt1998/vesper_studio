@@ -19,7 +19,8 @@ SOURCES: dict[str, Source] = {
         "matter_zap", "v1.6.1.0", "Apache-2.0", True,
         "github.com/project-chip/connectedhomeip:src/app/zap-templates/zcl/data-model/chip",
     ),
-    "dcl": Source("dcl", None, "DCL-terms-unverified", False, "https://on.dcl.csa-iot.org"),
+    # the ledger is live: read it as it stood at this block, which the ledger's nodes still serve
+    "dcl": Source("dcl", "height-324961", "DCL-terms-unverified", False, "https://on.dcl.csa-iot.org"),
     "zwave": Source("zwave", "15.31.2", "MIT", True, "npm:@zwave-js/config"),
     "ha": Source("ha", "2026.10.2", "Apache-2.0", True, "github.com/home-assistant/core"),
     # Tasmota device templates: real Wi-Fi products (EPL-2.0; a release build carries its notice); one commit

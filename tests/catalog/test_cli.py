@@ -29,7 +29,7 @@ def test_build_without_home_assistant_vocabulary_fails(tmp_path, capsys):
 def test_sync_runs_every_source_and_reports_failures(tmp_path, monkeypatch, capsys):
     ran = []
 
-    def fake(source, raw_root, cache_root, client):
+    def fake(source, raw_root, cache_root, client, dcl_height=None):
         ran.append(source)
         if source == "dcl":
             raise IngestError("ledger down")
@@ -42,7 +42,7 @@ def test_sync_runs_every_source_and_reports_failures(tmp_path, monkeypatch, caps
 
 
 def test_sync_one_source(tmp_path, monkeypatch):
-    monkeypatch.setattr(cli, "_sync_one", lambda s, r, c, client: r / s)
+    monkeypatch.setattr(cli, "_sync_one", lambda s, r, c, client, dcl_height=None: r / s)
     assert cli.main(["catalog", "sync", "--source", "ha", "--raw-root", str(tmp_path)]) == 0
 
 
@@ -55,7 +55,7 @@ def test_unknown_source_is_a_usage_error():
 def test_an_unexpected_error_in_one_source_does_not_stop_the_others(tmp_path, monkeypatch, capsys):
     ran = []
 
-    def fake(source, raw_root, cache_root, client):
+    def fake(source, raw_root, cache_root, client, dcl_height=None):
         ran.append(source)
         if source == "matter_zap":
             raise KeyError("download_url")

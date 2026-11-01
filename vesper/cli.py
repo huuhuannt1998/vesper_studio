@@ -23,9 +23,11 @@ from vesper.catalog.ingest.zwave import sync_zwave
 SYNC_ORDER = ("ha", "zigbee", "matter_zap", "dcl", "zwave", "tasmota")
 
 
-def _sync_one(source: str, raw_root: Path, cache_root: Path, client) -> Path:
+def _sync_one(source: str, raw_root: Path, cache_root: Path, client, dcl_height=None) -> Path:
     if source == "zigbee":
         return sync_zigbee(raw_root, cache_root)
+    if source == "dcl":
+        return sync_dcl(raw_root, client, height=dcl_height)
     adapters = {"ha": sync_ha, "matter_zap": sync_matter_zap, "dcl": sync_dcl, "zwave": sync_zwave,
                 "tasmota": sync_tasmota}
     return adapters[source](raw_root, client)
@@ -37,7 +39,8 @@ def _sync(args) -> int:
     with default_client() as client:
         for source in sources:  # one failing source never stops the others
             try:
-                path = _sync_one(source, Path(args.raw_root), Path(args.cache_root), client)
+                path = _sync_one(source, Path(args.raw_root), Path(args.cache_root), client,
+                                 getattr(args, "dcl_height", None))
                 print(f"synced {source}: {path}")
             except CatalogError as e:
                 failed.append(source)
@@ -1454,6 +1457,8 @@ def main(argv: list[str] | None = None) -> int:
     sync.add_argument("--source", choices=("all", *SYNC_ORDER), default="all")
     sync.add_argument("--raw-root", default="catalog/raw")
     sync.add_argument("--cache-root", default="catalog/cache")
+    sync.add_argument("--dcl-height", default=None,
+                      help="read the Matter DCL at this block (default: the pinned one; `latest` for the newest)")
     build = actions.add_parser("build", help="build the VDS catalog from snapshots (offline)")
     build.add_argument("--raw-root", default="catalog/raw")
     build.add_argument("--out", default="catalog/vds")
