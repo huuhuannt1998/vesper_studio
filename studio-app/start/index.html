@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VESPER Studio</title>
+  <style>
+    :root { --bg: #12161f; --panel: #1b2130; --line: #2c3446; --text: #e6e9ef; --muted: #9aa3b5; --accent: #4c8dff;
+            --bad: #ff6b6b; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); }
+    html, body { margin: 0; height: 100%; background: var(--bg); }
+    main { height: 100%; display: grid; place-content: center; text-align: left; padding: 24px; }
+    h1 { font-size: 22px; margin: 0 0 6px; font-weight: 600; }
+    p { font-size: 14px; line-height: 1.5; color: var(--muted); max-width: 60ch; margin: 6px 0; }
+    #failed { display: none; border: 1px solid var(--line); background: var(--panel); border-radius: 8px;
+              padding: 14px 18px; margin-top: 14px; }
+    #failed b { color: var(--bad); font-weight: 600; }
+    code { font: 13px ui-monospace, Menlo, monospace; color: var(--text); background: var(--bg); padding: 1px 5px;
+           border-radius: 3px; }
+    pre { font: 13px/1.5 ui-monospace, Menlo, monospace; color: var(--text); margin: 8px 0 0; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>VESPER Studio</h1>
+    <p id="starting">Starting VESPER on this computer…</p>
+    <div id="failed" role="alert">
+      <p><b id="why"></b></p>
+      <p>VESPER Studio is the window; VESPER itself runs from its Python package. Install it once (on Windows, inside
+        WSL2), then open the app again:</p>
+      <pre>uv tool install vesper-studio      # or, from the source: uv tool install .
+vesper catalog fetch &lt;bundle&gt; --sha256 &lt;hash&gt;   # or: vesper catalog sync &amp;&amp; vesper catalog build
+vesper doctor</pre>
+      <p>Set <code>VESPER_BIN</code> to the <code>vesper</code> command if it is somewhere else.</p>
+    </div>
+  </main>
+  <script>
+    window.vesperFailed = (text) => {
+      document.getElementById("starting").style.display = "none";
+      document.getElementById("why").textContent = text;
+      document.getElementById("failed").style.display = "block";
+    };
+  </script>
+</body>
+</html>

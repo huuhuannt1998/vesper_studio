@@ -3,7 +3,7 @@
   "productName": "VESPER Studio",
   "version": "0.1.0",
   "identifier": "io.github.huuhuannt1998.vesperstudio",
-  "build": { "frontendDist": "../dist" },
+  "build": { "frontendDist": "../start" },
   "app": {
     "windows": [
       { "label": "main", "title": "VESPER Studio", "width": 1280, "height": 820, "minWidth": 900, "minHeight": 600,
