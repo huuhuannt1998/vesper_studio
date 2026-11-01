@@ -11,9 +11,18 @@ house, or a real 3D scene from the HSSD dataset. Scripted residents live their d
 devices exactly as it would see real ones. You can walk the home yourself, as in a game, or let a day run in seconds.
 Every session is recorded and replays exactly.
 
-It is research software under active development. The research paper is *VESPER* (in preparation). A desktop app
-for macOS and Windows is on the roadmap below. Today VESPER Studio runs from a terminal, with its page in your
+It is research software under active development. The research paper is *VESPER* (in preparation). VESPER Studio
+runs as a desktop app for macOS and Windows (unsigned for now; see below) or from a terminal, with its pages in your
 browser.
+
+## The app
+
+`vesper studio` opens the lobby: your homes (play one, or compose a new one with real products), what this computer
+has and lacks (`vesper doctor`), and buttons that run the setup in the background. The desktop app, **VESPER Studio**,
+is a window around the same lobby: it starts `vesper studio` when it opens (inside WSL2 on Windows) and stops it when
+it closes. Build it from `studio-app/` with `cargo tauri build`, or take an unsigned build from the repository's
+Actions; macOS asks once to allow an unsigned app (Control-click, Open). The app needs VESPER itself installed
+(`uv tool install .` from a clone, then `vesper catalog fetch` or `build`).
 
 ## What you can do today
 
@@ -35,6 +44,7 @@ browser.
 | Have Claude Desktop (or any MCP client) set up a paper's attack and defense, claim by claim | `vesper mcp`, `vesper setup claude-desktop` | the catalog |
 | Run the twins on MQTT, and validate them | `vesper twins run`, `vesper validate` | the catalog; some checks `vesper setup ha` |
 | Check what is installed and what each missing piece is for | `vesper doctor` | — |
+| The lobby: your homes, composing a new one, setup (the desktop app shows it) | `vesper studio` | the catalog |
 
 ## Requirements
 
@@ -430,7 +440,7 @@ Layout:
 
 ## Roadmap
 
-- **VESPER Studio for macOS and Windows:** one desktop app around the page, with the setup built in.
+- **VESPER Studio for macOS and Windows:** signed installers with the release.
 - **The home's network, continued:** link effects on Matter devices, and real 802.11 on Linux.
 - **The security lab, continued:** more attack vantages (a rogue broker client, a compromised device, a malicious
   automation) and more defenses (broker ACLs, hardened automations, timeouts).
