@@ -1,7 +1,8 @@
 # VESPER Studio
 
-**A smart-home lab on a laptop: real market products as virtual twins, in homes you can walk, with an unmodified
-Home Assistant as the hub, and evidence for how faithful each twin is.**
+**An open smart-home lab for any researcher's computer: real market products as virtual twins, in homes you can
+walk (or have Claude furnish in Blender), with an unmodified Home Assistant as the hub, and evidence for how faithful
+each twin is.** No radios, containers or special hardware.
 
 ![The play page in 3D: the player in the example home's bedroom has just switched on an IKEA lamp; the crosshair's prompt says what a click does next, the console shows the lamp's report, and Alex is at dinner in the kitchen](docs/images/lab-play.png)
 
@@ -252,9 +253,11 @@ wins (see [Reference](#reference)).
     vesper setup claude-desktop --homes ~/vesper-homes   # registers VESPER with Claude Desktop; its config is backed up first
     vesper mcp --print-config --homes ~/vesper-homes     # the JSON for any other MCP client
 
-**Blender** (furnishing generated homes): install [Blender](https://www.blender.org/download/) 4.2 or newer. For
-furnishing with Claude, also install [Blender MCP](https://github.com/ahujasid/blender-mcp) and follow its
-instructions. Blender is needed only to make a home's model, not to play it.
+**Blender and Claude** (furnishing generated homes): install [Blender](https://www.blender.org/download/) 4.2 or
+newer. For furnishing with Claude, also install [Claude Code](https://claude.com/claude-code) (the `claude` command)
+and the add-on of [Blender MCP](https://github.com/ahujasid/blender-mcp) (`addon.py`: in Blender, Edit, Preferences,
+Add-ons, Install from disk); VESPER runs the MCP server itself (`uvx mcp-for-blender`, so `uv` is needed too). Blender
+is needed only to make a home's model, not to play it.
 
 **A browser for automatic checks**: `vesper lab look` uses Google Chrome or any Chromium-based browser it finds; set
 `VESPER_BROWSER` to its executable otherwise.
@@ -313,8 +316,9 @@ VESPER installs nothing system-wide besides what you installed in step 1, and st
     vesper lab play examples/lab/test-house/home.yaml
 
 Your browser opens on http://127.0.0.1:18080/ with a small test house in 3D: a hall, a kitchen, a bedroom and a
-porch, with six real Zigbee products. Click the view to look around, walk with W A S D, click a lamp or a door to use
-it, and watch the console on the right report what each device sends. Alex, a resident, comes home and cooks. Stop
+porch, with six real Zigbee products. Drag the view (or click empty space) to look around, walk with W A S D, click a
+lamp to see its details, click a door to open it, press F to use what the crosshair is on, and watch the console on
+the right report what each device sends. Alex, a resident, comes home and cooks. Stop
 with Ctrl-C; the session's trace is in `examples/lab/test-house/traces/`.
 
 **2. Live a day in a second, and replay it:**
@@ -345,6 +349,10 @@ attack delays real MQTT traffic on the loopback interface (about 3 minutes per r
 **5. Open the lobby** (or the desktop app), and compose a home of your own:
 
     vesper studio
+
+Choose a number of rooms (or a list), add real products from the Catalog (**Add to home**), and **Generate home**.
+**Furnish it in Blender** has Claude build and furnish it in 3D (below); **Play it** opens it, with Home Assistant
+when it is set up.
 
 ## Concepts
 
@@ -409,19 +417,21 @@ Every command has `--help`. Paths in the examples are relative to the clone.
 
 | Control | What it does |
 |---|---|
-| **Click** the view | capture the mouse to look around (**Esc** lets it go) |
+| **Click** a device or the hub | its details, as in Room 334's walkthrough (below) |
+| **Click** a door | open or shut it |
+| **Click** empty space | capture the mouse to look around (**Esc** lets it go) |
 | **Drag** the view | look around where a page cannot capture the mouse (the desktop app on macOS) |
 | **W A S D** or the arrow keys | walk where you look; hold two keys for a diagonal |
 | **Shift** | run |
-| **Click** or **F** | use what the crosshair is on: switch a plug, open a door, press a button |
+| **F** | use what the crosshair is on: switch a plug, open a door, press a button |
 | **E** | the same; with nothing under the crosshair, the thing in reach |
 | **I** | the details of the device under the crosshair (below) |
 | **V** | first person or third person |
-| **M** | the floor plan (a click on it uses a device or door too) |
+| **M** | the floor plan (a click on it opens a device's details, or a door) |
 | **Q** | select the next thing in reach |
 | **Tab** | move to the next panel |
 
-The prompt under the crosshair says what a click will do ("Click: switch kitchen_plug on"), or why it cannot ("too
+The prompt under the crosshair says what F will do ("Click: switch kitchen_plug on"), or why it cannot ("too
 far (3.7 m)", "other side of the wall", "a sensor, not used by hand"). A browser without WebGL, or the address with
 `?view=map`, plays on the map alone:
 
@@ -435,10 +445,13 @@ Getting around:
 - **Room chips** along the top of the view show each room from its corner. The camera moves; you stay where you
   are. Walking or looking takes the view back to you.
 - **Inspect**, top right, lists every device by room; choosing one turns the view to it and opens its details.
+- **The hub** stands in the home (Home Assistant's box and the Zigbee coordinator, on a shelf); click it, or the
+  **Hub** button in Inspect, for Home Assistant (a link to its dashboard, and the login VESPER made for it) and every
+  device with how it reaches the hub, whether that link is up, and its state. A row opens that device.
 - **The arrows** at the lower right walk as the keys do (for a trackpad); **Reset view** looks ahead from behind you.
 - **M** opens the floor plan, with the rooms named and every device marked.
 
-A device's details (**I**, or the Inspect list) show:
+A device's details (a click on it, **I**, or the Inspect list) show:
 - what it is and where;
 - its state now, and the action a hand can take (switch it, lock it);
 - how it reaches the hub: each link with its signal, walls and latency, and whether it is up;
@@ -651,7 +664,16 @@ moved in the home file. Without a request, a home gets a starter set. A batch ma
 
 ### Furnished in Blender
 
-`vesper lab dress HOME` writes `dress/build_home.py`, a Blender script that builds the home's floors and walls from its
+**From the lobby, with Claude.** After **Generate home**, **Furnish it in Blender** does it all: VESPER writes the
+home's Blender script and brief, opens a Blender window of its own (an empty scene, its MCP server on a free port; a
+Blender you have open is left alone), runs Claude Code headless with only Blender's MCP tools and the home's folder,
+checks that `scene.glb` came back whole, and takes the walkable floor again from the furniture. You choose the model
+(Opus, or the cheaper Sonnet) and a spending cap; the steps and Claude's progress show as it goes, and **Stop** ends
+it. A run takes 20 to 40 minutes; an eight-room home cost US$16 on Opus. Claude's whole run is kept in
+`dress/claude.jsonl`, and the Blender window stays open with the home.
+
+**By hand, or from your own MCP client.** `vesper lab dress HOME` writes `dress/build_home.py`, a Blender script that
+builds the home's floors and walls from its
 map, and `dress/BRIEF.md`, which says how to furnish it. Run the script in Blender, furnish and texture the rooms by
 hand or ask Claude through Blender MCP, then export `scene.glb` beside the home. `vesper lab play` then draws that
 model instead of plain walls. The same works for a home made from an HSSD scene (its models are converted for Blender
