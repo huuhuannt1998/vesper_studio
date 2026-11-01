@@ -37,8 +37,8 @@ def test_l2_counts_only_products_that_passed_acceptance(tmp_path):
     write_result(results, "acceptance-20261024T170000Z.json", {
         "summary": {"products": 2, "passed": 1, "categories_passing": ["plug"], "categories_displayed": ["plug"],
                     "by_category": {}},
-        "products": [{"id": recs[0]["id"], "category": "plug", "passed": True},
-                     {"id": recs[1]["id"], "category": "light", "passed": False}]})
+        "products": [{"id": recs[0]["id"], "category": "plug", "passed": True, "exercised": True, "skipped": []},
+                     {"id": recs[1]["id"], "category": "light", "passed": False, "exercised": True, "skipped": []}]})
     report = build_report(catalog, results)
     assert report["l2"]["validated_products"] == [recs[0]["id"]]
     assert report["l2"]["eligible_zigbee"] >= 1 and report["sources"]["zigbee"]["version"] == "26.123.0"
@@ -182,27 +182,56 @@ def test_a_matter_run_with_other_parameters_is_exploratory_and_test_vendor_ids_a
     assert "Matter's test vendor id" in render_markdown(report)
 
 
-def test_l4_counts_a_product_only_when_every_transition_agreed_and_tasmota_l2_is_credited(tmp_path):
+def test_l4_credits_a_twin_model_only_when_every_transition_agreed_and_tasmota_l2_is_credited(tmp_path):
     catalog, _ = write_catalog(tmp_path)
     r = tmp_path / "results"
     write_result(r, "anchors-20261031T200000Z.json", {"anchors": [
-        {"product": "matter:1:1", "transitions_agree": "10/10"},
-        {"product": "matter:1:2", "transitions_agree": "4/5"},
-        {"product": "tasmota:a:b", "transitions_agree": "40/40 commands"}]})
+        {"model": "matter:Extended Color Light", "product": "matter:1:1", "transitions_agree": "10/10"},
+        {"model": "matter:Door Lock", "product": "matter:1:2", "transitions_agree": "4/5"},
+        {"model": "tasmota:plug", "product": "tasmota:a:b", "transitions_agree": "40/40 commands",
+         "credits_l4": False}]})
     write_result(r, "tasmota-20261031T200000Z.json", {"summary": {"products": 2, "passed": 1, "entities": 2,
                                                                   "categories_passing": [], "categories": ["plug"]},
                                                       "products": [{"id": "tasmota:a:b", "passed": True},
                                                                    {"id": "tasmota:a:c", "passed": False}]})
     rep = build_report(catalog, r)
-    assert sorted(rep["l4"]) == ["matter:1:1", "tasmota:a:b"]
+    assert sorted(rep["l4"]) == ["matter:Extended Color Light"]
+    assert rep["l4"]["matter:Extended Color Light"]["product"] == "matter:1:1"
     assert rep["l2"]["tasmota"]["validated_products"] == ["tasmota:a:b"]
     assert not rep["checks"]["tasmota"]["passed"]
+    assert "twin models" in render_markdown(rep)
 
 
-def test_an_anchor_that_compared_nothing_earns_no_l4(tmp_path):
+def test_an_anchor_that_compared_nothing_or_names_no_model_earns_no_l4(tmp_path):
     catalog, _ = write_catalog(tmp_path)
     r = tmp_path / "results"
     write_result(r, "anchors-20261031T200000Z.json", {"anchors": [
-        {"product": "matter:1:1", "transitions_agree": "0/0"},
-        {"product": "matter:1:2", "transitions_agree": " 7 / 7 "}]})
-    assert sorted(build_report(catalog, r)["l4"]) == ["matter:1:2"]
+        {"model": "matter:A", "product": "matter:1:1", "transitions_agree": "0/0"},
+        {"model": "matter:B", "product": "matter:1:2", "transitions_agree": " 7 / 7 "},
+        {"product": "matter:1:3", "transitions_agree": "7/7"}]})
+    assert sorted(build_report(catalog, r)["l4"]) == ["matter:B"]
+
+
+def test_zigbee_l2_needs_a_product_exercised_with_its_core_function_exposed(tmp_path):
+    catalog, recs = write_catalog(tmp_path)
+    results = tmp_path / "results"
+    ids = [r["id"] for r in recs[:4]]
+    write_result(results, "acceptance-20261024T170000Z.json", {
+        "summary": {"products": 4, "passed": 4, "categories_passing": [], "categories_displayed": [],
+                    "by_category": {}},
+        "products": [
+            {"id": ids[0], "category": "plug", "passed": True, "exercised": True, "skipped": []},
+            {"id": ids[1], "category": "leak_sensor", "passed": True, "exercised": False, "skipped": []},
+            {"id": ids[2], "category": "thermostat", "passed": True, "exercised": True, "core_exposed": True,
+             "skipped": [["x", "climate entities are not exposed yet"]]},
+            {"id": ids[3], "category": "light", "passed": True, "exercised": True, "core_exposed": True,
+             "skipped": [["l2", "multi-endpoint lights are not exposed yet"]]}]})
+    assert build_report(catalog, results)["l2"]["validated_products"] == [ids[0]]
+
+
+def test_matter_l2_needs_a_node_that_was_exercised(tmp_path):
+    catalog, _ = write_catalog(tmp_path)
+    r = tmp_path / "results"
+    products = [dict(MATTER_PRODUCTS[0]), {**MATTER_PRODUCTS[0], "id": "matter:1410:300c", "exercised": False}]
+    write_result(r, "matter-20261025T100000Z.json", matter_result(products))
+    assert build_report(catalog, r)["l2"]["matter"]["validated_products"] == ["matter:100b:0016"]

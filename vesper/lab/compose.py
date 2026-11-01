@@ -13,7 +13,7 @@ from pathlib import Path
 import yaml
 
 from vesper.catalog_search import LEVELS
-from vesper.validation.report import build_report
+from vesper.validation.report import build_report, twin_model
 
 PAGE = 50
 
@@ -23,41 +23,29 @@ class ComposeError(ValueError):
 
 
 def evidence(catalog_dir: Path, results_dir: Path) -> dict:
-    """{"L2": {product ids credited by acceptance}, "L4": {product id: its firmware anchor}}."""
+    """{"L2": {product ids credited by acceptance}, "L4": {twin model: its firmware anchor}}: what `vesper report`
+    credits, read through it so the page and the report never disagree."""
     l2: set[str] = set()
+    anchors: dict[str, dict] = {}
     try:
         report = build_report(Path(catalog_dir), Path(results_dir))
         credit = report["l2"]
-        for ids in (credit.get("validated_products"), (credit.get("matter") or {}).get("validated_products")):
+        for ids in (credit.get("validated_products"), (credit.get("matter") or {}).get("validated_products"),
+                    (credit.get("tasmota") or {}).get("validated_products")):
             l2 |= {i for i in ids or () if isinstance(i, str)}
+        anchors = {m: {k: str(a.get(k, "?")) for k in
+                       ("product", "firmware", "soc", "interface", "transitions_agree", "values_agree")}
+                   for m, a in (report.get("l4") or {}).items() if isinstance(a, dict)}
     except (OSError, KeyError, ValueError, TypeError, AttributeError):
         pass  # no results yet, or none readable: nothing credited beyond the catalog
-    anchors: dict[str, dict] = {}
-    files = sorted(Path(results_dir).glob("anchors-*.json")) if Path(results_dir).is_dir() else []
-    for f in files:  # every anchors file, newer ones over older
-        try:
-            rows = json.loads(f.read_text()).get("anchors") or []
-        except (OSError, ValueError, AttributeError):
-            continue
-        for a in rows if isinstance(rows, list) else []:
-            if isinstance(a, dict) and isinstance(a.get("product"), str) and _agrees(a):
-                anchors[a["product"]] = {k: str(a.get(k, "?")) for k in
-                                         ("firmware", "soc", "interface", "transitions_agree", "values_agree")}
     return {"L2": l2, "L4": anchors}
-
-
-def _agrees(anchor: dict) -> bool:
-    """An anchor credits L4 only when the twin made every transition the firmware made ("10/10")."""
-    import re
-    m = re.match(r"\s*(\d+)\s*/\s*(\d+)", str(anchor.get("transitions_agree", "")))
-    return bool(m) and int(m.group(2)) > 0 and m.group(1) == m.group(2)
 
 
 def levels(record: dict, ev: dict) -> dict[str, bool]:
     reached = dict((record.get("fidelity") or {}).get("reached") or {})
     out = {name: bool(reached.get(name)) for name in LEVELS}
     out["L2"] = record["id"] in ev["L2"]
-    out["L4"] = record["id"] in ev["L4"]
+    out["L4"] = twin_model(record) in ev["L4"]
     return out
 
 
@@ -119,10 +107,12 @@ def product_card(record: dict, ev: dict) -> dict:
         config.append({"name": f["name"], "type": f["type"], "settable": "set" in (f.get("access") or []),
                        "range": f.get("range"), "values": f.get("values"), "unit": f.get("unit"),
                        "category": f.get("category")})
-    anchor = ev["L4"].get(record["id"])
+    model = twin_model(record)
+    anchor = ev["L4"].get(model)
     sources = record.get("sources") or []
-    text = (f"firmware anchor: {anchor['firmware']} on {anchor['soc']}, compared with the twin "
-            f"({anchor['transitions_agree']} transitions agree)") if anchor else (
+    text = (f"firmware anchor for its twin model ({model.split(':', 1)[1]}): {anchor['firmware']} on "
+            f"{anchor['soc']}, compared with a {anchor['product']} twin ({anchor['transitions_agree']} transitions "
+            "agree); reference firmware of the device type, not this product's") if anchor else (
         "no firmware anchor: a protocol-level twin built from "
         + (", ".join(str(s.get("name") or s.get("source") or s) if isinstance(s, dict) else str(s)
                      for s in sources[:3]) or "the catalog"))

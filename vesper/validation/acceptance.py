@@ -167,7 +167,14 @@ def check_product(ha, runtime: Runtime, bridge: Bridge, placement: Placement, *,
     return {"id": twin.id, "category": twin.vds["identity"]["category"], "friendly_name": placement.friendly_name,
             "entities": entities, "skipped": skipped, "passed": passed,
             "exercised": any("probe" in r for r in entities),
-            "core_exposed": not any(reason.endswith("entities are not exposed yet") for _, reason in skipped)}
+            "core_exposed": core_exposed(skipped)}
+
+
+def core_exposed(skipped) -> bool:
+    """Whether the bridge exposed a product's core function: not when it left out a composite entity (climate,
+    cover, fan) or the lights of a multi-endpoint product."""
+    return not any(reason.endswith("entities are not exposed yet")
+                   or reason == "multi-endpoint lights are not exposed yet" for _, reason in skipped)
 
 
 def run_probe(ha, runtime, twin_id: str, entity_id: str, probe: dict, timeout: float, poll: float,

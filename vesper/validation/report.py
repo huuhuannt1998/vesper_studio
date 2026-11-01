@@ -16,6 +16,7 @@ from pathlib import Path
 from vesper.catalog.fingerprint import staleness
 from vesper.exposure.ha_discovery import device_discovery
 from vesper.twins.latency import PATHS
+from vesper.validation.acceptance import core_exposed
 from vesper.validation.realdata import ZIOTP_COMMIT
 
 KINDS = ("discovery", "roundtrip", "acceptance", "matter", "tasmota", "rules", "latency", "realdata")
@@ -112,10 +113,13 @@ def build_report(catalog_dir: Path, results_dir: Path) -> dict:
             checks[kind] = {"file": found[0], **_summary(kind, found[1]), "exploratory": _exploratory(kind, found[1]),
                             "run": found[1].get("run")}
     acceptance = latest(results_dir, "acceptance")
-    validated = sorted(p["id"] for p in acceptance[1]["products"] if p["passed"]) if acceptance and acceptance[1] \
-        else []
+    # L2 means discovered, displayed and controlled (or stimulated): a product only displayed earns nothing
+    validated = sorted(p["id"] for p in acceptance[1]["products"]
+                       if p["passed"] and p.get("exercised") and core_exposed(p.get("skipped") or [])) \
+        if acceptance and acceptance[1] else []
     matter = latest(results_dir, "matter")
-    matter_validated = sorted(p["id"] for p in matter[1]["products"] if p["passed"]) if matter and matter[1] else []
+    matter_validated = sorted(p["id"] for p in matter[1]["products"] if p["passed"] and p.get("exercised")) \
+        if matter and matter[1] else []
     tasmota = latest(results_dir, "tasmota")
     tasmota_validated = sorted(p["id"] for p in tasmota[1]["products"] if p["passed"]) \
         if tasmota and tasmota[1] else []
@@ -132,9 +136,18 @@ def build_report(catalog_dir: Path, results_dir: Path) -> dict:
                              for n, p in PATHS.items()}}
 
 
+def twin_model(record: dict) -> str:
+    """The twin model a product's twin is an instance of: its protocol and Matter device type, or its category
+    elsewhere. A firmware anchor (L4) credits a twin model, since it runs reference firmware of a device type."""
+    proto = record["id"].split(":")[0]
+    matter = ((record.get("binding") or {}).get("matter") or {}).get("device_type")
+    return f"{proto}:{matter or (record.get('identity') or {}).get('category')}"
+
+
 def _anchors(results_dir: Path) -> dict:
-    """L4: the products whose twin agreed with emulated firmware in every transition (every anchors file read; the
-    newest entry of a product counts)."""
+    """L4, per twin model: an anchor runs reference firmware of a device type, not a product's, so it credits the
+    twin model it names, and only when every compared transition agreed (every anchors file read; the newest entry
+    of a model counts). An anchor marked `credits_l4: false` (firmware of another family) credits nothing."""
     out = {}
     for f in sorted(Path(results_dir).glob("anchors-*.json")):
         try:
@@ -142,13 +155,16 @@ def _anchors(results_dir: Path) -> dict:
         except (OSError, ValueError):
             continue
         for a in data.get("anchors") or []:
+            model = a.get("model")
+            if not model:
+                continue
             got, _, total = str(a.get("transitions_agree", "")).partition("/")
             n = re.match(r"\d+", total.strip())
-            if a.get("product") and n and got.strip().isdigit() and int(n.group()) > 0 \
+            if a.get("credits_l4", True) and n and got.strip().isdigit() and int(n.group()) > 0 \
                     and int(got) == int(n.group()):  # agreement over at least one compared transition
-                out[a["product"]] = {**a, "file": f.name}
-            elif a.get("product"):
-                out.pop(a["product"], None)
+                out[model] = {**a, "file": f.name}
+            else:
+                out.pop(model, None)
     return out
 
 
@@ -197,20 +213,24 @@ def render_markdown(report: dict) -> str:
              "| Source | Version | Manifest SHA-256 |", "|---|---|---|"]
     for name, s in sorted(report["sources"].items()):
         lines.append(f"| {name} | {s.get('version', '')} | {str(s.get('manifest_sha256', ''))[:16]}… |")
-    lines += ["", "## Coverage", "", "| Protocol | L0 | L1 | L2 (validated) | L3 | L4 |", "|---|---|---|---|---|---|"]
+    lines += ["", "## Coverage", "", "| Protocol | L0 | L1 | L2 (validated) | L3 | L4 (twin models) |",
+              "|---|---|---|---|---|---|"]
     for proto, c in sorted(report["coverage"].items()):
         l2 = {"zigbee": len(report["l2"]["validated_products"]),
               "matter": len(report["l2"]["matter"]["validated_products"]),
               "tasmota": len(report["l2"].get("tasmota", {}).get("validated_products", []))}.get(proto, 0)
-        l4 = sum(1 for p in report.get("l4", {}) if p.split(":")[0] == proto)
+        l4 = sum(1 for m in report.get("l4", {}) if m.split(":")[0] == proto)
         lines.append(f"| {proto} | {c['L0']} | {c['L1']} | {l2} | {c['L3']} | {max(c['L4'], l4)} |")
     lines += ["", f"L2 ({report['l2']['kind']}) is credited only to products that passed acceptance; "
                   f"{report['l2']['eligible_zigbee']} L1 Zigbee products are eligible (they expose at least one "
-                  "Home Assistant entity through the bridge). Matter L2 (matter-server) is credited only to "
-                  "products whose node Home Assistant commissioned, displayed and controlled; Wi-Fi (Tasmota) L2 to "
-                  "products Home Assistant's Tasmota integration discovered, displayed and controlled both ways. L4 "
-                  "is credited to products whose twin agreed with emulated firmware in every transition "
-                  "(results/device-twins/anchors-*.json).", "",
+                  "Home Assistant entity through the bridge). A Zigbee product also needs its core function "
+                  "exposed and at least one command or stimulus carried through; a product only displayed earns "
+                  "nothing. Matter L2 (matter-server) is credited only to products whose node Home Assistant "
+                  "commissioned, displayed and controlled or saw stimulated; Wi-Fi (Tasmota) L2 to products Home "
+                  "Assistant's Tasmota integration discovered, displayed and controlled both ways. L4 counts twin "
+                  "models, not products: an anchor runs reference firmware of a device type, and credits the twin "
+                  "model it names when every compared transition agreed (results/device-twins/anchors-*.json). "
+                  "Levels are separate evidence, not a cumulative ladder.", "",
               "## Assumed fields", "",
               "Counted out of coverage (spec §3.2). Most frequent:", "", "| Field | Records |", "|---|---|"]
     lines += [f"| `{k}` | {v} |" for k, v in list(report["assumed"].items())[:15]]

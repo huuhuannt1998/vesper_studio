@@ -195,3 +195,11 @@ def test_only_the_first_entity_of_a_product_waits_the_full_timeout(vds):
     started = _time.monotonic()
     check_product(NoEntities(bridge.client), rt, bridge, p, timeout=0.3, poll=0.05)
     assert len(bridge.expected[p.twin_id]) >= 2 and _time.monotonic() - started < 0.55
+
+
+def test_a_multi_endpoint_light_left_out_is_a_core_function_not_exposed():
+    from vesper.validation.acceptance import core_exposed
+    assert core_exposed([])
+    assert core_exposed([["color", "part of the light entity"]])
+    assert not core_exposed([["x", "climate entities are not exposed yet"]])
+    assert not core_exposed([["l2", "multi-endpoint lights are not exposed yet"]])

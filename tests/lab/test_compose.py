@@ -8,13 +8,15 @@ from tests.lab.homes import catalog
 from vesper.lab.compose import ComposeError, compose_home, evidence, levels, product_card, search_products
 
 
+ANCHOR = {"model": "zigbee:light", "product": "zigbee:acme:dim-1", "firmware": "test firmware 1.0",
+          "soc": "ESP32-C3 (QEMU)", "interface": "RPC", "transitions_agree": "5/5", "values_agree": "18/18"}
+
+
 def results(tmp_path, l2=("zigbee:acme:pir-1",)):
     d = tmp_path / "results"
     d.mkdir()
-    (d / "anchors-20261031T200000Z.json").write_text(json.dumps({"kind": "anchors", "anchors": [
-        {"product": "zigbee:acme:dim-1", "firmware": "test firmware 1.0", "soc": "ESP32-C3 (QEMU)",
-         "interface": "RPC", "transitions_agree": "5/5", "values_agree": "18/18"}]}))
-    return d, {"l2": {"validated_products": list(l2), "matter": {"validated_products": []}}}
+    return d, {"l2": {"validated_products": list(l2), "matter": {"validated_products": []}},
+               "l4": {"zigbee:light": ANCHOR}}
 
 
 def test_a_product_s_levels_show_only_what_its_evidence_supports(tmp_path, monkeypatch):
@@ -184,17 +186,25 @@ def test_vesper_lab_compose_serves_the_page_until_interrupted(tmp_path, capsys, 
     assert "Compose a home" in seen["out"] and seen["meta"]["out"] == str(out)
 
 
-def test_l4_is_credited_only_when_every_transition_agrees_and_a_bad_anchor_row_is_skipped(tmp_path, monkeypatch):
+def test_l4_follows_the_twin_model_and_the_card_says_so(tmp_path, monkeypatch):
+    from vesper.validation.report import twin_model
+    d, report = results(tmp_path, l2=())
+    monkeypatch.setattr("vesper.lab.compose.build_report", lambda c, r: report)
+    ev = evidence(tmp_path / "vds", d)
+    cat = catalog()
+    assert twin_model(cat["matter:115f:0001"]) == "matter:Door Lock"
+    assert twin_model(cat["zigbee:acme:dim-1"]) == "zigbee:light"
+    assert levels(cat["zigbee:acme:dim-1"], ev)["L4"] is True and levels(cat["zigbee:acme:pir-1"], ev)["L4"] is False
+    text = product_card(cat["zigbee:acme:dim-1"], ev)["firmware"]["text"]
+    assert "twin model" in text and "zigbee:acme:dim-1" in text
+
+
+def test_tasmota_products_that_passed_their_acceptance_show_l2(tmp_path, monkeypatch):
     d = tmp_path / "results"
     d.mkdir()
-    (d / "anchors-20261031T200000Z.json").write_text(json.dumps({"kind": "anchors", "anchors": [
-        {"product": "zigbee:acme:dim-1", "firmware": "f", "soc": "s", "transitions_agree": "3/5"},
-        {"product": "zigbee:acme:plug-1"},
-        {"product": "zigbee:acme:pir-1", "firmware": "f", "soc": "s", "transitions_agree": "4/4"}]}))
-    monkeypatch.setattr("vesper.lab.compose.build_report", lambda c, r: {"l2": {"validated_products": None}})
-    ev = evidence(tmp_path / "vds", d)
-    assert set(ev["L4"]) == {"zigbee:acme:pir-1"} and ev["L2"] == set()
-    assert product_card(catalog()["zigbee:acme:pir-1"], ev)["firmware"]["anchor"]["soc"] == "s"
+    monkeypatch.setattr("vesper.lab.compose.build_report", lambda c, r: {
+        "l2": {"validated_products": [], "tasmota": {"validated_products": ["tasmota:a:b"]}}})
+    assert evidence(tmp_path / "vds", d)["L2"] == {"tasmota:a:b"}
 
 
 def test_two_plays_at_once_leave_one_child_and_stopping_ends_every_child(server):

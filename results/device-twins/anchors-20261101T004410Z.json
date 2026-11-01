@@ -1,0 +1,13 @@
+{
+ "kind": "anchors",
+ "about": "L4 firmware anchors (device-twins spec §4): reference firmware on Espressif QEMU 9.2.2, the twin compared with it (differential test). Same runs as anchors-20261031T200000Z.json (source ~/vesper-lab/anchors/results-L4.md, run 2026-10-31 on the catalog of that day, before the final catalog build); this file restates the credit: an anchor runs reference firmware of a device type, not a product's, so it credits the twin model it names. The ESPHome plug is not Tasmota's firmware and credits nothing; it is kept as a check of the plug's switching and MQTT session.",
+ "anchors": [
+  {"model": "matter:Extended Color Light", "product": "matter:100b:0129", "firmware": "connectedhomeip v1.6.1.0 lighting-app", "soc": "ESP32-C3 (QEMU)",
+   "interface": "Pigweed RPC over UART, OpenETH", "transitions_agree": "10/10", "values_agree": "213/253 (84.2%, seeded)"},
+  {"model": "matter:Door Lock", "product": "matter:101d:0001", "firmware": "connectedhomeip v1.6.1.0 lock-app", "soc": "ESP32-C3 (QEMU)",
+   "interface": "Pigweed RPC over UART, OpenETH", "transitions_agree": "5/5", "values_agree": "18/18 (100%, seeded)"},
+  {"model": "tasmota:plug", "product": "tasmota:16a:awp16l", "firmware": "ESPHome 2026.10.1 (a plug configuration)", "soc": "ESP32 Xtensa (QEMU)",
+   "interface": "MQTT to VESPER's Mosquitto 18830, OpenETH", "transitions_agree": "40/40 commands", "values_agree": "initial OFF both",
+   "credits_l4": false, "why_not": "ESPHome is not Tasmota's firmware and speaks another MQTT protocol"}
+ ]
+}
