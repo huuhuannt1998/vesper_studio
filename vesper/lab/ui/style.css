@@ -125,6 +125,37 @@ body:not(.mode-3d) .pad, #map.full ~ .pad { display: none; }
 .loading { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 10px 16px;
   border-radius: 8px; background: var(--veil); box-shadow: var(--shadow); }
 
+/* The scenario panel (redesign step 4), Room 334's live panel for an attack: the plan against the clock, the claims
+   as they are decided, the defenses' alerts and the events, over the lower left of the view. */
+body.watching .pad { display: none; }
+.spanel { position: absolute; left: 12px; bottom: 12px; width: min(680px, calc(100% - 270px)); max-height: 52%;
+  overflow: auto; background: var(--veil); border-radius: 10px; box-shadow: var(--shadow); padding: 12px 14px;
+  z-index: 3; }
+.spanel[hidden] { display: none; }
+.sp-head { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.cond { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 9px; color: #fff; background: var(--muted); }
+.cond.defense { background: var(--ok); } .cond.attack { background: var(--alert); }
+.cond.attack-defense { background: var(--held); }
+.sp-time { display: flex; align-items: center; gap: 10px; margin: 8px 0 4px; color: var(--muted);
+  font-variant-numeric: tabular-nums; font-size: 12px; }
+.sp-time .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.sp-time .bar span { display: block; height: 100%; background: var(--accent); }
+.sp-cols { display: grid; grid-template-columns: 1.1fr 1.2fr 1fr; gap: 14px; }
+.sp-cols h3 { font-size: 13px; font-weight: 600; margin: 8px 0 4px; }
+.steps, .claims, .defs, .events { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.steps li { padding: 2px 0; color: var(--muted); }
+.steps li.done { color: var(--ink); } .steps li.next { color: var(--accent); font-weight: 600; }
+.steps li.attack { color: var(--alert); } .steps li.attack.later { opacity: .7; }
+.steps .t, .events .t { display: inline-block; min-width: 38px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.claims li { padding: 3px 0 3px 18px; position: relative; }
+.claims .mark { position: absolute; left: 0; font-weight: 700; }
+.claims li.ok .mark { color: var(--ok); } .claims li.bad .mark { color: var(--alert); }
+.claims .why { display: block; color: var(--muted); }
+.events li { padding: 2px 0; } .events li.alert { color: var(--alert); font-weight: 600; }
+.events li.net { color: var(--held); }
+.gaps { margin-top: 8px; font-size: 12px; color: var(--muted); }
+.gaps ul { margin: 4px 0 0; padding-left: 16px; }
+
 /* The device dialog (I), Room 334's: what it is, now, how it reaches the hub, Home Assistant, how far to trust it. */
 .dialog { position: absolute; inset: 0; z-index: 10; background: rgba(24, 35, 43, 0.28); display: grid;
   place-items: center; padding: 18px; }

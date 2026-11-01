@@ -51,7 +51,7 @@ class El {
 // A fresh page: stub globals, app.js loaded anew, the hello delivered. Returns the controls a test needs. With
 // webgl, the browser has WebGL, so the page opens in 3D on the stub view; frame() runs one animation frame, aimAt()
 // puts something under the crosshair (or nothing), and the view captures the pointer on a click, as Chrome does.
-async function page({ webgl = false } = {}) {
+async function page({ webgl = false, scenario = null } = {}) {
   let now = 1000, nextFrame = null;
   const intervals = [], sent = [], elements = {}, windowListeners = {}, docListeners = {};
   globalThis.performance = { now: () => now };
@@ -87,7 +87,7 @@ async function page({ webgl = false } = {}) {
   globalThis.WebSocket.OPEN = 1;
   await import(`../../../vesper/lab/ui/app.js?page=${(loads += 1)}`);
   const receive = (m) => socket.onmessage({ data: JSON.stringify(m) });
-  receive(HELLO);
+  receive(scenario ? { ...HELLO, scenario } : HELLO);
   const key = (type, e) => {
     for (const fn of windowListeners[type] || []) {
       fn({ metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, repeat: false, preventDefault() {}, ...e });
@@ -339,4 +339,17 @@ test("the device list names every device by room; choosing one opens its dialog"
   for (let k = 0; k < 10; k += 1) await new Promise((r) => setImmediate(r));
   assert.equal(p.v.card.name, names[0]);
   assert.equal(p.el("card").hidden, false);
+});
+
+test("while a scenario plays, its panel shows the plan; a verdict record decides the claims", { skip }, async () => {
+  const plan = { until: 60, timeline: [{ at: 5, actor: "player", verb: "close", target: "hall-porch" }], attack: [],
+                 defenses: [], claims: [{ claim: "the door locks", expected: true }], gaps: [] };
+  const p = await page({ scenario: { title: "Case 3", condition: "baseline", t0: 0, plan } });
+  assert.equal(p.el("scenario-panel").hidden, false);
+  assert.match(p.el("scenario-panel").textContent, /Case 3[\s\S]*player closes hall-porch[\s\S]*the door locks/);
+  p.receive({ type: "record", record: { t: 60, kind: "verdict", claims: [{ claim: "the door locks", holds: true,
+                                                                           expected: true }] } });
+  assert.match(p.el("scenario-panel").textContent, /1 of 1 claims as expected/);
+  const plain = await page();
+  assert.equal(plain.el("scenario-panel").hidden, true);
 });

@@ -1102,7 +1102,8 @@ def _prepare_scenario(stack, scenario, condition, session, lab, hub):
         client = mqtt.connect("127.0.0.1", lab.hub_port, "vesper-scenario-watch")
         stack.callback(mqtt.disconnect, client)
         watch = HubWatch(session, client)
-    banner = {"title": scenario.title, "condition": condition, "t0": None}
+    from vesper.lab.scenario_run import scenario_plan
+    banner = {"title": scenario.title, "condition": condition, "t0": None, "plan": scenario_plan(scenario, condition)}
 
     def begin():
         banner["t0"] = start_scenario(session, scenario, condition, hub_watch=watch)

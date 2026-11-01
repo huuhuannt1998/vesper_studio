@@ -163,7 +163,39 @@ def start_scenario(session, scenario, condition: str, hub_watch: HubWatch | None
     session.scenario_record({"kind": "scenario", "t0": t0, "condition": condition, "title": scenario.title,
                              "defenses": _defenses(scenario, condition)})
     _play(scenario, session, condition, t0)
+
+    def verdict():  # the page's scenario panel shows each claim decided, as a run's report would judge it
+        trace = judged(session.records)
+        session.scenario_record({"kind": "verdict", "condition": condition, "claims": [
+            {"claim": c.claim, "holds": evaluate(c.predicate, trace).holds, "expected": c.conditions.get(condition)}
+            for c in scenario.claims]})
+    session.clock.call_at(t0 + _until(scenario), verdict)
     return t0
+
+
+def scenario_plan(scenario, condition: str) -> dict:
+    """What the play page's scenario panel shows (redesign step 4): the timeline, the attack's effects (attack
+    conditions only), the defenses the condition runs, each claim with the outcome the paper expects under this
+    condition, the gaps, and when the scenario ends; times in seconds after t0."""
+    attacked = condition in ("attack", "attack+defense")
+    return {
+        "until": _until(scenario),
+        "timeline": [{"at": a.at, "actor": a.actor, "verb": next(iter(a.do)),
+                      "target": _target(next(iter(a.do.values())))} for a in scenario.timeline],
+        "attack": [{"at": s.at, "kind": s.effect.kind, "link": s.effect.link, "direction": s.effect.direction,
+                    "device": s.effect.device, "feature": s.effect.feature, "hold_s": s.effect.hold_s,
+                    "until": s.effect.until} for s in scenario.attack] if attacked else [],
+        "defenses": _defenses(scenario, condition),
+        "claims": [{"claim": c.claim, "expected": c.conditions.get(condition)} for c in scenario.claims],
+        "gaps": [{"what": g.get("what"), "why": g.get("why")} for g in scenario.gaps],
+    }
+
+
+def _target(t) -> str:
+    """An action's target in words: a door or device name, or the room a walk goes to."""
+    if isinstance(t, dict):
+        return str(t.get("room") or t.get("door") or t.get("device") or ", ".join(f"{k} {v}" for k, v in t.items()))
+    return str(t)
 
 
 def _check_clock(session) -> None:

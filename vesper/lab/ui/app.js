@@ -12,6 +12,7 @@ import {
 } from "./mapview.js";
 import { dialogHtml } from "./devicedialog.js";
 import { deviceGroups, roomName, roomView, tourRooms } from "./nav.js";
+import { panelHtml } from "./scenariopanel.js";
 import { PITCH_MAX, aimCamera, compassMarks, moveRelative } from "./scene3d.js";
 
 const LOCKED = "#e74c3c", UNLOCKED = "#3fb37f";
@@ -118,6 +119,10 @@ function onHello(h) {
     $("hub").innerHTML = "<p>No hub in this session. With Home Assistant set up, <code>vesper lab play</code> shows its dashboard here.</p>";
   }
   buildNavigation(h);
+  scenarioRecords = [];
+  $("scenario-panel").hidden = !(h.scenario && h.scenario.plan);
+  document.body.classList.toggle("watching", Boolean(h.scenario)); // a scenario plays the player: no arrows
+  drawScenario();
   $("log").innerHTML = "";
   for (const r of h.records || []) onRecord(r, false); // what happened before this page joined: no feed
   const me = state.actors[state.player];
@@ -281,7 +286,22 @@ function onEffect(target, effect) {
   updateHint();
 }
 
+let scenarioRecords = []; // what the scenario panel shows: the scenario's start, alerts, the network, doors, verdicts
+const PANEL_KINDS = new Set(["scenario", "alert", "net", "world", "verdict"]);
+
+function drawScenario() { // the scenario panel (scenariopanel.js), against the session's clock
+  const sc = state && state.hello.scenario;
+  if (!sc || !sc.plan) return;
+  const start = scenarioRecords.find((r) => r.kind === "scenario");
+  const t0 = start ? start.t0 : sc.t0;
+  const now = state.hello.clock.t + (performance.now() - helloAt) / 1000;
+  $("scenario-panel").innerHTML = panelHtml(sc, sc.plan, t0 === null || t0 === undefined ? 0 : now - t0,
+    scenarioRecords, t0 || 0);
+}
+setInterval(() => { if (state && state.hello.scenario) drawScenario(); }, 500);
+
 function onRecord(r, live = true) {
+  if (PANEL_KINDS.has(r.kind) && state.hello.scenario) { scenarioRecords.push(r); drawScenario(); }
   if (r.kind === "report" && state.devices[r.device]) state.devices[r.device].state[r.feature] = r.value;
   const who = r.kind === "task" ? r.resident : r.kind === "input" && r.why ? r.why.resident : null;
   if (who && state.residents[who]) {
