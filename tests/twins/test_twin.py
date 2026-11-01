@@ -6,7 +6,24 @@ from vesper.twins.twin import Twin, TwinError, stable_seed
 def test_initial_state_follows_each_feature_type(vds):
     t = Twin.from_vds(vds["MCCGQ11LM"])
     assert t.state["contact"] is True  # value_off: closed
-    assert t.state["battery"] == 0
+
+
+def test_a_battery_device_starts_with_a_full_battery_not_an_empty_one():
+    """Every battery twin started at 0 %, 0 mV and 0 degrees, so Home Assistant listed them all as low batteries
+    (found live 2026-11-01). They start full and at room temperature; a mains voltage in V is left alone."""
+    feats = [{"name": "battery", "type": "numeric", "range": [0, 100], "unit": "%", "access": ["state"]},
+             {"name": "voltage", "type": "numeric", "unit": "mV", "access": ["state"]},
+             {"name": "device_temperature", "type": "numeric", "unit": "\u00b0C", "access": ["state"]},
+             {"name": "power", "type": "numeric", "unit": "W", "access": ["state"]}]
+    t = Twin.from_vds({"id": "zigbee:x:y", "features": feats})
+    assert (t.state["battery"], t.state["voltage"], t.state["device_temperature"], t.state["power"]) == (100, 3000,
+                                                                                                         20, 0)
+    mains = Twin.from_vds({"id": "zigbee:x:z", "features": [{"name": "voltage", "type": "numeric", "unit": "V",
+                                                             "access": ["state"]}]})
+    assert mains.state["voltage"] == 0
+    narrow = Twin.from_vds({"id": "zigbee:x:w", "features": [{"name": "battery", "type": "numeric", "range": [0, 50],
+                                                              "access": ["state"]}]})
+    assert narrow.state["battery"] == 0  # a start outside the feature's range is not used
 
 
 def test_a_matter_color_temperature_light_starts_at_the_spec_default_not_below_its_physical_range():

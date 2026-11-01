@@ -27,7 +27,7 @@ def test_start_publishes_retained_bridge_topics_with_the_real_definitions(vds):
     assert door["definition"] == definition(vds["MCCGQ11LM"])
     assert door["definition"]["exposes"] == vds["MCCGQ11LM"]["binding"]["zigbee"]["exposes"]
     assert door["model_id"] == "lumi.sensor_magnet.aq2" and door["ieee_address"] == ieee_address(door_id(rt))
-    assert client.last("zigbee2mqtt/mccgq11lm") == {"battery": 0, "contact": True}
+    assert client.last("zigbee2mqtt/mccgq11lm") == {"battery": 100, "contact": True}
     assert client.last("zigbee2mqtt/mccgq11lm/availability") == {"state": "online"}
     assert client.last(f"homeassistant/device/{ieee_address(door_id(rt))}/config")["cmps"]
     assert set(client.subscriptions) == {"zigbee2mqtt/#", "vesper/control/#"}

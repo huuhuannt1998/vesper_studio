@@ -25,11 +25,18 @@ SPEC_START = {"Color Control.ColorTemperatureMireds": 250, "Color Control.Couple
               "Color Control.ColorTempPhysicalMaxMireds": 0xFEFF}
 
 
+# Zigbee starting values that 0 gets wrong: a battery device starts full (3 V on its cell) and at room temperature,
+# not empty, so Home Assistant does not list every battery twin as low. Assumed, like every default.
+NAMED_START = {("battery", "%"): 100, ("battery", None): 100, ("voltage", "mV"): 3000,
+               ("device_temperature", "\u00b0C"): 20, ("device_temperature", None): 20}
+
+
 def _initial(f: dict):
-    if f["name"] in SPEC_START:
+    start = SPEC_START.get(f["name"], NAMED_START.get((f["name"], f.get("unit"))))
+    if start is not None:
         lo, hi = f.get("range", [None, None])
-        if lo is None or lo <= SPEC_START[f["name"]] <= hi:
-            return SPEC_START[f["name"]]
+        if lo is None or lo <= start <= hi:
+            return start
     kind = f["type"]
     if kind == "binary":
         return f.get("value_off", False)
