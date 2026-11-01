@@ -180,3 +180,48 @@ def test_re_adding_a_device_the_home_has_says_to_use_it_as_it_is(bench):
     with pytest.raises(WorkbenchError, match="already one of the home's devices"):
         bench.scenario_edit(d, "setup.devices", "add", {"product": "zigbee:aqara:mccgq11lm", "name": "front_door",
                                                         "at": {"door": "hall-porch"}})
+
+
+def test_a_saved_scenario_cannot_point_its_automations_outside_its_folder(bench, tmp_path):
+    secret = tmp_path / "secret.yaml"
+    secret.write_text("- alias: TOP SECRET\n")
+    sc = tmp_path / "homes" / "house" / "scenarios"
+    sc.mkdir()
+    (sc / "evil.yaml").write_text(f"format: vesper-scenario/1\ntitle: x\nhome: ../home.yaml\n"
+                                  f"setup: {{automations: {secret}}}\n")
+    with pytest.raises(WorkbenchError) as e:
+        bench.scenario_draft("homes/house", "t", from_scenario="homes/house/scenarios/evil.yaml")
+    assert "TOP SECRET" not in str(e.value) and "outside" in str(e.value)
+
+
+def test_a_draft_that_fails_its_check_is_not_kept(bench, tmp_path):
+    sc = tmp_path / "homes" / "house" / "scenarios"
+    sc.mkdir(exist_ok=True)
+    (sc / "bad.yaml").write_text("format: vesper-scenario/1\ntitle: x\nhome: ../home.yaml\n"
+                                 "attack: [{vantage: radio}]\n")
+    with pytest.raises(WorkbenchError):
+        bench.scenario_draft("homes/house", "t", from_scenario="homes/house/scenarios/bad.yaml")
+    assert bench.drafts == {}
+
+
+def test_concurrent_edits_of_one_draft_are_all_kept(bench):
+    import threading
+    d = bench.scenario_draft("homes/house", "t")["draft"]
+    ts = [threading.Thread(target=bench.gap, args=(d, f"gap {i}", "why")) for i in range(8)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    assert len(bench.drafts[d]["spec"]["gaps"]) == 8
+
+
+def test_one_live_run_at_a_time(bench, monkeypatch):
+    import threading
+    bench.allow_live = True
+    gate = threading.Event()
+    monkeypatch.setattr(bench, "_run", lambda run, s, out: (gate.wait(5), bench.runs[run].update(state="done")))
+    d = drafted(bench)
+    bench.scenario_run(d, mode="live")
+    with pytest.raises(WorkbenchError, match="live run is in progress"):
+        bench.scenario_run(d, mode="live")
+    gate.set()

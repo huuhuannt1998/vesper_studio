@@ -53,7 +53,8 @@ def build_server(bench: Workbench) -> MCPServer:
             try:
                 return fn(*args, **kwargs)
             except WorkbenchError as e:
-                raise ToolError(str(e)) from e
+                text = str(e)  # never a whole value echoed back, whatever raised it
+                raise ToolError(text if len(text) <= 800 else text[:800] + " ...") from e
         call.__name__, call.__doc__, call.__annotations__ = fn.__name__, fn.__doc__, fn.__annotations__
         call.__wrapped__ = fn
         server.tool()(call)

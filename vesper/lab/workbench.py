@@ -9,7 +9,9 @@ doorways, rooms and actors, and Home Assistant automations as data, which VESPER
 from __future__ import annotations
 
 import copy
+import os
 import re
+import shutil
 import tempfile
 import threading
 import time
@@ -50,6 +52,7 @@ EXAMPLES = {  # one item of each list section, as `scenario_edit ... add` takes 
 MESSAGE_CHARS = 600  # an error names what is wrong; it never echoes a whole value back
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 RUN_LIMIT = 50  # runs per scenario run (conditions × repeat) through the server
+RUNS_AT_ONCE = 3  # scenario runs in progress at once (one of them live at most)
 
 
 class WorkbenchError(ValueError):
@@ -118,7 +121,8 @@ class Workbench:
         out = []
         for root in self.roots:
             for path in sorted(root.rglob("home.yaml")):
-                if any(part.startswith(".") for part in path.relative_to(root).parts):
+                if any(part.startswith(".") or part in ("previous", "runs", "traces")
+                       for part in path.relative_to(root).parts):
                     continue
                 entry = {"home": self._name(path.parent)}
                 try:
@@ -185,10 +189,18 @@ class Workbench:
         path = self._home_path(home)
         if from_scenario:
             src = self._file(from_scenario)
-            spec = yaml.safe_load(src.read_text()) or {}
-            automations = spec.get("setup", {}).get("automations")
-            if automations:
-                spec["setup"]["automations"] = yaml.safe_load((src.parent / automations).read_text()) or []
+            try:
+                spec = yaml.safe_load(src.read_text()) or {}
+                if not isinstance(spec, dict) or not isinstance(spec.get("setup") or {}, dict):
+                    raise WorkbenchError(f"{from_scenario} is not a scenario mapping")
+                automations = (spec.get("setup") or {}).get("automations")
+                if automations:
+                    file = (src.parent / str(automations)).resolve()
+                    if not file.is_relative_to(src.parent.resolve()):
+                        raise WorkbenchError(f"{from_scenario}: its automations file is outside its folder")
+                    spec["setup"]["automations"] = yaml.safe_load(file.read_text()) or []
+            except (OSError, yaml.YAMLError) as e:
+                raise WorkbenchError(f"{from_scenario} cannot be read as a scenario: {str(e)[:200]}") from e
             spec["home"] = None
         else:
             spec = {"format": FORMAT, "title": title, "source": {"paper": dict(paper or {}), "passages": {}},
@@ -196,10 +208,10 @@ class Workbench:
                     "expect": [], "runs": {"mode": "logical", "repeat": 1, "conditions": list(CONDITIONS)},
                     "gaps": []}
         spec["title"] = title or spec.get("title") or "untitled"
+        self._check(path, spec)  # kept only once it is a valid scenario
         draft = uuid.uuid4().hex[:8]
         with self._lock:
-            self.drafts[draft] = {"home": path, "spec": spec}
-        self._check(draft, spec)
+            self.drafts[draft] = {"home": path, "spec": spec, "lock": threading.RLock()}
         return {"draft": draft, "home": self._name(path.parent), "scenario": self._public(spec)}
 
     def scenario_edit(self, draft: str, section: str, action: str, value=None, index: int | None = None) -> dict:
@@ -207,6 +219,10 @@ class Workbench:
 
         section: title, setup.devices, automations, actors, timeline, attack, defenses, expect, runs, gaps;
         action: add (to a list), replace (an item at `index`, or a whole section), remove (an item at `index`)."""
+        with self._draft(draft)["lock"]:  # read, check and write as one: concurrent calls never lose an edit
+            return self._edit(draft, section, action, value, index)
+
+    def _edit(self, draft: str, section: str, action: str, value, index: int | None) -> dict:
         spec = copy.deepcopy(self._draft(draft)["spec"])
         setup = spec.setdefault("setup", {})
         if isinstance(value, str) and section != "title":  # a mapping or list written as text (JSON or YAML)
@@ -252,14 +268,16 @@ class Workbench:
         else:
             raise WorkbenchError(f"action {action!r} is not add, replace or remove")
         if key == "devices":
-            home_names = {d.name for d in load_lab_home(self._draft(draft)["home"], self.catalog).devices}
+            try:
+                home_names = {d.name for d in load_lab_home(self._draft(draft)["home"], self.catalog).devices}
+            except HomeError as e:
+                raise WorkbenchError(str(e)[:MESSAGE_CHARS]) from e
             for item in target.get("devices") or []:
                 if isinstance(item, dict) and item.get("name") in home_names:
                     raise WorkbenchError(f"{item['name']} is already one of the home's devices (home_describe): "
                                          "use it as it is; setup.devices only adds new ones")
-        self._check(draft, spec)
-        with self._lock:
-            self.drafts[draft]["spec"] = spec
+        self._check(self._draft(draft)["home"], spec)
+        self.drafts[draft]["spec"] = spec
         return {"ok": True, "scenario": self._public(spec)}
 
     def cite(self, draft: str, key: str, passage: str) -> dict:
@@ -268,10 +286,10 @@ class Workbench:
             raise WorkbenchError(f"key {key!r}: lower-case letters, digits and _ (e.g. threat, attack, result)")
         if not isinstance(passage, str) or not passage.strip():
             raise WorkbenchError("passage: the quoted text of the paper")
-        spec = copy.deepcopy(self._draft(draft)["spec"])
-        spec.setdefault("source", {}).setdefault("passages", {})[key] = " ".join(passage.split())
-        self._check(draft, spec)
-        with self._lock:
+        with self._draft(draft)["lock"]:
+            spec = copy.deepcopy(self._draft(draft)["spec"])
+            spec.setdefault("source", {}).setdefault("passages", {})[key] = " ".join(passage.split())
+            self._check(self._draft(draft)["home"], spec)
             self.drafts[draft]["spec"] = spec
         return {"ok": True, "passages": sorted(spec["source"]["passages"])}
 
@@ -283,49 +301,60 @@ class Workbench:
 
     def scenario_validate(self, draft: str) -> dict:
         d = self._draft(draft)
-        s = self._check(draft, d["spec"])
+        with d["lock"]:
+            spec = copy.deepcopy(d["spec"])
+        s = self._check(d["home"], spec)
         return {"ok": True, "warnings": _incomplete(s), "title": s.title, "devices": [x.name for x in s.home.devices],
                 "actors": list(s.actors),
                 "timeline": len(s.timeline), "attack": len(s.attack), "defenses": [x.kind for x in s.defenses],
                 "claims": [c.claim for c in s.claims], "gaps": len(s.gaps), "runs": s.runs.__dict__,
-                "yaml": _dump(self._public(d["spec"]))}
+                "yaml": _dump(self._public(spec))}
 
     def scenario_save(self, draft: str, name: str, overwrite: bool = False) -> dict:
         """Write the draft beside its home: `scenarios/NAME.yaml` (and its automations, if it has its own)."""
         if not SLUG.match(name or ""):
             raise WorkbenchError(f"name {name!r}: lower-case letters, digits and -, e.g. phantom-delay-case3")
         d = self._draft(draft)
+        with d["lock"]:
+            snapshot = copy.deepcopy(d["spec"])  # what is checked is what is written
         out_dir = d["home"].parent / "scenarios"
         out = out_dir / f"{name}.yaml"
+        if out_dir.is_symlink() or out.is_symlink():
+            raise WorkbenchError("the home's scenarios folder (or that file) is a link: save under another name")
         if out.exists() and not overwrite:
             raise WorkbenchError(f"{self._name(out)} exists; save under another name, or overwrite it")
-        self._check(draft, d["spec"])
+        checked = self._check(d["home"], snapshot)
         out_dir.mkdir(exist_ok=True)
-        spec = copy.deepcopy(d["spec"])
+        spec = copy.deepcopy(snapshot)
         spec["home"] = "../home.yaml"
         automations = spec.get("setup", {}).pop("automations", None)
         if automations:
-            (out_dir / f"{name}.automations.yaml").write_text(_dump(automations))
+            _write(out_dir / f"{name}.automations.yaml", _dump(automations))
             spec["setup"]["automations"] = f"{name}.automations.yaml"
         if not spec.get("setup"):
             spec.pop("setup", None)
-        out.write_text(f"# Written through VESPER's MCP server ({time.strftime('%Y-%m-%d')}); review before citing.\n"
-                       + _dump(spec))
-        return {"saved": self._name(out), "warnings": _incomplete(self._check(draft, d["spec"]))}
+        _write(out, f"# Written through VESPER's MCP server ({time.strftime('%Y-%m-%d')}); review before citing.\n"
+               + _dump(spec))
+        return {"saved": self._name(out), "warnings": _incomplete(checked)}
 
     # -- runs -----------------------------------------------------------------------------------------
     def scenario_run(self, scenario: str, mode: str | None = None, repeat: int | None = None) -> dict:
         """Run a saved scenario (or a draft) in the background; run_status and run_report follow it."""
+        tmp = None
         if scenario in self.drafts:
-            spec = copy.deepcopy(self.drafts[scenario]["spec"])
-            path = self._write_check_file(self.drafts[scenario]["home"], spec,
-                                          Path(tempfile.mkdtemp(prefix="vesper-draft-")))
+            d = self.drafts[scenario]
+            with d["lock"]:
+                spec = copy.deepcopy(d["spec"])
+            tmp = Path(tempfile.mkdtemp(prefix="vesper-draft-"))
+            path = self._write_check_file(d["home"], spec, tmp)
         else:
             path = self._file(scenario)
         try:
             s = load_scenario(path, self.catalog, mode=mode)
         except ScenarioError as e:
-            raise WorkbenchError(str(e)) from e
+            if tmp:
+                shutil.rmtree(tmp, ignore_errors=True)
+            raise WorkbenchError(str(e)[:MESSAGE_CHARS]) from e
         if repeat is not None:
             if not 1 <= int(repeat) <= 20:
                 raise WorkbenchError("repeat: 1 to 20 runs per condition")
@@ -339,9 +368,20 @@ class Workbench:
         run = time.strftime("%Y%m%dT%H%M%S") + "-" + uuid.uuid4().hex[:4]
         out = self.runs_dir / run
         state = {"scenario": str(path), "mode": s.runs.mode, "total": total, "state": "running", "out": out,
-                 "report": None, "summary": None, "error": None}
+                 "report": None, "summary": None, "error": None, "tmp": tmp}
         with self._lock:
-            self.runs[run] = state
+            running = [r for r in self.runs.values() if r["state"] == "running"]
+            refusal = None
+            if s.runs.mode == "live" and any(r["mode"] == "live" for r in running):
+                refusal = "a live run is in progress (it holds VESPER's Home Assistant): wait for it (run_status)"
+            elif len(running) >= RUNS_AT_ONCE:
+                refusal = f"{len(running)} runs are in progress: wait for one to finish (run_status)"
+            if refusal is None:
+                self.runs[run] = state
+        if refusal:
+            if tmp:
+                shutil.rmtree(tmp, ignore_errors=True)
+            raise WorkbenchError(refusal)
         threading.Thread(target=self._run, args=(run, s, out), daemon=True).start()
         return {"run": run, "mode": s.runs.mode, "runs": total}
 
@@ -353,7 +393,10 @@ class Workbench:
             (out / "report.md").write_text(text)
             self.runs[run].update(state="done", report=text, summary=summary)
         except Exception as e:  # noqa: BLE001 - reported to the model, which tells the researcher
-            self.runs[run].update(state="failed", error=f"{type(e).__name__}: {e}")
+            self.runs[run].update(state="failed", error=f"{type(e).__name__}: {e}"[:MESSAGE_CHARS])
+        finally:
+            if self.runs[run].get("tmp"):
+                shutil.rmtree(self.runs[run]["tmp"], ignore_errors=True)
 
     def run_status(self, run: str) -> dict:
         r = self._run_state(run)
@@ -371,9 +414,9 @@ class Workbench:
                 "claims": len(claims), "report": r["report"]}
 
     # -- helpers ----------------------------------------------------------------------------------------
-    def _check(self, draft: str, spec: dict):
-        """The draft as a scenario, or WorkbenchError naming what is wrong (and the automations VESPER refuses)."""
-        home = self._draft(draft)["home"] if draft in self.drafts else None
+    def _check(self, home: Path, spec: dict):
+        """The draft as a scenario on its home, or WorkbenchError naming what is wrong (and the automations VESPER
+        refuses)."""
         with tempfile.TemporaryDirectory(prefix="vesper-draft-") as tmp:
             path = self._write_check_file(home, spec, Path(tmp))
             try:
@@ -385,8 +428,8 @@ class Workbench:
                 from vesper.lab.session import Session
                 refused = Engine(Session(s.home)).refused
                 if refused:
-                    raise WorkbenchError("automations: " + "; ".join(f"{r['automation']}: {r['reason']}"
-                                                                     for r in refused))
+                    raise WorkbenchError(("automations: " + "; ".join(f"{r['automation']}: {r['reason']}"
+                                                                      for r in refused))[:MESSAGE_CHARS])
             return s
 
     def _write_check_file(self, home: Path, spec: dict, folder: Path) -> Path:
@@ -397,7 +440,7 @@ class Workbench:
             spec.get("setup", {}).pop("automations", None)
         else:
             if not isinstance(automations, list):
-                raise WorkbenchError(f"automations: {automations!r} is not a list of automations")
+                raise WorkbenchError("automations: a list of Home Assistant automations (mappings)")
             (folder / "automations.yaml").write_text(_dump(automations))
             spec["setup"]["automations"] = "automations.yaml"
         path = folder / "scenario.yaml"
@@ -447,6 +490,13 @@ class Workbench:
         if not _is_scenario(path):
             raise WorkbenchError(f"{name!r} is not a {FORMAT} file")
         return path
+
+
+def _write(path: Path, text: str) -> None:
+    """Whole or not at all: a reader never sees half a file."""
+    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex[:6]}.tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
 
 
 def _incomplete(s) -> list[str]:
