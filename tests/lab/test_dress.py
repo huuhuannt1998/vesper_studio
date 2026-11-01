@@ -251,3 +251,17 @@ def test_a_ceiling_light_s_wall_switch_is_an_empty_on_its_wall_for_the_furniture
     plate = bpy.data.objects["switch:kitchen_light"]
     assert plate.location == pytest.approx((3.3, -1.0, 1.2)) and plate["category"] == "wall_switch"
     assert "wall switch" in brief.read_text()
+
+
+def test_a_furnished_home_s_walls_come_from_its_plan_without_the_furniture(tmp_path):
+    """The floor under a generated home's furniture is off the walking map; Blender's walls are the plan's own."""
+    from vesper.lab.worldmap import WorldMap
+    h = home(tmp_path)
+    plain = scene_data(h)["walls"]
+    original = tmp_path / "map.original.json"
+    WorldMap.load(tmp_path / "map.json").save(original)
+    g = h.map.grid
+    i, j = g.cell_of(*h.devices[0].position) or (g.width // 2, g.height // 2)
+    for di in range(-2, 3):  # a piece of furniture in the middle of a room
+        g.walkable[(j + 3) * g.width + i + di] = 0
+    assert scene_data(h)["walls"] == plain

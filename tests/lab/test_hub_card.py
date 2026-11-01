@@ -48,3 +48,12 @@ def test_the_page_and_the_hub_card_carry_home_assistant_s_lab_login(tmp_path):
     assert hello(s, "http://127.0.0.1:18123", hub_login=login)["hub_login"] == login
     assert hello(s)["hub_login"] is None
     assert hub_card(s, "http://127.0.0.1:18123", login)["login"] == login
+
+
+def test_the_page_gets_the_home_s_furniture_when_it_has_some(tmp_path):
+    s, _ = session_with_automation(tmp_path)
+    assert hello(s)["furniture"] is None
+    items = [{"kind": "sofa", "room": "hall", "x": 1, "z": 1, "w": 2.1, "d": 0.9, "h": 0.85, "facing": 90,
+              "solid": True, "box": [0, 0.5, 2.1, 1.4]}]
+    (tmp_path / "furniture.json").write_text(json.dumps({"format": "vesper-furniture/1", "items": items}))
+    assert hello(s)["furniture"] == items

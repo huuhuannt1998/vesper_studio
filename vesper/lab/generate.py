@@ -135,7 +135,7 @@ RULES = {"light": "ceiling", "smoke_sensor": "ceiling", "gas_sensor": "ceiling",
          "thermostat": "wall", "plug": "floor"}  # anything else: a table position
 SHORT = {"motion_sensor": "motion", "contact_sensor": "contact", "smoke_sensor": "smoke", "gas_sensor": "gas",
          "climate_sensor": "climate", "leak_sensor": "leak", "air_quality_sensor": "air"}
-REQUEST_FIELDS = {"format", "rooms", "program", "scene", "seed", "devices", "residents"}
+REQUEST_FIELDS = {"format", "rooms", "program", "scene", "seed", "devices", "residents", "furnish"}
 DEVICE_FIELDS = {"product", "category", "at", "per", "except", "count", "protocol"}
 
 
@@ -146,6 +146,7 @@ class Request:
     seed: int
     devices: list[dict]
     scene: str | None = None  # an HSSD scene id: the home is that real house, not a generated layout
+    furnish: bool = True  # each room gets its furniture (vesper.lab.furnishing), solid on the walking map
 
 
 def load_request(path: Path) -> Request:
@@ -183,7 +184,10 @@ def load_request(path: Path) -> Request:
     devices = spec.get("devices") or []
     if not isinstance(devices, list) or not all(isinstance(d, dict) for d in devices):
         raise GenerateError("devices: a list of mappings")
-    return Request(path, list(types), seed, devices, scene)
+    furnish = spec.get("furnish", True)
+    if not isinstance(furnish, bool):
+        raise GenerateError(f"furnish: {furnish!r} is not true or false")
+    return Request(path, list(types), seed, devices, scene, furnish)
 
 
 def generate_home(request: Request, catalog: dict, out: Path, export=None) -> None:
@@ -206,6 +210,24 @@ def generate_home(request: Request, catalog: dict, out: Path, export=None) -> No
     lines += [f"  - {yaml.safe_dump(d, default_flow_style=True, sort_keys=False, width=1000).strip()}"
               for d in devices]
     (out / "home.yaml").write_text("\n".join(lines) + "\n")
+    if request.furnish:
+        _furnish(out, catalog)
+
+
+def _furnish(out: Path, catalog: dict) -> None:
+    """Furnish the generated home (vesper.lab.furnishing): `furniture.json` beside it, the floor under each solid
+    piece taken off `map.json`, the plan without furniture kept as `map.original.json` (as `vesper lab renav`)."""
+    import json
+    import shutil
+
+    from vesper.lab.furnishing import FORMAT, block, furnish
+    from vesper.lab.home import load_lab_home
+    home = load_lab_home(out / "home.yaml", catalog)
+    items = furnish(home.map, home.devices, home.avatar["start"])
+    shutil.copyfile(out / "map.json", out / "map.original.json")
+    block(home.map, items)
+    home.map.save(out / "map.json")
+    (out / "furniture.json").write_text(json.dumps({"format": FORMAT, "items": items}, indent=1) + "\n")
 
 
 def _export_scene(scene: str, out: Path) -> None:

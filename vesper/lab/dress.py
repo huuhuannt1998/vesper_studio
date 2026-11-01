@@ -152,6 +152,14 @@ def _inside(polygon, x: float, z: float) -> bool:
     return inside
 
 
+def _plan(home):
+    """The home's floor plan without furniture: `map.original.json` when furnishing (vesper.lab.furnishing) or renav
+    took floor off the walking map, else the map itself."""
+    from vesper.lab.worldmap import WorldMap
+    original = Path(home.path).parent / "map.original.json"
+    return WorldMap.load(original) if original.is_file() else home.map
+
+
 def scene_data(home, world3d=None, models: dict | None = None) -> dict:
     """What the build script builds, from the home's map and devices; `export_to` is where the model goes. An HSSD
     home (`world3d`, its models converted: `models`) is HSSD's own meshes at Habitat's places, not walls from its
@@ -162,7 +170,7 @@ def scene_data(home, world3d=None, models: dict | None = None) -> dict:
         "export_to": str((Path(home.path).parent / "scene.glb").resolve()),
         "rooms": [{"id": r.id, "label": r.label, "polygon": [list(p) for p in r.polygon], "outdoor": r.outdoor}
                   for r in m.rooms],
-        "walls": [list(b) for b in wall_boxes(m.grid)],
+        "walls": [list(b) for b in wall_boxes(_plan(home).grid)],
         "doorways": [{"id": d.id, "rooms": list(d.rooms), "width": d.width, "outdoor": d.outdoor,
                       "box": _doorway_box(m.grid, d.cells)} for d in m.doorways],
         "devices": [{"name": d.name, "category": d.record["identity"].get("category"), "mount": d.mount,
