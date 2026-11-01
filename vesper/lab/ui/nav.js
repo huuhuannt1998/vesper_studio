@@ -33,9 +33,20 @@ export function roomSpot(room, cells, grid) {
   return best;
 }
 
-// A camera viewpoint of a room, as Room 334's views: in the walkable spot farthest from its middle, at 2.2 m, looking
-// at the middle at table height. {position, target} in world [x, y, z]; null if nobody can stand in the room.
-export function roomView(room, cells, grid, floorY = 0) {
+// A camera viewpoint of a room, as Room 334's Entrance: just inside its doorway at eye height (1.6 m), looking
+// across the room to its far side; without a doorway, from its walkable spot farthest from its middle, looking at
+// the middle. {position, target} in world [x, y, z]; null if nobody can stand in the room.
+export function roomView(room, cells, grid, floorY = 0, doorways = []) {
+  const door = doorways.find((d) => d.rooms && d.rooms.includes(room.id));
+  if (door) {
+    const xs = room.polygon.map((p) => p[0]), zs = room.polygon.map((p) => p[1]);
+    const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+    const [dx, dz] = door.center, mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+    const len = Math.hypot(mx - dx, mz - dz) || 1, ux = (mx - dx) / len, uz = (mz - dz) / len;
+    const far = [Math.min(x1 - 0.3, Math.max(x0 + 0.3, mx + ux * (x1 - x0) * 0.35)),
+                 Math.min(z1 - 0.3, Math.max(z0 + 0.3, mz + uz * (z1 - z0) * 0.35))];
+    return { position: [dx + ux * 0.45, floorY + 1.6, dz + uz * 0.45], target: [far[0], floorY + 0.9, far[1]] };
+  }
   const xs = room.polygon.map((p) => p[0]), zs = room.polygon.map((p) => p[1]);
   const mx = (Math.min(...xs) + Math.max(...xs)) / 2, mz = (Math.min(...zs) + Math.max(...zs)) / 2;
   let best = null, bestD = -1;
@@ -61,4 +72,18 @@ export function deviceGroups(devices, rooms) {
   }
   return [...byRoom.entries()].sort(([a], [b]) => a.localeCompare(b))
     .map(([room, list]) => ({ room, devices: list.sort((a, b) => a.name.localeCompare(b.name)) }));
+}
+
+// A room's facts, as Room 334's layout panel gives them: its width and depth (its extent along x and z), its floor
+// area, the ceiling height and how many devices are in it. Metres, to two decimals.
+export function roomFacts(room, devices, ceiling) {
+  const xs = room.polygon.map((p) => p[0]), zs = room.polygon.map((p) => p[1]);
+  const r2 = (v) => Math.round(v * 100) / 100;
+  let a = 0;
+  room.polygon.forEach(([x0, z0], k) => {
+    const [x1, z1] = room.polygon[(k + 1) % room.polygon.length];
+    a += x0 * z1 - x1 * z0;
+  });
+  return { name: roomName(room), width: r2(Math.max(...xs) - Math.min(...xs)), depth: r2(Math.max(...zs) - Math.min(...zs)),
+           area: r2(Math.abs(a) / 2), ceiling, devices: Object.values(devices).filter((d) => d.room === room.id).length };
 }

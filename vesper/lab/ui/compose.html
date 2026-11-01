@@ -103,17 +103,17 @@
       <p class="muted">Each row is a kind of device and where it goes. A row takes any real product of its kind, or the one you pick.</p>
       <ol id="rows"></ol>
       <button id="add-row">Add a row</button>
-      <section id="furnish" aria-label="Furnish it in Blender">
-        <h2 style="margin-top:22px">Furnish it in Blender</h2>
-        <p class="muted">Claude builds the home in Blender through Blender MCP: the walls and doorways from its floor
-          plan, furniture in every room, then the 3D model the play page draws. People then walk round the furniture.
-          It takes 20 to 40 minutes and uses your Claude account.</p>
+      <section id="furnish" aria-label="A custom look in Blender">
+        <h2 style="margin-top:22px">A custom look in Blender (optional)</h2>
+        <p class="muted">A generated home comes furnished: every room gets its furniture in seconds, solid on the map,
+          so people walk round it. For a look of your own, Claude can build the home again in Blender through Blender
+          MCP, furniture and all; it takes 20 to 40 minutes and uses your Claude account.</p>
         <div class="furnish-row">
           <label>Model <select id="furnish-model"><option value="opus">Opus (best)</option>
             <option value="sonnet">Sonnet (cheaper)</option></select></label>
           <label>Spend at most US$ <input id="furnish-budget" type="number" min="1" max="100" value="25"></label>
         </div>
-        <button id="furnish-start" disabled>Furnish it in Blender</button>
+        <button id="furnish-start" disabled>Build it in Blender with Claude</button>
         <button id="furnish-stop" hidden>Stop</button>
         <p id="furnish-note" class="muted">Generate a home first (a number or a list of rooms: an HSSD house comes
           furnished).</p>

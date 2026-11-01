@@ -182,3 +182,12 @@ test("a wall device goes onto its room's nearest wall, facing into the room (rev
   const ell = { id: "l", polygon: [[0, 0], [6, 0], [6, 2], [2, 2], [2, 5], [0, 5]] };
   assert.equal(wallMount(1.85, 3, ell).facing, 180); // the arm's inner wall, at x = 2, faces -x into the arm
 });
+
+import { floorKind } from "../../../vesper/lab/ui/scene3d.js";
+
+test("each room gets the floor a home has there: tiles where water is, carpet in bedrooms, wood elsewhere", () => {
+  const kinds = ["kitchen", "bathroom_001", "laundry", "bedroom", "living_room", "office", "hall", "corridor", "porch"]
+    .map((id) => floorKind({ id, label: id, outdoor: id === "porch" }));
+  assert.deepEqual(kinds, ["tile", "tile", "tile", "carpet", "wood", "wood", "wood", "wood", "outside"]);
+  assert.equal(floorKind({ id: "x", label: "laundryroom/mudroom", outdoor: false }), "tile"); // HSSD's labels too
+});

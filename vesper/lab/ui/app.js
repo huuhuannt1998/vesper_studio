@@ -11,9 +11,9 @@ import {
   handPoint, hitTest, moveFor, promptFor, recordLine, stepInterval, tipPosition, walkKey,
 } from "./mapview.js";
 import { dialogHtml, hubHtml } from "./devicedialog.js";
-import { deviceGroups, roomName, roomView, tourRooms } from "./nav.js";
+import { deviceGroups, roomFacts, roomName, roomView, tourRooms } from "./nav.js";
 import { panelHtml } from "./scenariopanel.js";
-import { PITCH_MAX, aimCamera, compassMarks, moveRelative } from "./scene3d.js";
+import { PITCH_MAX, aimCamera, compassMarks, moveRelative, roomAt } from "./scene3d.js";
 
 const LOCKED = "#e74c3c", UNLOCKED = "#3fb37f";
 const SLOT_PX = 40; // devices at one spot (a sensor and a lock on one door) are drawn side by side
@@ -23,9 +23,8 @@ const MINI_PX = 220, MINI_SCALE = 14; // the minimap: its size, and pixels a met
 const LOOK_DEG = 0.15; // degrees the view turns per pixel of mouse movement
 const KEYS_MAP = "WASD or arrows: walk · Shift: run · click a device: its details · click a door: open or shut it · " +
   "E or F: use the thing in reach · Q: next thing in reach · Tab: next panel";
-const KEYS_3D = "Drag (or click empty space) to look around · WASD or the arrows: walk · Shift: run · click a device " +
-  "or the hub: its details · click a door: open or shut it · F: use what the crosshair is on · a room's chip: its " +
-  "view · V: first or third person · M: floor plan · Q: next thing in reach";
+const KEYS_3D = "Drag to look · WASD to walk · Click a device for details · Click a door to open it · F: use it · " +
+  "V: third person · M: floor plan";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("map");
@@ -54,7 +53,7 @@ let state = null, view = null, floor = null, dirty = true, selected = 0, lastSte
 const held = new Set(); // the walking keys held down, by physical key (walkKey)
 let sprint = false, hover = null, feedShown = ""; // the target under the pointer; the feed's lines on the page
 let mode = "map", fullMap = false, view3d = null, view3dTried = false, locked = false, lastFrame = 0, lastPick = 0;
-const cam = { yaw: 0, pitch: -10, mode: "third" }; // the 3D view's camera: where the player looks
+const cam = { yaw: 0, pitch: 0, mode: "first" }; // first person at eye height, as Room 334 walks; V: third // the 3D view's camera: where the player looks
 const params = new URLSearchParams(location.search || "");
 
 // -- the connection -------------------------------------------------------------------------------
@@ -125,6 +124,13 @@ function onHello(h) {
     $("hub").innerHTML = "<p>No hub in this session. With Home Assistant set up, <code>vesper lab play</code> shows its dashboard here.</p>";
   }
   buildNavigation(h);
+  if (!opened && !h.scenario) { // the page opens on the start room seen from its doorway, as Room 334 on its Entrance
+    opened = true;
+    const startRoom = h.map.rooms.find((r) => roomAt(h.start[0], h.start[1], [r]));
+    const v = startRoom && roomView(startRoom, state.cells, h.map.grid, h.world3d ? h.world3d.floor_y : 0,
+      h.map.doorways);
+    if (v) cam.view = { ...v, room: startRoom.id, name: roomName(startRoom) };
+  }
   scenarioRecords = [];
   $("scenario-panel").hidden = !(h.scenario && h.scenario.plan);
   document.body.classList.toggle("watching", Boolean(h.scenario)); // a scenario plays the player: no arrows
@@ -149,7 +155,8 @@ function setMode(next) {
   mode = next === "3d" ? "3d" : "map";
   vesper.mode = mode;
   document.body.classList.toggle("mode-3d", mode === "3d");
-  for (const id of ["view3d", "compass", "crosshair"]) $(id).hidden = mode !== "3d";
+  for (const id of ["view3d", "crosshair"]) $(id).hidden = mode !== "3d";
+  $("compass").hidden = true; // Room 334 shows none: the header says which way you face
   $("keys").textContent = mode === "3d" ? KEYS_3D : KEYS_MAP;
   fullMap = false;
   canvas.classList.toggle("full", false);
@@ -184,6 +191,7 @@ function aim(target) {
   const me = state && state.actors[state.player];
   const point = view3d && view3d.pointOf(target);
   if (!me || !point) return null;
+  delete cam.view; // turning to a thing is a look: back to the player's own eyes
   Object.assign(cam, aimCamera({ x: me.x, z: me.z, floorY: view3d.floorY, mode: cam.mode }, point));
   lastPick = 0; // the crosshair is checked on the next frame
   updateWhere(); // the header faces where the camera does, as after a mouse look
@@ -239,8 +247,49 @@ function onPose(m) {
   if (r && r.room !== m.room) { r.room = m.room; drawResidents(); }
 }
 
+let roomShown;
+function updateRoom() { // the Room panel and the measurements in the view follow the room you are in (or viewing)
+  const me = state.actors[state.player];
+  const id = cam.view ? cam.view.room : me && me.room;
+  const room = id && state.hello.map.rooms.find((r) => r.id === id);
+  const key = `${id}|${$("dims").checked}`;
+  if (key === roomShown) return;
+  roomShown = key;
+  if (view3d && view3d.showDimensions) view3d.showDimensions(room && $("dims").checked ? room.id : null);
+  const box = $("room-card");
+  if (!room) { box.textContent = "Between rooms."; return; }
+  const f = roomFacts(room, state.devices, 2.5);
+  box.innerHTML = "";
+  const name = document.createElement("b");
+  name.textContent = f.name;
+  const grid = document.createElement("div");
+  grid.className = "facts";
+  for (const [v, unit, what] of [[f.width.toFixed(2), "m", "Width"], [f.depth.toFixed(2), "m", "Depth"],
+                                 [f.area.toFixed(1), "m²", "Floor area"], [f.ceiling.toFixed(2), "m", "Ceiling"]]) {
+    const cell = document.createElement("div");
+    const n = document.createElement("span");
+    n.className = "n";
+    n.textContent = v;
+    const u = document.createElement("small");
+    u.textContent = ` ${unit}`;
+    const w = document.createElement("div");
+    w.className = "muted";
+    w.textContent = what;
+    cell.append(n, u, w);
+    grid.append(cell);
+  }
+  const devs = document.createElement("p");
+  devs.className = "muted";
+  devs.textContent = `${f.devices} device${f.devices === 1 ? "" : "s"} in it`;
+  box.append(name, grid, devs);
+}
+$("dims").addEventListener("change", () => updateRoom());
+$("names").addEventListener("change", () => { if (view3d && view3d.showLabels) view3d.showLabels($("names").checked); });
+let opened = false; // the first hello opens on the start room's view
+
 function updateWhere() {
   const me = state.actors[state.player];
+  updateRoom();
   if (cam.view) { $("where").textContent = `viewing ${cam.view.name} · walk or look to go back`; return; }
   $("where").textContent = me ? `${me.room || "between rooms"} · facing ${headingName(mode === "3d" ? cam.yaw : me.yaw)}` : "";
 }
@@ -416,11 +465,8 @@ window.addEventListener("keydown", (e) => {
     inspect(key === "escape");
   } else if (key === "v" && mode === "3d") { // PUBG's first or third person
     cam.mode = cam.mode === "third" ? "first" : "third";
-  } else if (key === "m" && mode === "3d") { // PUBG's full map; the pointer is let go, so a click lands on the map
-    fullMap = !fullMap;
-    if (fullMap && locked) document.exitPointerLock();
-    canvas.classList.toggle("full", fullMap);
-    layout();
+  } else if (key === "m" && mode === "3d") { // the full floor plan; the pointer is let go, so a click lands on it
+    toggleFullMap();
   }
 });
 window.addEventListener("keyup", (e) => {
@@ -521,18 +567,24 @@ async function refreshCard() { // the dialog shows the state the action left
 function buildNavigation(h) {
   const tour = $("tour");
   tour.innerHTML = "";
+  roomShown = undefined;
   for (const room of tourRooms(h.map.rooms)) { // a chip walks the player there, as Room 334's views move you
     const chip = document.createElement("button");
     chip.className = "chip";
     chip.textContent = roomName(room);
     chip.addEventListener("click", () => { // the camera goes to the room; the player stays (no click-to-walk)
-      const v = roomView(room, state.cells, h.map.grid, view3d ? view3d.floorY : 0);
+      const v = roomView(room, state.cells, h.map.grid, view3d ? view3d.floorY : 0, h.map.doorways);
       if (!v) { toast(`there is nowhere to stand in ${roomName(room)}`, true); return; }
       cam.view = { ...v, room: room.id, name: roomName(room) };
       updateWhere();
     });
     tour.append(chip);
   }
+  const plan = document.createElement("button"); // the floor plan, as Room 334's last chip (M does the same)
+  plan.className = "chip";
+  plan.textContent = "Floor plan";
+  plan.addEventListener("click", () => toggleFullMap());
+  tour.append(plan);
   const list = $("device-list");
   list.innerHTML = "";
   const none = document.createElement("option");
@@ -578,9 +630,17 @@ for (const k of ["w", "a", "s", "d"]) { // the on-screen arrows, for a trackpad:
 $("reset-view").addEventListener("click", () => { // look ahead from behind the player, as at the start
   const me = state && state.actors[state.player];
   delete cam.view;
-  Object.assign(cam, { yaw: me ? me.yaw : cam.yaw, pitch: -10, mode: "third" });
+  Object.assign(cam, { yaw: me ? me.yaw : cam.yaw, pitch: 0, mode: "first" });
   updateWhere();
 });
+
+function toggleFullMap() {
+  if (mode !== "3d") return;
+  fullMap = !fullMap;
+  if (fullMap && locked) document.exitPointerLock();
+  canvas.classList.toggle("full", fullMap);
+  layout();
+}
 
 function step() {
   const d = mode === "3d" ? moveRelative(held, cam.yaw) : moveFor(held);

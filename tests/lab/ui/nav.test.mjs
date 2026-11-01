@@ -45,14 +45,29 @@ test("the device list groups devices by room, rooms by name, and a door's device
 
 import { roomView } from "../../../vesper/lab/ui/nav.js";
 
-test("a room's viewpoint stands in its far corner, above head height, looking at its middle", () => {
+test("a room's viewpoint stands just inside its doorway at eye height, looking across the room, as Room 334's " +
+  "Entrance", () => {
   const grid = { origin: [0, 0], cell: 1, width: 11, height: 8 };
-  const cells = new Array(88).fill(false);
-  for (const [i, j] of [[1, 0], [2, 1], [3, 2], [4, 3]]) cells[j * 11 + i] = true; // the living room's floor
-  const v = roomView(ROOMS[1], cells, grid, 0);
-  assert.ok(v.position[1] > 1.9 && v.position[1] < 2.6);
-  assert.deepEqual(v.target, [3, 0.9, 2]);
-  const d = Math.hypot(v.position[0] - 3, v.position[2] - 2);
-  assert.ok(d > 1.5, `the corner is away from the middle: ${d}`);
-  assert.equal(roomView(ROOMS[2], cells, grid, 0), null);
+  const cells = new Array(88).fill(true);
+  const doorways = [{ id: "living_room-outdoor", rooms: ["living_room", "outdoor"], center: [3, 4] }];
+  const v = roomView(ROOMS[1], cells, grid, 0, doorways); // the living room, x 1..5, z 0..4, its door on z = 4
+  assert.ok(Math.abs(v.position[1] - 1.6) < 1e-9);
+  assert.ok(v.position[2] < 4 && v.position[2] > 3, `just inside the door: ${v.position}`);
+  assert.ok(v.target[2] < 2, `looking across, away from the door: ${v.target}`);
+  const none = new Array(88).fill(false);
+  for (const [i, j] of [[1, 0], [2, 1], [3, 2], [4, 3]]) none[j * 11 + i] = true; // no doorway: its far corner
+  const c = roomView(ROOMS[1], none, grid, 0, []);
+  assert.ok(Math.hypot(c.position[0] - 3, c.position[2] - 2) > 1.5);
+  assert.equal(roomView(ROOMS[2], new Array(88).fill(false), grid, 0, []), null);
+});
+
+import { roomFacts } from "../../../vesper/lab/ui/nav.js";
+
+test("a room's facts, as Room 334's layout panel gives them: width, depth, floor area, ceiling, devices", () => {
+  const devices = { a: { name: "a", room: "living_room" }, b: { name: "b", room: "living_room" },
+                    c: { name: "c", room: "bedroom" } };
+  assert.deepEqual(roomFacts(ROOMS[1], devices, 2.5),
+    { name: "Living room", width: 4, depth: 4, area: 16, ceiling: 2.5, devices: 2 });
+  const l = { id: "hall", label: "hall", polygon: [[0, 0], [4, 0], [4, 1], [1, 1], [1, 3], [0, 3]] };
+  assert.deepEqual(roomFacts(l, devices, 2.5), { name: "Hall", width: 4, depth: 3, area: 6, ceiling: 2.5, devices: 0 });
 });

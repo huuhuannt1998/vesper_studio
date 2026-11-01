@@ -331,7 +331,7 @@ test("the on-screen arrows walk while held, as the keys do, and Reset view looks
     const me = p.v.state.actors[p.v.state.player];
     p.v.aim("hall-porch");
     p.el("reset-view").fire("click");
-    assert.deepEqual(p.v.camera(), { yaw: me.yaw, pitch: -10, mode: "third" });
+    assert.deepEqual(p.v.camera(), { yaw: me.yaw, pitch: 0, mode: "first" }); // first person, as Room 334
   });
 
 test("the device list names every device by room; choosing one opens its dialog", { skip }, async () => {

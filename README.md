@@ -1,8 +1,8 @@
 # VESPER Studio
 
-**An open smart-home lab for any researcher's computer: real market products as virtual twins, in homes you can
-walk (or have Claude furnish in Blender), with an unmodified Home Assistant as the hub, and evidence for how faithful
-each twin is.** No radios, containers or special hardware.
+**An open smart-home lab for any researcher's computer: real market products as virtual twins, in furnished homes you
+can walk, with an unmodified Home Assistant as the hub, and evidence for how faithful each twin is.** No radios,
+containers or special hardware.
 
 ![The play page in 3D: the player in the example home's bedroom has just switched on an IKEA lamp; the crosshair's prompt says what a click does next, the console shows the lamp's report, and Alex is at dinner in the kitchen](docs/images/lab-play.png)
 
@@ -40,7 +40,8 @@ its pages in your browser, or as a desktop app for macOS and Windows.
   - [A day in seconds, and exact replays](#a-day-in-seconds-and-exact-replays)
   - [Choosing products](#choosing-products)
   - [Generated homes](#generated-homes)
-  - [Furnished in Blender](#furnished-in-blender)
+  - [Furniture](#furniture)
+  - [A custom look in Blender (optional)](#a-custom-look-in-blender-optional)
   - [A home from a real 3D scene (HSSD)](#a-home-from-a-real-3d-scene-hssd)
   - [Residents and their routines](#residents-and-their-routines)
   - [Checking the page automatically](#checking-the-page-automatically)
@@ -350,9 +351,9 @@ attack delays real MQTT traffic on the loopback interface (about 3 minutes per r
 
     vesper studio
 
-Choose a number of rooms (or a list), add real products from the Catalog (**Add to home**), and **Generate home**.
-**Furnish it in Blender** has Claude build and furnish it in 3D (below); **Play it** opens it, with Home Assistant
-when it is set up.
+Choose a number of rooms (or a list), add real products from the Catalog (**Add to home**), and **Generate home**: it
+comes furnished, in seconds. **Play it** opens it, with Home Assistant when it is set up. For a look of your own,
+Claude can build it again in Blender (optional, below).
 
 ## Concepts
 
@@ -426,7 +427,7 @@ Every command has `--help`. Paths in the examples are relative to the clone.
 | **F** | use what the crosshair is on: switch a plug, open a door, press a button |
 | **E** | the same; with nothing under the crosshair, the thing in reach |
 | **I** | the details of the device under the crosshair (below) |
-| **V** | first person or third person |
+| **V** | third person (behind you) or back to first person, the eye height a home opens in |
 | **M** | the floor plan (a click on it opens a device's details, or a door) |
 | **Q** | select the next thing in reach |
 | **Tab** | move to the next panel |
@@ -442,8 +443,11 @@ lights the room, a sensor's LED flashes when it detects someone, a lock's bolt a
 lights, a thermostat or climate sensor shows its reading.
 
 Getting around:
-- **Room chips** along the top of the view show each room from its corner. The camera moves; you stay where you
-  are. Walking or looking takes the view back to you.
+- **Room chips** along the top of the view show each room from just inside its doorway, as Room 334's views do; the
+  page opens on the room you start in. The camera moves; you stay where you are. Walking or looking takes the view
+  back to your own eyes. **Floor plan**, the last chip (or **M**), shows the whole home from above.
+- **Room**, on the right, gives the room you are in: its width, depth, floor area, ceiling height and devices; its
+  measurements can also be written in the view, and the devices' names shown.
 - **Inspect**, top right, lists every device by room; choosing one turns the view to it and opens its details.
 - **The hub** stands in the home (Home Assistant's box and the Zigbee coordinator, on a shelf); click it, or the
   **Hub** button in Inspect, for Home Assistant (a link to its dashboard, and the login VESPER made for it) and every
@@ -451,15 +455,14 @@ Getting around:
 - **The arrows** at the lower right walk as the keys do (for a trackpad); **Reset view** looks ahead from behind you.
 - **M** opens the floor plan, with the rooms named and every device marked.
 
-A device's details (a click on it, **I**, or the Inspect list) show:
-- what it is and where;
-- its state now, and the action a hand can take (switch it, lock it);
-- how it reaches the hub: each link with its signal, walls and latency, and whether it is up;
-- what Home Assistant makes of it: its entities and the automations that use it;
-- how far to trust it: L0 to L4, each with its reason, the fields that are assumed, the sources, and the product's
-  page.
+A device's details (a click on it, **I**, or the Inspect list) read as Room 334's panels do: one plain sentence first
+(what it is, where, and what it is doing now: "A Zigbee smart lock on the hall's door to outside. It is unlocked now;
+battery 87%."), the action a hand can take (switch it, lock it), then a line each on how it reaches the hub, what Home
+Assistant makes of it (its main entity and the automations that use it) and how far to trust it (L0 to L4). Every raw
+reading, entity, link and level, each level's reason, the fields that are assumed and the sources are under
+**Details**, and the product's page is linked.
 
-The page also shows the room you are in and the direction you face, a minimap, an event feed (a sensor seeing
+The page also shows the room you are in and the direction you face, an event feed (a sensor seeing
 someone, a door, a resident's action, an automation), the residents and what each is doing, and a console with every
 trace record in words. Useful options: `--no-browser` (print the address only), `--port`, `--trace FILE`, `--hub`
 (below), `--scenario` (watch a scenario, below).
@@ -662,9 +665,20 @@ moved in the home file. Without a request, a home gets a starter set. A batch ma
 
     vesper lab generate homes/batch --count 100 --rooms 3-10
 
-### Furnished in Blender
+### Furniture
 
-**From the lobby, with Claude.** After **Generate home**, **Furnish it in Blender** does it all: VESPER writes the
+A generated home comes furnished, in seconds and at no cost: each room gets what a home of its kind has (a sofa
+facing a TV with a coffee table and a rug, a bed between nightstands and a wardrobe, a kitchen counter run with a sink,
+a hob and a fridge and a table with chairs, a bath, a vanity and a toilet, a desk with a chair, a dining table, a
+washer and a dryer...), at a typical size, against its walls. No piece stands within 0.9 m of a doorway or over a wall
+or floor device or a light switch, and a piece is kept only if every doorway and device of its room can still be
+reached on foot. The floor under each piece is taken off the walking map (the plan without furniture stays as
+`map.original.json`), so people walk round it, and `furniture.json` beside the home lists every piece; the 3D view
+draws each as a model. `furnish: false` in a request leaves the rooms bare.
+
+### A custom look in Blender (optional)
+
+**From the lobby, with Claude.** After **Generate home**, **Build it in Blender with Claude** does it all: VESPER writes the
 home's Blender script and brief, opens a Blender window of its own (an empty scene, its MCP server on a free port; a
 Blender you have open is left alone), runs Claude Code headless with only Blender's MCP tools and the home's folder,
 checks that `scene.glb` came back whole, and takes the walkable floor again from the furniture. You choose the model

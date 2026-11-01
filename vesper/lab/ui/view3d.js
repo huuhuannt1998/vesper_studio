@@ -14,12 +14,13 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { decodeGrid, gridBounds } from "./mapview.js";
 import { buildDevice, buildHub, facingYaw } from "./devices3d.js";
+import { buildFurniture } from "./furniture3d.js";
 import {
   BACK_M, PIVOT_M, RAISE_M, cameraPose, devicePoint, doorMount, frameAt, furnitureFor, hinge, pullIn, roomAt, walkPhase,
-  wallBoxes, wallMount, wallRuns,
+  floorKind, wallBoxes, wallMount, wallRuns,
 } from "./scene3d.js";
 
-const SKY = 0xbfd6ea, WALL = 0xe9e4da, FLOOR = 0xd2c9b8, OUTSIDE = 0x9fb98e, DOOR = 0x8a5a2b, LOCKED = 0xc0392b;
+const SKY = 0xbfd6ea, WALL = 0xeeebe4, FLOOR = 0xd2c9b8, OUTSIDE = 0x9fb98e, DOOR = 0x8a5a2b, LOCKED = 0xc0392b;
 const WALL_M = 2.5, DOOR_M = 2.05, PICK_M = 8, SWING = Math.PI / 2, SWING_S = 0.35;
 const PLAYER = 0x2f6fed, RESIDENTS = [0xd9822b, 0x3fb37f, 0xb36bd9, 0xd94f4f];
 const WALKING_MS = 0.15; // slower than this, a person stands
@@ -29,17 +30,17 @@ export async function createView3d(container, hello, onProgress = () => {}) {
   renderer.setPixelRatio(window.devicePixelRatio || 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.8;
+  renderer.toneMappingExposure = 1.0; // a lit interior, as Room 334's
   container.append(renderer.domElement);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY); // what a window shows
   scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.55;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7f70, 1.0));
+  scene.environmentIntensity = 0.8;
+  scene.add(new THREE.HemisphereLight(0xfffdf8, 0x9a8f80, 1.6)); // the ceiling panels' light, everywhere indoors
   const sun = new THREE.DirectionalLight(0xfff4e0, 0.8);
   sun.position.set(4, 10, 2);
   scene.add(sun);
-  const camera = new THREE.PerspectiveCamera(65, 1, 0.05, 200);
+  const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 200); // a walkthrough's wide view, as Room 334's
   const floorY = hello.world3d ? hello.world3d.floor_y : 0;
   const solids = []; // what the camera and the crosshair do not pass: the stage, or the map's walls
   const pickables = []; // devices' crosshair targets and doors; their meshes carry userData.target
@@ -122,9 +123,70 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     onProgress(status);
   }
 
+  const FLOOR_TILE = { wood: 2, tile: 1.2, carpet: 2, outside: 4 }; // metres a texture covers
+  function worldUV(geo, metres) { // texture coordinates from the floor's own x and z, so patterns keep their size
+    const pos = geo.attributes.position, uv = new Float32Array(pos.count * 2);
+    for (let k = 0; k < pos.count; k++) { uv[2 * k] = pos.getX(k) / metres; uv[2 * k + 1] = pos.getZ(k) / metres; }
+    geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    return geo;
+  }
+  function floorMaterial(kind) { // painted on a canvas: planks, tiles, carpet, grass; flat colours without a document
+    const flat = { wood: 0xb08a5f, tile: 0xe4e2dc, carpet: 0x8d929a, outside: OUTSIDE }[kind] ?? FLOOR;
+    if (typeof document === "undefined") return new THREE.MeshStandardMaterial({ color: flat, roughness: 0.9 });
+    const c = document.createElement("canvas");
+    c.width = c.height = 512;
+    const g = c.getContext("2d");
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    if (kind === "wood") { // planks 0.16 m wide (512 px = 2 m), staggered ends
+      for (let row = 0; row < 12.5; row++) {
+        let x = -rnd() * 200;
+        while (x < 512) {
+          const len = 150 + rnd() * 160, shade = 150 + rnd() * 30;
+          g.fillStyle = `rgb(${shade + 26}, ${shade - 6}, ${shade - 50})`;
+          g.fillRect(x, row * 41, len - 2, 39);
+          x += len;
+        }
+      }
+    } else if (kind === "tile") { // 0.3 m tiles (512 px = 1.2 m), light grout
+      g.fillStyle = "#d9d6cf";
+      g.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+        const v = 226 + rnd() * 10;
+        g.fillStyle = `rgb(${v}, ${v - 1}, ${v - 5})`;
+        g.fillRect(i * 128 + 2, j * 128 + 2, 124, 124);
+      }
+    } else { // carpet or grass: a fine speckle on the flat colour
+      const base = new THREE.Color(flat);
+      g.fillStyle = `#${base.getHexString()}`;
+      g.fillRect(0, 0, 512, 512);
+      for (let k = 0; k < 9000; k++) {
+        const d = (rnd() - 0.5) * 26;
+        g.fillStyle = `rgba(${Math.max(0, base.r * 255 + d) | 0}, ${Math.max(0, base.g * 255 + d) | 0}, ` +
+          `${Math.max(0, base.b * 255 + d) | 0}, 0.8)`;
+        g.fillRect(rnd() * 512, rnd() * 512, 2, 2);
+      }
+    }
+    const map = new THREE.CanvasTexture(c);
+    map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.anisotropy = 4;
+    return new THREE.MeshStandardMaterial({ map, roughness: kind === "tile" ? 0.5 : 0.85 });
+  }
+
   function buildFromMap() { // the floor, the walls (blocked cells next to floor) and the doors, from the map
     const g = hello.map.grid, cells = decodeGrid(g.walkable, g.width, g.height), [ox, oz] = g.origin, c = g.cell;
-    const inside = [], outside = [], walls = [];
+    for (const f of hello.furniture || []) { // the floor under furniture is floor, not wall: drawn as the room's
+      if (!f.solid) continue;
+      const [x0, z0, x1, z1] = f.box;
+      for (let j = Math.max(0, Math.floor((z0 - oz) / c)); j <= Math.min(g.height - 1, Math.floor((z1 - oz) / c)); j++) {
+        for (let i = Math.max(0, Math.floor((x0 - ox) / c)); i <= Math.min(g.width - 1, Math.floor((x1 - ox) / c)); i++) {
+          const cx = ox + (i + 0.5) * c, cz = oz + (j + 0.5) * c;
+          if (cx >= x0 && cx <= x1 && cz >= z0 && cz <= z1) cells[j * g.width + i] = true;
+        }
+      }
+    }
+    const floors = new Map(), walls = [], skirting = []; // floors by kind (floorKind): wood, tile, carpet, outside
     for (let j = 0; j < g.height; j++) {
       let i = 0;
       while (i < g.width) {
@@ -133,27 +195,63 @@ export async function createView3d(container, hello, onProgress = () => {}) {
         while (i < g.width && cells[j * g.width + i]) i++;
         const x = ox + ((start + i) / 2) * c, z = oz + (j + 0.5) * c, room = roomAt(x, z, hello.map.rooms);
         const box = new THREE.BoxGeometry((i - start) * c, 0.02, c).translate(x, floorY - 0.01, z);
-        (room && room.outdoor ? outside : inside).push(box);
+        const kind = room ? floorKind(room) : "wood";
+        if (!floors.has(kind)) floors.set(kind, []);
+        floors.get(kind).push(box);
       }
     }
     for (const [i0, i1, j0, j1] of wallBoxes(wallRuns(cells, g.width, g.height))) {
       walls.push(new THREE.BoxGeometry((i1 - i0) * c, WALL_M, (j1 - j0) * c)
         .translate(ox + ((i0 + i1) / 2) * c, floorY + WALL_M / 2, oz + ((j0 + j1) / 2) * c));
+      skirting.push(new THREE.BoxGeometry((i1 - i0) * c + 0.03, 0.09, (j1 - j0) * c + 0.03) // a skirting board
+        .translate(ox + ((i0 + i1) / 2) * c, floorY + 0.045, oz + ((j0 + j1) / 2) * c));
     }
     const mesh = (parts, color) => {
       const m = new THREE.Mesh(mergeGeometries(parts), new THREE.MeshStandardMaterial({ color, roughness: 0.9 }));
       scene.add(m);
       return m;
     };
-    if (inside.length) plain.push(mesh(inside, FLOOR));
-    if (outside.length) plain.push(mesh(outside, OUTSIDE));
+    for (const [kind, parts] of floors) { // each kind its own surface, textured in metres (worldUV)
+      const m = new THREE.Mesh(worldUV(mergeGeometries(parts), FLOOR_TILE[kind]), floorMaterial(kind));
+      scene.add(m);
+      plain.push(m);
+    }
     if (walls.length) { // with a dressed model the map's walls still stop the camera and the crosshair, unseen
       const w = mesh(walls, WALL);
       solids.push(w);
       plain.push(w);
+      plain.push(mesh(skirting, 0xf6f5f1));
     }
-    const pieces = new Map(); // furniture, one mesh per colour: what each room is, at a glance (drawn, not solid)
-    for (const room of hello.map.rooms) {
+    for (const room of hello.map.rooms) { // a ceiling over each room, facing down (unseen from above), with its
+      if (room.outdoor) continue; // light panels, as Room 334's
+      const shape = new THREE.Shape(room.polygon.map(([x, z]) => new THREE.Vector2(x, z)));
+      const ceil = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(Math.PI / 2).translate(0, floorY + WALL_M, 0),
+        new THREE.MeshStandardMaterial({ color: 0xf7f6f2, roughness: 0.95 }));
+      scene.add(ceil);
+      plain.push(ceil);
+      const xs = room.polygon.map((q) => q[0]), zs = room.polygon.map((q) => q[1]);
+      const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+      const alongX = x1 - x0 >= z1 - z0, big = (x1 - x0) * (z1 - z0) > 12;
+      for (const t of big ? [0.3, 0.7] : [0.5]) {
+        const px = alongX ? x0 + (x1 - x0) * t : (x0 + x1) / 2, pz = alongX ? (z0 + z1) / 2 : z0 + (z1 - z0) * t;
+        if (!roomAt(px, pz, [room])) continue;
+        const panel = new THREE.Mesh(new THREE.PlaneGeometry(alongX ? 1.2 : 0.6, alongX ? 0.6 : 1.2)
+          .rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff8ec,
+          emissiveIntensity: 1.1 }));
+        panel.position.set(px, floorY + WALL_M - 0.01, pz);
+        scene.add(panel);
+        plain.push(panel);
+      }
+    }
+    for (const item of hello.furniture || []) { // the home's furniture (furnishing.py), solid on its map
+      const model = buildFurniture(THREE, item);
+      model.position.set(item.x, floorY, item.z);
+      model.rotation.y = facingYaw(item.facing);
+      scene.add(model);
+      plain.push(model);
+    }
+    const pieces = new Map(); // an older home without furniture.json: boxes that say what each room is (drawn only)
+    for (const room of hello.furniture ? [] : hello.map.rooms) {
       for (const f of furnitureFor(room, hello.map.doorways)) {
         if (!pieces.has(f.color)) pieces.set(f.color, []);
         pieces.get(f.color).push(new THREE.BoxGeometry(f.w, f.h, f.d).translate(f.x, floorY + f.h / 2, f.z));
@@ -171,7 +269,10 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     for (const door of hello.doors) addSlab(door.id);
   }
 
-  function label(text, height = 0.12) { // a name tag above a device or a person, `height` metres tall
+  const dims = []; // the room's measurement labels (showDimensions)
+  const names = []; // the devices' and the hub's name tags (showLabels)
+  function label(text, height = 0.12, light = false) { // a name tag above a device or a person, `height` metres tall;
+    // `light`: a measurement, white with dark text, as Room 334 writes them
     const pad = 12, font = "600 28px system-ui, sans-serif", probe = document.createElement("canvas").getContext("2d");
     probe.font = font;
     const w = Math.ceil(probe.measureText(text).width) + 2 * pad, h = 44;
@@ -179,12 +280,12 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "rgba(18, 22, 31, 0.78)";
+    ctx.fillStyle = light ? "rgba(255, 255, 255, 0.92)" : "rgba(18, 22, 31, 0.78)";
     ctx.beginPath();
     ctx.roundRect(0, 0, w, h, 10);
     ctx.fill();
     ctx.font = font;
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = light ? "#18232b" : "#ffffff";
     ctx.textBaseline = "middle";
     ctx.fillText(text, pad, h / 2 + 1);
     const map = new THREE.CanvasTexture(canvas);
@@ -213,6 +314,8 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     tag(reach, d.name, "device");
     pickables.push(reach);
     const name = label(d.name, 0.07);
+    name.visible = false; // names only on request (showLabels), as Room 334 shows none
+    names.push(name);
     name.position.set(x, y + (d.mount === "ceiling" ? -0.22 : 0.16), z);
     scene.add(model.group, reach, name);
     if (d.switch_at) { // a ceiling light's plain wall switch, by the door: aiming at it uses the light
@@ -246,6 +349,8 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     tag(grip, "hub", "hub");
     pickables.push(grip);
     const name = label("hub · Home Assistant", 0.07);
+    name.visible = false;
+    names.push(name);
     name.position.set(x, floorY + 0.95, z);
     scene.add(hub.group, grip, name);
   }
@@ -382,7 +487,7 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       if (d) dev.model.update(d.state, state.effects[key] || {});
     }
     if (cam.view) { // a room's viewpoint (the tour bar): the camera stands there; the player stays where they are
-      if (actors[state.player]) actors[state.player].group.visible = true;
+      if (actors[state.player]) actors[state.player].group.visible = cam.mode !== "first"; // first person: no body
       camera.position.set(...cam.view.position);
       camera.lookAt(...cam.view.target);
       return;
@@ -422,6 +527,18 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       renderer.domElement.style.height = "100%";
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+    },
+    showLabels(on) { for (const n of names) n.visible = Boolean(on); },
+    showDimensions(roomId) { // Room 334's measurements, written in the room: its width and depth (null: none)
+      for (const s of dims.splice(0)) scene.remove(s);
+      const room = roomId && hello.map.rooms.find((r) => r.id === roomId);
+      if (!room) return;
+      const xs = room.polygon.map((p) => p[0]), zs = room.polygon.map((p) => p[1]);
+      const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+      const s = label(`${(x1 - x0).toFixed(2)} × ${(z1 - z0).toFixed(2)} m · ceiling ${WALL_M.toFixed(2)} m`, 0.09, true);
+      s.position.set((x0 + x1) / 2, floorY + 1.95, (z0 + z1) / 2); // one label in the room's middle, under the ceiling
+      scene.add(s);
+      dims.push(s);
     },
     pick(nx = 0, ny = 0) { // the device, door or hub under the crosshair (or at a point of the view, -1..1 each
       // way), unless a wall is nearer

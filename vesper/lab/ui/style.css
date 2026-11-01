@@ -30,7 +30,7 @@ body > header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing:
 .scenario[hidden] { display: none; }
 
 main { display: grid; grid-template-columns: 1fr 360px; gap: 10px; padding: 10px; min-height: 0; }
-aside { display: grid; grid-template-rows: auto 130px 1fr 220px; gap: 10px; min-height: 0; }
+aside { display: grid; grid-template-rows: auto auto 110px 1fr 200px; gap: 10px; min-height: 0; }
 .inspect { padding: 10px 12px 8px; }
 .inspect select { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
   background: var(--panel); }
@@ -158,34 +158,41 @@ body.watching .pad { display: none; }
 .gaps ul { margin: 4px 0 0; padding-left: 16px; }
 
 /* The device dialog (I), Room 334's: what it is, now, how it reaches the hub, Home Assistant, how far to trust it. */
-.dialog { position: absolute; inset: 0; z-index: 10; background: rgba(24, 35, 43, 0.28); display: grid;
-  place-items: center; padding: 18px; }
+.dialog { position: absolute; inset: 0; z-index: 10; background: rgba(24, 35, 43, 0.45); display: grid;
+  place-items: center; padding: 18px; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 .dialog[hidden] { display: none; }
-.dlg { background: var(--panel); border-radius: 12px; width: min(560px, 100%); max-height: 100%; overflow: auto;
-  box-shadow: 0 10px 40px rgba(24, 35, 43, 0.28); }
-.dlg-head { position: relative; padding: 18px 56px 14px 22px; border-bottom: 1px solid var(--line); }
-.dlg-head h2 { font-size: 20px; font-weight: 600; margin: 4px 0 2px; letter-spacing: -0.01em; }
-.dlg-head .kind { color: var(--muted); }
+.dlg { background: #fbfbf8; border-radius: 16px; width: min(540px, 100%); max-height: 100%; overflow: auto;
+  box-shadow: 0 18px 60px rgba(24, 35, 43, 0.35); }
+.dlg-head { position: relative; padding: 26px 60px 16px 28px; border-bottom: 1px solid var(--line); }
+.dlg-head h2 { font-size: 24px; font-weight: 600; margin: 6px 0 6px; letter-spacing: -0.015em; }
+.dlg-head .kind { color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; }
+.dlg-head .kind .proto { display: none; }
+.dlg-head .muted { font-size: 13px; }
 .dlg-head .close { position: absolute; right: 14px; top: 14px; width: 32px; height: 32px; border-radius: 8px;
   border: 1px solid var(--line); background: var(--panel); font-size: 18px; line-height: 1; cursor: pointer; }
 .proto { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 12px; font-weight: 600; color: #fff;
   background: var(--muted); margin-right: 4px; }
 .proto.zigbee { background: var(--zigbee); } .proto.matter { background: var(--matter); }
 .proto.tasmota, .proto.wifi { background: var(--wifi); }
-.dlg-body { padding: 4px 22px 18px; }
-.dlg-body section { padding: 12px 0; border-bottom: 1px solid var(--line); }
-.dlg-body section:last-child { border-bottom: 0; }
-.dlg-body h3 { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
-.dlg-body p { margin: 4px 0; line-height: 1.5; max-width: 68ch; }
-.dlg-body .lede { padding: 10px 0 2px; color: var(--ink); }
+.dlg-body { padding: 8px 28px 24px; }
+.dlg-body section { padding: 14px 0 4px; }
+.dlg-body h3 { font-size: 11px; font-weight: 700; margin: 0 0 8px; color: var(--accent); letter-spacing: 0.14em;
+  text-transform: uppercase; }
+.dlg-body p { margin: 4px 0; line-height: 1.6; max-width: 68ch; font-size: 14.5px; }
+.dlg-body .lede { padding: 14px 0 4px; color: var(--ink); font-size: 15.5px; line-height: 1.6; }
+.dlg-body details.more { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 13px; }
+.dlg-body details.more summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; }
+.dlg-body details.more p { font-size: 13px; }
+.dlg-body .ref { color: var(--accent); font-size: 14px; }
 .dlg-body .sub { color: var(--muted); margin-top: 10px; }
 .dlg-body .mono, .dlg-body code { font: 12px ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
 .kv { border-collapse: collapse; width: 100%; }
 .kv td { padding: 3px 10px 3px 0; vertical-align: top; overflow-wrap: anywhere; border-bottom: 1px dotted var(--line); }
 .kv td:first-child { color: var(--muted); white-space: nowrap; width: 40%; }
 .kv td:last-child { font-variant-numeric: tabular-nums; }
-.act { margin-top: 10px; padding: 7px 14px; border-radius: 8px; border: 0; background: var(--accent); color: #fff;
-  font-weight: 600; cursor: pointer; }
+.act { margin-top: 12px; padding: 10px 18px; border-radius: 9px; border: 0; background: var(--accent); color: #fff;
+  font-weight: 600; font-size: 14.5px; cursor: pointer; }
 .act:hover:not(:disabled) { filter: brightness(1.08); }
 .act:disabled { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); cursor: not-allowed; }
 .links, .autos, .levels { list-style: none; margin: 0; padding: 0; }
@@ -222,3 +229,18 @@ body.watching .pad { display: none; }
 .hub-login { margin: 0 0 6px; font-size: 12px; color: var(--muted); user-select: all; }
 a.act { display: inline-block; color: #fff; text-decoration: none; }
 a.act:hover { color: #fff; }
+
+/* Room 334's quiet walkthrough: no minimap (the Floor plan chip, or M), a small dot for the crosshair */
+body.mode-3d #map:not(.full) { display: none; }
+.crosshair { width: 6px !important; height: 6px !important; border-radius: 50%; background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(24, 35, 43, 0.45); }
+.crosshair::before, .crosshair::after { display: none !important; }
+.crosshair.on { background: var(--accent); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9); }
+/* the Room panel: the room's measurements, as Room 334's layout panel */
+.room-card { padding: 10px 12px 2px; }
+.room-card b { font-size: 15px; }
+.room-card .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 10px 0 6px; }
+.room-card .n { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.room-card small { color: var(--muted); }
+.room-card .muted { font-size: 12px; }
+.dims { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 0 12px 10px; }

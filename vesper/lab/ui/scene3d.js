@@ -248,3 +248,12 @@ export function furnitureFor(room, doorways) {
   }
   return placed.map((p) => ({ kind: p.kind, h: p.h, color: p.color, ...toWorld(p.u, p.v, p.w, p.d) }));
 }
+
+// The floor a home has in each room: tiles where there is water, carpet in bedrooms, wood elsewhere indoors.
+export function floorKind(room) {
+  if (room.outdoor) return "outside";
+  const what = `${room.id} ${room.label || ""}`.toLowerCase();
+  if (/kitchen|bath|toilet|laundry|wc|utility|mud/.test(what)) return "tile";
+  if (/bed/.test(what)) return "carpet";
+  return "wood";
+}
