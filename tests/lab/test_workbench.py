@@ -148,10 +148,16 @@ def test_a_draft_copies_a_saved_scenario(bench):
     assert copy["scenario"]["setup"]["automations"][0]["id"] == "lock_on_close"
 
 
-def test_adding_a_list_where_one_item_goes_names_the_shape_with_an_example(bench):
+def test_items_given_as_text_or_as_a_list_are_added_together_or_not_at_all(bench):
     d = bench.scenario_draft("homes/house", "t")["draft"]
-    with pytest.raises(WorkbenchError, match="add takes one item.*'product'"):
-        bench.scenario_edit(d, "setup.devices", "add", [{"product": "x"}] * 50)
+    bench.scenario_edit(d, "actors", "add", "[{'name': 'intruder', 'model': 'male_1', 'start': {'room': 'porch'}}]")
+    assert [a["name"] for a in bench.drafts[d]["spec"]["actors"]] == ["intruder"]
+    with pytest.raises(WorkbenchError):  # the second is a name already taken: neither is added
+        bench.scenario_edit(d, "actors", "add", [{"name": "burglar", "start": {"room": "porch"}},
+                                                 {"name": "intruder", "start": {"room": "porch"}}])
+    assert [a["name"] for a in bench.drafts[d]["spec"]["actors"]] == ["intruder"]
+    with pytest.raises(WorkbenchError, match="add takes an item.*'product'"):
+        bench.scenario_edit(d, "setup.devices", "add", "just words")
 
 
 def test_an_error_never_echoes_a_long_value_back(bench):

@@ -209,6 +209,13 @@ class Workbench:
         action: add (to a list), replace (an item at `index`, or a whole section), remove (an item at `index`)."""
         spec = copy.deepcopy(self._draft(draft)["spec"])
         setup = spec.setdefault("setup", {})
+        if isinstance(value, str) and section != "title":  # a mapping or list written as text (JSON or YAML)
+            try:
+                parsed = yaml.safe_load(value)
+            except yaml.YAMLError:
+                parsed = None
+            if isinstance(parsed, dict | list):
+                value = parsed
         if section in ("setup.devices", "devices"):
             target, key = setup, "devices"
         elif section == "automations":
@@ -222,10 +229,11 @@ class Workbench:
         if action == "add":
             if key not in LISTS and key != "gaps":
                 raise WorkbenchError(f"{section} is not a list: replace it")
-            if not isinstance(value, dict):
-                raise WorkbenchError(f"{section}: add takes one item, a mapping (call add once per item); for "
-                                     f"example {example}")
-            target[key] = list(current or []) + [value]
+            items = value if isinstance(value, list) else [value]  # several items: added together, or none
+            if not items or not all(isinstance(v, dict) for v in items):
+                raise WorkbenchError(f"{section}: add takes an item, a mapping (or a list of them); for example "
+                                     f"{example}")
+            target[key] = list(current or []) + items
         elif action == "replace":
             if index is None:
                 target[key] = value
