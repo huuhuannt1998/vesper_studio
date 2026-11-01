@@ -161,10 +161,23 @@ def _launch_play(home: str, port: int, catalog_dir: Path):
     """`vesper lab play HOME` as a child process on `port` (its page opened by the compose page)."""
     import subprocess
     import sys
+    import tempfile
     code = "import sys; from vesper.cli import main; sys.exit(main(sys.argv[1:]))"
-    return subprocess.Popen([sys.executable, "-c", code, "lab", "play", home, "--catalog", str(catalog_dir),
-                             "--port", str(port), "--no-browser"], stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL)
+    log = tempfile.NamedTemporaryFile(prefix="vesper-play-", suffix=".log", delete=False)  # noqa: SIM115
+    child = subprocess.Popen([sys.executable, "-c", code, "lab", "play", home, "--catalog", str(catalog_dir),
+                              "--port", str(port), "--no-browser"], stdout=log, stderr=subprocess.STDOUT)
+    log.close()
+    child.log = Path(log.name)  # what it printed, so a play that stops can say why
+    return child
+
+
+def _last_words(log) -> str | None:
+    """The last line a stopped child printed, or None."""
+    try:
+        lines = [ln.strip() for ln in Path(log).read_text(errors="replace").splitlines() if ln.strip()]
+    except (OSError, TypeError):
+        return None
+    return lines[-1][:400] if lines else None
 
 
 def _listening(port: int) -> bool:
@@ -232,8 +245,10 @@ class ComposeServer:
                                    "compose with another --play-port")
             child = self._play = self._launch(str(home), self.play_port)
             if not self._wait(self.play_port, alive=lambda: child.poll() is None):
+                why = _last_words(getattr(child, "log", None))
                 self.stop_play()
-                raise ComposeError(f"vesper lab play stopped before it opened port {self.play_port}; run "
+                raise ComposeError(f"vesper lab play stopped before it opened port {self.play_port}: {why}" if why
+                                   else f"vesper lab play stopped before it opened port {self.play_port}; run "
                                    f"`vesper lab play {home}` to see why")
             return {"url": f"http://127.0.0.1:{self.play_port}/"}
 
@@ -257,6 +272,8 @@ class ComposeServer:
             except Exception:  # noqa: BLE001 - killed, then reaped
                 child.kill()
                 child.wait(timeout=10)
+        if child is not None and isinstance(getattr(child, "log", None), Path):
+            child.log.unlink(missing_ok=True)
 
     def start(self) -> None:
         import threading

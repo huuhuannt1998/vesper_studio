@@ -297,3 +297,28 @@ def test_a_request_that_fails_leaves_a_running_play_alone(server):
     call(s, "/api/play", {})
     assert call(s, "/api/generate", {"format": "vesper-request/1", "program": ["kitchenette"]})[0] == 400
     assert launch.stopped == []
+
+
+def test_a_play_that_stops_says_why_in_its_own_words(tmp_path, monkeypatch):
+    from vesper.lab.compose import ComposeServer
+    monkeypatch.setattr("vesper.lab.compose.build_report", lambda c, r: {"l2": {"validated_products": []}})
+    log = tmp_path / "play.log"
+    log.write_text("starting\nFAILED: the catalog in catalog/vds is stale: rebuild it with `vesper catalog build`\n\n")
+
+    class Dead:
+        def __init__(self):
+            self.log = log
+
+        def poll(self):
+            return 1
+
+        def terminate(self):
+            pass
+
+        def wait(self, timeout=None):
+            return 1
+    s = ComposeServer(catalog(), tmp_path / "vds", tmp_path / "results", tmp_path / "out", port=0,
+                      launch=lambda home, p: Dead(), play_port=0)
+    compose_home({"format": "vesper-request/1", "rooms": 2, "devices": []}, catalog(), tmp_path / "out")
+    with pytest.raises(ComposeError, match="the catalog in catalog/vds is stale"):
+        s.play()
