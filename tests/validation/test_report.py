@@ -197,3 +197,12 @@ def test_l4_counts_a_product_only_when_every_transition_agreed_and_tasmota_l2_is
     assert sorted(rep["l4"]) == ["matter:1:1", "tasmota:a:b"]
     assert rep["l2"]["tasmota"]["validated_products"] == ["tasmota:a:b"]
     assert not rep["checks"]["tasmota"]["passed"]
+
+
+def test_an_anchor_that_compared_nothing_earns_no_l4(tmp_path):
+    catalog, _ = write_catalog(tmp_path)
+    r = tmp_path / "results"
+    write_result(r, "anchors-20261031T200000Z.json", {"anchors": [
+        {"product": "matter:1:1", "transitions_agree": "0/0"},
+        {"product": "matter:1:2", "transitions_agree": " 7 / 7 "}]})
+    assert sorted(build_report(catalog, r)["l4"]) == ["matter:1:2"]

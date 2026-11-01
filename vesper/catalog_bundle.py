@@ -11,9 +11,11 @@ import gzip
 import hashlib
 import io
 import json
+import os
 import shutil
 import tarfile
 import tempfile
+import uuid
 from pathlib import Path
 
 FILES = ("zigbee.json", "matter.json", "zwave.json", "tasmota.json", "coverage.json", "coverage.csv",
@@ -36,7 +38,10 @@ def bundle(catalog: Path, out: Path) -> tuple[Path, str]:
     if "build_report.json" not in present:
         raise BundleError(f"{catalog} is not a built catalog (no build_report.json)")
     report = json.loads((catalog / "build_report.json").read_text())
-    manifest = {"format": "vesper-catalog/1", "code_sha256": report.get("code_sha256"),
+    if report.get("release") is not True:
+        raise BundleError(f"{catalog} is not a release build: a bundle redistributes the catalog, so build it with "
+                          "`vesper catalog build --release` (records whose sources do not allow it are left out)")
+    manifest = {"format": "vesper-catalog/1", "release": True, "code_sha256": report.get("code_sha256"),
                 "inputs": report.get("inputs"), "files": {f: sha256((catalog / f).read_bytes()) for f in present}}
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -67,28 +72,46 @@ def _read(source: str) -> bytes:
 
 
 def fetch(source: str, expected_sha256: str, out: Path) -> dict:
-    """Install a bundle as the catalog at `out`, after every check; returns its manifest."""
+    """Install a bundle as the catalog at `out`, after every check; returns its manifest. The old catalog is replaced
+    only once the new one is complete, and a folder that is not a catalog is never touched."""
+    from vesper.catalog.fingerprint import code_fingerprint
+    out = Path(out)
+    if out.exists() and any(out.iterdir()) and not ((out / "build_report.json").is_file()
+                                                    or (out / MANIFEST).is_file()):
+        raise BundleError(f"{out} is not a catalog folder (no build_report.json): choose an empty or a catalog folder")
     data = _read(source)
     got = sha256(data)
     if got != expected_sha256.lower():
         raise BundleError(f"the bundle's SHA-256 is {got}, not {expected_sha256}: refusing it")
-    with tempfile.TemporaryDirectory(prefix="vesper-catalog-") as tmp:
-        tmp = Path(tmp)
-        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
-            for m in tar.getmembers():
-                name = m.name.removeprefix("vds/")
-                if not m.isfile() or m.name != f"vds/{name}" or "/" in name or name not in (*FILES, MANIFEST):
-                    raise BundleError(f"unexpected member {m.name!r}: refusing the bundle")
-                (tmp / name).write_bytes(tar.extractfile(m).read())
-        manifest = json.loads((tmp / MANIFEST).read_text())
-        for name, digest in manifest["files"].items():
-            if sha256((tmp / name).read_bytes()) != digest:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{out.name}.new-", dir=out.parent))
+    try:
+        try:
+            with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
+                for m in tar.getmembers():
+                    name = m.name.removeprefix("vds/")
+                    if not m.isfile() or m.name != f"vds/{name}" or "/" in name or name not in (*FILES, MANIFEST):
+                        raise BundleError(f"unexpected member {m.name!r}: refusing the bundle")
+                    (staging / name).write_bytes(tar.extractfile(m).read())
+            manifest = json.loads((staging / MANIFEST).read_text())
+            files = manifest["files"]
+            if not isinstance(files, dict) or not set(files) <= set(FILES):
+                raise BundleError("the bundle's manifest names files a catalog does not have")
+        except (tarfile.TarError, OSError, ValueError, KeyError, TypeError) as e:
+            raise BundleError(f"the bundle is not readable as a catalog: {e}") from e
+        for name, digest in files.items():
+            if not (staging / name).is_file() or sha256((staging / name).read_bytes()) != digest:
                 raise BundleError(f"{name} does not match the bundle's manifest: refusing it")
-        out = Path(out)
+        if manifest.get("code_sha256") != code_fingerprint():
+            raise BundleError("the bundle was built by other catalog code than this VESPER's: install the VESPER "
+                              "version of its release, or build the catalog here (vesper catalog build)")
+        old = None
         if out.exists():
-            shutil.rmtree(out)
-        out.mkdir(parents=True)
-        for name in manifest["files"]:
-            shutil.copy2(tmp / name, out / name)
-        shutil.copy2(tmp / MANIFEST, out / MANIFEST)
-    return manifest
+            old = out.with_name(f".{out.name}.old-{uuid.uuid4().hex[:6]}")
+            os.replace(out, old)
+        os.replace(staging, out)  # the new catalog appears whole, in one rename
+        if old is not None:
+            shutil.rmtree(old, ignore_errors=True)
+        return manifest
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)

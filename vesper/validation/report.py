@@ -143,8 +143,9 @@ def _anchors(results_dir: Path) -> dict:
             continue
         for a in data.get("anchors") or []:
             got, _, total = str(a.get("transitions_agree", "")).partition("/")
-            n = re.match(r"\d+", total or "")
-            if a.get("product") and n and got.strip().isdigit() and int(got) == int(n.group()):
+            n = re.match(r"\d+", total.strip())
+            if a.get("product") and n and got.strip().isdigit() and int(n.group()) > 0 \
+                    and int(got) == int(n.group()):  # agreement over at least one compared transition
                 out[a["product"]] = {**a, "file": f.name}
             elif a.get("product"):
                 out.pop(a["product"], None)
