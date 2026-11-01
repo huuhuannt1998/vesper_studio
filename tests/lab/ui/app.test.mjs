@@ -9,6 +9,11 @@ import { test } from "node:test";
 const HELLO = process.env.VESPER_HELLO ? JSON.parse(readFileSync(process.env.VESPER_HELLO, "utf8")) : null;
 const skip = HELLO ? false : "needs VESPER_HELLO (run by tests/lab/test_ui.py)";
 let loads = 0;
+const CARD_OF = (url) => ({ // the server's /device/<name>.json, for the dialog
+  name: decodeURIComponent(url.split("/").pop().replace(/\.json$/, "")), vendor: "IKEA", model: "LED1545G12",
+  category: "light", protocol: "zigbee", description: "", where: { room: "bedroom", door: null, mount: "table" },
+  model_basis: { reached: { L0: true, L1: true }, assumed: [], reasons: {}, sources: [] }, connections: [],
+  interfaces: { entities: {}, automations: [] }, state: { state: "OFF" }, reference: null });
 
 // The 3D view in these tests is a stub (globalThis.view3dStub): the page's own view3d.js needs three.js and WebGL.
 // The page imports it as "./view3d.js"; a resolve hook hands it the stub instead, so app.js runs unchanged.
@@ -76,6 +81,7 @@ async function page({ webgl = false } = {}) {
   globalThis.addEventListener = (type, fn) => (windowListeners[type] ||= []).push(fn);
   globalThis.devicePixelRatio = 1;
   globalThis.location = { host: "test" };
+  globalThis.fetch = async (url) => ({ ok: true, json: async () => ({ ...CARD_OF(url) }) });
   let socket;
   globalThis.WebSocket = class { constructor() { this.readyState = 1; socket = this; } send(m) { sent.push(JSON.parse(m)); } };
   globalThis.WebSocket.OPEN = 1;
@@ -274,4 +280,20 @@ test("in 3D, a refused pointer lock turns into drag look", { skip }, async () =>
   p.el("view3d").fire("mousedown", { clientX: 100, clientY: 300, button: 0 });
   p.docFire("mousemove", { clientX: 200, clientY: 300 });
   assert.ok(p.v.camera().yaw !== yaw);
+});
+
+test("in 3D, I opens the dialog of the device the crosshair is on; its button acts, × closes it", { skip }, async () => {
+  const p = await page({ webgl: true });
+  const near = p.v.state.reach.find((r) => p.v.state.devices[r.target]).target;
+  p.aimAt({ target: near, kind: "device" });
+  p.el("card").hidden = true; // as the page starts it
+  p.key("keydown", { key: "i", code: "KeyI" });
+  for (let k = 0; k < 10; k += 1) await new Promise((r) => setImmediate(r));
+  assert.equal(p.el("card").hidden, false);
+  assert.match(p.el("card-box").textContent, /IKEA LED1545G12/); // the stub keeps markup's text
+  assert.equal(p.v.card.name, near);
+  p.el("card").fire("click", { target: { dataset: { action: near } } });
+  assert.deepEqual(p.sentOf("interact").map((m) => m.target), [near]);
+  p.el("card").fire("click", { target: { dataset: { close: "" } } });
+  assert.equal(p.el("card").hidden, true);
 });

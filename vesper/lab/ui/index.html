@@ -29,7 +29,9 @@
       <ol id="feed" class="feed" aria-live="polite" aria-label="Events"></ol>
       <div id="toast" class="toast" role="status"></div>
       <div id="tip" class="tip" hidden></div>
-      <div id="card" class="card" hidden role="dialog" aria-label="The device you inspect (I)"></div>
+      <div id="card" class="dialog" hidden role="dialog" aria-modal="true" aria-label="The device's details (I)">
+        <div id="card-box" class="dlg"></div>
+      </div>
     </section>
     <aside>
       <section id="residents-panel" class="panel" tabindex="0">

@@ -10,6 +10,7 @@ import {
   centerView, colorFor, decodeGrid, feedLine, fitView, formatClock, freeSpot, glyphFor, gridBounds, headingName, hintFor,
   handPoint, hitTest, moveFor, promptFor, recordLine, stepInterval, tipPosition, walkKey,
 } from "./mapview.js";
+import { dialogHtml } from "./devicedialog.js";
 import { PITCH_MAX, aimCamera, compassMarks, moveRelative } from "./scene3d.js";
 
 const LOCKED = "#e74c3c", UNLOCKED = "#3fb37f";
@@ -388,12 +389,12 @@ function inspected() { // the device under the crosshair, else under the pointer
   return inReach.length ? inReach[selected % inReach.length].target : null;
 }
 
-async function inspect(close) {
-  const box = $("card"), target = close ? null : inspected();
-  if (close || !target || (vesper.card && vesper.card.name === target && !box.hidden)) {
+async function inspect(close, which = null) { // the device dialog (devicedialog.js): I, or a device in the list
+  const box = $("card"), target = close ? null : which || inspected();
+  if (close || !target || (!which && vesper.card && vesper.card.name === target && !box.hidden)) {
     box.hidden = true;
     vesper.card = null;
-    if (!close && !target) toast("Look at a device, or come within reach of one, to inspect it");
+    if (!close && !target) toast("Look at a device, or come within reach of one, to see its details");
     return;
   }
   try {
@@ -401,42 +402,26 @@ async function inspect(close) {
     if (!r.ok) throw new Error(`${r.status}`);
     vesper.card = await r.json();
   } catch (err) {
-    toast(`could not read ${target}'s card (${err.message})`, true);
+    toast(`could not read ${target}'s details (${err.message})`, true);
     return;
   }
-  box.innerHTML = cardHtml(vesper.card);
+  $("card-box").innerHTML = dialogHtml(vesper.card);
   box.hidden = false;
+  if (locked && document.exitPointerLock) document.exitPointerLock(); // the pointer is needed for the dialog
 }
 
-function esc(text) {
-  return String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-}
+$("card").addEventListener("click", (e) => { // the dialog's own buttons, and a click beside it, which closes it
+  const t = e.target, data = (t && t.dataset) || {};
+  if (data.action) { send({ type: "interact", target: data.action }); setTimeout(() => refreshCard(), 400); return; }
+  if ("close" in data || t === $("card")) inspect(true);
+});
 
-function cardHtml(c) { // Room 334's sections, from VESPER's records
-  const rows = (pairs) => `<table>${pairs.map(([k, v]) => `<tr><td class="muted">${esc(k)}</td><td>${v}</td></tr>`)
-    .join("")}</table>`;
-  const levels = Object.entries(c.model_basis.reached).map(([level, ok]) =>
-    `<span class="${ok ? "level-yes" : "level-no"}" title="${esc(c.model_basis.reasons[level] || "")}">${esc(level)}${
-      ok ? " ✓" : ""}</span>`).join(" ");
-  const sources = c.model_basis.sources.map((s) => esc(`${s.source} ${s.version || ""} (${s.license || "?"})`))
-    .join("<br>");
-  const links = c.connections.map((l) => [l.link, esc(`${l.medium}${l.rssi_dbm == null ? "" :
-    `, ${Math.round(l.rssi_dbm)} dBm, ${l.walls} wall${l.walls === 1 ? "" : "s"}`}, ${l.latency_ms} ms${
-    l.up ? "" : ", down"}`)]);
-  const entities = Object.entries(c.interfaces.entities).map(([f, e]) => [f, `<code>${esc(e)}</code>`]);
-  const where = c.where.door ? `on the ${esc(c.where.door)} door` : `${esc(c.where.room)}, ${esc(c.where.mount)}`;
-  return `<h2>${esc(c.name)}</h2><div class="muted">${esc(c.vendor)} ${esc(c.model)} · ${esc(c.category)} · ${
-    esc(c.protocol)} · ${where}</div>${c.description ? `<p>${esc(c.description)}</p>` : ""}
-    <h3>Model basis</h3>${rows([["fidelity", levels], ["sources", sources || "—"],
-      ["assumed", esc(c.model_basis.assumed.join(", ") || "nothing")]])}
-    <h3>Connections</h3>${links.length ? rows(links) : '<div class="muted">not on the home\'s network yet</div>'}
-    <h3>Interfaces &amp; role</h3>${entities.length ? rows(entities) : '<div class="muted">no Home Assistant ' +
-      "entities yet</div>"}${c.interfaces.automations.length ? `<div>automations: ${esc(
-      c.interfaces.automations.join(", "))}</div>` : ""}
-    <h3>State</h3>${rows(Object.entries(c.state).map(([k, v]) => [k, esc(JSON.stringify(v))]))}
-    ${c.reference ? `<h3>Reference</h3><a href="${esc(c.reference)}" target="_blank" rel="noopener">${
-      esc(c.reference)}</a>` : ""}
-    <div class="muted" style="margin-top:10px">I or Esc closes</div>`;
+async function refreshCard() { // the dialog shows the state the action left
+  if (!vesper.card || $("card").hidden) return;
+  try {
+    const r = await fetch(`/device/${encodeURIComponent(vesper.card.name)}.json`);
+    if (r.ok) { vesper.card = await r.json(); $("card-box").innerHTML = dialogHtml(vesper.card); }
+  } catch (err) { /* the old state stays shown */ }
 }
 
 function step() {
