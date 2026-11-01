@@ -232,3 +232,13 @@ function describe(r) {
   }
   return null; // a person's inputs are shown by what they cause
 }
+
+// Where a label of width `w` centred at x goes so it covers none of `rects` ({x, z, w}, centred, baseline z): down a
+// line at a time, at most `tries` lines.
+export function freeSpot(rects, x, z, w, h = 13, tries = 3) {
+  const hits = (zz) => rects.some((r) => x - w / 2 < r.x + r.w / 2 && r.x - r.w / 2 < x + w / 2 &&
+                                         zz - h < r.z && r.z - h < zz);
+  let zz = z;
+  for (let i = 0; i < tries && hits(zz); i++) zz += h;
+  return zz;
+}

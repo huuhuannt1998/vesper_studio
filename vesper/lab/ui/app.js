@@ -7,7 +7,7 @@
 // happened and the residents list who is doing what. There is no click-to-walk. `window.vesper` exposes the page's
 // state to the visual checks (`vesper lab look`).
 import {
-  centerView, colorFor, decodeGrid, feedLine, fitView, formatClock, glyphFor, gridBounds, headingName, hintFor,
+  centerView, colorFor, decodeGrid, feedLine, fitView, formatClock, freeSpot, glyphFor, gridBounds, headingName, hintFor,
   handPoint, hitTest, moveFor, promptFor, recordLine, stepInterval, tipPosition, walkKey,
 } from "./mapview.js";
 import { PITCH_MAX, aimCamera, compassMarks, moveRelative } from "./scene3d.js";
@@ -610,6 +610,7 @@ function draw() {
   const chosen = state.reach.length ? state.reach[selected % state.reach.length].target : null;
   for (const d of Object.values(state.devices)) if (d.effect && d.effect.on) glow(d);
   for (const door of Object.values(state.doors)) drawDoor(door, reachable.has(door.id), chosen === door.id);
+  placedLabels.length = 0;
   for (const d of Object.values(state.devices)) drawDevice(d, reachable.has(d.name), chosen === d.name);
   for (const a of Object.values(state.actors)) drawActor(a, a.actor === state.player);
   $("clock").textContent = formatClock(state.hello.clock.start_time,
@@ -702,7 +703,12 @@ function drawDevice(d, inReach, isChosen) {
   if (inReach) ring(x, z, r + 10, isChosen);
 }
 
+const placedLabels = []; // this frame's device labels: a label that would cover one moves down a line
+
 function label(text, x, z) { // dark text on a light halo, readable over doors and walls too
+  const w = ctx.measureText(text).width + 4;
+  z = freeSpot(placedLabels, x, z, w);
+  placedLabels.push({ x, z, w });
   ctx.lineWidth = 3;
   ctx.lineJoin = "round";
   ctx.strokeStyle = "rgba(217, 211, 199, 0.9)";

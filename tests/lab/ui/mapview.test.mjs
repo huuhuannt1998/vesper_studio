@@ -264,3 +264,12 @@ test("a hand works a ceiling light at its wall switch, anything else where it is
   assert.deepEqual(handPoint({ x: 5, z: 1, switch_at: [3.3, 1.0] }), [3.3, 1.0]);
   assert.deepEqual(handPoint({ x: 5, z: 1, switch_at: null }), [5, 1]);
 });
+
+test("a device label that would cover another moves down a line, at most three", async () => {
+  const { freeSpot } = await import("../../../vesper/lab/ui/mapview.js");
+  assert.equal(freeSpot([], 100, 50, 60), 50);
+  assert.equal(freeSpot([{ x: 100, z: 50, w: 60 }], 110, 50, 60), 63);
+  assert.equal(freeSpot([{ x: 100, z: 50, w: 60 }], 300, 50, 60), 50); // far enough aside: stays
+  const full = [0, 13, 26, 39].map((d) => ({ x: 100, z: 50 + d, w: 60 }));
+  assert.equal(freeSpot(full, 100, 50, 60), 89);
+});
