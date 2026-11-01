@@ -206,3 +206,19 @@ body.watching .pad { display: none; }
   aside { grid-template-rows: auto 200px 200px; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+/* the hub (Room 334's gateway): its button in Inspect, and its dialog's device table */
+.hub-button { width: 100%; margin-bottom: 8px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--accent);
+  background: var(--panel); color: var(--accent); font-weight: 600; cursor: pointer; text-align: left; }
+.hub-button:hover { background: var(--accent); color: #fff; }
+#view3d.pointing { cursor: pointer; }
+.hubtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.hubtable th { text-align: left; color: var(--muted); font-weight: 500; padding: 4px 8px 4px 0; }
+.hubtable td { border-top: 1px solid var(--line); padding: 6px 8px 6px 0; vertical-align: top; }
+.hubtable tr.down td:first-child { box-shadow: inset 3px 0 0 var(--alert, #c23b2e); }
+.hubtable .muted { font-size: 12px; }
+.linkish { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.linkish:hover { text-decoration: underline; }
+.hub-login { margin: 0 0 6px; font-size: 12px; color: var(--muted); user-select: all; }
+a.act { display: inline-block; color: #fff; text-decoration: none; }
+a.act:hover { color: #fff; }

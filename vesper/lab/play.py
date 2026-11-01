@@ -53,10 +53,11 @@ class PlayError(RuntimeError):
 
 
 def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoids=None, scenario=None,
-          kept=()) -> dict:
+          kept=(), hub_login: dict | None = None) -> dict:
     home, world, m = session.home, session.world, session.home.map
     return {
         "type": "hello", "scene": home.scene, "player": PLAYER, "hub": hub_url, "reach_m": INTERACT_M,
+        "hub_login": hub_login,  # VESPER's own lab login to its Home Assistant (loopback only), for the hub panel
         "scenario": scenario,  # {title, condition, t0} while a scenario plays: the page watches, the player is scripted
         "start": list(home.avatar["start"]),  # where the player enters: the view's place before anyone is there
         "world3d": None if world3d is None else {
@@ -76,7 +77,41 @@ def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoid
         "doors": [_door(session, door) for door in world.doors],
         "actors": [_pose(world.pose(a)) for a in world.actors()],
         "residents": [_resident(session, r) for r in session.residents.values()],
-        "reach": reach(session), "records": list(recent), "scenario_records": list(kept)}
+        "reach": reach(session), "records": list(recent), "scenario_records": list(kept),
+        "network": _network(home.network)}
+
+
+def _network(net) -> dict | None:
+    """Where the router, the hub and the Zigbee coordinator stand: the page draws the hub to click, as Room 334's
+    gateway."""
+    if net is None:
+        return None
+    return {k: {"room": p.room, "x": p.position[0], "z": p.position[1]}
+            for k, p in (("router", net.router), ("hub", net.hub), ("coordinator", net.coordinator))}
+
+
+def hub_card(session, hub_url: str | None, login: dict | None = None) -> dict:
+    """The hub's card: Home Assistant (its URL, or None when VESPER's own engine runs the automations), and every
+    device with how it reaches the hub, whether that path is up now, its entities and its state."""
+    from vesper.lab.automations import entity_ids
+    home, net = session.home, session.home.network
+    ids = entity_ids(home)
+    devices = []
+    for d in sorted(home.devices, key=lambda d: d.name):
+        path = net.path(d.name) if net is not None else []
+        up = bool(path) and all(session.links.is_up(name) if session.links is not None else True for name in path)
+        identity = d.record["identity"]
+        devices.append({"name": d.name, "vendor": identity.get("vendor"), "model": identity.get("model"),
+                        "category": identity.get("category"), "protocol": next(iter(d.record.get("binding") or {}),
+                                                                                None),
+                        "room": d.room, "path": path, "up": up,
+                        "unlinked": (net.unlinked.get(d.name) if net is not None else None),
+                        "entities": len(ids.get(d.name, {})), "state": dict(session.rules.twin(d.name).state)})
+    room = net.hub.room if net is not None else None
+    label = next((r.label for r in home.map.rooms if r.id == room), room)
+    return {"hub_url": hub_url, "login": login, "room": room, "room_label": label, "devices": devices,
+            "counts": {"devices": len(devices), "up": sum(d["up"] for d in devices),
+                       "unlinked": sum(bool(d["unlinked"]) for d in devices)}}
 
 
 def _box(grid, cells) -> list[float]:
@@ -185,8 +220,9 @@ def _number(msg: dict, key: str) -> float:
 class PlayServer:
     def __init__(self, session, *, host: str = "127.0.0.1", port: int = 18080, hub_url: str | None = None,
                  ui_dir: Path = UI_DIR, world3d=None, humanoids=None, scenario: dict | None = None,
-                 on_page_ready=None):
+                 on_page_ready=None, hub_login: dict | None = None):
         self.session, self.host, self.hub_url, self.ui_dir = session, host, hub_url, Path(ui_dir)
+        self.hub_login = hub_login
         self.scenario = scenario  # {title, condition, t0}: a scenario plays the player, the page only watches
         self._on_page_ready = on_page_ready  # run once, on the clock, when the first page says it is drawn
         self.world3d = world3d  # vesper.lab.world3d.World3d, or None: the page draws the home from its map
@@ -269,6 +305,9 @@ class PlayServer:
             if f is None:
                 return _response(404, "text/plain; charset=utf-8", b"this home has no model of its own")
             return _response(200, CONTENT_TYPES[".glb"], f.read_bytes())
+        if path == "/hub.json":
+            card = hub_card(self.session, self.hub_url, self.hub_login)
+            return _response(200, "application/json", json.dumps(card).encode())
         if path.startswith("/device/") and path.endswith(".json"):
             try:
                 card = device_card(self.session, path[len("/device/"):-len(".json")])
@@ -314,7 +353,7 @@ class PlayServer:
             try:
                 snapshot = await self._on_clock(
                     lambda: hello(self.session, self.hub_url, self._recent, self.world3d, self.humanoids,
-                                  self.scenario, self._kept))
+                                  self.scenario, self._kept, self.hub_login))
             except Exception as e:  # noqa: BLE001 - kept for the look, then the page is closed
                 self._fail(f"hello: {type(e).__name__}: {e}")
                 return

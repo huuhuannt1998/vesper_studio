@@ -90,3 +90,15 @@ test("a model faces into its room: its front (+z) turns to the device's facing",
   assert.ok(Math.abs(east.x - 1) < 1e-9 && Math.abs(east.z) < 1e-9); // 0 is +x
   assert.ok(Math.abs(south.z - 1) < 1e-9 && Math.abs(south.x) < 1e-9); // 90 is +z
 });
+
+import { buildHub } from "../../../vesper/lab/ui/devices3d.js";
+
+test("the hub is a small box on a stand at table height, its LED green while every device is linked, amber not", () => {
+  const m = buildHub(THREE);
+  const box = new THREE.Box3().setFromObject(part(m, "body"));
+  assert.ok(box.min.y > 0.6 && box.max.y < 1.0, `the hub stands at table height: ${box.min.y}..${box.max.y}`);
+  m.update({ up: 4, devices: 4 });
+  assert.equal(part(m, "led").material.emissive.getHex(), 0x2e8a57);
+  m.update({ up: 3, devices: 4 });
+  assert.equal(part(m, "led").material.emissive.getHex(), 0xe0a030);
+});

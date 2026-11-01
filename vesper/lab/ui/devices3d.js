@@ -163,3 +163,34 @@ export function buildDevice(T, d) {
   group.traverse((o) => { if (o.isMesh) o.castShadow = false; });
   return { group, light, update: (state, effect) => update(state || {}, effect || {}) };
 }
+
+// The hub (Home Assistant's box, with the Zigbee coordinator beside it, as on a shelf in a real home): a small white
+// box with a status LED on a slim stand at table height, so it can be seen and clicked from across the room. Its LED
+// is green while every device reaches it, amber when one does not.
+export function buildHub(T) {
+  const group = new T.Group();
+  group.name = "hub";
+  const mat = (color, extra = {}) => new T.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0, ...extra });
+  const add = (geometry, material, name, [x, y, z]) => {
+    const mesh = new T.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    mesh.name = name;
+    group.add(mesh);
+    return mesh;
+  };
+  add(new T.CylinderGeometry(0.16, 0.18, 0.02, 24), mat(GREY), "foot", [0, 0.01, 0]);
+  add(new T.CylinderGeometry(0.025, 0.025, 0.66, 12), mat(GREY), "stand", [0, 0.35, 0]);
+  add(new T.BoxGeometry(0.34, 0.03, 0.26), mat(0xd9d3c7), "shelf", [0, 0.695, 0]);
+  add(new T.BoxGeometry(0.12, 0.05, 0.12), mat(WHITE), "body", [-0.06, 0.735, 0]);
+  add(new T.BoxGeometry(0.06, 0.018, 0.09), mat(DARK), "coordinator", [0.1, 0.719, 0]);
+  const led = add(new T.SphereGeometry(0.008, 10, 8), mat(GREEN, { emissive: GREEN, emissiveIntensity: 2 }), "led",
+    [-0.06, 0.745, 0.061]);
+  return {
+    group,
+    update({ up = 0, devices = 0 } = {}) {
+      const color = up >= devices ? GREEN : AMBER;
+      led.material.color.setHex(color);
+      led.material.emissive.setHex(color);
+    },
+  };
+}

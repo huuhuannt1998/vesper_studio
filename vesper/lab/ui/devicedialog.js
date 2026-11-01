@@ -93,3 +93,43 @@ export function dialogHtml(c, ctx = {}) {
     </section>
   </div>`;
 }
+
+// The hub's dialog, as Room 334's gateway: Home Assistant (a link to its dashboard, or why it is not running), and
+// every device of the home with how it reaches the hub, whether that path is up, and its state. A row opens the
+// device's own dialog (data-device).
+const NOW = ["state", "contact", "occupancy", "presence", "water_leak", "smoke", "temperature", "local_temperature",
+  "humidity", "brightness", "position", "power", "energy", "battery"];
+export function hubHtml(h) {
+  const linkText = (d) => d.unlinked ? esc(d.unlinked) : d.path.length
+    ? `${esc(d.path.map((p) => p.split("/")[0]).join(" → "))}${d.up ? "" : " · down"}` : "not on the network";
+  const brief = (s) => NOW.filter((k) => k in (s || {})).slice(0, 2) // what a person checks a device for
+    .map((k) => `${esc(k.replaceAll("_", " "))} ${esc(value(s[k]))}`).join(" · ") || "—";
+  const rows = (h.devices || []).map((d) => `<tr class="${d.up ? "up" : "down"}">
+      <td><button class="linkish" data-device="${esc(d.name)}">${esc(d.name)}</button>
+        <div class="muted">${esc(d.vendor)} ${esc(d.model)}</div></td>
+      <td>${esc(String(d.category || "device").replaceAll("_", " "))}<div class="muted">${esc(d.room)}</div></td>
+      <td><span class="proto ${esc(d.protocol)}">${esc(d.protocol || "?")}</span><div class="muted">${linkText(d)}</div></td>
+      <td>${brief(d.state)}</td></tr>`);
+  const c = h.counts || { devices: 0, up: 0 };
+  const ha = h.hub_url
+    ? `<p><a class="act" href="${esc(safeUrl(h.hub_url) || "#")}" target="_blank" rel="noopener">Open Home Assistant</a></p>
+       ${h.login ? `<p>Log in as <b>${esc(h.login.user)}</b>, password <b>${esc(h.login.password)}</b> (VESPER's own lab
+       login, on this computer only).</p>` : ""}
+       <p class="muted">Its dashboard is also in the Home Assistant panel beside the view. Every device below is one of
+       its devices, with the entities listed in the device's own dialog.</p>`
+    : `<p class="muted">Home Assistant is not running in this session: VESPER's own engine runs the automations.
+       Play the home with Home Assistant (<code>vesper lab play --hub</code>, or the lobby once Home Assistant is set
+       up) to see its dashboard here.</p>`;
+  return `<header class="dlg-head">
+    <div class="kind">hub</div>
+    <h2>Home Assistant and its devices</h2>
+    <div class="muted">${h.room ? `in the ${esc(String(h.room_label || h.room).replaceAll("_", " "))}, with the Zigbee coordinator` : ""}</div>
+    <button class="close" data-close aria-label="Close">×</button>
+  </header>
+  <div class="dlg-body">
+    <section><h3>Home Assistant</h3>${ha}</section>
+    <section><h3>Devices <span class="muted">${c.devices} devices · ${c.up} linked</span></h3>
+      <table class="hubtable"><thead><tr><th>Device</th><th>Kind, room</th><th>Link</th><th>Now</th></tr></thead>
+      <tbody>${rows.join("")}</tbody></table></section>
+  </div>`;
+}

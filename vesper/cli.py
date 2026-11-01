@@ -1052,8 +1052,9 @@ def _lab_play(args, home, scenario=None) -> int:
             return 1
         world3d, drawn = _world3d(home, args.hssd)
         humanoids, people = _humanoids(home, args.humanoids)
+        login = dict(zip(("user", "password"), lab.login, strict=True)) if lab else None
         server = PlayServer(session, port=args.port, hub_url=lab.ha.url if lab else None, world3d=world3d,
-                            humanoids=humanoids, scenario=banner, on_page_ready=begin)
+                            humanoids=humanoids, scenario=banner, on_page_ready=begin, hub_login=login)
         stack.callback(server.stop)
         try:
             server.start()

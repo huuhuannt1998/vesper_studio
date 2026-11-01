@@ -13,7 +13,7 @@ import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { decodeGrid, gridBounds } from "./mapview.js";
-import { buildDevice, facingYaw } from "./devices3d.js";
+import { buildDevice, buildHub, facingYaw } from "./devices3d.js";
 import {
   BACK_M, PIVOT_M, RAISE_M, cameraPose, devicePoint, doorMount, frameAt, furnitureFor, hinge, pullIn, roomAt, walkPhase,
   wallBoxes, wallMount, wallRuns,
@@ -232,6 +232,24 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     devices[d.name] = { model, point: [x, y, z] };
   }
 
+  let hub = null; // Home Assistant's box and the coordinator, where the network puts them: clicked, its card opens
+  if (hello.network && hello.network.hub) {
+    let { x, z } = hello.network.hub, facing = 0;
+    const room = hello.map.rooms.find((r) => r.id === hello.network.hub.room);
+    if (room) ({ x, z, facing } = wallMount(x, z, room, 0.22)); // drawn on a shelf by the nearest wall, out of
+    // everyone's way (the network's radio model keeps its own position)
+    hub = buildHub(THREE);
+    hub.group.position.set(x, floorY, z);
+    hub.group.rotation.y = facingYaw(facing);
+    const grip = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
+    grip.position.set(x, floorY + 0.72, z);
+    tag(grip, "hub", "hub");
+    pickables.push(grip);
+    const name = label("hub · Home Assistant", 0.07);
+    name.position.set(x, floorY + 0.95, z);
+    scene.add(hub.group, grip, name);
+  }
+
   function plainFigure(color) { // facing +x: body, head, and a nose that shows its heading
     const skin = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
     const figure = new THREE.Group();
@@ -405,8 +423,9 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     },
-    pick() { // the device or door under the crosshair, unless a wall is nearer
-      ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+    pick(nx = 0, ny = 0) { // the device, door or hub under the crosshair (or at a point of the view, -1..1 each
+      // way), unless a wall is nearer
+      ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
       for (const hit of ray.intersectObjects([...pickables, ...solids], true)) {
         const t = targetOf(hit.object);
         if (t) return t;
@@ -415,6 +434,7 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       return null;
     },
     pointOf(target) { // where the crosshair should be to use `target`
+      if (target === "hub" && hub) return [hub.group.position.x, floorY + 0.75, hub.group.position.z];
       if (devices[target]) return [...devices[target].point];
       const dw = hello.map.doorways.find((d) => d.id === target);
       return dw ? [dw.center[0], floorY + 1.1, dw.center[1]] : null;

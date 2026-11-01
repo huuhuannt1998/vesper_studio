@@ -10,7 +10,7 @@ import {
   centerView, colorFor, decodeGrid, feedLine, fitView, formatClock, freeSpot, glyphFor, gridBounds, headingName, hintFor,
   handPoint, hitTest, moveFor, promptFor, recordLine, stepInterval, tipPosition, walkKey,
 } from "./mapview.js";
-import { dialogHtml } from "./devicedialog.js";
+import { dialogHtml, hubHtml } from "./devicedialog.js";
 import { deviceGroups, roomName, roomView, tourRooms } from "./nav.js";
 import { panelHtml } from "./scenariopanel.js";
 import { PITCH_MAX, aimCamera, compassMarks, moveRelative } from "./scene3d.js";
@@ -21,11 +21,11 @@ const LOG_MAX = 300;
 const FEED_MAX = 5, FEED_S = 8; // the event feed keeps this many lines, each this many seconds
 const MINI_PX = 220, MINI_SCALE = 14; // the minimap: its size, and pixels a metre
 const LOOK_DEG = 0.15; // degrees the view turns per pixel of mouse movement
-const KEYS_MAP = "WASD or arrows: walk · Shift: run · click a device or a door, or E or F: use it · Q: next thing in " +
-  "reach · I: inspect · Tab: next panel";
-const KEYS_3D = "Click (or drag) the view to look around · WASD or the arrows: walk · Shift: run · click or F: use " +
-  "what the crosshair is on · I: its details · a room's chip: its view · V: first or third person · M: floor plan · " +
-  "Q: next thing in reach · Tab: next panel";
+const KEYS_MAP = "WASD or arrows: walk · Shift: run · click a device: its details · click a door: open or shut it · " +
+  "E or F: use the thing in reach · Q: next thing in reach · Tab: next panel";
+const KEYS_3D = "Drag (or click empty space) to look around · WASD or the arrows: walk · Shift: run · click a device " +
+  "or the hub: its details · click a door: open or shut it · F: use what the crosshair is on · a room's chip: its " +
+  "view · V: first or third person · M: floor plan · Q: next thing in reach";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("map");
@@ -114,6 +114,12 @@ function onHello(h) {
     const frame = document.createElement("iframe");
     frame.src = h.hub;
     frame.title = "Home Assistant";
+    if (h.hub_login) { // VESPER's own lab login to its Home Assistant, which asks for it once
+      const login = document.createElement("p");
+      login.className = "hub-login";
+      login.textContent = `Log in as ${h.hub_login.user}, password ${h.hub_login.password}`;
+      $("hub").append(login);
+    }
     $("hub").append(frame);
   } else {
     $("hub").innerHTML = "<p>No hub in this session. With Home Assistant set up, <code>vesper lab play</code> shows its dashboard here.</p>";
@@ -196,6 +202,7 @@ function useCrosshair() {
   if (!c) return;
   const d = state.devices[c.target];
   if (d && !d.operable) { toast(promptAt(c.target), true); return; } // a sensor: nothing for a hand to do
+  if (c.target === "hub") { inspect(false, "hub"); return; } // nothing to switch on the hub: F shows it
   const target = c.target;
   send({ type: "interact", target });
 }
@@ -425,12 +432,15 @@ window.addEventListener("blur", () => held.clear()); // a key released in anothe
 
 function inspected() { // the device under the crosshair, else under the pointer, else the one in reach
   const devices = state.devices;
-  if (mode === "3d" && vesper.crosshair && devices[vesper.crosshair.target]) return vesper.crosshair.target;
+  const c = vesper.crosshair;
+  if (mode === "3d" && c && (devices[c.target] || c.target === "hub")) return c.target;
   if (hover && devices[hover.target]) return hover.target;
   const inReach = state.reach.filter((r) => devices[r.target]);
   return inReach.length ? inReach[selected % inReach.length].target : null;
 }
 
+const cardUrl = (name) => (name === "hub" ? "/hub.json" : `/device/${encodeURIComponent(name)}.json`);
+const cardHtml = (card) => (card.name === "hub" ? hubHtml(card) : dialogHtml(card, cardCtx(card)));
 let cardRequest = 0, cardLoading = false, cardReturn = null; // the latest request wins; Esc cancels a pending one
 
 // What the dialog's action can do now: a scenario plays the player, and a hand reaches only what is in reach.
@@ -459,9 +469,10 @@ async function inspect(close, which = null) { // the device dialog (devicedialog
   cardLoading = true;
   let card;
   try {
-    const r = await fetch(`/device/${encodeURIComponent(target)}.json`);
+    const r = await fetch(cardUrl(target));
     if (!r.ok) throw new Error(`${r.status}`);
     card = await r.json();
+    if (target === "hub") card.name = "hub";
   } catch (err) {
     if (request === cardRequest) { cardLoading = false; toast(`could not read ${target}'s details (${err.message})`, true); }
     return;
@@ -469,7 +480,7 @@ async function inspect(close, which = null) { // the device dialog (devicedialog
   if (request !== cardRequest) return; // closed, or another device asked for, while this one loaded
   cardLoading = false;
   vesper.card = card;
-  $("card-box").innerHTML = dialogHtml(card, cardCtx(card));
+  $("card-box").innerHTML = cardHtml(card);
   if (box.hidden) cardReturn = document.activeElement || null;
   box.hidden = false;
   if (locked && document.exitPointerLock) document.exitPointerLock(); // the pointer is needed for the dialog
@@ -489,18 +500,20 @@ $("card").addEventListener("keydown", (e) => { // Tab stays inside the open dial
 $("card").addEventListener("click", (e) => { // the dialog's own buttons, and a click beside it, which closes it
   const t = e.target, data = (t && t.dataset) || {};
   if (data.action) { send({ type: "interact", target: data.action }); setTimeout(() => refreshCard(), 400); return; }
+  if (data.device) { inspect(false, data.device); return; } // a row of the hub's list: that device's own dialog
   if ("close" in data || t === $("card")) inspect(true);
 });
 
 async function refreshCard() { // the dialog shows the state the action left
   if (!vesper.card || $("card").hidden) return;
   try {
-    const r = await fetch(`/device/${encodeURIComponent(vesper.card.name)}.json`);
+    const r = await fetch(cardUrl(vesper.card.name));
     if (!r.ok) return;
     const card = await r.json();
+    if (vesper.card && vesper.card.name === "hub") card.name = "hub";
     if (!vesper.card || vesper.card.name !== card.name || $("card").hidden) return; // closed or changed meanwhile
     vesper.card = card;
-    $("card-box").innerHTML = dialogHtml(card, cardCtx(card));
+    $("card-box").innerHTML = cardHtml(card);
   } catch (err) { /* the old state stays shown */ }
 }
 
@@ -538,6 +551,11 @@ function buildNavigation(h) {
     list.append(group);
   }
 }
+
+$("open-hub").addEventListener("click", () => { // the hub's dialog: Home Assistant and every device
+  if (mode === "3d") aim("hub");
+  inspect(false, "hub");
+});
 
 $("device-list").addEventListener("change", () => { // turn to the device and open its dialog
   const name = $("device-list").value;
@@ -578,9 +596,8 @@ setInterval(() => {
 canvas.addEventListener("click", (e) => {
   if (!view || !state) return;
   const r = canvas.getBoundingClientRect(), target = hitTest(e.clientX - r.left, e.clientY - r.top, hitItems());
-  if (target === null) { toast("WASD walks; click a device or a door to use it"); return; }
-  const d = state.devices[target];
-  if (d && !d.operable) { toast(promptAt(target), true); return; } // a sensor: nothing for a hand to do
+  if (target === null) { toast("WASD walks; click a device for its details, a door to open or shut it"); return; }
+  if (state.devices[target]) { inspect(false, target); return; } // as in 3D: a device shows itself; E or F uses it
   send({ type: "interact", target });
 });
 
@@ -602,19 +619,30 @@ let dragLook = false, drag = null, dragged = false;
 function noPointerLock() {
   if (dragLook) return;
   dragLook = true;
-  toast("Drag to look around; click to use what the crosshair is on");
+  toast("Drag to look around; click a device for its details; F uses what the crosshair is on");
 }
-view3dBox.addEventListener("click", () => {
+view3dBox.addEventListener("click", (e) => {
   if (mode !== "3d" || !view3d) return;
   if (dragged) { dragged = false; return; } // the click that ends a drag: it looked
-  if (!locked && !dragLook) {
+  const t = locked ? vesper.crosshair : pickAt(e); // captured: the crosshair; else what is under the pointer
+  if (t) { clickOn(t); return; }
+  if (!locked && !dragLook) { // a click on nothing in particular captures the pointer for mouse look
     if (!view3dBox.requestPointerLock) { noPointerLock(); return; }
     const asked = view3dBox.requestPointerLock();
     if (asked && asked.catch) asked.catch(noPointerLock);
-    return;
   }
-  useCrosshair();
 });
+
+function pickAt(e) { // the device, door or hub under the pointer in the 3D view
+  const r = view3dBox.getBoundingClientRect(), x = e && e.clientX, y = e && e.clientY;
+  if (typeof x !== "number" || !r.width) return view3d.pick();
+  return view3d.pick(((x - r.left) / r.width) * 2 - 1, -(((y - r.top) / r.height) * 2 - 1));
+}
+
+function clickOn(t) { // as in Room 334: a click shows a device (or the hub); a door is opened or shut, as by hand
+  if (t.kind === "door") { send({ type: "interact", target: t.target }); return; }
+  inspect(false, t.target);
+}
 view3dBox.addEventListener("mousedown", (e) => {
   if (mode === "3d" && !locked && (dragLook || !view3dBox.requestPointerLock) && (e.button || 0) === 0) {
     dragLook = true;
@@ -627,13 +655,24 @@ document.addEventListener?.("pointerlockerror", noPointerLock);
 document.addEventListener?.("pointerlockchange", () => { locked = document.pointerLockElement === view3dBox; });
 document.addEventListener?.("mousemove", (e) => {
   if (locked) { look(e.movementX || 0, e.movementY || 0); return; }
-  if (!drag) return;
+  if (!drag) { hoverAt(e); return; }
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!dragged && Math.abs(dx) + Math.abs(dy) < 4) return; // a hand's tremble is still a click
   dragged = true;
   drag = { x: e.clientX, y: e.clientY };
   look(dx, dy);
 });
+
+let lastHover = 0;
+function hoverAt(e) { // the pointer over something to click shows a hand, as a link does
+  if (mode !== "3d" || !view3d || !e || typeof e.clientX !== "number") return;
+  const r = view3dBox.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.left + r.width || e.clientY < r.top || e.clientY > r.top + r.height) return;
+  const now = performance.now();
+  if (now - lastHover < 80) return;
+  lastHover = now;
+  view3dBox.classList.toggle("pointing", Boolean(pickAt(e)));
+}
 
 function updatePrompt() { // the prompt by the pointer, again when the player moves under a still pointer
   const tip = $("tip");
@@ -668,7 +707,9 @@ function hitItems() { // the doors and devices on the screen, for clicks and the
 }
 
 function promptAt(target) {
+  if (target === "hub") return "the hub: click for Home Assistant and every device";
   const me = state.actors[state.player], d = state.devices[target], door = state.doors[target];
+  if (!d && !door) return "";
   const [x, z] = d ? handPoint(d) : [door.x, door.z]; // a ceiling light: its reach is from its wall switch
   const switchedBy = Object.values(state.devices).find((o) => (o.controls || []).includes(target));
   return promptFor({

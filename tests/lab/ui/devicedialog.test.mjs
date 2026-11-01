@@ -78,3 +78,34 @@ test("a device not on the network and with no entities says so plainly", () => {
   assert.match(html, /Not on the home's network/);
   assert.match(html, /Home Assistant has no entity for it/);
 });
+
+import { hubHtml } from "../../../vesper/lab/ui/devicedialog.js";
+
+const HUB = { hub_url: "http://127.0.0.1:18123", room: "living_room", counts: { devices: 2, up: 1, unlinked: 1 },
+  devices: [
+    { name: "front_lock", vendor: "Kwikset", model: "66492", category: "lock", protocol: "zigbee", room: "hall",
+      path: ["zigbee/front_lock", "coordinator", "hub"], up: true, unlinked: null, entities: 5, state: { state: "LOCK" } },
+    { name: "yale", vendor: "Yale", model: "<b>x</b>", category: "lock", protocol: "matter", room: "hall", path: [],
+      up: false, unlinked: "a Matter device: on the network with plan W7a3", entities: 2, state: {} }] };
+
+test("the hub's dialog opens Home Assistant and lists every device, each opening its own dialog", () => {
+  const html = hubHtml(HUB);
+  assert.match(html, /<a [^>]*href="http:\/\/127\.0\.0\.1:18123"[^>]*>Open Home Assistant<\/a>/);
+  assert.match(html, /2 devices · 1 linked/);
+  assert.match(html, /data-device="front_lock"/);
+  assert.match(html, /data-device="yale"/);
+  assert.match(html, /zigbee → coordinator → hub/);
+  assert.match(html, /on the network with plan W7a3/);
+  assert.doesNotMatch(html, /<b>x<\/b>/);
+});
+
+test("without Home Assistant, the hub's dialog says VESPER runs the automations and how to start it", () => {
+  const html = hubHtml({ ...HUB, hub_url: null });
+  assert.doesNotMatch(html, /Open Home Assistant/);
+  assert.match(html, /VESPER's own engine runs the automations/);
+});
+
+test("the hub's dialog gives Home Assistant's lab login, so the dashboard can be opened", () => {
+  const html = hubHtml({ ...HUB, login: { user: "vesper", password: "lab-pass" } });
+  assert.match(html, /Log in as <b>vesper<\/b>, password <b>lab-pass<\/b>/);
+});

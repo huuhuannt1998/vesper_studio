@@ -15,6 +15,11 @@ const CARD_OF = (url) => ({ // the server's /device/<name>.json, for the dialog
   model_basis: { reached: { L0: true, L1: true }, assumed: [], reasons: {}, sources: [] }, connections: [],
   interfaces: { entities: {}, automations: [] }, state: { state: "OFF" }, reference: null });
 
+const HUB_CARD = { hub_url: null, room: "living_room", counts: { devices: 1, up: 1, unlinked: 0 },
+  devices: [{ name: "bedroom_lamp", vendor: "IKEA", model: "LED1545G12", category: "light", protocol: "zigbee",
+    room: "bedroom", path: ["zigbee/bedroom_lamp", "coordinator", "hub"], up: true, unlinked: null, entities: 3,
+    state: { state: "OFF" } }] };
+
 // The 3D view in these tests is a stub (globalThis.view3dStub): the page's own view3d.js needs three.js and WebGL.
 // The page imports it as "./view3d.js"; a resolve hook hands it the stub instead, so app.js runs unchanged.
 const STUB = "data:text/javascript,export const createView3d = async () => globalThis.view3dStub;";
@@ -81,7 +86,8 @@ async function page({ webgl = false, scenario = null } = {}) {
   globalThis.addEventListener = (type, fn) => (windowListeners[type] ||= []).push(fn);
   globalThis.devicePixelRatio = 1;
   globalThis.location = { host: "test" };
-  globalThis.fetch = async (url) => ({ ok: true, json: async () => ({ ...CARD_OF(url) }) });
+  globalThis.fetch = async (url) => ({ ok: true, json: async () => (String(url).endsWith("/hub.json") ? HUB_CARD
+    : { ...CARD_OF(url) }) });
   let socket;
   globalThis.WebSocket = class { constructor() { this.readyState = 1; socket = this; } send(m) { sent.push(JSON.parse(m)); } };
   globalThis.WebSocket.OPEN = 1;
@@ -202,8 +208,7 @@ test("in 3D, F uses what the crosshair is on, as a click does, even out of reach
     assert.ok(p.v.state.reach.length && !p.v.state.reach.some((r) => r.target === "hall-porch"));
     p.aimAt({ target: "hall-porch", kind: "door" }); // the front door, across the house: the server says too far
     p.key("keydown", { key: "f", code: "KeyF" });
-    p.el("view3d").fire("click"); // the first click captures the pointer
-    p.el("view3d").fire("click"); // the second uses what the crosshair is on
+    p.el("view3d").fire("click"); // a click on a door opens or shuts it, as F does
     assert.deepEqual(p.sentOf("interact").map((m) => m.target), ["hall-porch", "hall-porch"]);
   });
 
@@ -222,9 +227,10 @@ test("in 3D, E is F when the crosshair is on something, and the thing in reach w
 test("in 3D, M opens the full map and lets the pointer go, so a click lands on the map, not the hidden crosshair",
   { skip }, async () => {
     const p = await page({ webgl: true });
-    p.aimAt({ target: "hall-porch", kind: "door" });
+    p.aimAt(null); // a click on nothing in particular captures the pointer
     p.el("view3d").fire("click");
     assert.equal(p.locked(), true);
+    p.aimAt({ target: "hall-porch", kind: "door" });
     p.key("keydown", { key: "m", code: "KeyM" });
     assert.equal(p.locked(), false);
     assert.equal(p.sentOf("interact").length, 0);
@@ -394,4 +400,40 @@ test("walking out of a room's view puts the header back on where the player is",
   p.el("tour").children.find((c) => /Kitchen/.test(c.textContent)).fire("click");
   p.key("keydown", { key: "w", code: "KeyW" });
   assert.doesNotMatch(p.el("where").textContent, /viewing/);
+});
+
+test("in 3D, a click on a device opens its dialog, as in Room 334, and uses nothing; F still uses it", { skip },
+  async () => {
+    const p = await page({ webgl: true });
+    const near = p.v.state.reach.find((r) => p.v.state.devices[r.target]).target;
+    p.el("card").hidden = true;
+    p.aimAt({ target: near, kind: "device" });
+    p.el("view3d").fire("click", { clientX: 450, clientY: 300 });
+    await settle();
+    assert.equal(p.el("card").hidden, false);
+    assert.equal(p.v.card.name, near);
+    assert.equal(p.sentOf("interact").length, 0);
+    assert.equal(p.locked(), false); // a click on a device opens it; it does not capture the pointer
+  });
+
+test("in 3D, the hub is clicked like a device: its dialog lists the home's devices, and a row opens one", { skip },
+  async () => {
+    const p = await page({ webgl: true });
+    p.el("card").hidden = true;
+    p.aimAt({ target: "hub", kind: "hub" });
+    p.el("view3d").fire("click", { clientX: 450, clientY: 300 });
+    await settle();
+    assert.equal(p.el("card").hidden, false);
+    assert.match(p.el("card-box").textContent, /Home Assistant and its devices/);
+    p.el("card").fire("click", { target: { dataset: { device: "bedroom_lamp" } } });
+    await settle();
+    assert.equal(p.v.card.name, "bedroom_lamp");
+  });
+
+test("the Inspect panel's Hub button opens the hub's dialog", { skip }, async () => {
+  const p = await page({ webgl: true });
+  p.el("card").hidden = true;
+  p.el("open-hub").fire("click");
+  await settle();
+  assert.match(p.el("card-box").textContent, /Home Assistant and its devices/);
 });
