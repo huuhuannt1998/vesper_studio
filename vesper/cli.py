@@ -1964,6 +1964,8 @@ def _setup_claude_desktop(args) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         backup = path.with_name(path.name + ".vesper-backup")
+        if backup.exists():  # the first backup is the config before VESPER: never overwritten
+            backup = path.with_name(path.name + f".vesper-backup-{time.strftime('%Y%m%dT%H%M%S')}")
         shutil.copy2(path, backup)
         print(f"backup: {backup}")
     tmp = path.with_name(path.name + ".tmp")

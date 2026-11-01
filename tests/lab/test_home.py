@@ -241,3 +241,11 @@ def test_a_device_key_the_home_does_not_know_is_refused_not_ignored(tmp_path):
                         'name: hall_motion, at: {room: hall, mount: ceiling, height: 2}}')
     with pytest.raises(HomeError, match="'height' is not one of"):
         load_lab_home(write_home(tmp_path, text), catalog())
+
+
+def test_a_home_cannot_send_vesper_to_another_hub_s_ports_or_off_this_machine(tmp_path):
+    for broker, why in (("{port: 1883}", "1883"), ("{port: 8123}", "8123"), ("{host: 10.0.0.2}", "loopback")):
+        text = HOME.replace("version: 2\n", f"version: 2\n    broker: {broker}\n", 1)
+        assert text != HOME
+        with pytest.raises(HomeError, match=why):
+            load_lab_home(write_home(tmp_path, text), catalog())

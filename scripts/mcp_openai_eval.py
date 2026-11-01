@@ -72,7 +72,11 @@ async def main(a) -> int:
                             errors += 1
                     except (json.JSONDecodeError, Exception) as e:  # noqa: BLE001 - the model reads the error
                         text, errors = f"error: {e}", errors + 1
-                    reported = reported or (name == "run_report" and '"state": "done"' in text)
+                    if name == "run_report":
+                        try:
+                            reported = reported or json.loads(text).get("state") == "done"
+                        except ValueError:
+                            pass
                     write("tool", name=name, arguments=call["function"].get("arguments"), result=text[:4000])
                     messages.append({"role": "tool", "tool_call_id": call.get("id", name),
                                      "content": text[:RESULT_CHARS]})

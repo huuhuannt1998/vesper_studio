@@ -130,6 +130,12 @@ def load_lab_home(path: Path, catalog: dict[str, dict], patch=None) -> LabHome:
     except MapError as e:
         raise HomeError(f"avatar.start.room: {e}") from e
     broker = _mapping(spec.get("broker") or {}, "broker")
+    port, host = broker.get("port", 18830), broker.get("host", "127.0.0.1")
+    if port in RESERVED_PORTS:
+        raise HomeError(f"broker.port: {port} belongs to another hub or broker on this machine; VESPER uses its own "
+                        "(default 18830)")
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        raise HomeError(f"broker.host: {host!r}: VESPER's broker runs on this machine's loopback only")
     try:
         network = parse_network(spec.get("network"), world_map, devices)
     except NetworkError as e:
@@ -226,6 +232,7 @@ def _check_wifi_names(devices: list[PlacedDevice]) -> None:
             owner[entity_id] = d.name
 
 
+RESERVED_PORTS = (1883, 8123)  # MQTT's and Home Assistant's defaults: another hub's on this machine, never VESPER's
 DEVICE_KEYS = ("product", "name", "at", "controls", "state")
 AT_KEYS = ("door", "room", "xy", "mount", "facing", "wall_switch")
 

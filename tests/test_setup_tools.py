@@ -116,3 +116,24 @@ def test_a_default_folder_that_holds_something_else_is_not_vesper_s(tmp_path, mo
     args = Args()
     _configured_defaults(args)
     assert args.root == str(tmp_path / "data" / ".vesper")
+
+
+def test_concurrent_config_writes_keep_every_key():
+    import threading
+    ts = [threading.Thread(target=st.save_config, kwargs={f"k{i}": i}) for i in range(10)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    assert {f"k{i}" for i in range(10)} <= set(st.load_config())
+
+
+def test_a_scene_vesper_cannot_use_is_not_reported_done(tmp_path):
+    hssd = tmp_path / "hssd"
+    for f in ("scenes-articulated/9.scene_instance.json", "semantics/scenes/9.semantic_config.json"):
+        (hssd / f).parent.mkdir(parents=True, exist_ok=True)
+        (hssd / f).write_text("{}")
+    (hssd / "metadata").mkdir()
+    (hssd / "metadata" / "fpmodels-with-decomposed.csv").write_text("id\n")
+    with pytest.raises(st.SetupError, match="no ground-floor rooms"):
+        st.setup_scenes(hssd, ["9"], which=lambda t: "/bin/hf", run=never, say=lambda _: None)

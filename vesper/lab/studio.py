@@ -91,6 +91,9 @@ class StudioServer(ComposeServer):
             job = self.setups.get(what)
             if job and job["state"] == "running":
                 return {k: v for k, v in job.items() if k != "child"}
+            if what in ("ha", "matter") and any(j["state"] == "running" and j["what"] in ("ha", "matter")
+                                                for j in self.setups.values()):
+                raise ComposeError("Home Assistant's and Matter's setups share a folder: one at a time")
             log = self.stack_root / f"setup-{what}.log"
             log.parent.mkdir(parents=True, exist_ok=True)
             job = self.setups[what] = {"what": what, "state": "running", "log": str(log), "exit": None}
@@ -116,13 +119,17 @@ class StudioServer(ComposeServer):
     def _setup_child(self, what: str, log: Path):
         args = ["setup", what] + (["--root", str(self.stack_root)] if what in ("ha", "matter") else [])
         code = "import sys; from vesper.cli import main; sys.exit(main(sys.argv[1:]))"
-        return subprocess.Popen([sys.executable, "-c", code, *args], stdout=open(log, "w"),  # noqa: SIM115
-                                stderr=subprocess.STDOUT)
+        with open(log, "w") as out:  # the child keeps its own copy of the handle
+            return subprocess.Popen([sys.executable, "-c", code, *args], stdout=out, stderr=subprocess.STDOUT)
 
     def stop(self) -> None:
         for job in self.setups.values():
             if job["child"].poll() is None:
                 job["child"].terminate()
+                try:
+                    job["child"].wait(timeout=10)
+                except Exception:  # noqa: BLE001 - killed, then reaped
+                    job["child"].kill()
         super().stop()
 
     # -- routes -----------------------------------------------------------------------------------------------

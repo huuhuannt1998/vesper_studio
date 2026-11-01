@@ -17,6 +17,8 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,13 +49,25 @@ def load_config() -> dict:
         return {}
 
 
+_CONFIG_LOCK = threading.Lock()
+
+
 def save_config(**values) -> Path:
+    """Merge `values` into the configuration: under a lock (this process) and a lock file (other processes), through
+    a temporary file of its own, so two writers never lose each other's keys."""
     path = config_path()
-    data = {**load_config(), **{k: str(v) for k, v in values.items() if v is not None}}
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2) + "\n")
-    os.replace(tmp, path)
+    with _CONFIG_LOCK, open(path.with_suffix(".lock"), "a") as lock:
+        try:
+            import fcntl
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        except ImportError:  # Windows: the in-process lock only
+            pass
+        data = {**load_config(), **{k: str(v) for k, v in values.items() if v is not None}}
+        fd, tmp = tempfile.mkstemp(prefix=".config-", suffix=".tmp", dir=path.parent)
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps(data, indent=2) + "\n")
+        os.replace(tmp, path)
     return path
 
 
@@ -197,7 +211,10 @@ def scene_files(hssd: Path, scene: str) -> list[str]:
     if missing:
         return missing
     found = next((s for s in list_scenes(hssd) if s.id == scene), None)
-    return [] if found is None else [m for m in found.missing if not m.endswith("(unreadable)")]
+    if found is None:
+        raise SetupError(f"{scene}: its region annotations name no ground-floor rooms, so VESPER cannot make a home "
+                         "of it (vesper lab scenes lists the scenes it can)")
+    return [m for m in found.missing if not m.endswith("(unreadable)")]
 
 
 def setup_scenes(hssd: Path, scenes: list[str], *, which: Callable = shutil.which, run: Callable = subprocess.run,
