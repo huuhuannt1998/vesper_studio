@@ -353,3 +353,45 @@ test("while a scenario plays, its panel shows the plan; a verdict record decides
   const plain = await page();
   assert.equal(plain.el("scenario-panel").hidden, true);
 });
+
+const settle = async () => { for (let k = 0; k < 10; k += 1) await new Promise((r) => setImmediate(r)); };
+
+test("the dialog of a device out of reach shows its action disabled, and says to come within reach", { skip },
+  async () => {
+    const p = await page({ webgl: true });
+    const far = Object.keys(p.v.state.devices).find((n) => !p.v.state.reach.some((r) => r.target === n));
+    p.el("card").hidden = true;
+    p.el("device-list").value = far;
+    p.el("device-list").fire("change");
+    await settle();
+    assert.match(p.el("card-box").textContent, /Come within reach of it to use it/);
+  });
+
+test("keys typed into a list or inside the dialog do not walk the player or open the dialog", { skip }, async () => {
+  const p = await page({ webgl: true });
+  p.key("keydown", { key: "w", code: "KeyW", target: { tagName: "SELECT" } });
+  p.key("keydown", { key: "i", code: "KeyI", target: { tagName: "INPUT" } });
+  p.key("keydown", { key: "w", code: "KeyW", target: { tagName: "BUTTON", closest: (s) => (s === "#card" ? {} : null) } });
+  await settle();
+  assert.equal(p.sentOf("move").length, 0);
+  assert.equal(p.v.card, null);
+});
+
+test("Esc while a device's details are still loading leaves the dialog closed", { skip }, async () => {
+  const p = await page({ webgl: true });
+  const near = p.v.state.reach.find((r) => p.v.state.devices[r.target]).target;
+  p.aimAt({ target: near, kind: "device" });
+  p.el("card").hidden = true;
+  p.key("keydown", { key: "i", code: "KeyI" });
+  p.key("keydown", { key: "Escape", code: "Escape" });
+  await settle();
+  assert.equal(p.el("card").hidden, true);
+  assert.equal(p.v.card, null);
+});
+
+test("walking out of a room's view puts the header back on where the player is", { skip }, async () => {
+  const p = await page({ webgl: true });
+  p.el("tour").children.find((c) => /Kitchen/.test(c.textContent)).fire("click");
+  p.key("keydown", { key: "w", code: "KeyW" });
+  assert.doesNotMatch(p.el("where").textContent, /viewing/);
+});

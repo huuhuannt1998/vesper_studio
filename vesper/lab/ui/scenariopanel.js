@@ -42,11 +42,18 @@ export function panelHtml(banner, plan, elapsed, records, t0 = 0) {
     const expected = c.expected === true ? "yes" : c.expected === false ? "no" : "not said";
     if (!v) return `<li class="claim pending"><span class="mark">·</span>${esc(c.claim)}<span class="why">expected: ${
       expected} · decided at ${until} s</span></li>`;
+    if (v.expected !== true && v.expected !== false) { // a condition the scenario sets no outcome for
+      return `<li class="claim neutral"><span class="mark">·</span>${esc(c.claim)}<span class="why">${
+        v.holds ? "held" : "did not hold"}</span></li>`;
+    }
     const ok = v.holds === v.expected;
     return `<li class="claim ${ok ? "ok" : "bad"}"><span class="mark">${ok ? "✓" : "✗"}</span>${esc(c.claim)}<span
       class="why">expected: ${expected} · ${v.holds ? "held" : "did not hold"}</span></li>`;
   });
-  const asExpected = verdict ? verdict.claims.filter((c) => c.holds === c.expected).length : null;
+  const judgeable = verdict ? verdict.claims.filter((c) => c.expected === true || c.expected === false) : [];
+  const asExpected = !verdict ? null : judgeable.length
+    ? `${judgeable.filter((c) => c.holds === c.expected).length} of ${judgeable.length} claims as expected`
+    : "no expectation for this condition";
   const events = records.map((r) => [r, eventText(r)]).filter(([, text]) => text)
     .sort(([a], [b]) => (b.t || 0) - (a.t || 0)).slice(0, 8) // newest first
     .map(([r, text]) => `<li class="ev ${r.kind}"><span class="t">${Math.max(0, Math.round((r.t || 0) - t0))} s</span>${
@@ -58,7 +65,7 @@ export function panelHtml(banner, plan, elapsed, records, t0 = 0) {
     <span>${Math.round(shown)} s of ${until} s</span></div>
   <div class="sp-cols">
     <section><h3>Timeline</h3><ol class="steps">${stepRows.join("")}</ol></section>
-    <section><h3>Claims${asExpected === null ? "" : `<span class="muted"> · ${asExpected} of ${plan.claims.length} claims as expected</span>`}</h3>
+    <section><h3>Claims${asExpected === null ? "" : `<span class="muted"> · ${asExpected}</span>`}</h3>
       <ul class="claims">${claims.join("")}</ul>
       <h3>Defenses</h3><ul class="defs">${defenses}</ul></section>
     <section><h3>Events</h3><ol class="events">${events.join("") || '<li class="muted">nothing yet</li>'}</ol></section>

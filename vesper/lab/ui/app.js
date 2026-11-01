@@ -125,6 +125,11 @@ function onHello(h) {
   drawScenario();
   $("log").innerHTML = "";
   for (const r of h.records || []) onRecord(r, false); // what happened before this page joined: no feed
+  if (h.scenario) { // the panel's own records are kept whole by the server; the console's window may have lost them
+    const kept = new Set(["scenario", "alert", "verdict"]);
+    scenarioRecords = [...(h.scenario_records || []), ...scenarioRecords.filter((r) => !kept.has(r.kind))];
+    drawScenario();
+  }
   const me = state.actors[state.player];
   if (me) cam.yaw = me.yaw;
   setMode(params.get("view") === "map" || typeof WebGL2RenderingContext === "undefined" ? "map" : "3d");
@@ -288,6 +293,7 @@ function onEffect(target, effect) {
 
 let scenarioRecords = []; // what the scenario panel shows: the scenario's start, alerts, the network, doors, verdicts
 const PANEL_KINDS = new Set(["scenario", "alert", "net", "world", "verdict"]);
+const CHATTY = new Set(["net", "world"]), PANEL_MAX = 2000;
 
 function drawScenario() { // the scenario panel (scenariopanel.js), against the session's clock
   const sc = state && state.hello.scenario;
@@ -295,13 +301,22 @@ function drawScenario() { // the scenario panel (scenariopanel.js), against the 
   const start = scenarioRecords.find((r) => r.kind === "scenario");
   const t0 = start ? start.t0 : sc.t0;
   const now = state.hello.clock.t + (performance.now() - helloAt) / 1000;
-  $("scenario-panel").innerHTML = panelHtml(sc, sc.plan, t0 === null || t0 === undefined ? 0 : now - t0,
-    scenarioRecords, t0 || 0);
+  const box = $("scenario-panel"), gaps = box.querySelector ? box.querySelector("details") : null;
+  const open = Boolean(gaps && gaps.open); // a redraw keeps the gaps list as the reader left it
+  box.innerHTML = panelHtml(sc, sc.plan, t0 === null || t0 === undefined ? 0 : now - t0, scenarioRecords, t0 || 0);
+  if (open && box.querySelector) box.querySelector("details").open = true;
 }
 setInterval(() => { if (state && state.hello.scenario) drawScenario(); }, 500);
 
 function onRecord(r, live = true) {
-  if (PANEL_KINDS.has(r.kind) && state.hello.scenario) { scenarioRecords.push(r); drawScenario(); }
+  if (PANEL_KINDS.has(r.kind) && state.hello.scenario) {
+    scenarioRecords.push(r);
+    if (scenarioRecords.length > PANEL_MAX) { // the network and the doors are many; the panel shows the newest
+      const keep = scenarioRecords.filter((x) => !CHATTY.has(x.kind)), chatty = scenarioRecords.filter((x) => CHATTY.has(x.kind));
+      scenarioRecords = [...keep, ...chatty.slice(-PANEL_MAX / 2)];
+    }
+    drawScenario();
+  }
   if (r.kind === "report" && state.devices[r.device]) state.devices[r.device].state[r.feature] = r.value;
   const who = r.kind === "task" ? r.resident : r.kind === "input" && r.why ? r.why.resident : null;
   if (who && state.residents[who]) {
@@ -372,10 +387,11 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Meta" || e.key === "Alt") held.clear();
   if (!state || e.metaKey || e.ctrlKey || e.altKey) return;
   const walk = walkKey(e.code), key = e.key.toLowerCase();
+  if (typing(e.target) && key !== "escape") return; // a list, a field or the dialog has the keys, not the player
   sprint = e.shiftKey;
   if (walk) {
     e.preventDefault();
-    delete cam.view; // walking ends a room's view
+    if (cam.view) { delete cam.view; updateWhere(); } // walking ends a room's view
     if (!held.has(walk)) {
       held.add(walk);
       step();
@@ -389,7 +405,7 @@ window.addEventListener("keydown", (e) => {
   } else if (key === "q") {
     selected += 1;
     updateHint();
-  } else if (key === "i" || (key === "escape" && vesper.card)) { // Room 334's panel for the device you look at
+  } else if (key === "i" || (key === "escape" && (vesper.card || cardLoading))) { // Room 334's panel for the device
     inspect(key === "escape");
   } else if (key === "v" && mode === "3d") { // PUBG's first or third person
     cam.mode = cam.mode === "third" ? "first" : "third";
@@ -415,26 +431,60 @@ function inspected() { // the device under the crosshair, else under the pointer
   return inReach.length ? inReach[selected % inReach.length].target : null;
 }
 
+let cardRequest = 0, cardLoading = false, cardReturn = null; // the latest request wins; Esc cancels a pending one
+
+// What the dialog's action can do now: a scenario plays the player, and a hand reaches only what is in reach.
+const cardCtx = (card) => ({ inReach: state.reach.some((r) => r.target === card.name),
+  watching: Boolean(state.hello.scenario) });
+
+function typing(t) { // the keys go to a form control, or to the open dialog, not to the player
+  if (!t) return false;
+  if (["INPUT", "SELECT", "TEXTAREA"].includes(String(t.tagName || "").toUpperCase())) return true;
+  return typeof t.closest === "function" && Boolean(t.closest("#card"));
+}
+
 async function inspect(close, which = null) { // the device dialog (devicedialog.js): I, or a device in the list
   const box = $("card"), target = close ? null : which || inspected();
+  const request = (cardRequest += 1);
   if (close || !target || (!which && vesper.card && vesper.card.name === target && !box.hidden)) {
+    const wasOpen = !box.hidden;
     box.hidden = true;
     vesper.card = null;
+    cardLoading = false;
+    if (wasOpen && cardReturn && typeof cardReturn.focus === "function") cardReturn.focus(); // back where it was
+    cardReturn = null;
     if (!close && !target) toast("Look at a device, or come within reach of one, to see its details");
     return;
   }
+  cardLoading = true;
+  let card;
   try {
     const r = await fetch(`/device/${encodeURIComponent(target)}.json`);
     if (!r.ok) throw new Error(`${r.status}`);
-    vesper.card = await r.json();
+    card = await r.json();
   } catch (err) {
-    toast(`could not read ${target}'s details (${err.message})`, true);
+    if (request === cardRequest) { cardLoading = false; toast(`could not read ${target}'s details (${err.message})`, true); }
     return;
   }
-  $("card-box").innerHTML = dialogHtml(vesper.card);
+  if (request !== cardRequest) return; // closed, or another device asked for, while this one loaded
+  cardLoading = false;
+  vesper.card = card;
+  $("card-box").innerHTML = dialogHtml(card, cardCtx(card));
+  if (box.hidden) cardReturn = document.activeElement || null;
   box.hidden = false;
   if (locked && document.exitPointerLock) document.exitPointerLock(); // the pointer is needed for the dialog
+  const closeButton = $("card-box").querySelector ? $("card-box").querySelector(".close") : null;
+  if (closeButton && typeof closeButton.focus === "function") closeButton.focus();
 }
+
+$("card").addEventListener("keydown", (e) => { // Tab stays inside the open dialog, as in a modal
+  if (e.key !== "Tab" || !$("card-box").querySelectorAll) return;
+  const stops = [...$("card-box").querySelectorAll("button:not([disabled]), a[href], summary")];
+  if (!stops.length) return;
+  const first = stops[0], last = stops[stops.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 
 $("card").addEventListener("click", (e) => { // the dialog's own buttons, and a click beside it, which closes it
   const t = e.target, data = (t && t.dataset) || {};
@@ -446,7 +496,11 @@ async function refreshCard() { // the dialog shows the state the action left
   if (!vesper.card || $("card").hidden) return;
   try {
     const r = await fetch(`/device/${encodeURIComponent(vesper.card.name)}.json`);
-    if (r.ok) { vesper.card = await r.json(); $("card-box").innerHTML = dialogHtml(vesper.card); }
+    if (!r.ok) return;
+    const card = await r.json();
+    if (!vesper.card || vesper.card.name !== card.name || $("card").hidden) return; // closed or changed meanwhile
+    vesper.card = card;
+    $("card-box").innerHTML = dialogHtml(card, cardCtx(card));
   } catch (err) { /* the old state stays shown */ }
 }
 
@@ -497,7 +551,7 @@ for (const k of ["w", "a", "s", "d"]) { // the on-screen arrows, for a trackpad:
   const b = $(`walk-${k}`);
   b.addEventListener("pointerdown", (e) => {
     if (e.preventDefault) e.preventDefault();
-    delete cam.view;
+    if (cam.view) { delete cam.view; updateWhere(); }
     if (!held.has(k)) { held.add(k); step(); }
   });
   for (const end of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(end, () => held.delete(k));

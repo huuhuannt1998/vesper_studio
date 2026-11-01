@@ -19,6 +19,7 @@ const CARD = {
   interfaces: { entities: { state: "lock.vf9_lock", battery: "sensor.vf9_battery" },
                 automations: ["Lock the front door when it closes"] },
   state: { state: "UNLOCK", battery: 87 }, reference: "https://www.zigbee2mqtt.io/devices/66492-001.html",
+  operable: true, effect: { locked: false },
 };
 
 test("the dialog says what the device is, where it is, and escapes what the catalog says", () => {
@@ -30,15 +31,28 @@ test("the dialog says what the device is, where it is, and escapes what the cata
   assert.doesNotMatch(html, /<deadbolt>/);
 });
 
-test("its live state and the action a hand can take: a lock that is open can be locked", () => {
+test("its live state and the action a hand can take, from the device's effect, whatever its protocol", () => {
   assert.deepEqual(actionFor(CARD), { label: "Lock it", target: "front_lock" });
-  assert.deepEqual(actionFor({ ...CARD, state: { state: "LOCK" } }), { label: "Unlock it", target: "front_lock" });
-  assert.deepEqual(actionFor({ ...CARD, category: "light", state: { state: "ON" } }),
-                   { label: "Switch it off", target: "front_lock" });
-  assert.equal(actionFor({ ...CARD, category: "motion_sensor" }), null);
+  assert.deepEqual(actionFor({ ...CARD, effect: { locked: true } }), { label: "Unlock it", target: "front_lock" });
+  const matterLight = { ...CARD, category: "light", state: { "On/Off.OnOff": true }, effect: { on: true } };
+  assert.deepEqual(actionFor(matterLight), { label: "Switch it off", target: "front_lock" });
+  assert.deepEqual(actionFor({ ...CARD, category: "button", effect: {} }), { label: "Press it", target: "front_lock" });
+  assert.equal(actionFor({ ...CARD, category: "motion_sensor", operable: false }), null);
+  assert.equal(actionFor({ ...CARD, category: "light", operable: false, effect: { on: false } }), null);
   const html = dialogHtml(CARD);
   assert.match(html, /data-action="front_lock"/);
   assert.match(html, /battery<\/td><td>87/);
+});
+
+test("the action is offered only when a hand can take it: not while watching, not out of reach", () => {
+  assert.match(dialogHtml(CARD, { watching: true }), /<button class="act" disabled[^>]*>Lock it<\/button>[\s\S]*The scenario plays/);
+  assert.match(dialogHtml(CARD, { inReach: false }), /disabled[\s\S]*Come within reach/);
+  assert.match(dialogHtml({ ...CARD, category: "light", operable: false, effect: { on: false } }),
+               /A ceiling device: nobody reaches it by hand/);
+});
+
+test("a product page is linked only by http or https (review: a javascript: link would run)", () => {
+  assert.doesNotMatch(dialogHtml({ ...CARD, reference: "javascript:alert(1)" }), /href=/);
 });
 
 test("how it reaches the hub: each link with its signal, walls, latency, and a link that is down", () => {

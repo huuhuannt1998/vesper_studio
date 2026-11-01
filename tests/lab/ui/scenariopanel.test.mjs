@@ -61,3 +61,12 @@ test("each claim waits, then shows reproduced or not against what the paper expe
 test("what VESPER cannot reproduce is listed, never hidden", () => {
   assert.match(panelHtml(BANNER, PLAN, 0, []), /<summary>1 gap<\/summary>[\s\S]*TLS/);
 });
+
+test("a claim the paper sets no expectation for in this condition is shown as found, not as a failure", () => {
+  const plan = { ...PLAN, claims: PLAN.claims.map((c) => ({ ...c, expected: null })) };
+  const verdict = { t: 180, kind: "verdict", claims: plan.claims.map((c) => ({ claim: c.claim, holds: true, expected: null })) };
+  const html = panelHtml(BANNER, plan, 181, [verdict]);
+  assert.doesNotMatch(html, /class="claim bad"/);
+  assert.equal((html.match(/class="claim neutral"/g) || []).length, 2);
+  assert.match(html, /no expectation for this condition/);
+});

@@ -53,3 +53,10 @@ def test_the_play_server_serves_a_device_s_card_and_names_an_unknown_one(play): 
         raise AssertionError("an unknown device was served")
     except urllib.error.HTTPError as e:
         assert e.code == 404
+
+
+def test_a_card_says_whether_a_hand_can_operate_the_device_and_its_effect_now(tmp_path):
+    s, _ = session_with_automation(tmp_path)
+    card = device_card(s, "front_lock")
+    assert card["operable"] is s.rules.operable("front_lock")
+    assert card["effect"] == s.rules.effects.get("front_lock")

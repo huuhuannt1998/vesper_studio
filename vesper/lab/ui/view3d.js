@@ -16,7 +16,7 @@ import { decodeGrid, gridBounds } from "./mapview.js";
 import { buildDevice, facingYaw } from "./devices3d.js";
 import {
   BACK_M, PIVOT_M, RAISE_M, cameraPose, devicePoint, doorMount, frameAt, furnitureFor, hinge, pullIn, roomAt, walkPhase,
-  wallBoxes, wallRuns,
+  wallBoxes, wallMount, wallRuns,
 } from "./scene3d.js";
 
 const SKY = 0xbfd6ea, WALL = 0xe9e4da, FLOOR = 0xd2c9b8, OUTSIDE = 0x9fb98e, DOOR = 0x8a5a2b, LOCKED = 0xc0392b;
@@ -194,7 +194,6 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     return sprite;
   }
 
-  const WALL_GAP_M = 0.13; // a wall device's place is this far into the room (home.py); its model goes on the wall
   for (const d of hello.devices) { // the hardware itself (devices3d.js), its name, and a target for the crosshair
     const model = buildDevice(THREE, d);
     let [x, y, z] = devicePoint(d, floorY), facing = d.facing;
@@ -202,9 +201,9 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       const dw = hello.map.doorways.find((w) => w.id === d.door);
       const room = hello.map.rooms.find((r) => r.id === d.room) || hello.map.rooms.find((r) => dw && dw.rooms.includes(r.id));
       if (dw && dw.box) ({ x, z, facing } = doorMount(d, dw, room));
-    } else if (d.mount === "wall" && facing !== null && facing !== undefined) {
-      x -= Math.cos((facing * Math.PI) / 180) * WALL_GAP_M; // back against the wall it faces away from
-      z -= Math.sin((facing * Math.PI) / 180) * WALL_GAP_M;
+    } else if (d.mount === "wall" || (d.mount === "floor" && /plug|energy/.test(d.category))) {
+      const room = hello.map.rooms.find((r) => r.id === d.room); // onto the nearest wall, facing into the room
+      if (room) ({ x, z, facing } = wallMount(d.x, d.z, room));
     }
     model.group.position.set(x, y, z);
     model.group.rotation.y = facingYaw(facing ?? 0);
@@ -219,13 +218,16 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     if (d.switch_at) { // a ceiling light's plain wall switch, by the door: aiming at it uses the light
       const [sx, sz] = d.switch_at;
       const plate = buildDevice(THREE, { name: `${d.name} switch`, category: "switch", mount: "wall" });
-      plate.group.position.set(sx, floorY + 1.2, sz);
+      const room = hello.map.rooms.find((r) => r.id === d.room);
+      const on = room ? wallMount(sx, sz, room) : { x: sx, z: sz, facing: 0 };
+      plate.group.position.set(on.x, floorY + 1.2, on.z);
+      plate.group.rotation.y = facingYaw(on.facing);
       const grip = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
       grip.position.copy(plate.group.position);
       tag(grip, d.name, "device");
       pickables.push(grip);
       scene.add(plate.group, grip);
-      devices[`${d.name} switch`] = { model: plate, point: [sx, floorY + 1.2, sz], follows: d.name };
+      devices[`${d.name} switch`] = { model: plate, point: [on.x, floorY + 1.2, on.z], follows: d.name };
     }
     devices[d.name] = { model, point: [x, y, z] };
   }

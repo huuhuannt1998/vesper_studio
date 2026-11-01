@@ -15,23 +15,42 @@ export function esc(text) {
   return String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 }
 
-// What a person can do with the device by hand, or null for a sensor.
+// What a person can do with the device by hand, from the server's `operable` and the device's effect (the rules'
+// on/locked, whatever the protocol calls its state), or null when nobody operates it by hand.
 export function actionFor(card) {
-  const s = card.state || {};
+  if (card.operable === false) return null;
+  const s = card.state || {}, e = card.effect || {};
   if (card.category === "lock") {
-    return { label: String(s.state).toUpperCase() === "LOCK" ? "Unlock it" : "Lock it", target: card.name };
+    const locked = "locked" in e ? e.locked === true : String(s.state).toUpperCase() === "LOCK";
+    return { label: locked ? "Unlock it" : "Lock it", target: card.name };
   }
+  if (card.category === "button") return { label: "Press it", target: card.name };
   if (SWITCHED.has(card.category)) {
-    const isOn = String(s.state ?? s.POWER ?? "").toUpperCase() === "ON";
+    const isOn = "on" in e ? e.on === true : String(s.state ?? s.POWER ?? "").toUpperCase() === "ON";
     return { label: isOn ? "Switch it off" : "Switch it on", target: card.name };
   }
   return null;
 }
 
+const safeUrl = (u) => (/^https?:\/\//i.test(String(u || "")) ? u : null); // never a javascript: link
+
+function actionHtml(c, action, ctx) {
+  if (!action) {
+    return c.operable === false && c.category !== "lock" && !/sensor|meter/.test(c.category || "")
+      ? `<p class="muted">A ceiling device: nobody reaches it by hand; its wall switch, or the hub, works it.</p>`
+      : `<p class="muted">A sensor: it reports what it senses; nobody operates it by hand.</p>`;
+  }
+  const why = ctx.watching ? "The scenario plays the player; this page watches."
+    : ctx.inReach === false ? "Come within reach of it to use it." : null;
+  return `<button class="act"${why ? " disabled" : ""} data-action="${esc(action.target)}">${esc(action.label)}</button>${
+    why ? `<p class="muted">${esc(why)}</p>` : ""}`;
+}
+
 const value = (v) => (typeof v === "number" ? String(Math.round(v * 100) / 100)
   : typeof v === "string" ? v : JSON.stringify(v));
 
-export function dialogHtml(c) {
+// `ctx`: {inReach, watching}; an action a hand cannot take now is shown disabled with why.
+export function dialogHtml(c, ctx = {}) {
   const where = c.where.door ? `on the ${esc(c.where.door)} door` : `${esc(c.where.room)}, ${esc(c.where.mount)}`;
   const action = actionFor(c);
   const stateRows = Object.entries(c.state || {}).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(value(v))}</td></tr>`);
@@ -60,8 +79,7 @@ export function dialogHtml(c) {
   <div class="dlg-body">
     ${c.description ? `<p class="lede">${esc(c.description)}</p>` : ""}
     <section><h3>Now</h3><table class="kv">${stateRows.join("")}</table>
-      ${action ? `<button class="act" data-action="${esc(action.target)}">${esc(action.label)}</button>`
-        : `<p class="muted">A sensor: it reports what it senses; nobody operates it by hand.</p>`}</section>
+      ${actionHtml(c, action, ctx)}</section>
     <section><h3>How it reaches the hub</h3>${links.length ? `<ul class="links">${links.join("")}</ul>`
       : `<p class="muted">Not on the home's network.</p>`}</section>
     <section><h3>In Home Assistant</h3>${entities.length ? `<table class="kv">${entities.join("")}</table>`
@@ -70,7 +88,8 @@ export function dialogHtml(c) {
     <section><h3>How far to trust it</h3><ul class="levels">${levels.join("")}</ul>
       ${assumed.length ? `<p class="sub">Assumed, not from a source</p><p class="mono">${esc(assumed.join(", "))}</p>` : ""}
       <p class="sub">Sources</p><p>${sources.join("<br>") || "—"}</p>
-      ${c.reference ? `<p><a href="${esc(c.reference)}" target="_blank" rel="noopener">The product's page</a></p>` : ""}
+      ${safeUrl(c.reference) ? `<p><a href="${esc(c.reference)}" target="_blank" rel="noopener">The product's page</a></p>`
+        : ""}
     </section>
   </div>`;
 }

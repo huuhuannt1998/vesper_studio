@@ -415,9 +415,9 @@ Every command has `--help`. Paths in the examples are relative to the clone.
 | **Shift** | run |
 | **Click** or **F** | use what the crosshair is on: switch a plug, open a door, press a button |
 | **E** | the same; with nothing under the crosshair, the thing in reach |
-| **I** | the card of the device under the crosshair: product, sources, links, Home Assistant entities, state |
+| **I** | the details of the device under the crosshair (below) |
 | **V** | first person or third person |
-| **M** | the full map (a click on it uses a device or door too) |
+| **M** | the floor plan (a click on it uses a device or door too) |
 | **Q** | select the next thing in reach |
 | **Tab** | move to the next panel |
 
@@ -426,6 +426,25 @@ far (3.7 m)", "other side of the wall", "a sensor, not used by hand"). A browser
 `?view=map`, plays on the map alone:
 
 ![The map page: the same home from above, with Alex at dinner, the event feed, a motion sensor that sees the player, and why the lamp is out of reach](docs/images/lab-map.png)
+
+Each device is drawn as its hardware at its real size, and shows its state as the hardware does: a light glows and
+lights the room, a sensor's LED flashes when it detects someone, a lock's bolt and status light change, a plug's ring
+lights, a thermostat or climate sensor shows its reading.
+
+Getting around:
+- **Room chips** along the top of the view show each room from its corner. The camera moves; you stay where you
+  are. Walking or looking takes the view back to you.
+- **Inspect**, top right, lists every device by room; choosing one turns the view to it and opens its details.
+- **The arrows** at the lower right walk as the keys do (for a trackpad); **Reset view** looks ahead from behind you.
+- **M** opens the floor plan, with the rooms named and every device marked.
+
+A device's details (**I**, or the Inspect list) show:
+- what it is and where;
+- its state now, and the action a hand can take (switch it, lock it);
+- how it reaches the hub: each link with its signal, walls and latency, and whether it is up;
+- what Home Assistant makes of it: its entities and the automations that use it;
+- how far to trust it: L0 to L4, each with its reason, the fields that are assumed, the sources, and the product's
+  page.
 
 The page also shows the room you are in and the direction you face, a minimap, an event feed (a sensor seeing
 someone, a door, a resident's action, an automation), the residents and what each is doing, and a console with every
@@ -535,8 +554,10 @@ out in the home:
 
     vesper lab play --scenario examples/lab/scenarios/phantom-delay/case3-action-delay.yaml --condition attack
 
-The page watches (walking is switched off); the console and the feed show the attack's effects, what the network held
-or dropped, and each defense's alert. The shipped examples are Phantom-Delay's Table III Cases 1 and 3; Case 1 holds
+The page watches (walking is switched off). A panel over the view shows the scenario as it runs: its steps against the
+clock, with the attack's holds among them; each claim, decided when the scenario's time is up, against what the
+paper expects under this condition; each defense's alerts; the events that matter (held messages, alerts, doors, who
+enters where); and the gaps. The console and the feed show the same in full. The shipped examples are Phantom-Delay's Table III Cases 1 and 3; Case 1 holds
 the front door's event so the notification comes a minute late.
 
 ### From a paper, with an AI assistant: the MCP server

@@ -170,3 +170,15 @@ test("a lock or contact sits on its door's plane by the latch, facing into its r
   const along_z = { id: "hall-kitchen", center: [4, 2], width: 0.9, box: [3.9, 1.55, 4.1, 2.45] }; // a door in x = 4
   assert.equal(doorMount({ category: "contact_sensor", x: 4, z: 2 }, along_z, room).facing, 180); // -x
 });
+
+import { wallMount } from "../../../vesper/lab/ui/scene3d.js";
+
+test("a wall device goes onto its room's nearest wall, facing into the room (review I4)", () => {
+  const room = { id: "hall", polygon: [[0, 0], [4, 0], [4, 4], [0, 4]] };
+  const west = wallMount(0.15, 2, room); // 0.15 m in from the x = 0 wall
+  assert.ok(Math.abs(west.x - 0.01) < 1e-9 && Math.abs(west.z - 2) < 1e-9 && west.facing === 0);
+  const south = wallMount(1, 3.85, room); // near the z = 4 wall: faces -z, into the room
+  assert.ok(Math.abs(south.z - 3.99) < 1e-9 && south.facing === 270);
+  const ell = { id: "l", polygon: [[0, 0], [6, 0], [6, 2], [2, 2], [2, 5], [0, 5]] };
+  assert.equal(wallMount(1.85, 3, ell).facing, 180); // the arm's inner wall, at x = 2, faces -x into the arm
+});

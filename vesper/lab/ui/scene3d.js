@@ -75,6 +75,27 @@ export function deviceHeight(mount, category) {
 
 export const devicePoint = (d, floorY = 0) => [d.x, floorY + deviceHeight(d.mount, d.category), d.z];
 
+// Where a wall device goes: onto the nearest edge of its room's polygon (1 cm proud of it), facing into the room
+// (degrees: 0 is +x, 90 is +z). A home's wall devices stand a little inside the room; their models go on the wall.
+export function wallMount(x, z, room, proud = 0.01) {
+  const p = room.polygon;
+  let best = null;
+  for (let k = 0; k < p.length; k++) {
+    const [ax, az] = p[k], [bx, bz] = p[(k + 1) % p.length];
+    const dx = bx - ax, dz = bz - az, len2 = dx * dx + dz * dz;
+    if (!len2) continue;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / len2));
+    const qx = ax + t * dx, qz = az + t * dz, d = Math.hypot(x - qx, z - qz);
+    if (!best || d < best.d) best = { d, qx, qz, dx, dz };
+  }
+  if (!best) return { x, z, facing: 0 };
+  const len = Math.hypot(best.dx, best.dz);
+  let nx = -best.dz / len, nz = best.dx / len; // one of the edge's two normals: the one pointing into the room
+  if (!roomAt(best.qx + nx * 0.05, best.qz + nz * 0.05, [room])) { nx = -nx; nz = -nz; }
+  const facing = ((Math.round((Math.atan2(nz, nx) * 180) / Math.PI) % 360) + 360) % 360;
+  return { x: best.qx + nx * proud, z: best.qz + nz * proud, facing };
+}
+
 // Where a door's device goes: on the door's plane, by the latch (the high end, where the 3D view's leaf does not
 // hinge), facing into its room (degrees: 0 is +x, 90 is +z). `doorway` has center and box; `room` has polygon.
 export function doorMount(d, doorway, room) {

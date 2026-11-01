@@ -44,13 +44,16 @@ CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; c
 SCENE_CACHE = "private, max-age=3600"  # HSSD's files do not change: a reload need not fetch the scene again
 QUEUE_MAX = 5000  # messages waiting for one page; a page that falls this far behind is disconnected
 RECENT = 200  # trace records a page gets when it connects: the console of a page that joins late
+KEPT = ("scenario", "alert", "verdict")  # the scenario panel's records, kept whole for a page that joins late
+KEPT_MAX = 2000
 
 
 class PlayError(RuntimeError):
     """The play server could not start."""
 
 
-def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoids=None, scenario=None) -> dict:
+def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoids=None, scenario=None,
+          kept=()) -> dict:
     home, world, m = session.home, session.world, session.home.map
     return {
         "type": "hello", "scene": home.scene, "player": PLAYER, "hub": hub_url, "reach_m": INTERACT_M,
@@ -73,7 +76,7 @@ def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoid
         "doors": [_door(session, door) for door in world.doors],
         "actors": [_pose(world.pose(a)) for a in world.actors()],
         "residents": [_resident(session, r) for r in session.residents.values()],
-        "reach": reach(session), "records": list(recent)}
+        "reach": reach(session), "records": list(recent), "scenario_records": list(kept)}
 
 
 def _box(grid, cells) -> list[float]:
@@ -145,7 +148,8 @@ def device_card(session, name: str) -> dict:
             "model_basis": {"reached": fidelity.get("reached") or {}, "assumed": fidelity.get("assumed") or [],
                             "reasons": fidelity.get("reasons") or {}, "sources": record.get("sources") or []},
             "connections": connections, "interfaces": {"entities": entities, "automations": automations},
-            "state": dict(session.rules.twin(name).state), "reference": reference}
+            "state": dict(session.rules.twin(name).state), "operable": session.rules.operable(name),
+            "effect": session.rules.effects.get(name), "reference": reference}
 
 
 def _resident(session, r) -> dict:
@@ -192,6 +196,7 @@ class PlayServer:
         self._pages: dict[asyncio.Queue, object] = {}  # each page's outgoing messages -> its connection
         self._reach = self._reach_key()
         self._recent = collections.deque(session.records[-RECENT:], maxlen=RECENT)  # written on the clock thread
+        self._kept = collections.deque((r for r in session.records if r.get("kind") in KEPT), maxlen=KEPT_MAX)
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stop: asyncio.Event | None = None
         self._error: Exception | None = None
@@ -309,7 +314,7 @@ class PlayServer:
             try:
                 snapshot = await self._on_clock(
                     lambda: hello(self.session, self.hub_url, self._recent, self.world3d, self.humanoids,
-                                  self.scenario))
+                                  self.scenario, self._kept))
             except Exception as e:  # noqa: BLE001 - kept for the look, then the page is closed
                 self._fail(f"hello: {type(e).__name__}: {e}")
                 return
@@ -411,6 +416,8 @@ class PlayServer:
 
     def _on_record(self, rec: dict) -> None:
         self._recent.append(rec)
+        if rec.get("kind") in KEPT:
+            self._kept.append(rec)
         self._emit({"type": "record", "record": rec})
 
     def _reach_key(self) -> tuple:

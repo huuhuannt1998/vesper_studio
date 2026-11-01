@@ -150,6 +150,7 @@ body.watching .pad { display: none; }
 .claims li { padding: 3px 0 3px 18px; position: relative; }
 .claims .mark { position: absolute; left: 0; font-weight: 700; }
 .claims li.ok .mark { color: var(--ok); } .claims li.bad .mark { color: var(--alert); }
+.claims li.neutral .mark { color: var(--muted); }
 .claims .why { display: block; color: var(--muted); }
 .events li { padding: 2px 0; } .events li.alert { color: var(--alert); font-weight: 600; }
 .events li.net { color: var(--held); }
@@ -185,7 +186,8 @@ body.watching .pad { display: none; }
 .kv td:last-child { font-variant-numeric: tabular-nums; }
 .act { margin-top: 10px; padding: 7px 14px; border-radius: 8px; border: 0; background: var(--accent); color: #fff;
   font-weight: 600; cursor: pointer; }
-.act:hover { filter: brightness(1.08); }
+.act:hover:not(:disabled) { filter: brightness(1.08); }
+.act:disabled { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); cursor: not-allowed; }
 .links, .autos, .levels { list-style: none; margin: 0; padding: 0; }
 .links li { padding: 5px 0 5px 12px; border-left: 3px solid var(--ok); margin-bottom: 4px; }
 .links li.down { border-left-color: var(--alert); }

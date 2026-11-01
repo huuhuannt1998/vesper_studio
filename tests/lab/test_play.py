@@ -369,3 +369,19 @@ def test_hello_says_where_a_ceiling_light_s_wall_switch_is(tmp_path):
         assert devices["bedroom_lamp"]["switch_at"] is None
     finally:
         session.stop()
+
+
+def test_a_late_page_still_gets_the_scenario_s_verdict_and_alerts_after_many_records(play):
+    """The console keeps the last RECENT records; the scenario panel's own records are kept whole (review I1)."""
+    from vesper.lab.play import RECENT
+    play._on_record({"t": 1, "kind": "scenario", "t0": 1.0})
+    play._on_record({"t": 2, "kind": "alert", "defense": "freshness", "device": "front_door"})
+    for k in range(RECENT + 50):
+        play._on_record({"t": 3 + k, "kind": "report", "device": "lamp", "feature": "state", "value": "ON"})
+    play._on_record({"t": 999, "kind": "verdict", "claims": []})
+    for k in range(RECENT):
+        play._on_record({"t": 1000 + k, "kind": "report", "device": "lamp", "feature": "state", "value": "OFF"})
+    with client(play) as ws:
+        h = json.loads(ws.recv())
+    assert [r["kind"] for r in h["scenario_records"]] == ["scenario", "alert", "verdict"]
+    assert all(r["kind"] == "report" for r in h["records"])
