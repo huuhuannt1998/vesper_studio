@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The bundled start page only; the lobby is a page of VESPER's own local server and gets no app API.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

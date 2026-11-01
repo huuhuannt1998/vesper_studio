@@ -1,0 +1,39 @@
+# VESPER Studio's desktop app, unsigned, for macOS and Windows, from each commit to main (Lab spec §7, plan W6).
+# The builds are workflow artifacts; signed installers come with a release.
+name: studio-app
+on:
+  push:
+    branches: [main]
+    paths: ["studio-app/**", ".github/workflows/studio-app.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            bundles: app,dmg
+          - os: windows-2022
+            bundles: msi
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: studio-app/src-tauri
+      - name: Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+      - name: Build (unsigned)
+        working-directory: studio-app/src-tauri
+        run: cargo tauri build --bundles ${{ matrix.bundles }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vesper-studio-${{ matrix.os }}
+          path: |
+            studio-app/src-tauri/target/release/bundle/dmg/*.dmg
+            studio-app/src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
