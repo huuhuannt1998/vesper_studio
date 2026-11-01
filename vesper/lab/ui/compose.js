@@ -413,7 +413,7 @@ if (typeof document !== "undefined") {
     $("furnish-lines").innerHTML = "";
     for (const line of v.lines.slice(-12)) $("furnish-lines").append(el("li", { textContent: line }));
     const why = canFurnish();
-    $("furnish-note").textContent = v.note || why || "Ready: Blender opens if it is not open.";
+    $("furnish-note").textContent = v.note || why || "Ready: a Blender window of its own opens for this home, and stays open after.";
     $("furnish-start").disabled = v.running || Boolean(why);
     $("furnish-stop").hidden = !v.running;
     $("generate").disabled = v.running;
