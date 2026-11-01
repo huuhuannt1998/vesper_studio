@@ -473,13 +473,13 @@ def _matter_conformance(root: Path, url: str, node_id: int) -> dict:
     from vesper.validation import matter_conformance as mc
     try:
         attrs = mc.node_attributes(mc.read_node(url, node_id)["attributes"])
-    except (RuntimeError, OSError, TimeoutError, KeyError, ValueError) as e:
-        return {"error": f"could not read the node: {e}"}
+    except Exception as e:  # noqa: BLE001 - one unreadable node is that node's result, never the run's end
+        return {"error": f"could not read the node: {type(e).__name__}: {e}"}
     version = mc.spec_version(attrs)
     folder = mc.data_model_dir(root, version)
     if folder is None:
         return {"error": f"no data model under {root}"}
-    clusters, devices = mc.load_data_model(folder)
+    clusters, devices = mc.load_data_model_cached(str(folder))
     problems = mc.check_node(attrs, clusters, devices)
     return {"spec_version": version, "data_model": folder.name, "endpoints": sorted(attrs),
             "clusters": sum(len(c) for c in attrs.values()), "problems": problems, "conformant": not problems}

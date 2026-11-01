@@ -16,7 +16,9 @@ counted either way. This is VESPER's re-implementation of those checks, not the 
 """
 from __future__ import annotations
 
+import functools
 import json
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -66,28 +68,63 @@ def _conform(el: ET.Element) -> ET.Element | None:
     return None
 
 
+def _short(name: str) -> str:
+    return name.removesuffix(" Cluster").strip()
+
+
+def _elements(root: ET.Element) -> tuple[dict, dict, dict, dict]:
+    """A cluster file's own features (code -> bit, code -> rule), attributes and client->server commands."""
+    features, feature_conform, attributes, commands = {}, {}, {}, {}
+    for f in root.findall("features/feature"):  # not the <feature> terms inside conformance rules
+        if f.get("code") and f.get("bit") is not None:
+            features[f.get("code")] = int(f.get("bit"))
+            feature_conform[f.get("code")] = _conform(f)
+    for a in root.findall("attributes/attribute"):
+        aid = _int(a.get("id"))
+        if aid is not None:
+            attributes[aid] = Element(aid, a.get("name", ""), _conform(a))
+    for x in root.findall("commands/command"):
+        xid = _int(x.get("id"))
+        if xid is not None and x.get("direction", "commandToServer") == "commandToServer":
+            commands[xid] = Element(xid, x.get("name", ""), _conform(x))
+    return features, feature_conform, attributes, commands
+
+
+def _merge(base: dict, own: dict) -> dict:
+    """A derived cluster's elements over its base's: one listed without a rule keeps the base's rule."""
+    out = dict(base)
+    for k, e in own.items():
+        b = base.get(k)
+        out[k] = Element(e.id, e.name, e.conform if e.conform is not None or b is None else b.conform)
+    return out
+
+
+@functools.lru_cache(maxsize=4)
+def load_data_model_cached(folder: str) -> tuple[dict[int, Cluster], dict[int, DeviceType]]:
+    return load_data_model(Path(folder))
+
+
 def load_data_model(folder: Path) -> tuple[dict[int, Cluster], dict[int, DeviceType]]:
-    clusters: dict[int, Cluster] = {}
+    """The clusters by id (a derived cluster merged over its base, as the SDK's spec parser does) and the device
+    types by id."""
+    files = []
     for path in sorted(Path(folder, "clusters").glob("*.xml")):
         root = ET.parse(path).getroot()
-        ids = [(_int(c.get("id")), c.get("name")) for c in root.iter("clusterId") if _int(c.get("id")) is not None]
-        if not ids:
-            continue
-        for cid, cname in ids:  # an aliased cluster file (e.g. several concentration clusters) defines each
-            c = Cluster(cid, cname or root.get("name", ""), _int(root.get("revision")) or 1)
-            for f in root.findall("features/feature"):  # not the <feature> terms inside conformance rules
-                if f.get("code") and f.get("bit") is not None:
-                    c.features[f.get("code")] = int(f.get("bit"))
-                    c.feature_conform[f.get("code")] = _conform(f)
-            for a in root.findall("attributes/attribute"):
-                aid = _int(a.get("id"))
-                if aid is not None:
-                    c.attributes[aid] = Element(aid, a.get("name", ""), _conform(a))
-            for x in root.findall("commands/command"):
-                xid = _int(x.get("id"))
-                if xid is not None and x.get("direction", "commandToServer") == "commandToServer":
-                    c.commands[xid] = Element(xid, x.get("name", ""), _conform(x))
-            clusters[cid] = c
+        cls = root.find("classification")
+        files.append((root, _elements(root), cls.get("baseCluster") if cls is not None else None))
+    bases = {_short(root.get("name", "")): elements for root, elements, _ in files}
+    clusters: dict[int, Cluster] = {}
+    for root, (features, fconf, attributes, commands), base_name in files:
+        if base_name and _short(base_name) in bases:
+            bf, bfc, ba, bc = bases[_short(base_name)]
+            features, attributes, commands = {**bf, **features}, _merge(ba, attributes), _merge(bc, commands)
+            fconf = {**bfc, **{k: v if v is not None else bfc.get(k) for k, v in fconf.items()}}
+        for c in root.findall("clusterIds/clusterId"):  # an aliased file (several concentration clusters) has several
+            cid = _int(c.get("id"))
+            if cid is not None:
+                clusters[cid] = Cluster(cid, c.get("name") or _short(root.get("name", "")),
+                                        _int(root.get("revision")) or 1, dict(features), dict(fconf),
+                                        dict(attributes), dict(commands))
     devices: dict[int, DeviceType] = {}
     for path in sorted(Path(folder, "device_types").glob("*.xml")):
         root = ET.parse(path).getroot()
@@ -138,7 +175,7 @@ def requirement(conf: ET.Element | None, ctx: dict) -> str | None:
     """'M' (mandatory), 'O' (optional, provisional, deprecated or described), 'X' (disallowed), or None
     (undecidable from the node's own data)."""
     if conf is None:
-        return "X"  # an element with no conformance is not allowed (the data model's reading)
+        return None  # no rule in the data model (a derived cluster's base supplies it, or the spec leaves it out)
     tag = conf.tag
     if tag == "otherwiseConform":
         for c in conf:
@@ -248,7 +285,7 @@ def spec_version(attrs: dict) -> str | None:
 
 def data_model_dir(root: Path, version: str | None) -> Path | None:
     """The data model of a spec version, or the nearest earlier one the SDK has."""
-    have = sorted((p for p in Path(root).iterdir() if p.is_dir() and p.name[0].isdigit()),
+    have = sorted((p for p in Path(root).iterdir() if p.is_dir() and re.fullmatch(r"\d+(\.\d+)*", p.name)),
                   key=lambda p: tuple(int(x) for x in p.name.split(".")))
     if not have:
         return None

@@ -81,3 +81,53 @@ def test_the_data_model_follows_the_spec_version_the_node_reports(tmp_path):
     attrs = node_attributes({"0/40/21": 0x01040200})
     assert spec_version(attrs) == "1.4.2" and data_model_dir(tmp_path, "1.4.2").name == "1.4.2"
     assert data_model_dir(tmp_path, "1.4.4").name == "1.4.2" and data_model_dir(tmp_path, None).name == "1.5"
+
+
+BASE = """<cluster name="Mode Base Cluster" revision="2">
+  <classification hierarchy="base"/>
+  <features><feature bit="0" code="DEPONOFF" name="OnOff"><optionalConform/></feature></features>
+  <attributes>
+    <attribute id="0x0000" name="SupportedModes"><mandatoryConform/></attribute>
+    <attribute id="0x0001" name="CurrentMode"><mandatoryConform/></attribute>
+    <attribute id="0x0003" name="OnMode"><mandatoryConform><feature name="DEPONOFF"/></mandatoryConform></attribute>
+  </attributes>
+  <commands><command id="0x00" name="ChangeToMode" direction="commandToServer"><mandatoryConform/></command>
+  </commands>
+</cluster>"""
+DERIVED = """<cluster id="0x005E" name="Microwave Oven Mode Cluster" revision="1">
+  <clusterIds><clusterId id="0x005E" name="Microwave Oven Mode"/></clusterIds>
+  <classification hierarchy="derived" baseCluster="Mode Base"/>
+  <attributes>
+    <attribute id="0x0000" name="SupportedModes"/>
+    <attribute id="0x0001" name="CurrentMode"/>
+    <attribute id="0x0003" name="OnMode"><disallowConform/></attribute>
+  </attributes>
+</cluster>"""
+
+
+def test_a_derived_cluster_takes_its_base_s_elements_and_rules(tmp_path):
+    (tmp_path / "clusters").mkdir()
+    (tmp_path / "device_types").mkdir()
+    (tmp_path / "clusters" / "ModeBase.xml").write_text(BASE)
+    (tmp_path / "clusters" / "Mode_MicrowaveOven.xml").write_text(DERIVED)
+    clusters, devices = load_data_model(tmp_path)
+    m = clusters[0x5E]
+    assert set(m.attributes) == {0, 1, 3} and set(m.commands) == {0} and m.features == {"DEPONOFF": 0}
+    raw = {"1/94/65533": 1, "1/94/65532": 0, "1/94/65531": [0, 1], "1/94/65529": [0], "1/94/65528": [],
+           "1/94/0": [], "1/94/1": 0, "1/29/1": [94], "1/29/0": []}
+    assert check_node(node_attributes(raw), clusters, devices) == []  # SupportedModes inherits "mandatory"
+    raw["1/94/65531"] = [0, 1, 3]
+    raw["1/94/3"] = 0
+    assert [p["detail"] for p in check_node(node_attributes(raw), clusters, devices)] == [
+        "OnMode is not allowed and is in AttributeList"]
+
+
+def test_an_element_with_no_conformance_rule_is_not_judged(tmp_path):
+    from vesper.validation.matter_conformance import requirement
+    assert requirement(None, {"features": set()}) is None
+
+
+def test_a_version_folder_that_is_not_a_plain_version_is_ignored(tmp_path):
+    for v in ("1.4", "1.5-rc", "master"):
+        (tmp_path / v).mkdir()
+    assert data_model_dir(tmp_path, "1.5").name == "1.4"
