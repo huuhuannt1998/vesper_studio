@@ -316,3 +316,41 @@ def test_a_position_outside_an_irregular_room_moves_to_the_nearest_spot_inside_i
     moved = _inside(ell, [4.0, 4.0])  # inside the box, outside the L
     assert point_in_polygon(tuple(moved), ell.polygon)
     assert abs(moved[0] - 4.0) + abs(moved[1] - 4.0) < 2.5  # the nearest corner of the L, not its far end
+
+
+SWITCHLESS = "zigbee:acme:dim-1"  # stands for the catalog's lights with nothing a wall switch could switch
+
+
+def _no_switch_for(monkeypatch, *pids):
+    import vesper.lab.rules as rules
+    real = rules.toggle_command
+    monkeypatch.setattr(rules, "toggle_command", lambda twin: None if twin.vds["id"] in pids else real(twin))
+
+
+def test_a_light_a_wall_switch_cannot_switch_gets_no_wall_switch_and_the_home_still_generates(tmp_path, monkeypatch):
+    _no_switch_for(monkeypatch, SWITCHLESS)
+    out = tmp_path / "home"
+    generate_home(request(tmp_path, f"""\
+        format: vesper-request/1
+        rooms: 3
+        seed: 0
+        devices:
+          - {{product: "{SWITCHLESS}", per: room}}
+    """), catalog(), out)
+    home = load_lab_home(out / "home.yaml", catalog())
+    assert home.devices and all(d.wall_switch is None for d in home.devices)
+
+
+def test_a_light_chosen_by_kind_is_one_a_wall_switch_can_switch(tmp_path, monkeypatch):
+    _no_switch_for(monkeypatch, SWITCHLESS)
+    for seed in range(6):
+        out = tmp_path / f"home{seed}"
+        generate_home(request(tmp_path, f"""\
+            format: vesper-request/1
+            rooms: 2
+            seed: {seed}
+            devices:
+              - {{category: light, per: room}}
+        """), catalog(), out)
+        home = load_lab_home(out / "home.yaml", catalog())
+        assert all(d.product != SWITCHLESS and d.wall_switch is not None for d in home.devices)

@@ -261,9 +261,17 @@ def place_devices(world_map: WorldMap, request: Request, catalog: dict) -> list[
         category = catalog[product]["identity"].get("category")
         rule = RULES.get(category, "table")
         targets = _targets(d, world_map, rooms, types, rule, where)
+        switch = category == "light" and switchable(catalog[product])
         for target in targets if rule == "door" else _beside(targets, world_map):
-            out.append(_place(product, category, rule, target, world_map, per_room, out))
+            out.append(_place(product, category, rule, target, world_map, per_room, out, switch))
     return out
+
+
+def switchable(record: dict) -> bool:
+    """The product has an on/off a plain wall switch could drive (most lights; not a scene controller)."""
+    from vesper.lab.rules import toggle_command
+    from vesper.twins.twin import Twin
+    return toggle_command(Twin.from_vds(record)) is not None
 
 
 def _product(d: dict, catalog: dict, rng: random.Random, where: str) -> str:
@@ -278,10 +286,11 @@ def _product(d: dict, catalog: dict, rng: random.Random, where: str) -> str:
         known = sorted({r["identity"].get("category") for r in catalog.values()} - {None})
         raise GenerateError(f"{where}.category: no product of category {category!r}; choose one of "
                             f"{', '.join(known)}")
-    def rank(pid):  # sourced at L1 first, then the protocols on the hub
+    def rank(pid):  # a light its wall switch can switch, then sourced at L1, then the protocols on the hub
         reached = (catalog[pid].get("fidelity") or {}).get("reached") or {}
         proto = pid.split(":")[0]
-        return (not reached.get("L1", False), PROTOCOLS.index(proto) if proto in PROTOCOLS else 9)
+        return (category == "light" and not switchable(catalog[pid]), not reached.get("L1", False),
+                PROTOCOLS.index(proto) if proto in PROTOCOLS else 9)
     best = min(rank(p) for p in found)
     return rng.choice(sorted(p for p in found if rank(p) == best))
 
@@ -335,7 +344,8 @@ def _beside(targets: list, world_map: WorldMap) -> list:
     return out
 
 
-def _place(product, category, rule, target, world_map: WorldMap, per_room: dict, out: list) -> dict:
+def _place(product, category, rule, target, world_map: WorldMap, per_room: dict, out: list,
+           switch: bool = True) -> dict:
     short = SHORT.get(category, category)
     taken = {d["name"] for d in out}
     if rule == "door":
@@ -353,7 +363,8 @@ def _place(product, category, rule, target, world_map: WorldMap, per_room: dict,
         at = {"room": room.id, "mount": "ceiling"}
         if k:
             at["xy"] = [round(x0 + (x1 - x0) * (0.25 + 0.5 * (k % 2)), 2), round(z0 + (z1 - z0) * 0.5, 2)]
-        if category == "light":  # its plain wall switch (PI 2026-10-31), by the entrance; a second light's beside it
+        if category == "light" and switch:  # its plain wall switch (PI 2026-10-31), by
+            # the entrance; a second light's beside it. A light with no on/off (a scene panel) gets none.
             entry = next((w for w in world_map.doorways if room.id in w.rooms and w.outdoor), door)
             nth = sum(1 for d in out if d["at"].get("room") == room.id and "wall_switch" in d["at"])
             at["wall_switch"] = _by_door(entry, room, (x0, z0, x1, z1), SWITCH_M + 0.12 * nth)
