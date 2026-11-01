@@ -31,7 +31,9 @@ class Humanoids:
 def find_humanoids(avatars, data=None, python=None, cache=None, run=None) -> tuple:
     """(Humanoids for the avatars Habitat has, or None; a line that says what the people look like)."""
     from vesper.lab.scenes import habitat_python
-    root, cache = Path(data or os.environ.get(HUMANOIDS_ENV) or DEFAULT_HUMANOIDS), Path(cache or default_cache())
+    from vesper.setup_tools import configured
+    root = Path(data or os.environ.get(HUMANOIDS_ENV) or configured("humanoids") or DEFAULT_HUMANOIDS)
+    cache = Path(cache or default_cache())
     if not root.is_dir():
         return None, (f"people: plain figures (Habitat's humanoids are not at {root}; download them and set "
                       f"{HUMANOIDS_ENV})")

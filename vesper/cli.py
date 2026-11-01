@@ -1973,16 +1973,16 @@ def _setup_claude_desktop(args) -> int:
     return 0
 
 
-CONFIGURED = {"catalog": ("catalog/vds", "catalog"), "root": (".vesper", "root"),
-              "results": ("results/device-twins", "results")}
+CONFIGURED = {"catalog": ("catalog/vds", "catalog", "build_report.json"), "root": (".vesper", "root", "ha"),
+              "results": ("results/device-twins", "results", "")}  # default, configuration key, what shows it is real
 
 
 def _configured_defaults(args) -> None:
     """A default path that does not exist here (the app starts VESPER from anywhere) becomes the one VESPER's
     configuration recorded (`vesper catalog build|fetch`, `vesper setup ha`); a path given on the command line stays."""
     from vesper.setup_tools import configured
-    for attr, (default, key) in CONFIGURED.items():
-        if getattr(args, attr, None) == default and not Path(default).exists() and configured(key):
+    for attr, (default, key, marker) in CONFIGURED.items():
+        if getattr(args, attr, None) == default and not (Path(default) / marker).exists() and configured(key):
             setattr(args, attr, configured(key))
 
 

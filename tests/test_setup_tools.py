@@ -98,6 +98,21 @@ def test_a_missing_default_path_becomes_the_configured_one_and_a_given_one_stays
     assert args.catalog == str(tmp_path / "data" / "vds") and args.root == str(tmp_path / "data" / ".vesper")
     assert args.results == "elsewhere"
     (tmp_path / "catalog" / "vds").mkdir(parents=True)
+    (tmp_path / "catalog" / "vds" / "build_report.json").write_text("{}")
     args = Args()
     _configured_defaults(args)
-    assert args.catalog == "catalog/vds"  # a default that exists here is kept
+    assert args.catalog == "catalog/vds"  # a built catalog where it runs is kept
+
+
+def test_a_default_folder_that_holds_something_else_is_not_vesper_s(tmp_path, monkeypatch):
+    from vesper.cli import _configured_defaults
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".vesper").mkdir()  # an unrelated tool's folder of the same name
+    (tmp_path / ".vesper" / "tasks.db").write_text("")
+    st.save_config(root=tmp_path / "data" / ".vesper")
+
+    class Args:
+        root = ".vesper"
+    args = Args()
+    _configured_defaults(args)
+    assert args.root == str(tmp_path / "data" / ".vesper")
