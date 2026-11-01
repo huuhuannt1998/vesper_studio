@@ -26,9 +26,12 @@
       <p><b id="why"></b></p>
       <p>VESPER Studio is the window; VESPER itself runs from its Python package. Install it once (on Windows, inside
         WSL2), then open the app again:</p>
-      <pre>uv tool install vesper-studio      # or, from the source: uv tool install .
-vesper catalog fetch &lt;bundle&gt; --sha256 &lt;hash&gt;   # or: vesper catalog sync &amp;&amp; vesper catalog build
+      <pre>git clone https://github.com/huuhuannt1998/vesper_studio.git
+cd vesper_studio
+uv tool install --python 3.12 --editable .
+vesper catalog sync &amp;&amp; vesper catalog build
 vesper doctor</pre>
+      <p>The README's Install section has the details for macOS, Linux and Windows.</p>
       <p>Set <code>VESPER_BIN</code> to the <code>vesper</code> command if it is somewhere else.</p>
     </div>
   </main>
