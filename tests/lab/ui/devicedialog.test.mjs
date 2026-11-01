@@ -109,3 +109,38 @@ test("the hub's dialog gives Home Assistant's lab login, so the dashboard can be
   const html = hubHtml({ ...HUB, login: { user: "vesper", password: "lab-pass" } });
   assert.match(html, /Log in as <b>vesper<\/b>, password <b>lab-pass<\/b>/);
 });
+
+import { connectionText, summaryOf, trustText } from "../../../vesper/lab/ui/devicedialog.js";
+
+test("as in Room 334, the dialog opens with one plain sentence: what the device is, where, and what it is doing", () => {
+  assert.equal(summaryOf(CARD), "A Zigbee smart lock on the dining room's door to outside. It is unlocked now; battery 87%.");
+  assert.equal(summaryOf({ ...CARD, effect: { locked: true } }).split(". ")[1], "It is locked now; battery 87%.");
+  const light = { ...CARD, category: "light", where: { room: "living_room", mount: "ceiling" }, effect: { on: true },
+                  state: { state: "ON", brightness: 127 } };
+  assert.equal(summaryOf(light), "A Zigbee light on the living room's ceiling. It is on now, at 50% brightness.");
+  const motion = { ...CARD, category: "motion_sensor", where: { room: "bedroom_001", mount: "corner" }, effect: {},
+                   state: { occupancy: true } };
+  assert.equal(summaryOf(motion), "A Zigbee motion sensor in a corner of bedroom 2. It sees someone now.");
+  const door = { ...CARD, category: "contact_sensor", effect: {}, state: { contact: false } };
+  assert.match(summaryOf(door), /The door is open now\.$/);
+  const t = { ...CARD, category: "thermostat", where: { room: "hall", mount: "wall" }, effect: {},
+              state: { local_temperature: 20.5, occupied_heating_setpoint: 22 } };
+  assert.equal(summaryOf(t), "A Zigbee thermostat on a wall of the hall. It reads 20.5 °C, set to 22 °C.");
+});
+
+test("its connection and how far to trust it read as one line each", () => {
+  assert.equal(connectionText(CARD), "Zigbee radio to the coordinator: −61 dBm through 2 walls, 12 ms; then " +
+    "Ethernet to the hub, which is down now.");
+  assert.equal(trustText(CARD), "Trusted to L1 of L4: a real product, with its configuration from zigbee " +
+    "26.123.0 (MIT). Not yet: protocol, timing, firmware."); // why not, level by level, is under Details
+  assert.equal(summaryOf({ ...CARD, where: { ...CARD.where, room: "living", room_label: "living room",
+    door: null, mount: "ceiling" }, category: "light", effect: { on: false }, state: {} }),
+    "A Zigbee light on the living room's ceiling. It is off now.");
+});
+
+test("the raw readings, entities, links and levels are kept, folded under Details", () => {
+  const html = dialogHtml(CARD);
+  const fold = html.indexOf("<details class=\"more\"");
+  assert.ok(fold > 0 && html.indexOf("battery</td><td>87") > fold && html.indexOf("<td><code>lock.vf9_lock</code></td>") > fold);
+  assert.ok(html.indexOf('class="lede"') < fold && html.indexOf('data-action="front_lock"') < fold);
+});

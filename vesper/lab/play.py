@@ -78,7 +78,16 @@ def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoid
         "actors": [_pose(world.pose(a)) for a in world.actors()],
         "residents": [_resident(session, r) for r in session.residents.values()],
         "reach": reach(session), "records": list(recent), "scenario_records": list(kept),
-        "network": _network(home.network)}
+        "network": _network(home.network), "furniture": furniture_of(home)}
+
+
+def furniture_of(home) -> list | None:
+    """The home's furniture (vesper.lab.furnishing, `furniture.json` beside it), for the 3D view to draw."""
+    f = Path(home.path).parent / "furniture.json"
+    try:
+        return json.loads(f.read_text())["items"] if f.is_file() else None
+    except (OSError, ValueError, KeyError):
+        return None
 
 
 def _network(net) -> dict | None:
@@ -179,7 +188,8 @@ def device_card(session, name: str) -> dict:
         reference = (record["binding"]["tasmota"] or {}).get("link")
     return {"name": name, "product": d.product, "vendor": identity.get("vendor"), "model": identity.get("model"),
             "description": identity.get("description"), "category": identity.get("category"), "protocol": protocol,
-            "where": {"room": d.room, "door": d.door, "mount": d.mount, "position": list(d.position)},
+            "where": {"room": d.room, "room_label": next((r.label for r in home.map.rooms if r.id == d.room), None),
+                      "door": d.door, "mount": d.mount, "position": list(d.position)},
             "model_basis": {"reached": fidelity.get("reached") or {}, "assumed": fidelity.get("assumed") or [],
                             "reasons": fidelity.get("reasons") or {}, "sources": record.get("sources") or []},
             "connections": connections, "interfaces": {"entities": entities, "automations": automations},

@@ -49,7 +49,96 @@ function actionHtml(c, action, ctx) {
 const value = (v) => (typeof v === "number" ? String(Math.round(v * 100) / 100)
   : typeof v === "string" ? v : JSON.stringify(v));
 
-// `ctx`: {inReach, watching}; an action a hand cannot take now is shown disabled with why.
+// -- plain words, as Room 334's panels speak: what it is, where, what it does now ---------------------------------
+const PROTOCOL = { zigbee: "Zigbee", matter: "Matter", tasmota: "Wi-Fi", zwave: "Z-Wave" };
+const NOUN = { lock: "smart lock", plug: "smart plug", contact_sensor: "door sensor", energy_meter: "energy meter" };
+const noun = (c) => NOUN[c.category] || String(c.category || "device").replaceAll("_", " ");
+const roomWords = (id) => { // "living_room" -> "living room"; "bedroom_001" -> "bedroom 2"
+  const n = /_(\d{3})$/.exec(id || "");
+  const base = String(id || "").replace(/_\d{3}$/, "").replaceAll("_", " ");
+  return n ? `${base} ${Number(n[1]) + 1}` : base;
+};
+const the = (room) => (/\d$/.test(room) ? room : `the ${room}`);
+const whose = (room) => `${the(room)}'s`;
+
+function whereWords(c) {
+  const w = c.where || {}, room = w.room_label ? roomWords(String(w.room_label).split("/")[0]) : roomWords(w.room);
+  if (w.door) {
+    const other = String(w.door).split("-").find((r) => r !== w.room) || "";
+    return `on ${whose(room)} door to ${other === "outdoor" || !other ? "outside" : the(roomWords(other))}`;
+  }
+  return { ceiling: `on ${whose(room)} ceiling`, corner: `in a corner of ${the(room)}`, wall: `on a wall of ${the(room)}`,
+           floor: `on the floor of ${the(room)}`, table: `on a table in ${the(room)}` }[w.mount] || `in ${the(room)}`;
+}
+
+function nowWords(c) {
+  const s = c.state || {}, e = c.effect || {}, num = (v) => typeof v === "number";
+  let now = "";
+  if (c.category === "lock") {
+    const locked = "locked" in e ? e.locked === true : String(s.state).toUpperCase() === "LOCK";
+    now = `It is ${locked ? "locked" : "unlocked"} now`;
+  } else if (SWITCHED.has(c.category)) {
+    const isOn = "on" in e ? e.on === true : String(s.state ?? s.POWER ?? "").toUpperCase() === "ON";
+    now = `It is ${isOn ? "on" : "off"} now`;
+    if (isOn && num(s.brightness)) now += `, at ${Math.round((s.brightness / 254) * 100)}% brightness`;
+    else if (isOn && num(s.power)) now += `, drawing ${Math.round(s.power)} W`;
+  } else if ("occupancy" in s || "presence" in s) {
+    now = (s.occupancy ?? s.presence) ? "It sees someone now" : "It sees no one now";
+  } else if ("contact" in s) {
+    now = `The door is ${s.contact ? "shut" : "open"} now`;
+  } else if (num(s.local_temperature)) {
+    now = `It reads ${s.local_temperature} °C` + (num(s.occupied_heating_setpoint) ? `, set to ${s.occupied_heating_setpoint} °C` : "");
+  } else if (num(s.temperature)) {
+    now = `It reads ${s.temperature} °C` + (num(s.humidity) ? ` and ${s.humidity}% humidity` : "");
+  } else if ("smoke" in s) {
+    now = s.smoke ? "It detects smoke now" : "No smoke now";
+  } else if ("water_leak" in s) {
+    now = s.water_leak ? "It detects water now" : "No water now";
+  }
+  if (now && num(s.battery)) now += `; battery ${Math.round(s.battery)}%`;
+  return now ? `${now}.` : "";
+}
+
+export function summaryOf(c) {
+  const kind = `${PROTOCOL[c.protocol] || c.protocol || ""} ${noun(c)}`.trim();
+  return `${/^[aeiou]/i.test(kind) ? "An" : "A"} ${kind} ${whereWords(c)}. ${nowWords(c)}`.trim();
+}
+
+const MEDIUM = { zigbee: ["Zigbee radio", "the coordinator"], wifi: ["Wi-Fi", "the router"],
+                 ethernet: ["Ethernet", "the hub"] };
+export function connectionText(c) {
+  const links = (c.connections || []).filter((l) => MEDIUM[l.medium]);
+  if (!(c.connections || []).length) return "Not on the home's network.";
+  if (!links.length) return "Inside the hub.";
+  const parts = links.map((l, k) => {
+    const [how, to] = MEDIUM[l.medium];
+    const signal = l.rssi_dbm == null ? "" : `: −${Math.abs(Math.round(l.rssi_dbm))} dBm ${l.walls ? `through ${l.walls} ` +
+      `wall${l.walls === 1 ? "" : "s"}` : "with no wall between"}, ${Math.round(l.latency_ms)} ms`;
+    return `${k ? "then " : ""}${how} to ${to}${signal}${l.up ? "" : `, which is down now`}`;
+  });
+  return `${parts.join("; ")}.`;
+}
+
+const HAS = { L0: "a real product", L1: "with its configuration", L2: "accepted by Home Assistant",
+              L3: "with its timing", L4: "matching its firmware" };
+const NOT = { L0: "identity", L1: "configuration", L2: "protocol", L3: "timing", L4: "firmware" };
+export function trustText(c) {
+  const reached = c.model_basis.reached || {};
+  const levels = ["L0", "L1", "L2", "L3", "L4"];
+  const top = levels.filter((l) => reached[l]).pop();
+  const sources = (c.model_basis.sources || []).map((x) => `${x.source} ${x.version || ""} (${x.license || "?"})`
+    .replace("  ", " ")).join(" and ");
+  const has = top ? `Trusted to ${top} of L4: ${levels.filter((l) => reached[l]).map((l) => HAS[l]).join(", ")}` +
+    (sources ? ` from ${sources}` : "") + "." : "Not yet identified as a product.";
+  const missing = levels.filter((l) => !reached[l]).map((l) => NOT[l]); // the reasons are under Details
+  return missing.length ? `${has} Not yet: ${missing.join(", ")}.` : has;
+}
+
+// `ctx`: {inReach, watching}; an action a hand cannot take now is shown disabled with why. As Room 334's: a plain
+// sentence first, the one action, a line each on its connection, Home Assistant and trust; every raw reading,
+// entity, link and level folded under Details.
+const MAIN = ["state", "light", "lock", "switch", "contact", "occupancy", "presence", "smoke", "water_leak",
+  "local_temperature", "temperature", "power"];
 export function dialogHtml(c, ctx = {}) {
   const where = c.where.door ? `on the ${esc(c.where.door)} door` : `${esc(c.where.room)}, ${esc(c.where.mount)}`;
   const action = actionFor(c);
@@ -60,8 +149,8 @@ export function dialogHtml(c, ctx = {}) {
     return `<li class="link ${l.up ? "up" : "down"}"><span class="medium">${esc(l.medium)}</span> ${esc(l.link)}` +
       `<span class="muted"> ${signal.join(" · ")}${l.up ? "" : " · down"}</span></li>`;
   });
-  const entities = Object.entries(c.interfaces.entities || {})
-    .map(([f, e]) => `<tr><td>${esc(f)}</td><td><code>${esc(e)}</code></td></tr>`);
+  const entityList = Object.entries(c.interfaces.entities || {});
+  const entities = entityList.map(([f, e]) => `<tr><td>${esc(f)}</td><td><code>${esc(e)}</code></td></tr>`);
   const autos = (c.interfaces.automations || []).map((a) => `<li>${esc(a)}</li>`);
   const reached = c.model_basis.reached || {}, reasons = c.model_basis.reasons || {};
   const levels = Object.keys(LEVELS).map((l) => `<li class="level ${reached[l] ? "yes" : "no"}">` +
@@ -69,28 +158,36 @@ export function dialogHtml(c, ctx = {}) {
     `${!reached[l] && reasons[l] ? `<span class="why">${esc(reasons[l])}</span>` : ""}</li>`);
   const sources = (c.model_basis.sources || []).map((s) => esc(`${s.source} ${s.version || ""} (${s.license || "?"})`));
   const assumed = c.model_basis.assumed || [];
+  const main = MAIN.map((f) => entityList.find(([k]) => k === f)).find(Boolean) || entityList[0]; // its state's entity
+  const ha = entityList.length
+    ? `${entityList.length} ${entityList.length === 1 ? "entity" : "entities"}, the main one <code>${esc(main[1])}</code>.`
+    : "Home Assistant has no entity for it.";
   return `<header class="dlg-head">
-    <div class="kind"><span class="proto ${esc(c.protocol)}">${esc(c.protocol)}</span> ${esc(
-      String(c.category || "device").replaceAll("_", " "))}</div>
+    <div class="kind"><span class="proto ${esc(c.protocol)}">${esc(c.protocol)}</span> ${esc(noun(c))}</div>
     <h2>${esc(c.vendor)} ${esc(c.model)}</h2>
-    <div class="muted">${esc(c.name)} · ${where}</div>
+    <div class="muted">${c.description ? `${esc(c.description)} · ` : ""}${esc(c.name)}</div>
     <button class="close" data-close aria-label="Close">×</button>
   </header>
   <div class="dlg-body">
-    ${c.description ? `<p class="lede">${esc(c.description)}</p>` : ""}
-    <section><h3>Now</h3><table class="kv">${stateRows.join("")}</table>
-      ${actionHtml(c, action, ctx)}</section>
-    <section><h3>How it reaches the hub</h3>${links.length ? `<ul class="links">${links.join("")}</ul>`
-      : `<p class="muted">Not on the home's network.</p>`}</section>
-    <section><h3>In Home Assistant</h3>${entities.length ? `<table class="kv">${entities.join("")}</table>`
-      : `<p class="muted">Home Assistant has no entity for it.</p>`}
+    <p class="lede">${esc(summaryOf(c))}</p>
+    ${actionHtml(c, action, ctx)}
+    <section><h3>Connection</h3><p>${esc(connectionText(c))}</p></section>
+    <section><h3>In Home Assistant</h3><p>${ha}</p>
       ${autos.length ? `<p class="sub">Automations that use it</p><ul class="autos">${autos.join("")}</ul>` : ""}</section>
-    <section><h3>How far to trust it</h3><ul class="levels">${levels.join("")}</ul>
+    <section><h3>How far to trust it</h3><p>${esc(trustText(c))}</p></section>
+    <details class="more"><summary>Details: every reading, entity, link and level</summary>
+      <p class="sub">Where</p><p>${where}</p>
+      <p class="sub">Now</p><table class="kv">${stateRows.join("")}</table>
+      <p class="sub">How it reaches the hub</p>${links.length ? `<ul class="links">${links.join("")}</ul>`
+        : `<p class="muted">Not on the home's network.</p>`}
+      <p class="sub">Home Assistant's entities</p>${entities.length ? `<table class="kv">${entities.join("")}</table>`
+        : `<p class="muted">Home Assistant has no entity for it.</p>`}
+      <p class="sub">Level by level</p><ul class="levels">${levels.join("")}</ul>
       ${assumed.length ? `<p class="sub">Assumed, not from a source</p><p class="mono">${esc(assumed.join(", "))}</p>` : ""}
       <p class="sub">Sources</p><p>${sources.join("<br>") || "—"}</p>
-      ${safeUrl(c.reference) ? `<p><a href="${esc(c.reference)}" target="_blank" rel="noopener">The product's page</a></p>`
-        : ""}
-    </section>
+    </details>
+    ${safeUrl(c.reference) ? `<p><a class="ref" href="${esc(c.reference)}" target="_blank" rel="noopener">The product's page ↗</a></p>`
+      : ""}
   </div>`;
 }
 
