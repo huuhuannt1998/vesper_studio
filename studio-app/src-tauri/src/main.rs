@@ -1,8 +1,9 @@
 // VESPER Studio for macOS and Windows (Lab spec §7, plan W6): a native window around VESPER's own lobby.
 //
 // The app starts `vesper studio` (on Windows inside WSL2, where Habitat and Home Assistant run), waits until its
-// page answers on 127.0.0.1, and shows it. Everything else is VESPER's: the app adds no API to the page. When the
-// window closes, VESPER is asked to stop (SIGTERM), so the home it is playing stops too.
+// page answers on 127.0.0.1, and shows it. Everything else is VESPER's: the app adds no API to the page. A played home
+// opens in the default browser, where mouse look works. When the window closes, VESPER is asked to stop (SIGTERM),
+// so the home it is playing stops too.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::io::{Read, Write};
@@ -113,6 +114,25 @@ fn stop(child: &mut Child) {
     let _ = child.wait();
 }
 
+/// Whether a page stays in the app's window: the bundled start page and VESPER's lobby (with its compose page). A played
+/// home opens in the default browser instead, where the 3D view can capture the mouse and look around as games do; the
+/// app's web view gives a page no pointer lock on macOS.
+fn stays_in_window(url: &Url) -> bool {
+    match url.scheme() {
+        "http" | "https" => url.host_str() == Some("127.0.0.1") && url.port() == Some(PORT),
+        _ => true, // tauri:// and the like: the bundled start page
+    }
+}
+
+fn open_in_browser(url: &Url) {
+    #[cfg(target_os = "macos")]
+    let _ = Command::new("open").arg(url.as_str()).spawn();
+    #[cfg(windows)]
+    let _ = Command::new("cmd").args(["/C", "start", "", url.as_str()]).spawn(); // WSL2 forwards the port
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let _ = Command::new("xdg-open").arg(url.as_str()).spawn();
+}
+
 fn show_error(app: &tauri::AppHandle, text: &str) {
     *app.state::<LastError>().0.lock().unwrap() = Some(text.to_string());
     send_error(app);
@@ -127,7 +147,17 @@ fn send_error(app: &tauri::AppHandle) {
 }
 
 fn main() {
+    let browser = tauri::plugin::Builder::<tauri::Wry>::new("browser")
+        .on_navigation(|_webview, url| {
+            if stays_in_window(url) {
+                return true;
+            }
+            open_in_browser(url);
+            false
+        })
+        .build();
     let app = tauri::Builder::default()
+        .plugin(browser)
         .manage(Server(Mutex::new(None)))
         .manage(LastError(Mutex::new(None)))
         .on_page_load(|webview, payload| {
