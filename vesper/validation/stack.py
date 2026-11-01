@@ -25,8 +25,11 @@ HA_VERSION = "2026.10.2"
 HA_PYTHON = "3.14"
 # bootstrap needs frontend; mqtt's flow imports hassio; matter talks to VESPER's Matter Server
 # The integrations whose requirements setup installs. The Tasmota integration loads its camera platform, which
-# imports `stream` (numpy, PyAV): their requirements too, or it fails to set up.
-NEEDED_INTEGRATIONS = ("frontend", "mqtt", "hassio", "matter", "tasmota", "camera", "stream")
+# imports `stream` (numpy, PyAV): their requirements too, or it fails to set up. Home Assistant's pages ask for every
+# service's description, which loads `conversation` (hassil): without it they stay blank; default_config sets up
+# `tts` and `assist_pipeline` as well.
+NEEDED_INTEGRATIONS = ("frontend", "mqtt", "hassio", "matter", "tasmota", "camera", "stream", "conversation", "tts",
+                       "assist_pipeline")
 MQTT_PORT, HA_PORT, MATTER_SERVER_PORT = 18830, 18123, 15580
 NODE_MIN = (22, 13)  # the pinned matter-server needs Node 22.13 (spec §3, amended 2026-10-23)
 RECOVERY_MARK = "Activating recovery mode"

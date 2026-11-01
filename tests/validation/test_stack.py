@@ -5,8 +5,8 @@ import subprocess
 import httpx
 import pytest
 
-from vesper.validation.stack import (HA_VERSION, MATTER_SERVER_PORT, RECOVERY_MARK, HomeAssistant, MatterServer,
-                                     Mosquitto, Paths, StackError, port_free, setup_ha, setup_matter)
+from vesper.validation.stack import (HA_VERSION, MATTER_SERVER_PORT, NEEDED_INTEGRATIONS, RECOVERY_MARK, HomeAssistant,
+                                     MatterServer, Mosquitto, Paths, StackError, port_free, setup_ha, setup_matter)
 
 
 def test_setup_installs_the_pinned_release_and_the_needed_integrations_packages(tmp_path):
@@ -23,7 +23,7 @@ def test_setup_installs_the_pinned_release_and_the_needed_integrations_packages(
     assert reqs == ["aiohasupervisor==0.6.0", "paho-mqtt==2.1.0"]
     assert ["/bin/uv", "venv", "--python", "3.14", str(tmp_path / "ha" / "venv")] in calls
     assert calls[1][-1] == f"homeassistant=={HA_VERSION}" and calls[3][-2:] == reqs
-    assert calls[2][3:] == ["frontend", "mqtt", "hassio", "matter", "tasmota", "camera", "stream"]
+    assert calls[2][3:] == list(NEEDED_INTEGRATIONS)
 
 
 def test_setup_needs_uv(tmp_path):
@@ -573,6 +573,15 @@ def test_setup_installs_what_the_tasmota_integration_imports():
     their requirements the integration fails to set up and no Tasmota entity appears (found live, plan W7a2)."""
     from vesper.validation.stack import NEEDED_INTEGRATIONS
     assert {"tasmota", "camera", "stream"} <= set(NEEDED_INTEGRATIONS)
+
+
+def test_setup_installs_what_home_assistant_s_own_pages_need():
+    """Home Assistant's pages ask for every service's description, which loads the `conversation` integration
+    (hassil); without its requirements the request fails and the page stays blank, so "Open Home Assistant" from
+    the hub showed nothing (found live 2026-11-01). `tts` and `assist_pipeline`, which default_config sets up,
+    need theirs too."""
+    from vesper.validation.stack import NEEDED_INTEGRATIONS
+    assert {"conversation", "tts", "assist_pipeline"} <= set(NEEDED_INTEGRATIONS)
 
 
 @pytest.mark.parametrize("server", [FakeServer(tasmota_state="setup_error"), FakeServer(tasmota_missing=True)],
