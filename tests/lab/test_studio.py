@@ -92,3 +92,20 @@ def test_another_site_s_page_is_refused(lobby):
     assert call(s, "/api/setup", {"what": "ha"}, origin="http://evil.example")[0] == 403
     assert call(s, "/api/open", {"home": "homes/flat"}, origin="http://evil.example")[0] == 403
     assert jobs == [] and launch.started == []
+
+
+def test_an_hssd_house_downloads_in_the_background_and_only_a_scene_id_is_taken(lobby):
+    s, _, jobs, _ = lobby
+    assert call(s, "/api/setup", {"what": "scene:102344022"})[0] == 200
+    status = json.loads(call(s, "/api/setup")[1])["jobs"][0]
+    assert status["what"] == "scene:102344022" and "setting up scene:102344022" in status["tail"]
+    assert call(s, "/api/setup", {"what": "scene:1; rm -rf /"})[0] == 400
+    assert call(s, "/api/setup", {"what": "scene:"})[0] == 400
+
+
+def test_a_scene_download_runs_vesper_setup_scenes_with_that_id(tmp_path):
+    from vesper.lab.studio import StudioServer
+    s = StudioServer.__new__(StudioServer)
+    s.stack_root = tmp_path
+    args = s._setup_args("scene:102344022")
+    assert args == ["setup", "scenes", "102344022"]

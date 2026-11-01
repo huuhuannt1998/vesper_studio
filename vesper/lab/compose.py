@@ -154,7 +154,8 @@ def compose_home(request: dict, catalog: dict, out: Path) -> dict:
     return {"home": str(out / "home.yaml"), "summary": summary_row(out.name, home)}
 
 
-HOME_FILES = ("home.yaml", "map.json", "request.yaml", "scene.glb", "map.original.json", "dress")
+HOME_FILES = ("home.yaml", "map.json", "request.yaml", "scene.glb", "map.original.json", "dress", "render.json",
+              "openings.json")
 
 
 def _launch_play(home: str, port: int, catalog_dir: Path):
@@ -232,6 +233,17 @@ class ComposeServer:
         return {"room_types": sorted(AREAS), "categories": dict(sorted(cats.items())),
                 "placed_by_rule": sorted(RULES), "protocols": [p for p in PROTOCOLS if p != "zwave"],
                 "out": str(self.out)}
+
+    def scenes(self) -> dict:
+        """The HSSD houses here, the complete ones first, each with what the page shows to choose by."""
+        from vesper.lab import scenes as hssd
+        try:
+            found = hssd.list_scenes(hssd.hssd_dir(None))
+        except hssd.SceneError as e:
+            return {"scenes": [], "error": str(e)}
+        return {"scenes": [{"id": s.id, "rooms": s.rooms, "labels": s.labels, "indoor_m2": s.indoor_m2,
+                            "storeys": s.storeys, "ready": s.ready, "missing": len(s.missing)} for s in found],
+                "habitat": hssd.habitat_python(None).is_file()}
 
     def play(self, home: Path | None = None) -> dict:
         """Play the composed home (or `home`, a home file the caller has checked) in a child `vesper lab play`."""
@@ -330,6 +342,8 @@ class ComposeServer:
                     return self._json(404, {"error": "not found"})
                 if u.path == "/api/meta":
                     return self._json(200, server.meta())
+                if u.path == "/api/scenes":
+                    return self._json(200, server.scenes())
                 if u.path == "/api/search":
                     try:
                         offset = max(int(q.get("offset", 0)), 0)

@@ -15,6 +15,7 @@ from pathlib import Path
 
 import yaml
 
+from vesper.lab.geometry import point_in_polygon
 from vesper.lab.worldmap import Grid, Room, WorldMap
 
 CELL = 0.1
@@ -134,7 +135,7 @@ RULES = {"light": "ceiling", "smoke_sensor": "ceiling", "gas_sensor": "ceiling",
          "thermostat": "wall", "plug": "floor"}  # anything else: a table position
 SHORT = {"motion_sensor": "motion", "contact_sensor": "contact", "smoke_sensor": "smoke", "gas_sensor": "gas",
          "climate_sensor": "climate", "leak_sensor": "leak", "air_quality_sensor": "air"}
-REQUEST_FIELDS = {"format", "rooms", "program", "seed", "devices", "residents"}
+REQUEST_FIELDS = {"format", "rooms", "program", "scene", "seed", "devices", "residents"}
 DEVICE_FIELDS = {"product", "category", "at", "per", "except", "count", "protocol"}
 
 
@@ -144,6 +145,7 @@ class Request:
     program: list[str]
     seed: int
     devices: list[dict]
+    scene: str | None = None  # an HSSD scene id: the home is that real house, not a generated layout
 
 
 def load_request(path: Path) -> Request:
@@ -161,6 +163,14 @@ def load_request(path: Path) -> Request:
     unknown = sorted(set(spec) - REQUEST_FIELDS)
     if unknown:
         raise GenerateError(f"{unknown[0]!r} is not one of a request's fields")
+    scene = spec.get("scene")
+    if scene is not None:
+        if isinstance(scene, int) and not isinstance(scene, bool):
+            scene = str(scene)
+        if not isinstance(scene, str) or not scene.isdigit():
+            raise GenerateError(f"scene: {scene!r} is not an HSSD scene id (vesper lab scenes lists them)")
+        if spec.get("rooms") is not None or spec.get("program") is not None:
+            raise GenerateError("a request names a scene or rooms (or a program), not both")
     if spec.get("program") is not None:
         types = spec["program"]
         if not isinstance(types, list) or not types:
@@ -173,11 +183,14 @@ def load_request(path: Path) -> Request:
     devices = spec.get("devices") or []
     if not isinstance(devices, list) or not all(isinstance(d, dict) for d in devices):
         raise GenerateError("devices: a list of mappings")
-    return Request(path, list(types), seed, devices)
+    return Request(path, list(types), seed, devices, scene)
 
 
-def generate_home(request: Request, catalog: dict, out: Path) -> None:
-    """Write the home (map.json and home.yaml) into `out`, a new directory."""
+def generate_home(request: Request, catalog: dict, out: Path, export=None) -> None:
+    """Write the home (map.json and home.yaml) into `out`, a new directory. A request naming an HSSD scene gets that
+    house, exported by the world service in the Habitat environment (`export(scene, out)` stands in for it in tests)."""
+    if request.scene is not None:
+        return _house(request, catalog, Path(out), export or _export_scene)
     world_map = floor_plan(request.program, request.seed)
     devices = place_devices(world_map, request, catalog)
     out = Path(out)
@@ -190,6 +203,44 @@ def generate_home(request: Request, catalog: dict, out: Path) -> None:
              "version: 2", f"scene: {world_map.scene}", "map: map.json", f"seed: {request.seed}",
              'start_time: "07:00"', f"avatar: {{model: female_0, start: {{room: {start}}}}}", "doors: []",
              "devices:" if devices else "devices: []"]
+    lines += [f"  - {yaml.safe_dump(d, default_flow_style=True, sort_keys=False, width=1000).strip()}"
+              for d in devices]
+    (out / "home.yaml").write_text("\n".join(lines) + "\n")
+
+
+def _export_scene(scene: str, out: Path) -> None:
+    from vesper.lab import scenes
+    try:
+        hssd = scenes.hssd_dir(None)
+        info = scenes.scene_info(hssd, scene)
+        if info.missing:
+            raise GenerateError(f"scene {scene} still needs {len(info.missing)} file(s) in {hssd}, such as "
+                                f"{', '.join(info.missing[:2])}; download the scene first")
+        scenes.export_scene(hssd, scene, out, scenes.habitat_python(None))
+    except scenes.SceneError as e:
+        raise GenerateError(str(e)) from e
+
+
+def _house(request: Request, catalog: dict, out: Path, export) -> None:
+    """A real furnished house from HSSD, with the request's devices placed in its rooms by the same rules."""
+    from vesper.lab import scenes
+    out.mkdir(parents=True)
+    export(request.scene, out)
+    world_map = WorldMap.load(out / "map.json")
+    try:
+        openings = scenes.read_openings(out / "openings.json")["openings"]
+    except scenes.SceneError as e:
+        raise GenerateError(str(e)) from e
+    doors = scenes.doors_from_openings(world_map, openings)
+    devices = place_devices(world_map, request, catalog)
+    indoor = [r.id for r in world_map.rooms if not r.outdoor]
+    lines = [f"# A home in HSSD scene {request.scene}, a real furnished house (CC BY-NC 4.0: keep this home out of",
+             f"# public repositories); {len(indoor)} rooms; every device's position is by rule (assumed), seed "
+             f"{request.seed}.", "version: 2", f"scene: {world_map.scene}", "map: map.json", f"seed: {request.seed}",
+             'start_time: "07:00"', f"avatar: {{model: female_0, start: {{room: {scenes.start_room(world_map)}}}}}",
+             "doors:" if doors else "doors: []"]
+    lines += [f"  - {{doorway: {d}, open: false}}" for d in doors]
+    lines.append("devices:" if devices else "devices: []")
     lines += [f"  - {yaml.safe_dump(d, default_flow_style=True, sort_keys=False, width=1000).strip()}"
               for d in devices]
     (out / "home.yaml").write_text("\n".join(lines) + "\n")
@@ -241,7 +292,7 @@ def _targets(d: dict, world_map: WorldMap, rooms, types: dict, rule: str, where:
         raise GenerateError(f"{where}.per: {d['per']!r} is not room")
     skip = set(d.get("except") or [])
     if d.get("per") == "room":
-        chosen = [r for r in rooms if types[r.id] not in skip and r.id not in skip]
+        chosen = [r for r in rooms if r.id not in skip and not any(_is_type(types[r.id], t) for t in skip)]
     elif d.get("count") is not None:
         n = d["count"]
         if isinstance(n, bool) or not isinstance(n, int) or n < 1:
@@ -256,10 +307,12 @@ def _targets(d: dict, world_map: WorldMap, rooms, types: dict, rule: str, where:
             return outdoor
         if any(w.id == at for w in world_map.doorways):
             return [w for w in world_map.doorways if w.id == at]
-        if at in ("hall", "corridor"):
-            chosen = [world_map.room("corridor")]
+        if at in ("hall", "corridor"):  # a generated home's corridor, or a house's hallway
+            chosen = ([r for r in world_map.rooms if r.id == "corridor"]
+                      or [r for r in rooms if types[r.id] in ("hall", "hallway", "corridor", "entryway")][:1]
+                      or rooms[:1])
         else:
-            chosen = [r for r in rooms if r.id == at] or [r for r in rooms if types[r.id] == at][:1]
+            chosen = [r for r in rooms if r.id == at] or [r for r in rooms if _is_type(types[r.id], at)][:1]
         if not chosen:
             raise GenerateError(f"{where}.at: {at!r} is not a room, a room type, a doorway, front_door or "
                                 "exterior_doors")
@@ -323,7 +376,27 @@ def _place(product, category, rule, target, world_map: WorldMap, per_room: dict,
     else:
         c = ((x0 + x1) / 2 + 0.4 * (k % 3), (z0 + z1) / 2)
         at = {"room": room.id, "mount": "table", "xy": [round(c[0], 2), round(c[1], 2)]}
+    for key in ("xy", "wall_switch"):  # the rules work on the room's box: a house's room is seldom one
+        if key in at:
+            at[key] = _inside(room, at[key])
     return {"product": product, "name": name, "at": at}
+
+
+def _inside(room: Room, xy: list, step: float = 0.1, margin: float = 0.15) -> list:
+    """`xy` if it is in the room, else the nearest point at least `margin` inside it (on a `step` grid)."""
+    if point_in_polygon((xy[0], xy[1]), room.polygon):
+        return xy
+    xs, zs = [x for x, _ in room.polygon], [z for _, z in room.polygon]
+    best, best_d = None, float("inf")
+    nx, nz = int((max(xs) - min(xs)) / step) + 1, int((max(zs) - min(zs)) / step) + 1
+    for i in range(nx):
+        for j in range(nz):
+            p = (min(xs) + i * step, min(zs) + j * step)
+            d = (p[0] - xy[0]) ** 2 + (p[1] - xy[1]) ** 2
+            if d < best_d and all(point_in_polygon((p[0] + dx, p[1] + dz), room.polygon)
+                                  for dx, dz in ((0, 0), (margin, 0), (-margin, 0), (0, margin), (0, -margin))):
+                best, best_d = p, d
+    return [round(best[0], 2), round(best[1], 2)] if best else xy
 
 
 SWITCH_M = 0.6  # a light's wall switch: from the doorway's centre, 0.15 m past a 0.9 m door's latch-side frame
@@ -351,6 +424,11 @@ def _unique(name: str, taken: set) -> str:
     while f"{name}_{k}" in taken:
         k += 1
     return f"{name}_{k}"
+
+
+def _is_type(room_type: str, wanted: str) -> bool:
+    """A generated home's room type names a house's room that starts with it: living, a living_room."""
+    return room_type == wanted or room_type.startswith(f"{wanted}_") or room_type.startswith(f"{wanted}room")
 
 
 def _type_of(room_id: str) -> str:

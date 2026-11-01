@@ -322,3 +322,35 @@ def test_a_play_that_stops_says_why_in_its_own_words(tmp_path, monkeypatch):
     compose_home({"format": "vesper-request/1", "rooms": 2, "devices": []}, catalog(), tmp_path / "out")
     with pytest.raises(ComposeError, match="the catalog in catalog/vds is stale"):
         s.play()
+
+
+def test_the_page_lists_the_hssd_houses_that_are_ready_and_a_house_request_makes_that_house(server, tmp_path,
+                                                                                             monkeypatch):
+    from tests.lab.test_generate import fake_export
+    from vesper.lab import scenes
+    from vesper.lab.scenes import SceneInfo
+    s, _ = server
+    monkeypatch.setattr(scenes, "list_scenes", lambda hssd: [
+        SceneInfo("102344022", 20, ["bedroom", "kitchen", "living room"], 180.5),
+        SceneInfo("102343992", 9, ["kitchen"], 90.0, missing=["objects/x.glb"])])
+    listed = json.loads(call(s, "/api/scenes")[1])
+    assert listed["scenes"][0] == {"id": "102344022", "rooms": 20, "labels": ["bedroom", "kitchen", "living room"],
+                                   "indoor_m2": 180.5, "storeys": 1, "ready": True, "missing": 0}
+    assert listed["scenes"][1]["ready"] is False and listed["scenes"][1]["missing"] == 1  # offered for download
+    monkeypatch.setattr("vesper.lab.generate._export_scene", fake_export)
+    req = {"format": "vesper-request/1", "scene": "102344022", "seed": 0,
+           "devices": [{"category": "light", "per": "room"}]}
+    status, body = call(s, "/api/generate", req, origin=s.url.rstrip("/"))
+    assert status == 200, body
+    assert "HSSD scene 102344022" in (tmp_path / "out" / "home.yaml").read_text()
+
+
+def test_without_hssd_the_page_says_how_to_get_it(server, monkeypatch):
+    from vesper.lab import scenes
+    s, _ = server
+
+    def none(hssd):
+        raise scenes.SceneError("/nowhere holds no HSSD scenes")
+    monkeypatch.setattr(scenes, "list_scenes", none)
+    listed = json.loads(call(s, "/api/scenes")[1])
+    assert listed["scenes"] == [] and "no HSSD scenes" in listed["error"]

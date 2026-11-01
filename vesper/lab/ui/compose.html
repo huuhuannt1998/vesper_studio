@@ -23,6 +23,14 @@
     .choice, .seed { display: block; font-size: 13px; margin: 6px 0; }
     #room-count { width: 64px; }
     .chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+    .houses { margin: 4px 0 10px 22px; font-size: 13px; }
+    .house { display: block; padding: 3px 0; line-height: 1.4; }
+    .more-houses { max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: 4px;
+                   padding: 4px 8px; margin-top: 4px; }
+    .more-houses .house { display: flex; justify-content: space-between; gap: 10px; align-items: center;
+                          color: var(--muted); }
+    .houses .muted { color: var(--muted); }
+    .houses .bad { color: var(--bad, #ff6b6b); }
     .chip { border-radius: 12px; padding: 1px 9px; }
     .chip.small { font-size: 12px; padding: 0 7px; margin: 2px 2px 0 0; color: var(--muted); }
     .chip.small.on { color: var(--text); border-color: var(--warn); text-decoration: line-through; }

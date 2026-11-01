@@ -16,6 +16,7 @@ from pathlib import Path
 from vesper.lab.compose import ComposeError, ComposeServer
 
 SETUPS = ("ha", "matter", "habitat")
+SCENE_JOB = re.compile(r"^scene:(\d{1,20})$")  # an HSSD house to download: `vesper setup scenes ID`
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
 
@@ -85,8 +86,8 @@ class StudioServer(ComposeServer):
 
     # -- setup in the background ---------------------------------------------------------------------------
     def setup(self, what: str) -> dict:
-        if what not in SETUPS:
-            raise ComposeError(f"setup {what!r}: one of {', '.join(SETUPS)}")
+        if what not in SETUPS and not SCENE_JOB.match(what):
+            raise ComposeError(f"setup {what!r}: one of {', '.join(SETUPS)}, or scene:<an HSSD scene id>")
         with self.lock:
             job = self.setups.get(what)
             if job and job["state"] == "running":
@@ -94,7 +95,7 @@ class StudioServer(ComposeServer):
             if what in ("ha", "matter") and any(j["state"] == "running" and j["what"] in ("ha", "matter")
                                                 for j in self.setups.values()):
                 raise ComposeError("Home Assistant's and Matter's setups share a folder: one at a time")
-            log = self.stack_root / f"setup-{what}.log"
+            log = self.stack_root / f"setup-{what.replace(':', '-')}.log"
             log.parent.mkdir(parents=True, exist_ok=True)
             job = self.setups[what] = {"what": what, "state": "running", "log": str(log), "exit": None}
             job["child"] = self._run_setup(what, log)
@@ -116,8 +117,14 @@ class StudioServer(ComposeServer):
         code = job["child"].wait()
         job.update(state="done" if code == 0 else "failed", exit=code)
 
+    def _setup_args(self, what: str) -> list[str]:
+        scene = SCENE_JOB.match(what)
+        if scene:
+            return ["setup", "scenes", scene.group(1)]
+        return ["setup", what] + (["--root", str(self.stack_root)] if what in ("ha", "matter") else [])
+
     def _setup_child(self, what: str, log: Path):
-        args = ["setup", what] + (["--root", str(self.stack_root)] if what in ("ha", "matter") else [])
+        args = self._setup_args(what)
         code = "import sys; from vesper.cli import main; sys.exit(main(sys.argv[1:]))"
         with open(log, "w") as out:  # the child keeps its own copy of the handle
             return subprocess.Popen([sys.executable, "-c", code, *args], stdout=out, stderr=subprocess.STDOUT)

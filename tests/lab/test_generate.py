@@ -243,3 +243,76 @@ def test_a_light_s_switch_is_on_the_latch_side_by_the_entrance_and_two_lights_ge
             assert dw.outdoor, d.name  # the hall's switch by the front door
     living = [d.wall_switch for d in lights if d.room == "living"]
     assert len(living) == 2 and distance(*living) >= 0.1
+
+
+HOUSE = """\
+    format: vesper-request/1
+    scene: "102344022"
+    seed: 1
+    devices:
+      - {product: "zigbee:aqara:mccgq11lm", at: front_door}
+      - {category: light, per: room}
+      - {category: motion_sensor, at: hall}
+"""
+
+
+def fake_export(scene, out):
+    """Habitat's export, for tests: the example home's map as the house, no door leaves of its own."""
+    import json
+    import shutil
+    from pathlib import Path
+    assert scene == "102344022"
+    shutil.copy(Path("examples/lab/test-house/map.json"), Path(out) / "map.json")
+    (Path(out) / "openings.json").write_text(json.dumps({"openings": [], "floor": {}}))
+
+
+def test_a_request_naming_an_hssd_house_places_its_devices_in_that_house_s_rooms(tmp_path):
+    out = tmp_path / "home"
+    req = request(tmp_path, HOUSE)
+    assert req.scene == "102344022"
+    generate_home(req, catalog(), out, export=fake_export)
+    home = load_lab_home(out / "home.yaml", catalog())
+    rooms = {r.id for r in home.map.rooms if not r.outdoor}
+    lights = [d for d in home.devices if d.record["identity"]["category"] == "light"]
+    assert {d.room for d in lights} == rooms
+    (motion,) = [d for d in home.devices if d.record["identity"]["category"] == "motion_sensor"]
+    assert motion.room == "hall"  # a house's hallway, where a generated home has its corridor
+    text = (out / "home.yaml").read_text()
+    assert "HSSD scene 102344022" in text and "synthetic" not in text
+    assert (out / "openings.json").is_file()
+
+
+def test_a_house_request_says_what_is_wrong(tmp_path):
+    with pytest.raises(GenerateError, match="scene"):
+        request(tmp_path, HOUSE.replace('scene: "102344022"', "scene: [1]"))
+    with pytest.raises(GenerateError, match="scene or rooms"):
+        request(tmp_path, HOUSE.replace("seed: 1", "seed: 1\n    rooms: 4"))
+
+
+def test_a_room_type_names_a_house_s_room_that_starts_with_it(tmp_path):
+    from pathlib import Path
+
+    def export(scene, out):  # the example home with its kitchen named as HSSD names a dining room
+        import json
+        text = Path("examples/lab/test-house/map.json").read_text().replace("kitchen", "dining_room")
+        (Path(out) / "map.json").write_text(text)
+        (Path(out) / "openings.json").write_text(json.dumps({"openings": []}))
+    out = tmp_path / "home"
+    req = request(tmp_path, HOUSE.replace("{category: motion_sensor, at: hall}", "{category: plug, at: dining}")
+                  .replace("{category: light, per: room}", "{category: light, per: room, except: [dining]}"))
+    generate_home(req, catalog(), out, export=export)
+    home = load_lab_home(out / "home.yaml", catalog())
+    (plug,) = [d for d in home.devices if d.record["identity"]["category"] == "plug"]
+    assert plug.room == "dining_room"
+    assert "dining_room" not in {d.room for d in home.devices if d.record["identity"]["category"] == "light"}
+
+
+def test_a_position_outside_an_irregular_room_moves_to_the_nearest_spot_inside_it():
+    from vesper.lab.generate import _inside
+    from vesper.lab.geometry import point_in_polygon
+    from vesper.lab.worldmap import Room
+    ell = Room("living_room", "living room", ((0, 0), (6, 0), (6, 2), (2, 2), (2, 5), (0, 5)))  # an L
+    assert _inside(ell, [1.0, 1.0]) == [1.0, 1.0]  # inside already: unchanged
+    moved = _inside(ell, [4.0, 4.0])  # inside the box, outside the L
+    assert point_in_polygon(tuple(moved), ell.polygon)
+    assert abs(moved[0] - 4.0) + abs(moved[1] - 4.0) < 2.5  # the nearest corner of the L, not its far end

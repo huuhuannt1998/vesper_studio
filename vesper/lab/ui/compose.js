@@ -19,7 +19,10 @@ export function levelBadges(levels) {
 export function buildRequest(model) {
   const problems = [];
   const request = { format: "vesper-request/1" };
-  if (model.rooms.mode === "list") {
+  if (model.rooms.mode === "house") {
+    if (!model.rooms.scene) problems.push("house: choose one of the houses");
+    request.scene = model.rooms.scene;
+  } else if (model.rooms.mode === "list") {
     if (!model.rooms.program.length) problems.push("rooms: add at least one room");
     request.program = [...model.rooms.program];
   } else {
@@ -76,9 +79,11 @@ if (typeof document !== "undefined") {
     { product: null, category: "thermostat", where: { kind: "room", room: "hall" } },
     { product: null, category: "smoke_sensor", where: { kind: "room", room: "kitchen" } },
   ];
-  const model = { rooms: { mode: "count", count: 6, program: ["living", "kitchen", "bedroom"] }, seed: 0,
+  const model = { rooms: { mode: "count", count: 6, program: ["living", "kitchen", "bedroom"], scene: null }, seed: 0,
                   rows: structuredClone(STARTER) };
   let meta = null, chosenRow = null, shown = null;
+  let houses = null; // the HSSD houses here ({scenes, habitat, error}), asked for when the house choice is first made
+  const downloading = new Set();
   const page = window.vesperCompose = { model, last: null, error: null };
 
   const label = (p) => `${p.vendor || "?"} ${p.model || p.id}`;
@@ -96,7 +101,12 @@ if (typeof document !== "undefined") {
     const list = el("label", { className: "choice" },
       el("input", { type: "radio", name: "rmode", checked: model.rooms.mode === "list",
                     onchange: () => { model.rooms.mode = "list"; drawRooms(); } }), " These rooms");
-    box.append(count, list);
+    const house = el("label", { className: "choice" },
+      el("input", { type: "radio", name: "rmode", checked: model.rooms.mode === "house",
+                    onchange: () => { model.rooms.mode = "house"; drawRooms(); } }),
+      " A real furnished house (HSSD, in 3D)");
+    box.append(count, list, house);
+    if (model.rooms.mode === "house") box.append(houseList());
     if (model.rooms.mode === "list") {
       const chips = el("div", { className: "chips" });
       model.rooms.program.forEach((t, k) => chips.append(el("button", {
@@ -107,8 +117,78 @@ if (typeof document !== "undefined") {
       add.onchange = () => { if (add.value) { model.rooms.program.push(add.value); drawRooms(); } };
       box.append(chips, add);
     }
-    box.append(el("label", { className: "seed" }, "Layout seed ",
+    box.append(el("label", { className: "seed" }, model.rooms.mode === "house" ? "Device seed " : "Layout seed ",
       el("input", { type: "number", min: 0, value: model.seed, oninput: (e) => { model.seed = Number(e.target.value); } })));
+  }
+
+  // The houses: the complete ones to choose, the others to download first (in the lobby, in the background).
+  function houseList() {
+    const box = el("div", { className: "houses", id: "houses" });
+    if (houses === null) {
+      box.append(el("p", { className: "muted", textContent: "Looking for HSSD houses…" }));
+      api("/api/scenes").then((h) => { houses = h; drawRooms(); })
+        .catch((e) => { houses = { scenes: [], error: e.message }; drawRooms(); });
+      return box;
+    }
+    if (houses.error) {
+      box.append(el("p", { className: "bad", textContent: `${houses.error}. In the lobby, set up Habitat; or run ` +
+        "`vesper setup habitat`, then `vesper setup scenes 102344022` after accepting HSSD's terms." }));
+      return box;
+    }
+    if (!houses.habitat) {
+      box.append(el("p", { className: "bad", textContent: "A house is made in Habitat, which is not set up: in the " +
+        "lobby, press Reinstall Habitat (or run `vesper setup habitat`)." }));
+    }
+    const ready = houses.scenes.filter((h) => h.ready), rest = houses.scenes.filter((h) => !h.ready);
+    const describe = (h) => `${h.id} · ${h.rooms} rooms · ${Math.round(h.indoor_m2)} m²` +
+      `${h.storeys > 1 ? ` · ground floor of ${h.storeys}` : ""} · ${h.labels.filter((l) => l !== "outdoor").join(", ")}`;
+    for (const h of ready) {
+      box.append(el("label", { className: "house" },
+        el("input", { type: "radio", name: "house", checked: model.rooms.scene === h.id,
+                      onchange: () => { model.rooms.scene = h.id; } }), ` ${describe(h)}`));
+    }
+    if (rest.length) {
+      box.append(el("p", { className: "muted", textContent: `${rest.length} more ${rest.length === 1 ? "house" : "houses"}` +
+        " to download first (about 80 MB each, from HSSD on Hugging Face, under its CC BY-NC terms):" }));
+      const more = el("div", { className: "more-houses" });
+      for (const h of rest) {
+        const busy = downloading.has(h.id);
+        more.append(el("div", { className: "house" }, `${describe(h)} `,
+          el("button", { textContent: busy ? "Downloading…" : "Download", disabled: busy,
+                         onclick: () => download(h.id) })));
+      }
+      box.append(more);
+    }
+    return box;
+  }
+
+  async function download(id) {
+    downloading.add(id);
+    drawRooms();
+    try {
+      await api("/api/setup", { what: `scene:${id}` });
+    } catch (e) {
+      downloading.delete(id);
+      $("outcome").className = "outcome bad";
+      $("outcome").textContent = /not found|404/.test(e.message)
+        ? `Download it with \`vesper setup scenes ${id}\` (the lobby downloads it for you).`
+        : `Not downloaded: ${e.message}`;
+      drawRooms();
+      return;
+    }
+    const poll = setInterval(async () => {
+      const { jobs } = await api("/api/setup");
+      const job = jobs.find((j) => j.what === `scene:${id}`);
+      if (!job || job.state === "running") return;
+      clearInterval(poll);
+      downloading.delete(id);
+      if (job.state === "failed") {
+        $("outcome").className = "outcome bad";
+        $("outcome").textContent = `House ${id} did not download: ${job.tail.trim().split("\n").pop()}`;
+      }
+      houses = null; // asked again: the house is ready now
+      drawRooms();
+    }, 3000);
   }
 
   function whereControl(row) {
@@ -243,7 +323,7 @@ if (typeof document !== "undefined") {
     const out = $("outcome");
     if (problems.length) { out.className = "outcome bad"; out.textContent = problems.join("; "); return; }
     out.className = "outcome";
-    out.textContent = "Generating…";
+    out.textContent = request.scene ? "Making the house in Habitat (about 15 s)…" : "Generating…";
     $("play").disabled = true;
     $("generate").disabled = true;
     try {
@@ -269,7 +349,7 @@ if (typeof document !== "undefined") {
       const { url } = await api("/api/play", {});
       out.className = "outcome";
       out.textContent = `Playing at ${url}`;
-      window.open(url, "_blank");
+      window.open(url, "_blank") || (window.location.href = url); // the desktop app opens it in the browser
     } catch (e) {
       out.className = "outcome bad";
       out.textContent = `Not started: ${e.message}`;

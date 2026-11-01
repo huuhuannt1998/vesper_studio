@@ -54,3 +54,14 @@ test("a product's badges say what each level rests on", () => {
                     { level: "L2", text: "HA-validated", title: "L2: accepted by Home Assistant in a validation run" }]);
   assert.equal(levelBadges({ L0: true, L1: true, L2: false, L3: false, L4: true }).at(-1).text, "firmware");
 });
+
+test("a chosen house becomes the request's scene, with no rooms; none chosen is named", () => {
+  const rows = [{ category: "light", where: { kind: "per_room", except: [] } }];
+  const { request, problems } = buildRequest({ rooms: { mode: "house", scene: "102344022", count: 6, program: [] },
+                                               seed: 1, rows });
+  assert.deepEqual(problems, []);
+  assert.deepEqual(request, { format: "vesper-request/1", scene: "102344022", seed: 1,
+                              devices: [{ category: "light", per: "room" }] });
+  assert.deepEqual(buildRequest({ rooms: { mode: "house", scene: null, count: 6, program: [] }, seed: 0, rows }).problems,
+                   ["house: choose one of the houses"]);
+});
