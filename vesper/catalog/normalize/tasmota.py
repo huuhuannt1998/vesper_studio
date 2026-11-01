@@ -3,9 +3,10 @@
 A template names a product (title, model, category) and its module's GPIO pins, each pin a Tasmota component code
 (Tasmota's documented components list): relays 224-251 (inverted 256-283), PWM channels 416-420 (inverted 448-452).
 A relay is a POWER switch (POWER1..n for several); one PWM channel is a dimmable light (POWER and Dimmer). Colour
-lights (several PWM channels), sensors, shutters and templates in the numbering before Tasmota 9.1 are left out, each
-named with its reason. Tasmota publishes a state change at once and its whole state every TelePeriod (300 s by
-default).
+lights (several PWM channels), sensors, shutters, templates in the numbering before Tasmota 9.1 and templates the list
+marks unsupported are left out, each named with its reason. A template names no vendor: the title's first word stands
+in for it and is assumed, so no Tasmota record reaches L0. Tasmota publishes a state change at once and its whole
+state every TelePeriod (300 s by default).
 """
 from __future__ import annotations
 
@@ -48,6 +49,8 @@ def _record(stem: str, fm: dict, version: str) -> tuple[dict | None, str | None]
         if fm.get("template"):
             return None, "its template uses the GPIO numbering from before Tasmota 9.1 (not converted)"
         return None, "no template"
+    if fm.get("unsupported"):
+        return None, f"marked unsupported by Tasmota's template list (chip {str(fm.get('chip') or '?').strip()})"
     try:
         template = json.loads(raw)
         gpio = template["GPIO"]
@@ -83,6 +86,7 @@ def _record(stem: str, fm: dict, version: str) -> tuple[dict | None, str | None]
                                  "type": fm.get("type"), "link": fm.get("link")}
     fid = rec["fidelity"]
     fid["provenance"] = {"identity": prov, "features": prov}
+    fid["assumed"].append("identity.vendor")  # a template names no vendor: the title's first word is a guess
     fid["reasons"].update({
         "L2": "credited per product by validation evidence against Home Assistant's Tasmota integration",
         "L3": f"Tasmota's documented defaults: a change at once, the whole state every {TELE_PERIOD_S} s; timing "

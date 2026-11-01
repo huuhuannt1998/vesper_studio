@@ -66,7 +66,7 @@ def test_a_plug_s_relay_is_its_power_switch_reported_on_change_and_every_tele_pe
     assert plug["behavior"]["reporting"]["POWER"] == {"change": 0, "min_s": 0, "max_s": 300}
     assert plug["identity"]["category"] == "plug" and plug["identity"]["protocols"] == ["tasmota"]
     assert plug["binding"]["tasmota"]["relays"] == 1 and plug["binding"]["tasmota"]["template"]["BASE"] == 18
-    assert plug["fidelity"]["reached"]["L1"] is True
+    assert plug["fidelity"]["reasons"]["L1"] == "L0 not reached"  # its features are sourced; its vendor is not
 
 
 def test_a_power_strip_has_one_power_switch_per_relay_inverted_ones_too():
@@ -100,3 +100,20 @@ def test_a_catalog_with_tasmota_products_carries_the_templates_license_and_where
         notice = (out / "NOTICE-tasmota.md").read_text()
         assert f"blakadder/templates at commit {TASMOTA_PIN}" in notice and "tasmota.json" in notice
         assert "Eclipse Public License - v 2.0" in notice
+
+
+def test_a_template_marked_unsupported_is_left_out_with_its_reason():
+    tgz = tasmota_tarball({**TASMOTA_TEMPLATES, "wbr2_plug": TASMOTA_TEMPLATES["acme_plug_p1"].replace(
+        "standard: [eu]\n", "standard: [eu]\nchip: WBR2\nunsupported: true\n")})
+    recs, rejected = tasmota_records(tgz, TASMOTA_PIN)
+    assert "wbr2_plug" not in {r["identity"]["ids"]["tasmota_template"][0] for r in recs}
+    why = {r["file"].rsplit("/", 1)[1]: r["reason"] for r in rejected}
+    assert "unsupported" in why["wbr2_plug"]
+
+
+def test_the_vendor_guessed_from_a_template_s_title_is_assumed():
+    rec = records()["acme_plug_p1"]
+    assert rec["identity"]["vendor"] == "Acme" and "identity.vendor" in rec["fidelity"]["assumed"]
+    # every identity field must be sourced, so a guessed vendor holds the record below L0 (and so below L1)
+    assert not rec["fidelity"]["reached"]["L0"] and not rec["fidelity"]["reached"]["L1"]
+    assert "identity.vendor" in rec["fidelity"]["reasons"]["L0"]
