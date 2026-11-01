@@ -206,9 +206,19 @@ def node_attributes(raw: dict) -> dict[int, dict[int, dict[int, object]]]:
     return out
 
 
-def check_node(attrs: dict, clusters: dict[int, Cluster], devices: dict[int, DeviceType]) -> list[dict]:
-    """Every conformance problem of a node's endpoints: [{endpoint, cluster, check, detail}] (empty: conformant)."""
+def check_node(attrs: dict, clusters: dict[int, Cluster], devices: dict[int, DeviceType],
+               stats: dict | None = None) -> list[dict]:
+    """Every conformance problem of a node's endpoints: [{endpoint, cluster, check, detail}] (empty: conformant).
+    `stats`, when given, counts what was checked: device types, clusters, and the mandatory (and disallowed) features,
+    attributes and commands the rules required of this node."""
     problems = []
+    stats = stats if stats is not None else {}
+    for k in ("device_types", "clusters", "mandatory", "disallowed", "undecided"):
+        stats.setdefault(k, 0)
+
+    def count(r):
+        key = {"M": "mandatory", "X": "disallowed", None: "undecided"}.get(r, "optional")
+        stats[key] = stats.get(key, 0) + 1
 
     def fail(ep, cl, check, detail):
         problems.append({"endpoint": ep, "cluster": f"0x{cl:04X}" if cl is not None else None, "check": check,
@@ -225,7 +235,10 @@ def check_node(attrs: dict, clusters: dict[int, Cluster], devices: dict[int, Dev
             if d is None:
                 fail(ep, None, "device-type", f"unknown device type {did}")
                 continue
+            stats["device_types"] += 1
             for cid, conf in d.clusters.items():
+                if requirement(conf, {"features": set()}) == "M":
+                    stats["mandatory"] += 1
                 if requirement(conf, {"features": set()}) == "M" and cid not in server:
                     fail(ep, cid, "device-type-cluster", f"{d.name} needs this server cluster")
         for cid in sorted(server):
@@ -235,6 +248,7 @@ def check_node(attrs: dict, clusters: dict[int, Cluster], devices: dict[int, Dev
                 if cid < 0xFC00:  # 0xFC00 up: manufacturer-specific
                     fail(ep, cid, "cluster", "not a cluster of the data model")
                 continue
+            stats["clusters"] += 1
             for gid, gname in GLOBAL.items():
                 if gid not in got:
                     fail(ep, cid, "global", f"{gname} not read")
@@ -252,12 +266,14 @@ def check_node(attrs: dict, clusters: dict[int, Cluster], devices: dict[int, Dev
                    "commands": {c.commands[x].name for x in accepted if x in c.commands}}
             for code, conf in c.feature_conform.items():
                 r = requirement(conf, ctx)
+                count(r)
                 if r == "M" and code not in features:
                     fail(ep, cid, "feature", f"feature {code} is mandatory and not set")
                 if r == "X" and code in features:
                     fail(ep, cid, "feature", f"feature {code} is not allowed here and is set")
             for aid, a in c.attributes.items():
                 r = requirement(a.conform, ctx)
+                count(r)
                 if r == "M" and aid not in listed:
                     fail(ep, cid, "attribute", f"{a.name} is mandatory and not in AttributeList")
                 if r == "X" and aid in listed:
@@ -267,6 +283,7 @@ def check_node(attrs: dict, clusters: dict[int, Cluster], devices: dict[int, Dev
                     fail(ep, cid, "attribute-read", f"0x{aid:04X} is in AttributeList and was not read")
             for xid, x in c.commands.items():
                 r = requirement(x.conform, ctx)
+                count(r)
                 if r == "M" and xid not in accepted:
                     fail(ep, cid, "command", f"{x.name} is mandatory and not in AcceptedCommandList")
                 if r == "X" and xid in accepted:

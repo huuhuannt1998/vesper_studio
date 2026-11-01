@@ -480,9 +480,13 @@ def _matter_conformance(root: Path, url: str, node_id: int) -> dict:
     if folder is None:
         return {"error": f"no data model under {root}"}
     clusters, devices = mc.load_data_model_cached(str(folder))
-    problems = mc.check_node(attrs, clusters, devices)
+    stats: dict = {}
+    problems = mc.check_node(attrs, clusters, devices, stats)
     return {"spec_version": version, "data_model": folder.name, "endpoints": sorted(attrs),
-            "clusters": sum(len(c) for c in attrs.values()), "problems": problems, "conformant": not problems}
+            "clusters": sum(len(c) for c in attrs.values()), "checked": stats, "problems": problems,
+            "conformant": not problems,
+            "attributes": {f"{ep}/{cl}/{at}": v for ep, cs in attrs.items() for cl, ats in cs.items()
+                           for at, v in ats.items()}}  # the node as read, so the verdict can be checked again
 
 
 def _validate_matter(args) -> int:

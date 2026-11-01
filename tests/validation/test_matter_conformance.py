@@ -131,3 +131,9 @@ def test_a_version_folder_that_is_not_a_plain_version_is_ignored(tmp_path):
     for v in ("1.4", "1.5-rc", "master"):
         (tmp_path / v).mkdir()
     assert data_model_dir(tmp_path, "1.5").name == "1.4"
+
+
+def test_the_check_counts_what_it_required(tmp_path):
+    stats = {}
+    assert check_node(light(), *model(tmp_path), stats) == []
+    assert stats["device_types"] == 1 and stats["clusters"] == 2 and stats["mandatory"] >= 5
