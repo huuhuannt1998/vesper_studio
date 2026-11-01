@@ -410,6 +410,7 @@ Every command has `--help`. Paths in the examples are relative to the clone.
 | Control | What it does |
 |---|---|
 | **Click** the view | capture the mouse to look around (**Esc** lets it go) |
+| **Drag** the view | look around where a page cannot capture the mouse (the desktop app on macOS) |
 | **W A S D** or the arrow keys | walk where you look; hold two keys for a diagonal |
 | **Shift** | run |
 | **Click** or **F** | use what the crosshair is on: switch a plug, open a door, press a button |

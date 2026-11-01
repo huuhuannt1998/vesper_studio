@@ -54,7 +54,7 @@ async function page({ webgl = false } = {}) {
   globalThis.setTimeout = () => 0;
   globalThis.clearTimeout = () => {};
   globalThis.requestAnimationFrame = (fn) => { nextFrame = fn; return 0; };
-  const docFire = (type) => { for (const fn of docListeners[type] || []) fn({}); };
+  const docFire = (type, e = {}) => { for (const fn of docListeners[type] || []) fn(e); };
   globalThis.document = { getElementById: (id) => (elements[id] ||= new El(id)), createElement: (tag) => new El(tag),
     body: new El("body"), pointerLockElement: null,
     addEventListener: (type, fn) => (docListeners[type] ||= []).push(fn),
@@ -102,7 +102,7 @@ async function page({ webgl = false } = {}) {
   const locked = () => document.pointerLockElement === document.getElementById("view3d");
   if (webgl) for (let k = 0; k < 5; k += 1) await new Promise((r) => setImmediate(r)); // the 3D view starts
   return { v, el: (id) => document.getElementById(id), key, tick, receive, sent, sentOf, screen, frame, aimAt, locked,
-    view3d };
+    view3d, docFire };
 }
 
 test("a walking key released after Option (macOS renames the key) stops the walk", { skip }, async () => {
@@ -244,4 +244,34 @@ test("in 3D, a look's aim turns the header's facing with the camera, as the mous
   assert.match(p.el("where").textContent, / · facing S$/);
   p.v.aim("east");
   assert.match(p.el("where").textContent, / · facing E$/);
+});
+
+test("in 3D, a view that cannot capture the pointer (the desktop app's web view) looks by dragging; a click still uses",
+  { skip }, async () => {
+    const p = await page({ webgl: true });
+    p.el("view3d").requestPointerLock = undefined; // macOS's WKWebView gives a page no pointer lock
+    p.aimAt({ target: "hall-porch", kind: "door" });
+    const yaw = p.v.camera().yaw;
+    p.el("view3d").fire("mousedown", { clientX: 100, clientY: 300, button: 0 });
+    p.docFire("mousemove", { clientX: 400, clientY: 300 });
+    p.docFire("mouseup", {});
+    p.el("view3d").fire("click"); // the click that ends a drag looked; it uses nothing
+    assert.ok(Math.abs(p.v.camera().yaw - yaw - 300 * 0.15) < 1e-9);
+    assert.equal(p.sentOf("interact").length, 0);
+    p.el("view3d").fire("mousedown", { clientX: 400, clientY: 300, button: 0 });
+    p.docFire("mouseup", {});
+    p.el("view3d").fire("click"); // a click without a drag uses what the crosshair is on
+    assert.deepEqual(p.sentOf("interact").map((m) => m.target), ["hall-porch"]);
+  });
+
+test("in 3D, a refused pointer lock turns into drag look", { skip }, async () => {
+  const p = await page({ webgl: true });
+  p.el("view3d").requestPointerLock = () => Promise.reject(new Error("not allowed")); // asked, and refused
+  p.el("view3d").fire("click");
+  p.docFire("pointerlockerror", {});
+  assert.equal(p.locked(), false);
+  const yaw = p.v.camera().yaw;
+  p.el("view3d").fire("mousedown", { clientX: 100, clientY: 300, button: 0 });
+  p.docFire("mousemove", { clientX: 200, clientY: 300 });
+  assert.ok(p.v.camera().yaw !== yaw);
 });

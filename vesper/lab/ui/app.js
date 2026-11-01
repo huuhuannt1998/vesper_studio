@@ -471,13 +471,44 @@ canvas.addEventListener("mousemove", (e) => {
 canvas.addEventListener("mouseleave", () => { hover = null; updatePrompt(); });
 
 const view3dBox = $("view3d"); // a click captures the pointer for mouse look; a click while captured uses
-view3dBox.addEventListener("click", () => { // what the crosshair is on
+// what the crosshair is on. Where a page gets no pointer lock (the desktop app's web view on macOS), the view looks
+// by dragging instead, and a click that did not drag uses.
+let dragLook = false, drag = null, dragged = false;
+function noPointerLock() {
+  if (dragLook) return;
+  dragLook = true;
+  toast("Drag to look around; click to use what the crosshair is on");
+}
+view3dBox.addEventListener("click", () => {
   if (mode !== "3d" || !view3d) return;
-  if (!locked && view3dBox.requestPointerLock) { view3dBox.requestPointerLock(); return; }
+  if (dragged) { dragged = false; return; } // the click that ends a drag: it looked
+  if (!locked && !dragLook) {
+    if (!view3dBox.requestPointerLock) { noPointerLock(); return; }
+    const asked = view3dBox.requestPointerLock();
+    if (asked && asked.catch) asked.catch(noPointerLock);
+    return;
+  }
   useCrosshair();
 });
+view3dBox.addEventListener("mousedown", (e) => {
+  if (mode === "3d" && !locked && (dragLook || !view3dBox.requestPointerLock) && (e.button || 0) === 0) {
+    dragLook = true;
+    drag = { x: e.clientX, y: e.clientY };
+    dragged = false;
+  }
+});
+document.addEventListener?.("mouseup", () => { drag = null; });
+document.addEventListener?.("pointerlockerror", noPointerLock);
 document.addEventListener?.("pointerlockchange", () => { locked = document.pointerLockElement === view3dBox; });
-document.addEventListener?.("mousemove", (e) => { if (locked) look(e.movementX || 0, e.movementY || 0); });
+document.addEventListener?.("mousemove", (e) => {
+  if (locked) { look(e.movementX || 0, e.movementY || 0); return; }
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!dragged && Math.abs(dx) + Math.abs(dy) < 4) return; // a hand's tremble is still a click
+  dragged = true;
+  drag = { x: e.clientX, y: e.clientY };
+  look(dx, dy);
+});
 
 function updatePrompt() { // the prompt by the pointer, again when the player moves under a still pointer
   const tip = $("tip");
