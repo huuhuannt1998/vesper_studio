@@ -19,6 +19,7 @@ const PORT: u16 = 18080;
 const START_TIMEOUT: Duration = Duration::from_secs(90);
 
 struct Server(Mutex<Option<Child>>);
+struct LastError(Mutex<Option<String>>); // re-sent when the start page loads: an early error is never lost
 
 fn home() -> PathBuf {
     std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default()
@@ -54,10 +55,12 @@ fn find_vesper() -> Option<PathBuf> {
 
 #[cfg(not(windows))]
 fn start_vesper() -> Result<Child, String> {
+    use std::os::unix::process::CommandExt;
     let vesper = find_vesper().ok_or("VESPER is not installed (no `vesper` command found)")?;
     Command::new(&vesper)
         .args(["studio", "--no-browser", "--port", &PORT.to_string()])
         .current_dir(home())
+        .process_group(0) // its own group: a SIGTERM reaches a wrapper script and the python under it alike
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -66,14 +69,23 @@ fn start_vesper() -> Result<Child, String> {
 }
 
 /// On Windows VESPER runs in WSL2 (Habitat and Home Assistant have no native Windows build); WSL2 forwards its
-/// 127.0.0.1 ports to Windows.
+/// 127.0.0.1 ports to Windows. Ending wsl.exe does not end the Linux process, so VESPER writes its pid there and is
+/// stopped by it.
 #[cfg(windows)]
-fn start_vesper() -> Result<Child, String> {
+const WSL_PID: &str = "~/.vesper-studio.pid";
+
+#[cfg(windows)]
+fn wsl(script: &str) -> Command {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    Command::new("wsl.exe")
-        .args(["--", "bash", "-lc", &format!("cd ~ && exec vesper studio --no-browser --port {PORT}")])
-        .creation_flags(CREATE_NO_WINDOW)
+    let mut c = Command::new("wsl.exe");
+    c.args(["--", "bash", "-lc", script]).creation_flags(CREATE_NO_WINDOW);
+    c
+}
+
+#[cfg(windows)]
+fn start_vesper() -> Result<Child, String> {
+    wsl(&format!("cd ~ && echo $$ > {WSL_PID} && exec vesper studio --no-browser --port {PORT}"))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -84,21 +96,31 @@ fn start_vesper() -> Result<Child, String> {
 fn stop(child: &mut Child) {
     #[cfg(unix)]
     {
-        let _ = Command::new("kill").args(["-TERM", &child.id().to_string()]).status();
-        let end = Instant::now() + Duration::from_secs(8);
-        while Instant::now() < end {
-            if let Ok(Some(_)) = child.try_wait() {
-                return;
-            }
-            thread::sleep(Duration::from_millis(100));
+        let _ = Command::new("kill").args(["-TERM", &format!("-{}", child.id())]).status(); // the whole group
+    }
+    #[cfg(windows)]
+    {
+        let _ = wsl(&format!("kill -TERM $(cat {WSL_PID}) 2>/dev/null; rm -f {WSL_PID}")).status();
+    }
+    let end = Instant::now() + Duration::from_secs(8);
+    while Instant::now() < end {
+        if let Ok(Some(_)) = child.try_wait() {
+            return;
         }
+        thread::sleep(Duration::from_millis(100));
     }
     let _ = child.kill();
     let _ = child.wait();
 }
 
 fn show_error(app: &tauri::AppHandle, text: &str) {
-    if let Some(w) = app.get_webview_window("main") {
+    *app.state::<LastError>().0.lock().unwrap() = Some(text.to_string());
+    send_error(app);
+}
+
+fn send_error(app: &tauri::AppHandle) {
+    let last = app.state::<LastError>().0.lock().unwrap().clone();
+    if let (Some(text), Some(w)) = (last, app.get_webview_window("main")) {
         let quoted = format!("{text:?}"); // a JSON-compatible string literal
         let _ = w.eval(&format!("window.vesperFailed && window.vesperFailed({quoted})"));
     }
@@ -107,6 +129,12 @@ fn show_error(app: &tauri::AppHandle, text: &str) {
 fn main() {
     let app = tauri::Builder::default()
         .manage(Server(Mutex::new(None)))
+        .manage(LastError(Mutex::new(None)))
+        .on_page_load(|webview, payload| {
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+                send_error(webview.app_handle());
+            }
+        })
         .setup(|app| {
             let handle = app.handle().clone();
             thread::spawn(move || {
@@ -116,9 +144,11 @@ fn main() {
                         Err(e) => return show_error(&handle, &e),
                     }
                 }
-                let end = Instant::now() + START_TIMEOUT;
-                while Instant::now() < end {
+                let start = Instant::now();
+                let mut told = false;
+                loop {
                     if lobby_up() {
+                        *handle.state::<LastError>().0.lock().unwrap() = None;
                         if let (Some(w), Ok(url)) = (handle.get_webview_window("main"),
                                                      Url::parse(&format!("http://127.0.0.1:{PORT}/"))) {
                             let _ = w.navigate(url);
@@ -129,12 +159,17 @@ fn main() {
                         .map(|c| matches!(c.try_wait(), Ok(Some(_)))).unwrap_or(false);
                     if exited {
                         return show_error(&handle, "VESPER stopped before its page opened. In a terminal, run \
-                                                    `vesper studio` to see why (often: the catalog is missing; \
-                                                    `vesper catalog fetch` or `vesper catalog build`).");
+                                                    `vesper studio` to see why: a missing catalog (`vesper catalog \
+                                                    fetch` or `build`), port 18080 held by another program, or \
+                                                    VESPER missing inside WSL on Windows.");
+                    }
+                    if !told && start.elapsed() > START_TIMEOUT {
+                        told = true; // keep waiting: a first start in WSL, or a large catalog, can be slow
+                        show_error(&handle, "VESPER is still starting (over 90 seconds); this window opens it \
+                                             as soon as it answers.");
                     }
                     thread::sleep(Duration::from_millis(250));
                 }
-                show_error(&handle, "VESPER's page did not open within 90 seconds.");
             });
             Ok(())
         })
