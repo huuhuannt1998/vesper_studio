@@ -158,3 +158,15 @@ test("every room type has its furniture, a corridor and a porch none, a tiny roo
     assert.ok(f.w <= 1.6 - 0.2 + 1e-9 && f.d <= 1.8 - 0.2 + 1e-9, f.kind);
   }
 });
+
+import { doorMount } from "../../../vesper/lab/ui/scene3d.js";
+
+test("a lock or contact sits on its door's plane by the latch, facing into its room", () => {
+  const room = { id: "hall", polygon: [[0, 0], [4, 0], [4, 4], [0, 4]] };
+  const along_x = { id: "hall-porch", center: [2, 4], width: 0.9, box: [1.55, 3.9, 2.45, 4.1] }; // a door in z = 4
+  const lock = doorMount({ category: "lock", x: 2, z: 4 }, along_x, room);
+  assert.equal(lock.facing, 270); // into the hall: -z
+  assert.ok(Math.abs(lock.z - 4) < 0.2 && Math.abs(lock.x - 2) > 0.25); // by the latch, not mid-door
+  const along_z = { id: "hall-kitchen", center: [4, 2], width: 0.9, box: [3.9, 1.55, 4.1, 2.45] }; // a door in x = 4
+  assert.equal(doorMount({ category: "contact_sensor", x: 4, z: 2 }, along_z, room).facing, 180); // -x
+});

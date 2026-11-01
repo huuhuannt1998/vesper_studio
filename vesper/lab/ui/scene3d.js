@@ -75,6 +75,21 @@ export function deviceHeight(mount, category) {
 
 export const devicePoint = (d, floorY = 0) => [d.x, floorY + deviceHeight(d.mount, d.category), d.z];
 
+// Where a door's device goes: on the door's plane, by the latch (the high end, where the 3D view's leaf does not
+// hinge), facing into its room (degrees: 0 is +x, 90 is +z). `doorway` has center and box; `room` has polygon.
+export function doorMount(d, doorway, room) {
+  const [x0, z0, x1, z1] = doorway.box, [cx, cz] = doorway.center;
+  const alongX = x1 - x0 >= z1 - z0, half = (doorway.width || Math.max(x1 - x0, z1 - z0)) / 2;
+  const pts = (room && room.polygon) || [[cx, cz]];
+  const rx = pts.reduce((s, p) => s + p[0], 0) / pts.length, rz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+  if (alongX) {
+    const into = rz < cz ? 270 : 90;
+    return { x: cx + half * 0.8, z: cz + (into === 90 ? 0.06 : -0.06), facing: into };
+  }
+  const into = rx < cx ? 180 : 0;
+  return { x: cx + (into === 0 ? 0.06 : -0.06), z: cz + half * 0.8, facing: into };
+}
+
 // The walls of a home with no 3D scene: the blocked cells with walkable floor among their eight neighbours, as
 // runs along a row, [j, i0, i1) in cells. The cells just outside the grid count as blocked: a map often ends at
 // its outer walls, which then stand at j = -1 or height, i = -1 or width.

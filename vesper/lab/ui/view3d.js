@@ -12,16 +12,16 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
-import { colorFor, decodeGrid, gridBounds } from "./mapview.js";
+import { decodeGrid, gridBounds } from "./mapview.js";
+import { buildDevice, facingYaw } from "./devices3d.js";
 import {
-  BACK_M, PIVOT_M, RAISE_M, cameraPose, devicePoint, frameAt, furnitureFor, hinge, pullIn, roomAt, walkPhase, wallBoxes,
-  wallRuns,
+  BACK_M, PIVOT_M, RAISE_M, cameraPose, devicePoint, doorMount, frameAt, furnitureFor, hinge, pullIn, roomAt, walkPhase,
+  wallBoxes, wallRuns,
 } from "./scene3d.js";
 
 const SKY = 0xbfd6ea, WALL = 0xe9e4da, FLOOR = 0xd2c9b8, OUTSIDE = 0x9fb98e, DOOR = 0x8a5a2b, LOCKED = 0xc0392b;
 const WALL_M = 2.5, DOOR_M = 2.05, PICK_M = 8, SWING = Math.PI / 2, SWING_S = 0.35;
 const PLAYER = 0x2f6fed, RESIDENTS = [0xd9822b, 0x3fb37f, 0xb36bd9, 0xd94f4f];
-const LAMP = 0xffd59a, SEEN = 0xff8c32;
 const WALKING_MS = 0.15; // slower than this, a person stands
 
 export async function createView3d(container, hello, onProgress = () => {}) {
@@ -42,9 +42,9 @@ export async function createView3d(container, hello, onProgress = () => {}) {
   const camera = new THREE.PerspectiveCamera(65, 1, 0.05, 200);
   const floorY = hello.world3d ? hello.world3d.floor_y : 0;
   const solids = []; // what the camera and the crosshair do not pass: the stage, or the map's walls
-  const pickables = []; // device markers and doors; their meshes carry userData.target
+  const pickables = []; // devices' crosshair targets and doors; their meshes carry userData.target
   const doors = {}; // doorway id -> {pivot, angle}
-  const devices = {}; // name -> {marker, light, base}
+  const devices = {}; // name -> {model, point}: the hardware (devices3d.js) and where the crosshair aims
   const actors = {}; // actor -> {group, x, z, yaw}
   const status = { source: hello.world3d ? "scene" : "map", total: 0, loaded: 0, failed: 0, missing: [] };
   const ktx2 = new KTX2Loader().setTranscoderPath("./vendor/three/examples/jsm/libs/basis/").detectSupport(renderer);
@@ -194,36 +194,40 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     return sprite;
   }
 
-  for (const d of hello.devices) { // a marker, a name and, for a lamp, its light
-    const [x, y, z] = devicePoint(d, floorY), base = new THREE.Color(colorFor(d.category));
-    const marker = new THREE.Mesh(new THREE.SphereGeometry(0.07, 20, 14),
-      new THREE.MeshStandardMaterial({ color: base, emissive: base, emissiveIntensity: 0.3, roughness: 0.35 }));
-    marker.position.set(x, y, z);
+  const WALL_GAP_M = 0.13; // a wall device's place is this far into the room (home.py); its model goes on the wall
+  for (const d of hello.devices) { // the hardware itself (devices3d.js), its name, and a target for the crosshair
+    const model = buildDevice(THREE, d);
+    let [x, y, z] = devicePoint(d, floorY), facing = d.facing;
+    if (d.mount === "door" && d.door) {
+      const dw = hello.map.doorways.find((w) => w.id === d.door);
+      const room = hello.map.rooms.find((r) => r.id === d.room) || hello.map.rooms.find((r) => dw && dw.rooms.includes(r.id));
+      if (dw && dw.box) ({ x, z, facing } = doorMount(d, dw, room));
+    } else if (d.mount === "wall" && facing !== null && facing !== undefined) {
+      x -= Math.cos((facing * Math.PI) / 180) * WALL_GAP_M; // back against the wall it faces away from
+      z -= Math.sin((facing * Math.PI) / 180) * WALL_GAP_M;
+    }
+    model.group.position.set(x, y, z);
+    model.group.rotation.y = facingYaw(facing ?? 0);
+    model.update(d.state, d.effect);
     const reach = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
-    reach.position.set(x, y, z); // a larger target for the crosshair than the marker itself
+    reach.position.set(x, y, z); // a larger target for the crosshair than the hardware itself
     tag(reach, d.name, "device");
     pickables.push(reach);
-    const name = label(d.name, 0.08);
-    name.position.set(x, y + 0.16, z);
-    scene.add(marker, reach, name);
-    let light = null;
-    if (d.category === "light") {
-      light = new THREE.PointLight(LAMP, 0, 7, 2);
-      light.position.set(x, y - 0.1, z);
-      scene.add(light);
-    }
+    const name = label(d.name, 0.07);
+    name.position.set(x, y + (d.mount === "ceiling" ? -0.22 : 0.16), z);
+    scene.add(model.group, reach, name);
     if (d.switch_at) { // a ceiling light's plain wall switch, by the door: aiming at it uses the light
       const [sx, sz] = d.switch_at;
-      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.13, 0.09),
-        new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.6 }));
-      plate.position.set(sx, floorY + 1.2, sz);
+      const plate = buildDevice(THREE, { name: `${d.name} switch`, category: "switch", mount: "wall" });
+      plate.group.position.set(sx, floorY + 1.2, sz);
       const grip = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
-      grip.position.copy(plate.position);
+      grip.position.copy(plate.group.position);
       tag(grip, d.name, "device");
       pickables.push(grip);
-      scene.add(plate, grip);
+      scene.add(plate.group, grip);
+      devices[`${d.name} switch`] = { model: plate, point: [sx, floorY + 1.2, sz], follows: d.name };
     }
-    devices[d.name] = { marker, light, base };
+    devices[d.name] = { model, point: [x, y, z] };
   }
 
   function plainFigure(color) { // facing +x: body, head, and a nose that shows its heading
@@ -353,14 +357,9 @@ export async function createView3d(container, hello, onProgress = () => {}) {
         door.pivot.children[0].material.color.setHex(e.locked ? LOCKED : DOOR); // only the plain leaves
       }
     }
-    for (const [name, dev] of Object.entries(devices)) {
-      const d = state.devices[name], e = state.effects[name] || {}, m = dev.marker.material;
-      const seen = d && d.state && (d.state.occupancy === true || d.state.presence === true);
-      if ("locked" in e) m.color.setHex(e.locked ? LOCKED : 0x3fb37f);
-      m.emissive.copy(seen ? new THREE.Color(SEEN) : m.color);
-      m.emissiveIntensity = e.on === true ? 2.2 : seen ? 1.2 : e.on === false ? 0.05 : 0.3;
-      dev.marker.scale.setScalar(seen ? 1.5 : 1);
-      if (dev.light) dev.light.intensity = e.on === true ? 4 : 0;
+    for (const [name, dev] of Object.entries(devices)) { // each model shows its device's state as the hardware does
+      const key = dev.follows || name, d = state.devices[key];
+      if (d) dev.model.update(d.state, state.effects[key] || {});
     }
     const me = actors[state.player];
     const start = state.hello && state.hello.start; // no player yet (a scenario not begun): look from its start
@@ -408,7 +407,7 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       return null;
     },
     pointOf(target) { // where the crosshair should be to use `target`
-      if (devices[target]) return devices[target].marker.position.toArray();
+      if (devices[target]) return [...devices[target].point];
       const dw = hello.map.doorways.find((d) => d.id === target);
       return dw ? [dw.center[0], floorY + 1.1, dw.center[1]] : null;
     },
