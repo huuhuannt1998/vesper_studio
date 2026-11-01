@@ -361,6 +361,12 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       const key = dev.follows || name, d = state.devices[key];
       if (d) dev.model.update(d.state, state.effects[key] || {});
     }
+    if (cam.view) { // a room's viewpoint (the tour bar): the camera stands there; the player stays where they are
+      if (actors[state.player]) actors[state.player].group.visible = true;
+      camera.position.set(...cam.view.position);
+      camera.lookAt(...cam.view.target);
+      return;
+    }
     const me = actors[state.player];
     const start = state.hello && state.hello.start; // no player yet (a scenario not begun): look from its start
     const at = me || (start ? { x: start[0], z: start[1] } : null);

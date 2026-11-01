@@ -297,3 +297,46 @@ test("in 3D, I opens the dialog of the device the crosshair is on; its button ac
   p.el("card").fire("click", { target: { dataset: { close: "" } } });
   assert.equal(p.el("card").hidden, true);
 });
+
+test("the tour bar offers the indoor rooms; a room's chip shows it from a viewpoint, and walking ends the view",
+  { skip }, async () => {
+    const p = await page({ webgl: true });
+    const chips = p.el("tour").children;
+    assert.ok(chips.length >= 2 && !chips.some((c) => /porch/i.test(c.textContent)));
+    chips.find((c) => /Kitchen/.test(c.textContent)).fire("click");
+    assert.ok(p.v.camera().view && p.v.camera().view.room === "kitchen");
+    assert.equal(p.sentOf("walk_to").length, 0); // play has no click-to-walk (PI 2026-10-26); a view moves the camera
+    assert.match(p.el("where").textContent, /viewing Kitchen/);
+    p.key("keydown", { key: "w", code: "KeyW" });
+    assert.equal(p.v.camera().view, undefined);
+  });
+
+test("the on-screen arrows walk while held, as the keys do, and Reset view looks ahead from behind again", { skip },
+  async () => {
+    const p = await page({ webgl: true });
+    p.el("walk-w").fire("pointerdown", { preventDefault() {} });
+    assert.equal(p.sentOf("move").length, 1);
+    p.tick(1000);
+    const held = p.sentOf("move").length;
+    assert.ok(held > 1);
+    p.el("walk-w").fire("pointerup", {});
+    p.tick(1000);
+    assert.equal(p.sentOf("move").length, held);
+    const me = p.v.state.actors[p.v.state.player];
+    p.v.aim("hall-porch");
+    p.el("reset-view").fire("click");
+    assert.deepEqual(p.v.camera(), { yaw: me.yaw, pitch: -10, mode: "third" });
+  });
+
+test("the device list names every device by room; choosing one opens its dialog", { skip }, async () => {
+  const p = await page({ webgl: true });
+  const list = p.el("device-list");
+  const names = list.children.flatMap((g) => g.children.map((o) => o.value)).filter(Boolean);
+  assert.deepEqual(names.sort(), Object.keys(p.v.state.devices).sort());
+  p.el("card").hidden = true;
+  list.value = names[0];
+  list.fire("change");
+  for (let k = 0; k < 10; k += 1) await new Promise((r) => setImmediate(r));
+  assert.equal(p.v.card.name, names[0]);
+  assert.equal(p.el("card").hidden, false);
+});

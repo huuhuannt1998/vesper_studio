@@ -20,6 +20,7 @@
   <main>
     <section id="map-panel" class="panel" tabindex="0" aria-label="The home: the 3D view and the map">
       <div id="view3d" class="view3d" hidden></div>
+      <nav id="tour" class="tour" aria-label="Rooms: a click walks you there"></nav>
       <div id="compass" class="compass" hidden aria-hidden="true"></div>
       <div id="crosshair" class="crosshair" hidden aria-hidden="true"></div>
       <div id="prompt3d" class="prompt3d" aria-live="polite"></div>
@@ -29,11 +30,22 @@
       <ol id="feed" class="feed" aria-live="polite" aria-label="Events"></ol>
       <div id="toast" class="toast" role="status"></div>
       <div id="tip" class="tip" hidden></div>
+      <div id="pad" class="pad" aria-label="Walk">
+        <button id="walk-w" aria-label="Walk forward">↑</button>
+        <button id="walk-a" aria-label="Step left">←</button><button id="walk-s" aria-label="Walk back">↓</button><button
+          id="walk-d" aria-label="Step right">→</button>
+        <button id="reset-view" class="reset">Reset view</button>
+      </div>
       <div id="card" class="dialog" hidden role="dialog" aria-modal="true" aria-label="The device's details (I)">
         <div id="card-box" class="dlg"></div>
       </div>
     </section>
     <aside>
+      <section id="devices-panel" class="panel" tabindex="0">
+        <h2>Inspect</h2>
+        <div class="inspect"><select id="device-list" aria-label="A device: its dialog"></select>
+          <p class="muted">Or look at a device and press I.</p></div>
+      </section>
       <section id="residents-panel" class="panel" tabindex="0">
         <h2>Residents</h2>
         <ul id="residents" class="residents"></ul>

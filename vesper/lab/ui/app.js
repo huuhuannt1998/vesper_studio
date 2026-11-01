@@ -11,6 +11,7 @@ import {
   handPoint, hitTest, moveFor, promptFor, recordLine, stepInterval, tipPosition, walkKey,
 } from "./mapview.js";
 import { dialogHtml } from "./devicedialog.js";
+import { deviceGroups, roomName, roomView, tourRooms } from "./nav.js";
 import { PITCH_MAX, aimCamera, compassMarks, moveRelative } from "./scene3d.js";
 
 const LOCKED = "#e74c3c", UNLOCKED = "#3fb37f";
@@ -21,8 +22,9 @@ const MINI_PX = 220, MINI_SCALE = 14; // the minimap: its size, and pixels a met
 const LOOK_DEG = 0.15; // degrees the view turns per pixel of mouse movement
 const KEYS_MAP = "WASD or arrows: walk · Shift: run · click a device or a door, or E or F: use it · Q: next thing in " +
   "reach · I: inspect · Tab: next panel";
-const KEYS_3D = "Click the view to look around (Esc lets go) · WASD: walk · Shift: run · click or F: use what the " +
-  "crosshair is on · E: the same, or with nothing there the thing in reach · V: first or third person · M: map · Q: next thing in reach · I: inspect · Tab: next panel";
+const KEYS_3D = "Click (or drag) the view to look around · WASD or the arrows: walk · Shift: run · click or F: use " +
+  "what the crosshair is on · I: its details · a room's chip: its view · V: first or third person · M: floor plan · " +
+  "Q: next thing in reach · Tab: next panel";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("map");
@@ -115,6 +117,7 @@ function onHello(h) {
   } else {
     $("hub").innerHTML = "<p>No hub in this session. With Home Assistant set up, <code>vesper lab play</code> shows its dashboard here.</p>";
   }
+  buildNavigation(h);
   $("log").innerHTML = "";
   for (const r of h.records || []) onRecord(r, false); // what happened before this page joined: no feed
   const me = state.actors[state.player];
@@ -172,6 +175,7 @@ function aim(target) {
 }
 
 function look(dx, dy) {
+  delete cam.view; // a look back on the player ends a room's view
   cam.yaw = (cam.yaw + dx * LOOK_DEG) % 360;
   cam.pitch = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, cam.pitch - dy * LOOK_DEG));
   updateWhere();
@@ -220,6 +224,7 @@ function onPose(m) {
 
 function updateWhere() {
   const me = state.actors[state.player];
+  if (cam.view) { $("where").textContent = `viewing ${cam.view.name} · walk or look to go back`; return; }
   $("where").textContent = me ? `${me.room || "between rooms"} · facing ${headingName(mode === "3d" ? cam.yaw : me.yaw)}` : "";
 }
 
@@ -350,6 +355,7 @@ window.addEventListener("keydown", (e) => {
   sprint = e.shiftKey;
   if (walk) {
     e.preventDefault();
+    delete cam.view; // walking ends a room's view
     if (!held.has(walk)) {
       held.add(walk);
       step();
@@ -423,6 +429,66 @@ async function refreshCard() { // the dialog shows the state the action left
     if (r.ok) { vesper.card = await r.json(); $("card-box").innerHTML = dialogHtml(vesper.card); }
   } catch (err) { /* the old state stays shown */ }
 }
+
+// -- getting around (redesign step 3): the tour bar, the device list, the on-screen arrows, reset view -----------
+function buildNavigation(h) {
+  const tour = $("tour");
+  tour.innerHTML = "";
+  for (const room of tourRooms(h.map.rooms)) { // a chip walks the player there, as Room 334's views move you
+    const chip = document.createElement("button");
+    chip.className = "chip";
+    chip.textContent = roomName(room);
+    chip.addEventListener("click", () => { // the camera goes to the room; the player stays (no click-to-walk)
+      const v = roomView(room, state.cells, h.map.grid, view3d ? view3d.floorY : 0);
+      if (!v) { toast(`there is nowhere to stand in ${roomName(room)}`, true); return; }
+      cam.view = { ...v, room: room.id, name: roomName(room) };
+      updateWhere();
+    });
+    tour.append(chip);
+  }
+  const list = $("device-list");
+  list.innerHTML = "";
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = `Devices (${h.devices.length})`;
+  list.append(none);
+  for (const g of deviceGroups(state.devices, h.map.rooms)) {
+    const group = document.createElement("optgroup");
+    group.label = g.room;
+    for (const d of g.devices) {
+      const o = document.createElement("option");
+      o.value = d.name;
+      o.textContent = d.label;
+      group.append(o);
+    }
+    list.append(group);
+  }
+}
+
+$("device-list").addEventListener("change", () => { // turn to the device and open its dialog
+  const name = $("device-list").value;
+  if (!name) return;
+  if (mode === "3d") aim(name);
+  inspect(false, name);
+  $("device-list").value = "";
+});
+
+for (const k of ["w", "a", "s", "d"]) { // the on-screen arrows, for a trackpad: held, they walk as the keys do
+  const b = $(`walk-${k}`);
+  b.addEventListener("pointerdown", (e) => {
+    if (e.preventDefault) e.preventDefault();
+    delete cam.view;
+    if (!held.has(k)) { held.add(k); step(); }
+  });
+  for (const end of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(end, () => held.delete(k));
+}
+
+$("reset-view").addEventListener("click", () => { // look ahead from behind the player, as at the start
+  const me = state && state.actors[state.player];
+  delete cam.view;
+  Object.assign(cam, { yaw: me ? me.yaw : cam.yaw, pitch: -10, mode: "third" });
+  updateWhere();
+});
 
 function step() {
   const d = mode === "3d" ? moveRelative(held, cam.yaw) : moveFor(held);
@@ -580,7 +646,7 @@ function drawFloorWith(at, width, height, dpr, off) {
   off.height = Math.round(height * dpr);
   const c = off.getContext("2d");
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  c.fillStyle = "#d9d3c7";
+  c.fillStyle = "#ffffff"; // the floor plan: white floor, the rest the paper's grey
   for (let j = 0; j < g.height; j++) {
     let i = 0;
     while (i < g.width) { // one rectangle per run of walkable cells
@@ -593,18 +659,18 @@ function drawFloorWith(at, width, height, dpr, off) {
     }
   }
   for (const room of state.hello.map.rooms) {
-    c.strokeStyle = room.outdoor ? "rgba(90, 140, 90, 0.7)" : "rgba(60, 70, 90, 0.35)";
+    c.strokeStyle = room.outdoor ? "rgba(46, 138, 87, 0.6)" : "rgba(24, 35, 43, 0.45)";
     c.setLineDash(room.outdoor ? [4, 4] : []);
     c.beginPath();
     room.polygon.forEach(([x, z], k) => { const [sx, sz] = view.toScreen(x, z); k ? c.lineTo(sx, sz) : c.moveTo(sx, sz); });
     c.closePath();
     c.stroke();
     const [lx, lz] = view.toScreen(Math.min(...room.polygon.map((p) => p[0])), Math.min(...room.polygon.map((p) => p[1])));
-    c.fillStyle = "rgba(40, 46, 60, 0.75)";
+    c.fillStyle = "rgba(24, 35, 43, 0.8)";
     c.font = "600 13px system-ui, sans-serif";
     c.textAlign = "left";
     if (!mini()) c.fillText(room.label.split("/")[0], lx + 8, lz + 18); // the minimap is too small for names
-    c.fillStyle = "#d9d3c7";
+    c.fillStyle = "#ffffff";
   }
   c.setLineDash([]);
   return off;
@@ -612,7 +678,7 @@ function drawFloorWith(at, width, height, dpr, off) {
 
 function draw() {
   const { width, height } = mapSize();
-  ctx.fillStyle = "#12161f";
+  ctx.fillStyle = "#dfe3e1";
   ctx.fillRect(0, 0, width, height);
   if (!state || !view) return;
   if (mini()) {
@@ -681,13 +747,13 @@ function drawDevice(d, inReach, isChosen) {
   const [x, z] = devicePoint(d), r = deviceRadius();
   if (d.switch_at) { // a ceiling light's wall switch: a small plate on the wall, a faint line to its light
     const [sx, sz] = view.toScreen(d.switch_at[0], d.switch_at[1]);
-    ctx.strokeStyle = "rgba(242, 240, 234, 0.35)";
+    ctx.strokeStyle = "rgba(24, 35, 43, 0.3)";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(sx, sz);
     ctx.lineTo(x, z);
     ctx.stroke();
-    ctx.fillStyle = "#f2f0ea";
+    ctx.fillStyle = "#8f9a9f";
     ctx.fillRect(sx - 3, sz - 3, 6, 6);
   }
   const lock = d.effect && "locked" in d.effect;
