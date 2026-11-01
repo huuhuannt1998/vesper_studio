@@ -65,3 +65,43 @@ test("a chosen house becomes the request's scene, with no rooms; none chosen is 
   assert.deepEqual(buildRequest({ rooms: { mode: "house", scene: null, count: 6, program: [] }, seed: 0, rows }).problems,
                    ["house: choose one of the houses"]);
 });
+
+import { defaultWhere, rowFor } from "../../../vesper/lab/ui/compose.js";
+
+test("a product added straight from the catalog goes where a person would put one of its kind", () => {
+  assert.deepEqual(defaultWhere("lock"), { kind: "front_door", except: [], room: "hall", count: 1 });
+  assert.deepEqual(defaultWhere("contact_sensor").kind, "front_door");
+  assert.deepEqual(defaultWhere("light"), { kind: "per_room", except: [], room: "hall", count: 1 });
+  assert.equal(defaultWhere("motion_sensor").kind, "per_room");
+  assert.deepEqual(defaultWhere("smoke_sensor"), { kind: "room", except: [], room: "kitchen", count: 1 });
+  assert.deepEqual(defaultWhere("thermostat"), { kind: "room", except: [], room: "hall", count: 1 });
+  assert.deepEqual(defaultWhere("plug"), { kind: "room", except: [], room: "living", count: 1 });
+  assert.deepEqual(defaultWhere("something_else"), { kind: "spread", except: [], room: "hall", count: 1 });
+});
+
+test("an added product becomes a row pinned to it, which the request sends as that product", () => {
+  const row = rowFor({ id: "zigbee:ikea:e1743", vendor: "IKEA", model: "E1743", category: "switch" });
+  assert.equal(row.product, "zigbee:ikea:e1743");
+  assert.equal(row.productLabel, "IKEA E1743");
+  const { request, problems } = buildRequest({ rooms: { mode: "count", count: 3 }, seed: 0, rows: [row] });
+  assert.deepEqual(problems, []);
+  assert.deepEqual(request.devices, [{ product: "zigbee:ikea:e1743", count: 1 }]);
+});
+
+import { furnishView } from "../../../vesper/lab/ui/compose.js";
+
+test("a furnishing run reads as its steps, done, going or failed, with what it cost and what went wrong", () => {
+  const running = furnishView({ state: "running", steps: [{ name: "shell", ok: true }, { name: "blender", ok: true },
+    { name: "claude", ok: null }], lines: ["Blender: execute_blender_code"], cost_usd: null });
+  assert.deepEqual(running.steps.map((s) => s.cls), ["ok", "ok", "now", "", ""]);
+  assert.equal(running.steps[2].label, "Claude builds and furnishes it");
+  assert.equal(running.running, true);
+  const done = furnishView({ state: "done", steps: ["shell", "blender", "claude", "model", "renav"]
+    .map((name) => ({ name, ok: true })), lines: [], cost_usd: 14.2, turns: 120 });
+  assert.match(done.note, /Furnished: 120 turns, US\$14\.20\. Play it/);
+  const failed = furnishView({ state: "failed", steps: [{ name: "shell", ok: true }, { name: "blender", ok: false }],
+    lines: [], error: "Blender's MCP server is not listening" });
+  assert.deepEqual(failed.steps.map((s) => s.cls), ["ok", "bad", "", "", ""]);
+  assert.match(failed.note, /Not furnished: Blender's MCP server is not listening/);
+  assert.equal(furnishView({ state: "none" }).steps.length, 5);
+});

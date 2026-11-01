@@ -52,6 +52,44 @@ export function buildRequest(model) {
   return { request, problems };
 }
 
+// Where a product added straight from the catalog goes: where a person would put one of its kind (the row's place
+// can be changed after).
+const AT_DOOR = new Set(["lock", "contact_sensor"]), EVERY_ROOM = new Set(["light", "motion_sensor"]);
+const ONE_ROOM = { smoke_sensor: "kitchen", gas_sensor: "kitchen", leak_sensor: "bathroom", thermostat: "hall",
+  climate_sensor: "living", air_quality_sensor: "living", plug: "living", energy_meter: "living", fan: "bedroom",
+  cover: "living" };
+export function defaultWhere(category) {
+  const base = { except: [], room: "hall", count: 1 };
+  if (AT_DOOR.has(category)) return { ...base, kind: "front_door" };
+  if (EVERY_ROOM.has(category)) return { ...base, kind: "per_room" };
+  if (ONE_ROOM[category]) return { ...base, kind: "room", room: ONE_ROOM[category] };
+  return { ...base, kind: "spread" };
+}
+
+// A device row pinned to one product of the catalog.
+export const rowFor = (p) => ({ product: p.id, productLabel: `${p.vendor || "?"} ${p.model || p.id}`,
+  category: p.category || "", where: defaultWhere(p.category) });
+
+// A furnishing run (vesper.lab.furnish) as the page shows it: its five steps, each done, going, failed or to come,
+// and a note on how it ended.
+const FURNISH_STEPS = [["shell", "VESPER writes the home's shell for Blender"], ["blender", "Blender, with its MCP server"],
+  ["claude", "Claude builds and furnishes it"], ["model", "the 3D model, exported whole"],
+  ["renav", "the walkable floor, round the furniture"]];
+export function furnishView(st) {
+  const by = Object.fromEntries((st.steps || []).map((s) => [s.name, s]));
+  const steps = FURNISH_STEPS.map(([name, label]) => {
+    const s = by[name];
+    const cls = !s ? "" : s.ok === true ? "ok" : s.ok === false ? "bad" : st.state === "running" ? "now" : "";
+    return { name, label, cls, detail: (s && s.detail) || "" };
+  });
+  const cost = typeof st.cost_usd === "number" ? `US$${st.cost_usd.toFixed(2)}` : null;
+  const note = st.state === "done" ? `Furnished: ${st.turns} turns, ${cost}. Play it to walk round the furniture.`
+    : st.state === "failed" ? `Not furnished: ${st.error}`
+    : st.state === "stopped" ? "Stopped. Furnish it again when you like."
+    : st.state === "running" ? `Furnishing…${cost ? ` ${cost} so far` : ""}` : "";
+  return { steps, lines: st.lines || [], note, running: st.state === "running" };
+}
+
 // -- the page ------------------------------------------------------------------------------------------------
 if (typeof document !== "undefined") {
   const $ = (id) => document.getElementById(id);
@@ -260,17 +298,29 @@ if (typeof document !== "undefined") {
     const list = $("results");
     list.innerHTML = "";
     $("result-note").textContent = products.length ? (chosenRow ? "Choose one for the highlighted row." :
-      "Open one to read its card; Pick a product on a row to choose it.") : "Nothing matches. Clear a filter or a word.";
+      "Add a product to the home, or open one to read its card.") : "Nothing matches. Clear a filter or a word.";
     for (const p of products) {
-      const choose = el("button", { className: "choose", textContent: "Choose", disabled: !p.selectable || !chosenRow,
-        title: !p.selectable ? p.network : chosenRow ? "Use this product for the highlighted row" : "Pick a row first",
-        onclick: (e) => { e.stopPropagation(); choose(p); } });
+      const choose = el("button", { className: "choose", textContent: chosenRow ? "Choose" : "Add to home",
+        disabled: !p.selectable,
+        title: !p.selectable ? p.network : chosenRow ? "Use this product for the highlighted row"
+          : "Add a row with this product; change where it goes in its row",
+        onclick: (e) => { e.stopPropagation(); if (chosenRow) choose(p); else add(p); } });
       list.append(el("li", { className: p.selectable ? "result" : "result off", tabIndex: 0,
         onclick: () => openCard(p.id), onkeydown: (e) => { if (e.key === "Enter") openCard(p.id); } },
         el("span", { className: "who" }, el("b", { textContent: label(p) }),
           el("span", { className: "muted", textContent: ` ${p.category || "other"}, ${p.protocol || "?"}` })),
         ladder(p.levels), choose));
     }
+  }
+
+  function add(p) { // a new row pinned to this product, where one of its kind usually goes
+    const row = rowFor(p);
+    model.rows.push(row);
+    drawRows();
+    const where = { front_door: "on the front door", per_room: "in every room", room: `in the ${row.where.room}`,
+                    spread: "in one room" }[row.where.kind];
+    $("outcome").className = "outcome";
+    $("outcome").textContent = `Added ${row.productLabel} ${where}; change where it goes in its row.`;
   }
 
   function choose(p) {
@@ -312,8 +362,8 @@ if (typeof document !== "undefined") {
       el("h3", { textContent: "Network" }), el("p", { textContent: c.network }),
       el("h3", { textContent: `Configuration (${c.config.length})` }), cfg,
       el("h3", { textContent: "What each level rests on" }), steps,
-      chosenRow && c.selectable ? el("button", { className: "primary", textContent: "Choose this product",
-                                                 onclick: () => choose(c) }) : "");
+      c.selectable ? el("button", { className: "primary", textContent: chosenRow ? "Choose this product"
+        : "Add to home", onclick: () => (chosenRow ? choose(c) : add(c)) }) : "");
     box.hidden = false;
     $("card-empty").hidden = true;
   }
@@ -332,6 +382,8 @@ if (typeof document !== "undefined") {
       const far = s.out_of_range && s.out_of_range.length ? `; out of its network's range: ${s.out_of_range.join(", ")}` : "";
       out.textContent = `Generated ${s.rooms} rooms, ${s.area_m2} m², ${s.devices} devices in ${made.home}${far}`;
       $("play").disabled = false;
+      page.lastScene = Boolean(request.scene);
+      drawFurnish({ state: "none" });
     } catch (e) {
       page.error = e.message;
       out.className = "outcome bad";
@@ -341,9 +393,51 @@ if (typeof document !== "undefined") {
     }
   }
 
+  // -- furnishing it in Blender with Claude --------------------------------------------------------------
+  let furnishTimer = 0;
+  function canFurnish() { // a home generated from rooms (an HSSD house comes furnished), with Claude and Blender here
+    const tools = meta.furnish || {};
+    if (!page.last) return "Generate a home first (a number or a list of rooms: an HSSD house comes furnished).";
+    if (page.lastScene) return "An HSSD house comes furnished: choose a number or a list of rooms to furnish one.";
+    if (!tools.claude) return "Claude Code is not installed here (the `claude` command): install it from claude.com/claude-code.";
+    if (!tools.blender) return "Blender is not installed here (blender.org), with the mcp-for-blender add-on.";
+    return null;
+  }
+
+  function drawFurnish(st) {
+    const v = furnishView(st || { state: "none" });
+    $("furnish-steps").innerHTML = "";
+    for (const s of v.steps) {
+      $("furnish-steps").append(el("li", { className: s.cls, textContent: s.label, title: s.detail }));
+    }
+    $("furnish-lines").innerHTML = "";
+    for (const line of v.lines.slice(-12)) $("furnish-lines").append(el("li", { textContent: line }));
+    const why = canFurnish();
+    $("furnish-note").textContent = v.note || why || "Ready: Blender opens if it is not open.";
+    $("furnish-start").disabled = v.running || Boolean(why);
+    $("furnish-stop").hidden = !v.running;
+    $("generate").disabled = v.running;
+    if (!v.running) clearInterval(furnishTimer);
+  }
+
+  async function pollFurnish() {
+    try { drawFurnish(await api("/api/furnish")); } catch (e) { /* the next poll tries again */ }
+  }
+
+  async function furnish() {
+    try {
+      drawFurnish(await api("/api/furnish", { model: $("furnish-model").value,
+                                              budget: Number($("furnish-budget").value) }));
+      clearInterval(furnishTimer);
+      furnishTimer = setInterval(pollFurnish, 3000);
+    } catch (e) {
+      $("furnish-note").textContent = `Not started: ${e.message}`;
+    }
+  }
+
   async function play() {
     const out = $("outcome");
-    out.textContent = "Starting the home…";
+    out.textContent = meta.hub ? "Starting the home with Home Assistant (a minute or two)…" : "Starting the home…";
     $("play").disabled = true;
     try {
       const { url } = await api("/api/play", {});
@@ -369,6 +463,16 @@ if (typeof document !== "undefined") {
     $("add-row").onclick = () => { model.rows.push({ product: null, category: "", where: { kind: "per_room", except: [] } }); drawRows(); };
     $("generate").onclick = generate;
     $("play").onclick = play;
+    $("furnish-start").onclick = furnish;
+    $("furnish-stop").onclick = async () => drawFurnish(await api("/api/furnish/stop", {}));
+    const st = await api("/api/furnish"); // a run the lobby started before this page was opened
+    if (st.state !== "none") {
+      page.last = page.last || { home: st.home };
+      drawFurnish(st);
+      if (st.state === "running") furnishTimer = setInterval(pollFurnish, 3000);
+    } else {
+      drawFurnish(st);
+    }
     drawRooms();
     drawRows();
     await search();

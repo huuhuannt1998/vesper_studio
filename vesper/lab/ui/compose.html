@@ -78,6 +78,15 @@
     footer.bar { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--line); }
     .outcome { font-size: 13px; } .outcome.bad { color: var(--bad); }
     #card-empty { color: var(--muted); font-size: 13px; }
+    .furnish-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0; font-size: 13px; }
+    #furnish-budget { width: 64px; }
+    .furnish-steps { list-style: none; padding: 0; margin: 10px 0 4px; font-size: 13px; }
+    .furnish-steps li { padding: 2px 0; } .furnish-steps li::before { content: "○ "; color: var(--muted); }
+    .furnish-steps li.ok::before { content: "✓ "; color: #2e8a57; } .furnish-steps li.bad::before { content: "✗ "; color: var(--bad); }
+    .furnish-steps li.now::before { content: "● "; color: var(--accent); }
+    .furnish-lines { list-style: none; padding: 0; margin: 0; font-size: 12px; color: var(--muted); max-height: 180px;
+                     overflow-y: auto; border-left: 2px solid var(--line); padding-left: 8px; }
+    .furnish-lines li { margin: 3px 0; white-space: pre-wrap; }
     @media (max-width: 1000px) { main { grid-template-columns: 1fr; } main > section { border-right: 0; } }
   </style>
 </head>
@@ -94,6 +103,23 @@
       <p class="muted">Each row is a kind of device and where it goes. A row takes any real product of its kind, or the one you pick.</p>
       <ol id="rows"></ol>
       <button id="add-row">Add a row</button>
+      <section id="furnish" aria-label="Furnish it in Blender">
+        <h2 style="margin-top:22px">Furnish it in Blender</h2>
+        <p class="muted">Claude builds the home in Blender through Blender MCP: the walls and doorways from its floor
+          plan, furniture in every room, then the 3D model the play page draws. People then walk round the furniture.
+          It takes 20 to 40 minutes and uses your Claude account.</p>
+        <div class="furnish-row">
+          <label>Model <select id="furnish-model"><option value="opus">Opus (best)</option>
+            <option value="sonnet">Sonnet (cheaper)</option></select></label>
+          <label>Spend at most US$ <input id="furnish-budget" type="number" min="1" max="100" value="25"></label>
+        </div>
+        <button id="furnish-start" disabled>Furnish it in Blender</button>
+        <button id="furnish-stop" hidden>Stop</button>
+        <p id="furnish-note" class="muted">Generate a home first (a number or a list of rooms: an HSSD house comes
+          furnished).</p>
+        <ol id="furnish-steps" class="furnish-steps"></ol>
+        <ul id="furnish-lines" class="furnish-lines"></ul>
+      </section>
     </section>
     <section aria-label="The catalog">
       <h2>Catalog</h2>

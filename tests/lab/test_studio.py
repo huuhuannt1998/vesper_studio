@@ -44,7 +44,7 @@ def lobby(tmp_path, monkeypatch):
         return jobs[-1]
     launch = Launched()
     s = StudioServer(catalog(), tmp_path / "vds", tmp_path / "results", [homes], root=tmp_path / "stack", port=0,
-                     play_port=18998, launch=launch, wait_for_play=lambda port, alive=None: True, run_setup=run_setup,
+                     play_port=18998, launch=launch, wait_for_play=lambda port, **kw: True, run_setup=run_setup,
                      doctor=lambda: [Check("habitat", False, "no Python", "HSSD homes", "vesper setup habitat")])
     s.start()
     yield s, launch, jobs, homes

@@ -158,15 +158,37 @@ HOME_FILES = ("home.yaml", "map.json", "request.yaml", "scene.glb", "map.origina
               "openings.json")
 
 
-def _launch_play(home: str, port: int, catalog_dir: Path):
+MOSQUITTO_PATHS = ("/opt/homebrew/sbin/mosquitto", "/usr/local/sbin/mosquitto", "/usr/sbin/mosquitto")
+
+
+def hub_ready(root: Path, which=None, known=MOSQUITTO_PATHS) -> bool:
+    """Home Assistant (`vesper setup ha`, in `root`) and a Mosquitto broker are here: a played home puts them in the
+    loop, so its hub panel shows Home Assistant's dashboard with the home's devices."""
+    import shutil
+    which = which or shutil.which
+    mosquitto = which("mosquitto") or next((p for p in known if Path(p).is_file()), None)
+    return (Path(root) / "ha" / "venv" / "bin" / "hass").is_file() and bool(mosquitto)
+
+
+def play_args(home: str, port: int, catalog_dir: Path, root: Path, *, hub: bool) -> list[str]:
+    """`vesper lab play`'s arguments for the compose page's child; with `hub`, Home Assistant in the loop."""
+    args = ["lab", "play", home, "--catalog", str(catalog_dir), "--port", str(port), "--no-browser"]
+    return [*args, "--hub", "--root", str(root)] if hub else args
+
+
+HUB_START_S = 240  # Home Assistant's first start (its database, its integrations) can take a few minutes
+
+
+def _launch_play(home: str, port: int, catalog_dir: Path, root: Path | None = None, hub: bool = False):
     """`vesper lab play HOME` as a child process on `port` (its page opened by the compose page)."""
     import subprocess
     import sys
     import tempfile
     code = "import sys; from vesper.cli import main; sys.exit(main(sys.argv[1:]))"
     log = tempfile.NamedTemporaryFile(prefix="vesper-play-", suffix=".log", delete=False)  # noqa: SIM115
-    child = subprocess.Popen([sys.executable, "-c", code, "lab", "play", home, "--catalog", str(catalog_dir),
-                              "--port", str(port), "--no-browser"], stdout=log, stderr=subprocess.STDOUT)
+    child = subprocess.Popen([sys.executable, "-c", code,
+                              *play_args(home, port, catalog_dir, Path(root or ".vesper").resolve(), hub=hub)],
+                             stdout=log, stderr=subprocess.STDOUT)
     log.close()
     child.log = Path(log.name)  # what it printed, so a play that stops can say why
     return child
@@ -205,12 +227,17 @@ class ComposeServer:
              ".css": "text/css; charset=utf-8"}
 
     def __init__(self, catalog: dict, catalog_dir: Path, results_dir: Path, out: Path, *, port: int = 18081,
-                 ui_dir: Path | None = None, launch=None, play_port: int = 18082, wait_for_play=None):
+                 ui_dir: Path | None = None, launch=None, play_port: int = 18082, wait_for_play=None,
+                 stack_root: Path | None = None):
         from vesper.lab.play import UI_DIR
         self.catalog, self.catalog_dir, self.out = catalog, Path(catalog_dir), Path(out)
         self.ui_dir = Path(ui_dir or UI_DIR)
         self.ev = evidence(catalog_dir, results_dir)
-        self._launch = launch or (lambda home, p: _launch_play(home, p, self.catalog_dir))
+        self.stack_root = Path(stack_root or ".vesper").resolve()  # `vesper setup ha`'s folder
+        self._furnisher = None  # the Furnisher class (vesper.lab.furnish), or a test's stand-in
+        self._furnish = None  # the current (or last) furnishing run
+        self._launch = launch or (lambda home, p: _launch_play(home, p, self.catalog_dir, self.stack_root,
+                                                               hub=self.hub()))
         self._wait = wait_for_play or _wait_for_port
         self.play_port, self._want_port = play_port, port
         self._play = None
@@ -218,6 +245,10 @@ class ComposeServer:
         self.port: int | None = None
         import threading
         self.lock = threading.Lock()  # one generate or play at a time: they replace the same home and child
+
+    def hub(self) -> bool:
+        """A played home gets Home Assistant (set up here)."""
+        return hub_ready(self.stack_root)
 
     @property
     def url(self) -> str:
@@ -232,7 +263,58 @@ class ComposeServer:
                 cats[c] = cats.get(c, 0) + 1
         return {"room_types": sorted(AREAS), "categories": dict(sorted(cats.items())),
                 "placed_by_rule": sorted(RULES), "protocols": [p for p in PROTOCOLS if p != "zwave"],
-                "out": str(self.out)}
+                "out": str(self.out), "hub": self.hub(), "furnish": self.furnish_tools()}
+
+    # -- furnishing in Blender with Claude (vesper.lab.furnish) -------------------------------------------
+    def furnish_tools(self) -> dict:
+        import shutil
+
+        from vesper.lab.furnish import addon_file, blender_app
+        return {"claude": shutil.which("claude") is not None,
+                "blender": blender_app() is not None and addon_file() is not None}
+
+    def furnishing(self) -> bool:
+        return self._furnish is not None and self._furnish.status()["state"] == "running"
+
+    def furnish(self, body) -> dict:
+        """Start a run that has Claude furnish the composed home in Blender: {model, budget} from the page."""
+        with self.lock:
+            if not isinstance(body, dict):
+                raise ComposeError("a furnishing request is a JSON object")
+            if self.furnishing():
+                raise ComposeError("Claude is furnishing this home already: stop that run first")
+            home = self.out / "home.yaml"
+            if not home.is_file():
+                raise ComposeError("generate the home first")
+            model = body.get("model") or None
+            if model not in (None, "opus", "sonnet"):
+                raise ComposeError("model: opus or sonnet")
+            try:
+                budget = float(body.get("budget", 25))
+            except (TypeError, ValueError) as e:
+                raise ComposeError("budget: US dollars, a number") from e
+            if not 1 <= budget <= 100:
+                raise ComposeError("budget: 1 to 100 US dollars")
+            make = self._furnisher
+            if make is None:
+                from vesper.lab.furnish import Furnisher as make
+            from vesper.lab.furnish import FurnishError
+            try:
+                run = make(home, self.catalog, self.catalog_dir, model=model, budget=budget)
+            except FurnishError as e:
+                raise ComposeError(str(e)) from e
+            self.stop_play()  # the home's model and map change under a play
+            self._furnish = run
+            run.start()
+            return run.status()
+
+    def furnish_status(self) -> dict:
+        return self._furnish.status() if self._furnish is not None else {"state": "none"}
+
+    def stop_furnish(self) -> dict:
+        if self._furnish is not None:
+            self._furnish.stop()
+        return self.furnish_status()
 
     def scenes(self) -> dict:
         """The HSSD houses here, the complete ones first, each with what the page shows to choose by."""
@@ -256,16 +338,20 @@ class ComposeServer:
                 raise ComposeError(f"port {self.play_port} is in use (another `vesper lab play`?); stop it or start "
                                    "compose with another --play-port")
             child = self._play = self._launch(str(home), self.play_port)
-            if not self._wait(self.play_port, alive=lambda: child.poll() is None):
+            hub = self.hub()
+            if not self._wait(self.play_port, timeout=HUB_START_S if hub else 30.0,
+                              alive=lambda: child.poll() is None):
                 why = _last_words(getattr(child, "log", None))
                 self.stop_play()
                 raise ComposeError(f"vesper lab play stopped before it opened port {self.play_port}: {why}" if why
                                    else f"vesper lab play stopped before it opened port {self.play_port}; run "
                                    f"`vesper lab play {home}` to see why")
-            return {"url": f"http://127.0.0.1:{self.play_port}/"}
+            return {"url": f"http://127.0.0.1:{self.play_port}/", "hub": hub}
 
     def generate(self, request) -> dict:
         with self.lock:
+            if self.furnishing():
+                raise ComposeError("Claude is furnishing this home in Blender: stop that run before generating again")
             if not isinstance(request, dict):
                 raise ComposeError("a request is a JSON object")
             try:
@@ -297,6 +383,8 @@ class ComposeServer:
 
     def stop(self) -> None:
         self.stop_play()
+        if self.furnishing():
+            self._furnish.stop()
         if self._httpd is not None:
             self._httpd.shutdown()
             self._httpd.server_close()
@@ -342,6 +430,8 @@ class ComposeServer:
                     return self._json(404, {"error": "not found"})
                 if u.path == "/api/meta":
                     return self._json(200, server.meta())
+                if u.path == "/api/furnish":
+                    return self._json(200, server.furnish_status())
                 if u.path == "/api/scenes":
                     return self._json(200, server.scenes())
                 if u.path == "/api/search":
@@ -375,6 +465,10 @@ class ComposeServer:
                         return self._json(200, server.generate(body))
                     if self.path == "/api/play":
                         return self._json(200, server.play())
+                    if self.path == "/api/furnish":
+                        return self._json(200, server.furnish(body))
+                    if self.path == "/api/furnish/stop":
+                        return self._json(200, server.stop_furnish())
                 except ComposeError as e:
                     return self._json(400, {"error": str(e)})
                 except Exception as e:  # noqa: BLE001 - said to the page, never a dropped connection

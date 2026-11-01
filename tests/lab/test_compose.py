@@ -115,7 +115,7 @@ def server(tmp_path, monkeypatch):
     (ui / "compose.js").write_text("// compose")
     launch = Launched()
     s = ComposeServer(catalog(), tmp_path / "vds", tmp_path / "results", tmp_path / "out", port=0, ui_dir=ui,
-                      launch=launch, play_port=18999, wait_for_play=lambda port, alive=None: True)
+                      launch=launch, play_port=18999, wait_for_play=lambda port, **kw: True)
     s.start()
     yield s, launch
     s.stop()
@@ -354,3 +354,62 @@ def test_without_hssd_the_page_says_how_to_get_it(server, monkeypatch):
     monkeypatch.setattr(scenes, "list_scenes", none)
     listed = json.loads(call(s, "/api/scenes")[1])
     assert listed["scenes"] == [] and "no HSSD scenes" in listed["error"]
+
+
+def test_play_puts_home_assistant_in_the_loop_when_it_is_set_up_and_says_where_it_is_installed(tmp_path):
+    from pathlib import Path
+
+    from vesper.lab.compose import hub_ready, play_args
+    root = tmp_path / "stack"
+    assert hub_ready(root, which=lambda name: "/usr/sbin/mosquitto") is False  # no Home Assistant installed
+    (root / "ha" / "venv" / "bin").mkdir(parents=True)
+    (root / "ha" / "venv" / "bin" / "hass").write_text("")
+    assert hub_ready(root, which=lambda name: None, known=()) is False  # no broker
+    assert hub_ready(root, which=lambda name: "/usr/sbin/mosquitto") is True
+    args = play_args("h/home.yaml", 18082, Path("cat"), root, hub=True)
+    assert args[:2] == ["lab", "play"] and "--hub" in args
+    assert args[args.index("--root") + 1] == str(root)
+    assert "--hub" not in play_args("h/home.yaml", 18082, Path("cat"), root, hub=False)
+
+
+class FakeFurnisher:
+    """A furnishing run the server starts, follows and stops (vesper.lab.furnish.Furnisher's surface)."""
+
+    made: list = []
+
+    def __init__(self, home_yaml, catalog, catalog_dir, *, model=None, budget=25.0):
+        self.home_yaml, self.model, self.budget, self.state = home_yaml, model, budget, "ready"
+        FakeFurnisher.made.append(self)
+
+    def start(self):
+        self.state = "running"
+
+    def stop(self):
+        self.state = "stopped"
+
+    def status(self):
+        return {"state": self.state, "home": str(self.home_yaml), "model": self.model, "budget_usd": self.budget}
+
+
+def test_the_lobby_has_claude_furnish_the_generated_home_in_blender_one_run_at_a_time(server, tmp_path):
+    s, _ = server
+    s._furnisher = FakeFurnisher
+    FakeFurnisher.made = []
+    assert json.loads(call(s, "/api/furnish")[1]) == {"state": "none"}
+    assert call(s, "/api/furnish", {})[0] == 400  # nothing generated yet
+    call(s, "/api/generate", {"format": "vesper-request/1", "rooms": 2, "seed": 1,
+                              "devices": [{"category": "light", "per": "room"}]})
+    status, body = call(s, "/api/furnish", {"model": "sonnet", "budget": 10})
+    assert status == 200 and json.loads(body)["state"] == "running"
+    run = FakeFurnisher.made[-1]
+    assert (run.home_yaml, run.model, run.budget) == (s.out / "home.yaml", "sonnet", 10.0)
+    assert call(s, "/api/furnish", {})[0] == 400  # one run at a time
+    assert call(s, "/api/generate", {"format": "vesper-request/1", "rooms": 2, "seed": 2, "devices": []})[0] == 400
+    assert json.loads(call(s, "/api/furnish/stop", {})[1])["state"] == "stopped"
+    assert call(s, "/api/furnish", {"budget": 500})[0] == 400  # a cap beyond what the page offers
+
+
+def test_the_page_is_told_whether_claude_and_blender_are_here(server):
+    s, _ = server
+    meta = json.loads(call(s, "/api/meta")[1])
+    assert set(meta["furnish"]) == {"claude", "blender"}
