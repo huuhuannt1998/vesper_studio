@@ -25,10 +25,12 @@ time at the start of each minute).
 from __future__ import annotations
 
 import datetime as dt
+import functools
 import math
 import operator
 import re
 import signal
+import sys
 import threading
 import time
 from ast import literal_eval
@@ -78,9 +80,24 @@ class TemplateTimeout(Exception):
 
 
 @contextmanager
-def budget(seconds: float, what: str, error: type[Exception] = TemplateTimeout):
-    """Raise `error` in the block after `seconds` of wall-clock time (SIGALRM, in the main thread only); an alarm
-    already set (a sweep batch's) is restored afterwards, less the time spent."""
+def budget(seconds: float, what: str, error: type[Exception] = TemplateTimeout, cooperative: bool = False):
+    """Raise `error` in the block after `seconds` of wall-clock time: by SIGALRM in the main thread (an alarm
+    already set, a sweep batch's, is restored afterwards, less the time spent) and, if `cooperative`, in any thread
+    by a trace function that checks the deadline on every line of Python the block runs (a render's own loops)."""
+    if cooperative:
+        deadline, outer_trace = time.monotonic() + seconds, sys.gettrace()
+
+        def tracer(frame, event, arg):
+            if time.monotonic() > deadline:
+                raise error(f"{what} took longer than {seconds:g} s")
+            return tracer
+        sys.settrace(tracer)
+        try:
+            with budget(seconds, what, error):
+                yield
+        finally:
+            sys.settrace(outer_trace)
+        return
     if threading.current_thread() is not threading.main_thread() or not hasattr(signal, "setitimer"):
         yield
         return
@@ -104,7 +121,106 @@ def _too_big(what: str):
 
 
 def _size(value) -> int:
-    return len(value) if isinstance(value, str | list | tuple) else 0
+    """How large a value is, deep: a string's characters, a list's or a mapping's items and their own sizes."""
+    if isinstance(value, str):
+        return len(value)
+    if isinstance(value, list | tuple):
+        return len(value) + sum(_size(x) for x in value)
+    if isinstance(value, dict):
+        return len(value) + sum(_size(k) + _size(v) for k, v in value.items())
+    return 0
+
+
+def _text(value) -> int:
+    """An upper estimate of the length of a value as text."""
+    if isinstance(value, str):
+        return len(value)
+    if isinstance(value, list | tuple | dict):
+        return 4 * _size(value) + 2
+    return 32
+
+
+def _check_percent(fmt: str, right) -> None:
+    """A %-formatting whose result could pass the size bound, refused before it is built."""
+    _check_widths(fmt, "a formatted string")
+    conversions = len(re.findall(r"%", fmt.replace("%%", "")))
+    values = list(right.values()) if isinstance(right, dict) else list(right) if isinstance(right, tuple) else [right]
+    biggest = max((_text(v) for v in values), default=0)
+    if len(fmt) + conversions * (biggest + MAX_WIDTH) > MAX_SIZE:
+        _too_big("a formatted string")
+
+
+def _check_format(fmt: str, args, kwargs) -> None:
+    """A str.format whose result could pass the size bound (each field as large as its argument, a repeated
+    field each time), refused before it is built."""
+    import string
+    _check_widths(fmt, "a formatted string")
+    sizes = [_text(a) for a in args]
+    named = {k: _text(v) for k, v in kwargs.items()}
+    biggest = max([*sizes, *named.values()], default=0)
+    total, auto = len(fmt), 0
+    try:
+        fields = [f for _, f, _, _ in string.Formatter().parse(fmt) if f is not None]
+    except ValueError:
+        return  # the call itself raises it
+    for name in fields:
+        key = re.split(r"[.\[]", name, maxsplit=1)[0]
+        if name != key:
+            size = biggest  # an attribute or an item of an argument
+        elif key == "":
+            size, auto = (sizes[auto] if auto < len(sizes) else 0), auto + 1
+        elif key.isdigit():
+            size = sizes[int(key)] if int(key) < len(sizes) else 0
+        else:
+            size = named.get(key, 0)
+        total += size + MAX_WIDTH
+    if total > MAX_SIZE:
+        _too_big("a formatted string")
+
+
+@functools.lru_cache(maxsize=512)
+def _pattern_problem(pattern: str) -> str | None:
+    """Why a regular expression may backtrack catastrophically (a quantifier inside a repeated group, an
+    alternation under a quantifier, a backreference), or None. Python's matcher cannot be interrupted outside the
+    main thread, so such a pattern is refused before it runs."""
+    from re import _constants as sre
+    from re import _parser as sre_parse
+    try:
+        tree = sre_parse.parse(pattern)
+    except re.error as e:
+        return f"no valid syntax ({e})"
+    repeats = {sre.MAX_REPEAT, sre.MIN_REPEAT, getattr(sre, "POSSESSIVE_REPEAT", sre.MAX_REPEAT)}
+
+    def walk(items, repeated: bool) -> str | None:
+        for op, av in items:
+            found = None
+            if op in (sre.GROUPREF, sre.GROUPREF_EXISTS):
+                return "a backreference"
+            if op in repeats:
+                many = av[1] > 1
+                if many and repeated:
+                    return "a nested quantifier"
+                found = walk(av[2], repeated or many)
+            elif op == sre.BRANCH:
+                if repeated:
+                    return "an alternation under a quantifier"
+                found = next((r for alt in av[1] if (r := walk(alt, repeated))), None)
+            elif op == sre.SUBPATTERN:
+                found = walk(av[-1], repeated)
+            elif op in (sre.ASSERT, sre.ASSERT_NOT):
+                found = walk(av[1], repeated)
+            elif op == getattr(sre, "ATOMIC_GROUP", None):
+                found = walk(av, repeated)
+            if found:
+                return found
+        return None
+    return walk(tree.data, False)
+
+
+def _check_pattern(find) -> None:
+    problem = _pattern_problem(str(find))
+    if problem:
+        raise TemplateFailed(f"the regular expression {str(find)[:60]!r} has {problem}")
 
 
 def _check_widths(fmt: str, what: str) -> None:
@@ -134,11 +250,7 @@ def _binop(op: str, left, right):
         return operator.pow(left, right)
     if op == "%":
         if isinstance(left, str):
-            _check_widths(left, "a formatted string")
-            out = operator.mod(left, right)
-            if len(out) > MAX_SIZE:
-                _too_big("a formatted string")
-            return out
+            _check_percent(left, right)
         return operator.mod(left, right)
     if op == "+":
         if _size(left) + _size(right) > MAX_SIZE:
@@ -151,6 +263,7 @@ def _bounded_filters(filters: dict) -> dict:
     """Jinja's filters that can make a very large value in one call, with their sizes checked first."""
     jinja_replace, jinja_join, jinja_sum = filters["replace"], filters["join"], filters["sum"]
     jinja_center, jinja_indent, jinja_format = filters["center"], filters["indent"], filters["format"]
+    jinja_batch, jinja_slice = filters["batch"], filters["slice"]
 
     def replace(eval_ctx, s, old, new, count=None):
         _check_replace(str(s), str(old), str(new))
@@ -158,7 +271,7 @@ def _bounded_filters(filters: dict) -> dict:
 
     def join(eval_ctx, value, d="", attribute=None):
         items = list(value)
-        if len(str(d)) * len(items) > MAX_SIZE:
+        if len(str(d)) * len(items) + sum(_text(x) for x in items) > MAX_SIZE:
             _too_big("a join")
         return jinja_join(eval_ctx, items, d, attribute)
 
@@ -174,20 +287,31 @@ def _bounded_filters(filters: dict) -> dict:
         return jinja_center(value, width)
 
     def indent(s, width=4, first=False, blank=False):
-        if isinstance(width, str) and len(width) * (str(s).count("\n") + 1) > MAX_SIZE or \
-                isinstance(width, int) and width > MAX_WIDTH:
+        pad = len(width) if isinstance(width, str) else width if isinstance(width, int) else 0
+        if pad > MAX_WIDTH or len(str(s)) + pad * (str(s).count("\n") + 1) > MAX_SIZE:
             _too_big("an indented string")
         return jinja_indent(s, width, first, blank)
 
     def fmt(value, *args, **kwargs):
-        _check_widths(str(value), "a formatted string")
+        _check_percent(str(value), kwargs or args)
         return jinja_format(value, *args, **kwargs)
+
+    def batch(value, linecount, fill_with=None):
+        if int(linecount) > MAX_SIZE:
+            _too_big("a batch")
+        return jinja_batch(value, linecount, fill_with)
+
+    def slices(value, slices, fill_with=None):
+        if int(slices) > MAX_SIZE:
+            _too_big("a slice")
+        return jinja_slice(value, slices, fill_with)
 
     for new, old in ((replace, jinja_replace), (join, jinja_join), (total, jinja_sum)):
         for marker in ("jinja_pass_arg",):
             if hasattr(old, marker):
                 setattr(new, marker, getattr(old, marker))
-    return {"replace": replace, "join": join, "sum": total, "center": center, "indent": indent, "format": fmt}
+    return {"replace": replace, "join": join, "sum": total, "center": center, "indent": indent, "format": fmt,
+            "batch": batch, "slice": slices}
 
 
 def _check_replace(s: str, old: str, new: str) -> None:
@@ -196,20 +320,20 @@ def _check_replace(s: str, old: str, new: str) -> None:
         _too_big("a replacement")
 
 
-def _check_call(obj, args) -> tuple:
+def _check_call(obj, args, kwargs) -> tuple:
     """A string method that can make a very large value: its arguments checked first."""
     owner, name = getattr(obj, "__self__", None), getattr(obj, "__name__", "")
     if not isinstance(owner, str):
         return args
     if name == "format":
-        _check_widths(owner, "a formatted string")
+        _check_format(owner, args, kwargs)
     elif name == "zfill" and args and isinstance(args[0], int) and args[0] > MAX_WIDTH:
         _too_big("a padded string")
     elif name == "replace" and len(args) >= 2:
         _check_replace(owner, str(args[0]), str(args[1]))
     elif name == "join" and args:
         items = list(args[0])
-        if len(owner) * len(items) + sum(_size(x) for x in items) > MAX_SIZE:
+        if len(owner) * len(items) + sum(_text(x) for x in items) > MAX_SIZE:
             _too_big("a join")
         return (items, *args[1:])
     return args
@@ -434,7 +558,7 @@ class Templates:
                 return _binop(operator, left, right)
 
             def call(__self, __context, __obj, *args, **kwargs):  # noqa: N805 - Jinja's own signature
-                args = _check_call(__obj, args)
+                args = _check_call(__obj, args, kwargs)
                 return super().call(__context, __obj, *args, **kwargs)
 
         class BoundedNamespace(Namespace):
@@ -551,7 +675,7 @@ class Templates:
         if self.refusal:
             raise TemplateRefused(f"{where}: templates are not supported ({self.refusal})")
         try:
-            with budget(BUDGET_S, "the template's compile"):
+            with budget(BUDGET_S, "the template's compile", cooperative=True):
                 return self._compile(source, names, entity_ids, where)
         except TemplateTimeout as e:
             raise TemplateRefused(f"{where}: {e}") from None
@@ -584,6 +708,13 @@ class Templates:
         for node in tree.find_all(nodes.Test):
             if node.name not in self.env.tests:
                 raise TemplateRefused(f"{where}: template test {node.name!r} is not supported")
+        for node in tree.find_all((nodes.Filter, nodes.Test)):  # a literal pattern is checked now
+            if node.name in ("regex_match", "regex_search", "regex_replace", "regex_findall", "match", "search"):
+                pattern = node.args[0] if node.args else next((k.value for k in node.kwargs if k.key == "find"),
+                                                              None)
+                if isinstance(pattern, nodes.Const) and isinstance(pattern.value, str) and \
+                        (problem := _pattern_problem(pattern.value)):
+                    raise TemplateRefused(f"{where}: the regular expression {pattern.value[:60]!r} has {problem}")
         for node in tree.find_all(nodes.Call):
             if isinstance(node.node, nodes.Getattr) and node.node.attr not in METHODS:
                 raise TemplateRefused(f"{where}: template method {node.node.attr!r} is not supported")
@@ -608,7 +739,7 @@ class Templates:
         from jinja2 import TemplateError
         self.view.info = RenderInfo()
         try:
-            with budget(BUDGET_S, "the template's render"):
+            with budget(BUDGET_S, "the template's render", cooperative=True):
                 text = template.render(**variables)
         except TemplateFailed:
             raise
@@ -765,6 +896,7 @@ def _subject(value, find) -> str:
     text = value if isinstance(value, str) else str(value)
     if len(text) > MAX_REGEX_INPUT or len(str(find)) > MAX_WIDTH:
         _too_big("a regular expression's input")
+    _check_pattern(find)
     return text
 
 

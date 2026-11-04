@@ -729,6 +729,21 @@ HOSTILE = [
     "{{ ('a' * 30 ~ 'b') | regex_match('(a+)+$') }}",
     "{{ 'x' | attr('__class__') }}",
     "{{ ''.__class__.__mro__ }}",
+    "{{ [1] | batch(10**7, fill_with=0) | list | length }}",
+    "{{ [1] | slice(10**7, fill_with=0) | list | length }}",
+    "{{ ('{0}' * 1000).format('x' * 60000) }}",
+    "{{ ('{}' * 1000).format(*(['x' * 60000] * 1000)) }}",
+    "{{ ('%(a)s' * 1000) % {'a': 'x' * 60000} }}",
+    "{{ ('%s' * 1000) % ((['x' * 60000] * 1000) | list) }}",
+    "{{ ('%(a)s' * 1000) | format(a='x' * 60000) }}",
+    "{{ ([('x' * 60000)] * 1000) | join }}",
+    "{{ ('x' * 60000).join(['y' * 60000] * 1000) }}",
+    "{{ ('x\n' * 30000) | indent(1000) }}",
+    "{{ ('a' * 34 ~ '!') is match('(a+)+$') }}",
+    "{{ ('a' * 34 ~ '!') | regex_search('(a|a)+$') }}",
+    "{{ ('a' * 34 ~ '!') | regex_replace(find='(a*)*$', replace='') }}",
+    "{% set p = '(a+)+$' %}{{ ('a' * 34 ~ '!') | regex_match(p) }}",
+    "{{ 'aa' | regex_match('(a)\\\\1') }}",
 ]
 
 
@@ -779,6 +794,42 @@ def test_an_old_jinja2_refuses_every_template(monkeypatch):
     templates = hostile_templates()
     with pytest.raises(TemplateRefused, match="jinja2 3.1.5 is older than 3.1.6"):
         templates.compile("{{ 1 }}", set(), set(), "t")
+
+
+@pytest.mark.parametrize("source", [
+    "{% set p = '(a+)+$' %}{{ ('a' * 34 ~ '!') | regex_match(p) }}",
+    "{% for i in range(100000) %}{% for j in range(100000) %}{% endfor %}{% endfor %}",
+    "{% set l = [1] * 60000 %}{% for i in l %}{% for j in l %}{% endfor %}{% endfor %}",
+])
+def test_a_hostile_template_ends_within_its_budget_in_a_worker_thread_too(source):
+    """The Lab runs engines in threads, where no alarm can interrupt a render: the deadline is cooperative there,
+    and a catastrophic pattern is refused before it runs."""
+    import threading
+    import time
+
+    from vesper.lab.ha_template import TemplateFailed, TemplateRefused
+    templates, outcome = hostile_templates(), []
+
+    def render():
+        try:
+            templates.render(templates.compile(source, set(), set(), "t"), {})
+            outcome.append("rendered")
+        except (TemplateRefused, TemplateFailed) as e:
+            outcome.append(type(e).__name__)
+    t0 = time.monotonic()
+    worker = threading.Thread(target=render, daemon=True)
+    worker.start()
+    worker.join(5)
+    assert not worker.is_alive() and time.monotonic() - t0 < 2.0
+    assert outcome and outcome[0] in ("TemplateRefused", "TemplateFailed")
+
+
+def test_a_safe_pattern_still_matches():
+    templates = hostile_templates()
+    for source, out in (("{{ '12.5' | regex_match('^\\\\d+(\\\\.\\\\d+)?$') }}", "True"),
+                        ("{{ 'a-b' | regex_replace('[-_]', ' ') }}", "a b"),
+                        ("{{ 'on' is match('on|off') }}", "True")):
+        assert templates.render(templates.compile(source, set(), set(), "t"), {})[0] == out
 
 
 def test_the_budget_restores_an_outer_alarm():
