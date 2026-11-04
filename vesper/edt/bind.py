@@ -33,6 +33,8 @@ WORDS = {  # the name tokens that say a sensor's role (an actuator's domain says
     "motion": {"motion", "occupancy", "presence", "pir", "movement"},
     "door": {"door", "window", "contact", "opening"},
 }
+OTHER_MEASURE = {"power", "energy", "current", "voltage", "watt", "watts", "kwh", "battery", "signal", "linkquality",
+                 "rssi", "status", "state"}  # a sensor with one of these measures something the home has no role for
 ROOMS = (  # (name token prefix, room id): the first that matches; no match is the living room
     ("living", "living"), ("lounge", "living"), ("kitchen", "kitchen"), ("bedroom", "bedroom_1"), ("bath", "bathroom"),
     ("hall", "corridor"), ("corridor", "corridor"), ("office", "office"), ("study", "office"),
@@ -73,6 +75,8 @@ def infer_role(entity_id: str) -> tuple[str, str] | None:
     role = None
     for r in ROLE_PRIORITY:
         if domain not in DOMAINS[r]:
+            continue
+        if r in VARIANT_ROLES and OTHER_MEASURE & set(tokens):  # `light_power` measures power, not light
             continue
         if r not in WORDS or WORDS[r] & set(tokens):
             role = r
