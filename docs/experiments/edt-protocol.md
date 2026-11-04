@@ -383,3 +383,99 @@ and is a finding even when it is not flagged.
 The results go to `results/edt/controls-<commit>.json` and a section of `docs/experiments/results-edt.md` with the
 verdict against these criteria; a miss or a false positive is reported with its cause, and nothing above is changed
 after the run.
+
+## Addendum 5 (2026-11-04, home variation, before its first run)
+
+Written before any sweep of a home other than the standard one has run. Reason (the review): every result above comes
+from one standard home, so the orientation axis's witnesses (section 6) cannot tell "this automation is
+orientation-sensitive" from "this automation is sensitive to this plan's windows" (the bedroom's window faces west,
+the office's east, the living room's two panes the plan's top). This addendum varies the home itself. Nothing above
+changes: the environments (section 2, Addendum 3's dates), rung 4, the oracle, the binder, the negative control and its
+halt rule apply to every variant as to the standard home. The standard home's rung-4 sweep at 120f4ca (recorded ERA5
+weather) is the base.
+
+Code: `vesper.edt.home.build_edt_home(work, catalog_dir, variant=None)` (`VARIANTS`); command:
+
+    vesper edt run --corpus DIR --work DIR --out FILE --workers 6 --rung 4 --home-variant NAME
+
+`variant=None` (no `--home-variant`) is the standard home, byte for byte (its home.yaml's sha256 is pinned in
+`tests/edt/test_home_variants.py`); the sweep's result then has no `home_variant` key.
+
+**A5.1 The four variants**, each defined by one parameter, fixed here:
+
+- **glazing-x0.5** and **glazing-x2**: every window pane's area times 0.5 or 2, at the same place (the same wall, the
+  same centre along it, the same facing). Rule (`scale_glazing`): width and height times sqrt(factor) about the pane's
+  centre; a width that would come nearer than 0.3 m (`windows.CORNER_M`) to its wall's end, or nearer than 0.1 m to a
+  neighbouring pane on the same wall, is capped there and the height takes the rest, so the area is exactly the factor
+  times the original; the pane keeps its vertical centre, moved down if its top would come within 0.05 m of the 2.5 m
+  ceiling (up if its sill would go below the floor). Applied to the standard home this gives (width x height, sill;
+  m):
+
+  | Pane | Standard | x0.5 | x2 |
+  |---|---|---|---|
+  | living room, 2 panes, facing the plan's top | 1.6 x 1.4, 0.6 | 1.131 x 0.99, 0.805 | 1.9 x 2.358, 0.092 (width capped) |
+  | bedroom 2, top | 1.2 x 1.2, 0.9 | 0.849 x 0.849, 1.076 | 1.697 x 1.697, 0.651 |
+  | bedroom 1, west (plan left) | 1.2 x 1.2, 0.9 | 0.849 x 0.849, 1.076 | 1.697 x 1.697, 0.651 |
+  | kitchen, bottom | 1.0 x 1.0, 1.05 | 0.707 x 0.707, 1.196 | 1.2 x 1.667, 0.717 (width capped) |
+  | bathroom, bottom | 0.6 x 0.6, 1.5 | 0.424 x 0.424, 1.588 | 0.849 x 0.849, 1.376 |
+  | office, east (plan right) | 1.2 x 1.2, 0.9 | 0.849 x 0.849, 1.076 | 1.697 x 1.697, 0.651 |
+
+  The windows change the indoor model through the glass area (daylight, solar gain, heat loss); the furniture is
+  placed again by the generator's furnisher for the new panes (it keeps tall pieces from in front of a window);
+  furniture takes no part in an EDT trace (no residents). The plan, the devices and their places are the standard
+  home's.
+- **plan-seed8**: another generated floor plan, `vesper lab generate` with six rooms and **seed 8**, the first seed
+  after the standard home's 7 (chosen by that rule, not by looking at any plan's results). Every six-room request has
+  the same room program (living room, two bedrooms, kitchen, bathroom, office, with the corridor and the porch), so
+  every seed has every room and every role; seed 8 was checked to give all eight rooms and the standard home's 101
+  roles. Its plan: the living room, bathroom and bedroom 2 along the plan's top side (in the standard home, the
+  living room and bedroom 2), bedroom 1, kitchen and office along the bottom (standard: bedroom 1, kitchen, bathroom,
+  office), every room's size redrawn (the corridor 9.1 m long, standard 10.0 m); its windows by the generator's rule:
+  the living room's two panes 1.45 m wide facing the top, the bathroom's the top, bedroom 2's east (standard: the
+  top), bedroom 1's west, the kitchen's the bottom, the office's east. The generator would draw other products from
+  another seed, so the products are fixed to the standard home's, category by category (the request names them),
+  and placed by the generator's rules (with seed 7 this rebuilds the standard home exactly; tested).
+- **mirror-ew**: the standard home mirrored east-west, x -> 8.2 - x (the sum of the walking grid's two x edges, so
+  the grid maps onto itself): rooms, walking grid, devices and wall switches, windows (a pane facing east faces west)
+  and furniture. Bedroom 1's window faces east, the office's west, the porch and the front door are on the east end;
+  every pane's size and every room's size are unchanged.
+
+In every variant the EDT devices (section 2's sensors in every room and on the porch, the corridor's light and motion
+sensor, three lights and three plugs per lit room) are added by the same rules from the rooms' boxes (the corridor's
+light at its centre, its wall switch 0.5 m from the front-door end, its motion sensor 3/4 of the way from that end;
+in the standard home these are exactly the earlier fixed places). The role set and every entity id are the standard
+home's, so an automation binds identically in all five homes (the binder sees only roles and ids); only placement and
+the environment model's inputs differ. Each variant passes `vesper lab check` and the layout check with no error
+(tested).
+
+**A5.2 Runs.** Each variant once at rung 4 over all 48 environments of the same corpus, one after the other, each in
+its own work directory, `--workers 6`, after the standard home's rung-4 and rung-3 sweeps at 120f4ca finished. Every
+variant reads the same recorded weather as the base (the base work directory's ERA5 cache, copied in before the run;
+no trace is copied). A variant whose negative control halts (section 5) is reported as halted, and its numbers are not
+used in A5.3.
+
+**A5.3 What is reported** (descriptive only: **there is no pass/fail threshold**; nothing below is a criterion the
+variants must meet, and no number is tuned or chosen after seeing it). Results: `results/edt/home-variation.json` and a
+section of `docs/experiments/results-edt.md`, aggregates only.
+
+- Per home (the standard and the four variants): the yield (parsed, bound, run); the negative control (n, firing,
+  flagged, rate); the flagged count; flagged automations by divergence kind; flagged automations by environment kind
+  (the automation's kinds as written: sun, illuminance, temperature, humidity, weather; an automation counts once in
+  each of its kinds); the minimal-witness axis distribution (section 6: orientation, date, city, none).
+- Across homes, over the automations that ran in all five homes: of those flagged in at least one home, the share
+  flagged in **all five**, in **at least three**, and in **only one** (with counts), and the number flagged in each
+  number of homes (1 to 5); of the standard home's flagged, the share flagged in every variant; the same by
+  divergence kind (an automation and a kind: flagged with that kind).
+- The orientation witnesses' stability. An automation has an orientation witness in a home when two of its
+  environments differing only in plan north (same city and date) have different outcome classes (section 6's
+  witness rule, `vesper.edt.cover.witnesses`, axis `north_deg`). Reported: per home, the number of automations with an
+  orientation witness and the number whose minimal witness is orientation; of the standard home's automations whose
+  minimal witness is orientation, how many have an orientation witness in each variant, in all four, in none, and
+  how many are not flagged at all in each variant; the overlap of the orientation-witnessed sets between each
+  variant and the standard home (Jaccard).
+
+How it will be read (stated now): an automation flagged in all five homes, or with an orientation witness in all
+five, does not owe that to one plan or one window; one flagged (or orientation-witnessed) only in the standard home
+owes it to that home. The mirror separates "faces east" from "faces west" for the same plan; the other plan changes
+which rooms have which façade; glazing changes how much the windows weigh. Five homes are a small sample of plans, not
+a population of real homes; that limit is stated with the results.
