@@ -245,6 +245,14 @@ setting in which the automation's environmental behaviour can be observed at all
 and the flagged counts twice: over all bound automations (`yield`, `flagged`) and over the assumption-free subset
 (`yield_assumption_free`, `flagged_assumption_free`). Every result is stated over both.
 
+**A2.4 Helpers only set (2026-11-04, before the first full run).** Helpers only set by an action pass through and are
+recorded: a helper or presence id (the domains of A2.1 and `counter`, `input_text`, `input_datetime`,
+`input_button`) that appears only as the target of an action of its own domain (`input_boolean.turn_on`,
+`input_select.select_option`, `input_number.set_value`, `timer.start`, `counter.increment`, ...: under `entity_id`,
+`target` or `data`) and is never read by the automation (no trigger, condition, gate or template names it) is left
+unbound; the permissive engine records the action. Nothing in the run depends on it, so it is not an assumption. A
+helper both set and read stays unbindable, as in A2.2.
+
 ## Addendum 3 (2026-11-04, before the first full run)
 
 Found in a 10,000-automation smoke run once the engine supported `weekday` conditions and triggers: the plan's four
