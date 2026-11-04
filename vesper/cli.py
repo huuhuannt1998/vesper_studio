@@ -2321,6 +2321,9 @@ def _edt_ladder(args) -> int:
     return 0
 
 
+_EDT_ACTIONS = {"census": _edt_census, "ladder": _edt_ladder}  # one entry per `vesper edt` subcommand
+
+
 def _dispatch(args) -> int:
     if args.command == "catalog":
         if args.action in ("bundle", "fetch"):
@@ -2343,7 +2346,7 @@ def _dispatch(args) -> int:
     if args.command == "lab":
         return _lab(args)
     if args.command == "edt":
-        return _edt_ladder(args) if args.action == "ladder" else _edt_census(args)
+        return _EDT_ACTIONS[args.action](args)
     if args.action == "discovery":
         return _validate_discovery(args)
     if args.action == "sun":

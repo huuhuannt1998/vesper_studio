@@ -4,7 +4,18 @@ import math
 
 import pytest
 
-from vesper.edt.ladder import FEATURES, auc, ladder_report, linter_features, recall_at_precision, spearman
+from vesper.edt.ladder import (
+    FEATURES,
+    auc,
+    bootstrap_auc_ci,
+    circular_range,
+    grouped_folds,
+    heldout_recall_at_precision,
+    ladder_report,
+    linter_features,
+    recall_at_precision,
+    spearman,
+)
 
 
 # --- the linter's features ---------------------------------------------------------------------------------------
@@ -51,6 +62,7 @@ def test_auc_perfect_inverted_and_ties():
     assert auc([0.9, 0.8, 0.2, 0.1], [0, 0, 1, 1]) == 0.0
     assert auc([0.5, 0.5, 0.5, 0.5], [0, 1, 0, 1]) == 0.5
     assert auc([1, 2], [1, 1]) is None
+    assert auc([1, 2, 2, 3], [0, 0, 1, 1]) == 0.875  # 3.5 of 4 pairs: the tied pair counts half
 
 
 def test_recall_at_precision_picks_the_best_recall_that_meets_it():
@@ -68,6 +80,44 @@ def test_spearman():
     assert spearman([1, 2, 3, 4], [4, 3, 2, 1]) == pytest.approx(-1.0)
     assert spearman([1, 1, 1], [1, 2, 3]) is None
     assert spearman([1, 2], [1, 2]) is None  # too few to say anything
+    assert spearman([1, 2, 2, 3], [1, 2, 3, 4]) == pytest.approx(0.9486832980505139)  # average ranks 1, 2.5, 2.5, 4
+
+
+def test_circular_range_is_24_minus_the_largest_gap():
+    assert circular_range([23 + 50 / 60, 10 / 60]) == pytest.approx(1 / 3)  # 23:50 and 00:10 are 20 minutes apart
+    assert circular_range([0.0, 8.0, 16.0]) == pytest.approx(16.0)
+    assert circular_range([5.0, 5.0]) == 0.0
+    assert circular_range([10.0, 22.0]) == pytest.approx(12.0)
+    assert circular_range([24.0, 1.0]) == pytest.approx(1.0)  # 24 h is midnight
+    assert circular_range([7.0]) is None
+
+
+def test_heldout_threshold_comes_from_the_training_fold_not_the_test_fold():
+    folds = [{"train_scores": [0.9, 0.8, 0.1], "train_labels": [1, 1, 0],
+              "test_scores": [0.5, 0.4], "test_labels": [1, 0]}]
+    r = heldout_recall_at_precision(folds, 0.55)
+    # training picks 0.8; the held-out positive scores 0.5, so nothing is predicted: an oracle would have had recall 1
+    assert r["thresholds"] == [0.8] and r["recall"] == 0.0 and r["precision"] is None
+    assert r["base_rate"] == 0.5 and r["n_predicted_positive"] == 0
+    folds.append({"train_scores": [0.9, 0.8, 0.1], "train_labels": [1, 1, 0],
+                  "test_scores": [0.95, 0.2], "test_labels": [1, 0]})
+    r = heldout_recall_at_precision(folds, 0.55)  # pooled: one of two positives found, no false positive
+    assert r["recall"] == 0.5 and r["precision"] == 1.0 and r["base_rate"] == 0.5
+    degenerate = [{"train_scores": None, "train_labels": [1, 1], "test_scores": [3.0], "test_labels": [1]}]
+    assert heldout_recall_at_precision(degenerate, 0.55)["recall"] == 0.0  # no model: no positive predicted
+
+
+def test_grouped_folds_keep_a_repo_in_one_fold_and_are_deterministic():
+    groups = [f"r{i // 3}" for i in range(30)]  # 10 repos of 3 automations
+    labels = [int(i // 3 % 2 == 0) for i in range(30)]
+    fold = grouped_folds(groups, labels, 5)
+    assert fold.tolist() == grouped_folds(groups, labels, 5).tolist()
+    for g in set(groups):
+        folds_of_repo = {int(f) for gg, f in zip(groups, fold, strict=True) if gg == g}
+        assert len(folds_of_repo) == 1  # a repo is in one fold: never in train and test of the same split
+    assert sorted(set(fold.tolist())) == [0, 1, 2, 3, 4]
+    for f in range(5):  # stratified as well as whole groups allow: each fold holds one flagged and one clear repo
+        assert sum(labels[i] for i in range(30) if fold[i] == f) == 3
 
 
 # --- synthetic sweep results -------------------------------------------------------------------------------------
@@ -79,13 +129,13 @@ def _env(rung, city, date, north):
     return {"city": city, "date": date, "north_deg": north, "rung": rung, "key": f"r{rung}|{city}|{date}|{north}"}
 
 
-def _auto(rung, i, raw, tods, divergences=(), bound=True):
-    """tods: first_tod_h per env (None = did not fire)."""
+def _auto(rung, i, raw, tods, divergences=(), bound=True, repo=None):
+    """tods: first_tod_h per env (None = did not fire). Each automation is its own repo unless one is given."""
     outcomes = {}
     for (city, date, north), t in zip(ENVS, tods):
         outcomes[_env(rung, city, date, north)["key"]] = {"fired": t is not None, "first_tod_h": t, "flaps": False,
                                                         "night_light": False, "night_cover": False}
-    return {"repo": "o/r", "hash": f"h{i}", "kinds": [], "raw": raw, "bound": {"x": 1} if bound else None,
+    return {"repo": repo or f"o/r{i}", "hash": f"h{i}", "kinds": [], "raw": raw, "bound": {"x": 1} if bound else None,
             "unbindable": None if bound else "no entity", "outcomes": outcomes, "divergences": list(divergences),
             "negative_control": False}
 
@@ -147,6 +197,28 @@ def test_only_automations_bound_in_both_count_and_unfired_pairs_are_skipped():
     assert row["n_time_pairs"] == 4 and row["mae_hours"] == pytest.approx(0.25)  # only (a, Oslo) is 1 h off
 
 
+def test_denominators_are_visible():
+    r4 = _result(4, {"a": _auto(4, 0, SUN, [10.0, 10.0, 10.0], ["d"]), "b": _auto(4, 1, SUN, [10.0, 10.0, 10.0], ["d"]),
+                     "d": _auto(4, 2, SUN, [10.0, 10.0, 10.0], ["d"]), "e": _auto(4, 3, SUN, [10.0, 10.0, 10.0], [])})
+    r1 = _result(1, {"a": _auto(1, 0, SUN, [10.0, 10.0, 10.0], ["d"]),
+                     "d": _auto(1, 2, SUN, [10.0, 10.0, 10.0], ["d"], bound=False),
+                     "e": _auto(1, 3, SUN, [10.0, 10.0, 10.0], [])})
+    row = ladder_report({4: r4, 1: r1})["rungs"]["1"]
+    assert row["n_flagged_rung4_total"] == 3            # a, b, d: every automation bound at rung 4 and flagged there
+    assert row["n_bound_both"] == 2 and row["n_flagged_rung4"] == 1  # a, e
+    assert row["n_unbound_at_rung"] == 2                # b is absent at rung 1, d is unbound there
+    assert row["reproduced_share"] == 1.0 and row["null"] is None
+
+
+def test_no_matching_environments_gives_a_null_reason():
+    r4 = _result(4, {"a": _auto(4, 0, SUN, [10.0, 10.0, 10.0], ["d"])})
+    r1 = _result(1, {"a": _auto(1, 0, SUN, [10.0, 10.0, 10.0], ["d"])})
+    r1["envs"] = [_env(1, "Paris", "2025-09-01", 45.0)]
+    row = ladder_report({4: r4, 1: r1})["rungs"]["1"]
+    assert row["n_envs_matched"] == 0 and "environment" in row["null"]
+    assert row["mae_hours"] is None and row["spearman_time_spread"] is None
+
+
 def test_envs_are_matched_by_city_date_north_not_key():
     r4 = _result(4, {"a": _auto(4, 0, SUN, [10.0, 11.0, 12.0], ["d"])})
     r3 = _result(3, {"a": _auto(3, 0, SUN, [10.0, 11.0, 12.0], ["d"])})
@@ -160,7 +232,50 @@ def test_rung0_perfect_feature_gives_auc_one():
     r0 = rep["rung0"]
     assert r0["auc"] == pytest.approx(1.0) and r0["recall_at_precision_0.55"]["recall"] == 1.0
     assert r0["n"] == 20 and r0["n_flagged"] == 10 and r0["folds"] == 5 and r0["null"] is None
+    assert r0["base_rate"] == 0.5 and r0["recall_at_precision_0.55"]["base_rate"] == 0.5
+    assert r0["auc_random_folds"] == pytest.approx(1.0) and r0["n_repos"] == 20
+    lo, hi = r0["auc_ci95"]
+    assert lo == pytest.approx(1.0) and hi == pytest.approx(1.0)
+    assert len(r0["recall_at_precision_0.55"]["thresholds"]) == 5
     json.dumps(rep)  # the report is JSON-serialisable
+
+
+def test_recall_at_high_prevalence_is_reported_next_to_the_base_rate_and_is_not_oracle():
+    # 75 % flagged and a feature that says nothing: the best a detector can do is flag everything (recall 1.0 at
+    # precision = the base rate), and the report must show that precision equals the base rate, i.e. no skill
+    autos = {f"a{i}": _auto(4, i, SUN, [10.0, 10.0, 10.0], ["d"] if i % 4 else []) for i in range(24)}
+    r0 = ladder_report({4: _result(4, autos)})["rung0"]
+    rec = r0["recall_at_precision_0.55"]
+    assert r0["base_rate"] == 0.75 and rec["base_rate"] == 0.75
+    assert rec["precision"] == pytest.approx(0.75) and len(rec["thresholds"]) == r0["folds"]
+
+
+def test_repos_are_cross_validated_whole_and_the_random_folds_number_is_reported_beside_it():
+    # 16 repos x 4 near-identical automations; a repo's label is arbitrary but its four siblings agree on features
+    labels = [1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1]
+    autos = {}
+    for r in range(16):
+        raw = {"trigger": [{"platform": "sun"}] if r & 1 else [{"platform": "time", "at": "07:00:00"}],
+               "condition": [{"condition": "numeric_state", "entity_id": "sensor.lux", "below": 5}] * (r >> 1 & 3),
+               "action": []}
+        raw["trigger"] = raw["trigger"] + ([{"platform": "state", "entity_id": "sensor.hum_x"}] * (r >> 3))
+        for j in range(4):
+            i = r * 4 + j
+            autos[f"a{i}"] = _auto(4, i, raw, [10.0, 10.0, 10.0], ["d"] if labels[r] else [], repo=f"o/r{r}")
+    r0 = ladder_report({4: _result(4, autos)})["rung0"]
+    assert r0["n_repos"] == 16 and r0["folds"] == 5
+    assert r0["auc_random_folds"] > r0["auc"] + 0.1  # siblings across folds flatter a random split
+    assert r0["auc_ci95"][0] <= r0["auc"] <= r0["auc_ci95"][1]
+
+
+def test_bootstrap_ci_resamples_repos_and_is_seeded():
+    scores = [0.1, 0.7, 0.3, 0.4, 0.6, 0.5, 0.8, 0.9]
+    labels = [0, 0, 0, 0, 1, 0, 1, 1]
+    groups = ["a", "a", "b", "b", "c", "c", "d", "d"]
+    ci = bootstrap_auc_ci(scores, labels, groups, n=300)
+    assert ci == bootstrap_auc_ci(scores, labels, groups, n=300)
+    assert 0.0 <= ci[0] <= auc(scores, labels) <= ci[1] <= 1.0 and ci[0] < ci[1]
+    assert bootstrap_auc_ci([0.1, 0.9], [0, 1], ["a", "a"], n=50) is None  # one repo: nothing to resample
 
 
 def test_rung0_uninformative_features_are_near_chance():
@@ -199,6 +314,19 @@ def test_time_spread_rank_correlation_tracks_agreement():
     assert ladder_report({4: r4, 3: r3})["rungs"]["3"]["spearman_time_spread"] == pytest.approx(1.0)
     r3_rev = _result(3, {f"a{i}": _auto(3, i, SUN, spread(w), ["d"]) for i, w in enumerate(reversed(widths3))})
     assert ladder_report({4: r4, 3: r3_rev})["rungs"]["3"]["spearman_time_spread"] == pytest.approx(-1.0)
+
+
+def test_spread_is_the_circular_range_and_rank_correlation_skips_flat_rung4_automations():
+    # rung-4 spreads: 20 minutes across midnight, 16 h, 0 h (never moves), 4 h
+    t4 = {"a": [23 + 50 / 60, 10 / 60, 23.9], "b": [0.0, 8.0, 16.0], "c": [9.0, 9.0, 9.0], "d": [6.0, 8.0, 10.0]}
+    # at rung 3 the same automations spread 1 h, 12 h, 5 h (c: was flat at 4, moves at 3), 3 h
+    t3 = {"a": [0.0, 0.5, 1.0], "b": [0.0, 6.0, 12.0], "c": [3.0, 5.0, 8.0], "d": [6.0, 7.0, 9.0]}
+    r4 = _result(4, {k: _auto(4, i, SUN, v, ["d"]) for i, (k, v) in enumerate(t4.items())})
+    r3 = _result(3, {k: _auto(3, i, SUN, v, ["d"]) for i, (k, v) in enumerate(t3.items())})
+    row = ladder_report({4: r4, 3: r3})["rungs"]["3"]
+    assert row["n_spread_both"] == 4 and row["n_spread"] == 3  # c is dropped: its rung-4 spread is 0
+    # over a, d, b: rung 4 spreads ~0.33, 4, 16 and rung 3 spreads 1, 3, 12 -> the same order
+    assert row["spearman_time_spread"] == pytest.approx(1.0)
 
 
 # --- the CLI -----------------------------------------------------------------------------------------------------

@@ -5,10 +5,14 @@ curve) and 1 (no site at all) are cheaper simulations; rung 0 is a static linter
 a non-empty `divergences` in a sweep result (the shape in the task's interfaces-sweep note). The question is how much of
 what rung 4 flags the cheaper rungs reproduce.
 
-Rung 0: a logistic regression on eight syntactic features of the automation as written, scored out of fold (5-fold
-stratified cross-validation, seed 0) against "flagged at rung 4": the AUC and the recall at precision >= 0.55.
+Rung 0: a logistic regression on eight syntactic features of the automation as written, scored out of fold against
+"flagged at rung 4". Folds hold whole repos (near-duplicate siblings never straddle training and test; seed 0); the
+AUC carries a 95 % bootstrap interval over repos and sits beside the AUC of a plain stratified split. Recall at
+precision >= 0.55 uses no oracle threshold: each fold's threshold is chosen on its training rows and applied to its
+held-out rows, the base rate reported beside it.
 Rungs 1-3 against rung 4, over the automations bound in both: the share of rung-4 flags also flagged at the rung, the
-firing-time error in hours (circular time of day), and the rank correlation of the per-automation time spreads.
+firing-time error in hours (circular time of day), and the rank correlation of the per-automation time spreads (the
+shortest arc of the clock holding every first firing).
 
 numpy only: scikit-learn and scipy are not in the environment, so the regression, the AUC and Spearman's rho are here.
 """
@@ -16,7 +20,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from vesper.edt.corpus import _first, _step_kinds
+from vesper.edt.corpus import first_present, step_kinds
 
 PRECISION_FLOOR = 0.55
 FOLDS = 5
@@ -55,7 +59,7 @@ def _conditions(steps) -> list:
 
 def _kinds_of(step) -> set[str]:
     out: set[str] = set()
-    _step_kinds(step, out)  # recurses into `conditions` itself, which is what a nested numeric_state needs
+    step_kinds(step, out)  # recurses into `conditions` itself, which is what a nested numeric_state needs
     return out
 
 
@@ -67,8 +71,8 @@ def linter_features(raw: dict) -> dict[str, float]:
                                      illuminance, temperature, humidity or weather (the sun is the first two features)
     time_trigger                     a `time` or `time_pattern` trigger
     n_conditions                     conditions, nested members counted and a combinator counted too."""
-    triggers = [t for t in _listed(_first(raw, "trigger", "triggers")) if isinstance(t, dict)]
-    conditions = _conditions(_first(raw, "condition", "conditions"))
+    triggers = [t for t in _listed(first_present(raw, "trigger", "triggers")) if isinstance(t, dict)]
+    conditions = _conditions(first_present(raw, "condition", "conditions"))
     numeric = set()
     for step in triggers + conditions:
         if _step_kind(step) == "numeric_state":
@@ -167,42 +171,147 @@ def _fit_logistic(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, float]:
     return w, b
 
 
-def _out_of_fold_scores(x: np.ndarray, y: np.ndarray, k: int) -> np.ndarray:
+def _standardised_scores(x: np.ndarray, y: np.ndarray, tr: np.ndarray, te: np.ndarray):
+    """Fit on the training rows; (train scores, test scores), both decision values."""
+    mu = x[tr].mean(axis=0)
+    sd = x[tr].std(axis=0)
+    sd[sd == 0] = 1.0
+    w, b = _fit_logistic((x[tr] - mu) / sd, y[tr].astype(float))
+    return ((x[tr] - mu) / sd) @ w + b, ((x[te] - mu) / sd) @ w + b
+
+
+def _cross_validate(x: np.ndarray, y: np.ndarray, fold: np.ndarray) -> tuple[np.ndarray, list[dict]]:
+    """Out-of-fold scores for the given fold assignment, and per fold the material for a held-out threshold. A fold
+    whose training rows hold one class has no model: its test rows score 0 and its `train_scores` is None."""
+    scores = np.zeros(len(y))
+    folds: list[dict] = []
+    for f in sorted(set(fold.tolist())):
+        tr, te = fold != f, fold == f
+        if len(set(y[tr].tolist())) < 2:
+            folds.append({"train_scores": None, "train_labels": y[tr], "test_scores": scores[te], "test_labels": y[te]})
+            continue
+        s_tr, s_te = _standardised_scores(x, y, tr, te)
+        scores[te] = s_te
+        folds.append({"train_scores": s_tr, "train_labels": y[tr], "test_scores": s_te, "test_labels": y[te]})
+    return scores, folds
+
+
+def stratified_folds(y, k: int) -> np.ndarray:
+    """Fold ids for a plain stratified split (seed 0): each class is shuffled and dealt round-robin over the folds,
+    the second class starting where the first stopped so that fold sizes stay level."""
+    y = np.asarray(y, dtype=int)
     rng = np.random.default_rng(SEED)
     fold = np.empty(len(y), dtype=int)
-    for cls in (0, 1):  # stratified: each class dealt round-robin over the folds after a seeded shuffle
+    start = 0
+    for cls in (0, 1):
         idx = rng.permutation(np.flatnonzero(y == cls))
-        fold[idx] = np.arange(len(idx)) % k
-    scores = np.empty(len(y))
-    for f in range(k):
-        tr, te = fold != f, fold == f
-        mu = x[tr].mean(axis=0)
-        sd = x[tr].std(axis=0)
-        sd[sd == 0] = 1.0
-        w, b = _fit_logistic((x[tr] - mu) / sd, y[tr].astype(float))
-        scores[te] = ((x[te] - mu) / sd) @ w + b
-    return scores
+        fold[idx] = (np.arange(len(idx)) + start) % k
+        start += len(idx)
+    return fold
+
+
+def grouped_folds(groups, y, k: int) -> np.ndarray:
+    """Fold ids with every group (a repo) wholly in one fold, so a repo's near-duplicate automations are never split
+    between training and test. Deterministic (seed 0): groups are shuffled, ordered by flagged count then size, and
+    each goes to the fold with the fewest flagged (then fewest rows) so far."""
+    groups = list(groups)
+    y = np.asarray(y, dtype=int)
+    names = sorted(set(groups))
+    rng = np.random.default_rng(SEED)
+    names = [names[i] for i in rng.permutation(len(names))]
+    stats = {g: [0, 0] for g in names}  # flagged, rows
+    for g, label in zip(groups, y, strict=True):
+        stats[g][0] += int(label)
+        stats[g][1] += 1
+    order = sorted(names, key=lambda g: (-stats[g][0], -stats[g][1]))  # stable: ties keep the shuffled order
+    load = [[0, 0] for _ in range(k)]
+    where: dict[str, int] = {}
+    for g in order:
+        f = min(range(k), key=lambda i: (load[i][0], load[i][1], i))
+        where[g] = f
+        load[f][0] += stats[g][0]
+        load[f][1] += stats[g][1]
+    return np.array([where[g] for g in groups], dtype=int)
+
+
+def heldout_recall_at_precision(folds: list[dict], floor: float = PRECISION_FLOOR) -> dict:
+    """Recall and precision with no oracle threshold: in each fold the threshold is chosen on the TRAINING rows' scores
+    (best recall at precision >= floor there), applied to the held-out rows, and the held-out predictions are pooled.
+    A fold with no model, or whose training scores reach the floor at no threshold, predicts nothing positive."""
+    tp = fp = fn = tn = 0
+    thresholds: list[float | None] = []
+    for f in folds:
+        thr = None
+        if f["train_scores"] is not None:
+            thr = recall_at_precision(f["train_scores"], f["train_labels"], floor)["threshold"]
+        thresholds.append(thr)
+        ts = np.asarray(f["test_scores"], dtype=float)
+        tl = np.asarray(f["test_labels"], dtype=int)
+        pred = ts >= thr if thr is not None else np.zeros(len(ts), dtype=bool)
+        tp += int((pred & (tl == 1)).sum())
+        fp += int((pred & (tl == 0)).sum())
+        fn += int((~pred & (tl == 1)).sum())
+        tn += int((~pred & (tl == 0)).sum())
+    total = tp + fp + fn + tn
+    return {"recall": tp / (tp + fn) if tp + fn else None, "precision": tp / (tp + fp) if tp + fp else None,
+            "base_rate": (tp + fn) / total if total else None, "n_predicted_positive": tp + fp,
+            "thresholds": thresholds, "degenerate_folds": sum(f["train_scores"] is None for f in folds)}
+
+
+def bootstrap_auc_ci(scores, labels, groups, n: int = 1000) -> list[float] | None:
+    """95 % percentile interval of the AUC over `n` resamples of whole groups (repos) with replacement, seed 0.
+    A resample that holds one class is skipped; None when fewer than two groups or no usable resample."""
+    s = np.asarray(scores, dtype=float)
+    y = np.asarray(labels, dtype=int)
+    names = sorted(set(groups))
+    if len(names) < 2:
+        return None
+    members = {g: [] for g in names}
+    for i, g in enumerate(groups):
+        members[g].append(i)
+    parts = [np.array(members[g]) for g in names]
+    rng = np.random.default_rng(SEED)
+    values = []
+    for _ in range(n):
+        idx = np.concatenate([parts[j] for j in rng.integers(0, len(parts), len(parts))])
+        a = auc(s[idx], y[idx])
+        if a is not None:
+            values.append(a)
+    if not values:
+        return None
+    return [float(np.percentile(values, 2.5)), float(np.percentile(values, 97.5))]
 
 
 def _rung0(autos: dict) -> dict:
-    """The detector over the automations bound at rung 4 (an unbindable one was never tested, so it is no negative)."""
-    rows = [a for a in autos.values() if a.get("bound") is not None]
-    y = np.array([int(bool(a["divergences"])) for a in rows], dtype=int)
-    base = {"features": list(FEATURES), "n": len(rows), "n_flagged": int(y.sum()), "folds": 0, "seed": SEED,
-            "model": f"logistic regression, L2 {L2}, standardised features", "auc": None,
-            f"recall_at_precision_{PRECISION_FLOOR}": None, "null": None}
-    minority = int(min(y.sum(), len(y) - y.sum())) if len(rows) else 0
-    if not rows:
+    """The detector over the automations bound at rung 4 (an unbindable one was never tested, so it is no negative).
+    Primary: cross-validation by repo. Beside it: the AUC of a plain stratified split, which near-duplicates inflate."""
+    items = [(i, a) for i, a in autos.items() if a.get("bound") is not None]
+    y = np.array([int(bool(a["divergences"])) for _, a in items], dtype=int)
+    groups = [a.get("repo") or i for i, a in items]
+    recall_key = f"recall_at_precision_{PRECISION_FLOOR}"
+    base = {"features": list(FEATURES), "n": len(items), "n_flagged": int(y.sum()), "n_repos": len(set(groups)),
+            "base_rate": float(y.mean()) if len(items) else None, "folds": 0, "folds_random": 0, "seed": SEED,
+            "model": f"logistic regression, L2 {L2}, standardised features",
+            "cv": "5-fold, whole repos per fold, stratified as well as repos allow",
+            "auc": None, "auc_ci95": None, "auc_random_folds": None, recall_key: None, "null": None}
+    minority = int(min(y.sum(), len(y) - y.sum())) if len(items) else 0
+    if not items:
         return {**base, "null": "no automation is bound at rung 4"}
     if minority == 0:
         return {**base, "null": "one class only: every bound automation is flagged at rung 4, or none is"}
     if minority < 2:
         return {**base, "null": "a class has fewer than 2 members: no cross-validation is possible"}
-    k = min(FOLDS, minority)
-    x = np.array([[linter_features(a["raw"])[f] for f in FEATURES] for a in rows], dtype=float)
-    scores = _out_of_fold_scores(x, y, k)
-    return {**base, "folds": k, "auc": auc(scores, y),
-            f"recall_at_precision_{PRECISION_FLOOR}": recall_at_precision(scores, y, PRECISION_FLOOR)}
+    x = np.array([[linter_features(a["raw"])[f] for f in FEATURES] for _, a in items], dtype=float)
+    k_random = min(FOLDS, minority)
+    random_scores, _ = _cross_validate(x, y, stratified_folds(y, k_random))
+    out = {**base, "folds_random": k_random, "auc_random_folds": auc(random_scores, y)}
+    if base["n_repos"] < 2:
+        return {**out, "null": "fewer than 2 repos: no cross-validation by repo is possible"}
+    k = min(FOLDS, base["n_repos"])
+    scores, folds = _cross_validate(x, y, grouped_folds(groups, y, k))
+    held = heldout_recall_at_precision(folds, PRECISION_FLOOR)
+    return {**out, "folds": k, "auc": auc(scores, y), "auc_ci95": bootstrap_auc_ci(scores, y, groups),
+            recall_key: held}
 
 
 # --- rungs 1-3 against rung 4 ------------------------------------------------------------------------------------
@@ -221,16 +330,20 @@ def _env_index(result: dict) -> dict:
     return out
 
 
-def _spread(times: list[float]) -> float | None:
-    """The largest circular gap between any two firing times (None for fewer than two)."""
+def circular_range(times) -> float | None:
+    """The shortest arc of the 24 h clock that holds every time: 24 minus the largest gap between neighbouring times
+    (the wrap past midnight included). 23:50 and 00:10 -> 1/3 h; 0, 8, 16 -> 16 h. None for fewer than two times."""
     if len(times) < 2:
         return None
-    return max(_circ(a, b) for i, a in enumerate(times) for b in times[i + 1:])
+    t = sorted(float(x) % 24.0 for x in times)
+    gaps = [b - a for a, b in zip(t, t[1:], strict=False)] + [t[0] + 24.0 - t[-1]]
+    return 24.0 - max(gaps)
 
 
 def _compare(r4: dict, rr: dict) -> dict:
     a4, ar = r4["automations"], rr["automations"]
-    common = sorted(i for i in a4 if i in ar and a4[i].get("bound") is not None and ar[i].get("bound") is not None)
+    bound4 = sorted(i for i in a4 if a4[i].get("bound") is not None)
+    common = [i for i in bound4 if i in ar and ar[i].get("bound") is not None]
     i4, ir = _env_index(r4), _env_index(rr)
     shared = [(i4[m], ir[m]) for m in i4 if m in ir]
     flagged4 = [i for i in common if a4[i]["divergences"]]
@@ -252,11 +365,19 @@ def _compare(r4: dict, rr: dict) -> dict:
                 tr.append(float(orr["first_tod_h"]))
             if f4 and fr:
                 errors.append(_circ(float(o4["first_tod_h"]), float(orr["first_tod_h"])))
-        s4, sr = _spread(t4), _spread(tr)
+        s4, sr = circular_range(t4), circular_range(tr)
         if s4 is not None and sr is not None:
             spreads4.append(s4)
             spreadsr.append(sr)
+    moving = [(s4, sr) for s4, sr in zip(spreads4, spreadsr, strict=True) if s4 > 0]  # a flat rung-4 spread has no rank
+    null = None
+    if not common:
+        null = "no automation is bound at both rungs"
+    elif not shared:
+        null = "no environment matches rung 4 on (city, date, north_deg): no firing time can be compared"
     return {
+        "n_flagged_rung4_total": sum(1 for i in bound4 if a4[i]["divergences"]),
+        "n_unbound_at_rung": len(bound4) - len(common),
         "n_bound_both": len(common),
         "n_envs_matched": len(shared),
         "n_flagged_rung4": len(flagged4),
@@ -265,8 +386,10 @@ def _compare(r4: dict, rr: dict) -> dict:
         "n_flagged_rung_only": sum(1 for i in common if ar[i]["divergences"] and not a4[i]["divergences"]),
         "n_time_pairs": len(errors),
         "mae_hours": float(np.mean(errors)) if errors else None,
-        "n_spread": len(spreads4),
-        "spearman_time_spread": spearman(spreads4, spreadsr),
+        "n_spread_both": len(spreads4),
+        "n_spread": len(moving),
+        "spearman_time_spread": spearman([m[0] for m in moving], [m[1] for m in moving]),
+        "null": null,
     }
 
 

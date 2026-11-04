@@ -240,7 +240,7 @@ def _strings(node) -> Iterator[str]:
             yield from _strings(v)
 
 
-def _step_kinds(step, out: set[str]) -> None:
+def step_kinds(step, out: set[str]) -> None:
     """The kinds one trigger or condition reads (a condition's `conditions` are walked)."""
     if isinstance(step, str):  # shorthand template condition
         step = {"condition": "template", "value_template": step}
@@ -263,23 +263,27 @@ def _step_kinds(step, out: set[str]) -> None:
     sub = step.get("conditions")
     if isinstance(sub, list):
         for s in sub:
-            _step_kinds(s, out)
+            step_kinds(s, out)
 
 
-def _first(raw: dict, *keys: str):
+def first_present(raw: dict, *keys: str):
     for k in keys:
         if k in raw and raw[k] is not None:
             return raw[k]
     return None
 
 
+_step_kinds = step_kinds  # the old private names stay as aliases
+_first = first_present
+
+
 def env_kinds(raw: dict) -> set[str]:
     """Which parts of the environment an automation reads in its triggers and conditions, among ENV_KINDS."""
     out: set[str] = set()
     for key in (("trigger", "triggers"), ("condition", "conditions")):
-        steps = _first(raw, *key)
+        steps = first_present(raw, *key)
         for step in (steps if isinstance(steps, list) else [steps]):
-            _step_kinds(step, out)
+            step_kinds(step, out)
     return out & set(ENV_KINDS)
 
 
