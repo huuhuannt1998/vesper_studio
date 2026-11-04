@@ -118,6 +118,10 @@
     .plan-rooms td { vertical-align: middle; } .plan-rooms td.area { white-space: nowrap; }
     .plan-rooms tr.on td { background: rgba(31, 111, 120, .07); }
     .plan-rooms tr.bad td:first-child { color: var(--bad); font-weight: 600; }
+    .plan-rooms tr.left td { color: var(--muted); } .plan-rooms tr.left input { text-decoration: line-through; }
+    .plan-rooms .link { white-space: nowrap; }
+    #import-overlay .left { fill: rgba(95, 107, 114, .10); stroke: var(--muted); stroke-width: 1.5;
+                            stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; pointer-events: none; }
     .problems { margin: 0; padding-left: 18px; font-size: 13px; } .problems li { margin: 3px 0; color: var(--bad); }
     .problems li.ok { color: var(--ok); list-style: none; margin-left: -18px; }
     .read-summary { font-size: 12px; margin: 10px 0 4px; } .read-summary pre { white-space: pre-wrap; margin: 6px 0; }
@@ -156,8 +160,9 @@
           <label class="choice">Scale <input id="import-scale" type="text" size="28" autocomplete="off"
             placeholder="kitchen width 3.2 m, or area 95" aria-describedby="import-scale-note"></label>
           <p id="import-scale-note" class="muted"></p>
+          <label class="choice">Entrance <select id="import-entrance"></select></label>
           <table class="config plan-rooms">
-            <thead><tr><th>Room</th><th>Name</th><th>Type</th><th>Area</th></tr></thead>
+            <thead><tr><th>Room</th><th>Name</th><th>Type</th><th>Area</th><th>In the home</th></tr></thead>
             <tbody id="import-rooms"></tbody>
           </table>
           <h3>Problems</h3>

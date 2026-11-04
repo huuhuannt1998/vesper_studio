@@ -585,6 +585,46 @@ def test_generate_builds_the_edited_plan_as_the_composed_home(server, tmp_path):
     assert not (out / "plan.json").exists()
 
 
+def with_closet() -> dict:
+    """px_plan with a 1.8 m² toilet off the bedroom (as plan1's reading of the 30x35 plan has): too small for any
+    type, so only leaving it out fixes it. A window in it, and a back door from the kitchen."""
+    plan = px_plan()
+    plan["rooms"].append({"id": "c", "name": "Toilet", "type": "bathroom",
+                          "polygon": [[850, 520], [970, 520], [970, 670], [850, 670]]})
+    plan["doors"] += [{"at": [850, 600], "width": 70, "rooms": ["b", "c"]},
+                      {"at": [850, 100], "width": 90, "rooms": ["k", "outside"]}]
+    plan["windows"].append({"at": [970, 600], "width": 60, "room": "c"})
+    return plan
+
+
+def left_out(plan: dict, room: str) -> dict:
+    """What the page's editedPlan sends for a room left out (tests/lab/ui/compose.test.mjs checks the page does
+    this): the room, every door touching it and its windows gone, the entrance's index kept on its door."""
+    out = json.loads(json.dumps(plan))
+    entrance = plan["doors"][plan["entrance"]]
+    out["rooms"] = [r for r in out["rooms"] if r["id"] != room]
+    out["doors"] = [d for d in out["doors"] if room not in d["rooms"]]
+    out["windows"] = [w for w in out["windows"] if w["room"] != room]
+    out["entrance"] = out["doors"].index(entrance) if entrance in out["doors"] else None
+    return out
+
+
+def test_a_room_left_out_on_the_page_is_checked_without_it_and_a_lost_entrance_is_a_problem(server):
+    s, _ = server
+    for kind in ("bathroom", "other"):  # no type fits a 1.8 m² closet
+        plan = with_closet()
+        plan["rooms"][3]["type"] = kind
+        got = json.loads(call(s, "/api/import/check", {"plan": plan, "scale": "living width 5 m"})[1])
+        assert [p.split(":")[0] for p in got["problems"]] == [f"room 'c' ({kind})"]
+    fixed = json.loads(call(s, "/api/import/check", {"plan": left_out(with_closet(), "c"),
+                                                     "scale": "living width 5 m"})[1])
+    assert fixed["problems"] == [] and [r["id"] for r in fixed["rooms"]] == ["lr", "k", "b"]
+    no_door = json.loads(call(s, "/api/import/check", {"plan": left_out(with_closet(), "lr"),
+                                                       "scale": "kitchen width 3.5 m"})[1])
+    # the page puts its own note ("the entrance was in Living room: choose another") in this line's place
+    assert "no entrance: the plan names no door as the entrance" in no_door["problems"]
+
+
 def test_scale_text_is_a_room_s_size_or_the_home_s_area():
     from vesper.lab.compose import scale_args
     assert scale_args("") == (None, None) and scale_args(None) == (None, None)

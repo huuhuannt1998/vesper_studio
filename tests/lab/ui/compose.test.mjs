@@ -117,8 +117,8 @@ test("a home with a place asks for its city, day and orientation; without one, n
 });
 
 // -- importing a floor plan (floor-plan import, task A4) -------------------------------------------------------
-import { READING_TEXT, drawOverlay, importNote, overlayShapes, problemRooms, setRoom, toImage }
-  from "../../../vesper/lab/ui/compose.js";
+import { READING_TEXT, drawOverlay, editedPlan, importNote, outsideDoors, overlayShapes, problemRooms, shownProblems,
+  toImage } from "../../../vesper/lab/ui/compose.js";
 
 const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
 // three rooms as Claude reads them from a 900 x 800 px image (pixels; y grows downward)
@@ -199,11 +199,10 @@ test("editing a room's name or type changes the plan the request sends, not the 
   assert.equal(before.request.source, "flat.png");
   assert.equal(before.request.rooms, undefined);
   assert.deepEqual(before.request.devices, [{ category: "light", per: "room" }]);
-  model.plan.plan = setRoom(setRoom(model.plan.plan, "b", "type", "office"), "b", "name", "Study");
+  model.plan.plan = editedPlan(PLAN, { edits: { b: { type: "office", name: "Study" } } }).plan;
   const after = buildRequest(model).request;
   assert.deepEqual([after.plan.rooms[2].type, after.plan.rooms[2].name], ["office", "Study"]);
   assert.equal(PLAN.rooms[2].type, "bedroom"); // the reading itself is kept
-  assert.throws(() => setRoom(PLAN, "b", "type", "garage"), /garage/);
   assert.deepEqual(buildRequest({ ...model, plan: { plan: null } }).problems, ["plan: import a floor plan first"]);
   assert.equal(buildRequest({ ...model, plan: { ...model.plan, scale: "  " } }).request.scale, undefined);
 });
@@ -215,4 +214,59 @@ test("while Claude reads, the page says so and for how long; then what came of i
                "Not read: Claude could not read a floor plan in plan.png: a cat");
   assert.match(importNote({ state: "done", kind: "png", plan: PLAN }), /^Claude read 3 rooms\. /);
   assert.match(importNote({ state: "done", kind: "json", plan: PLAN }), /^3 rooms from the plan file\. /);
+});
+
+// PLAN with what a reading can get wrong: a closet too small for any type off the bedroom (plan1's toilet), a back
+// door from the kitchen, and a window in the closet
+const READ = structuredClone(PLAN);
+READ.rooms.push({ id: "c", name: "Toilet", type: "bathroom", polygon: rect(890, 600, 1000, 760) });
+READ.doors.push({ at: [890, 680], width: 70, rooms: ["b", "c"] }, { at: [890, 120], width: 90, rooms: ["k", "outside"] });
+READ.windows.push({ at: [1000, 680], width: 60, room: "c" });
+
+test("leaving a room out drops it, its doors and windows from the plan sent; the reading is kept to put it back", () => {
+  const { plan, notes } = editedPlan(READ, { left: ["c"] });
+  assert.deepEqual(plan.rooms.map((r) => r.id), ["lr", "k", "b"]);
+  assert.equal(plan.doors.length, 4); // the bedroom-closet door gone; the back door kept
+  assert.ok(plan.doors.every((d) => !d.rooms.includes("c")));
+  assert.deepEqual(plan.windows, []);
+  assert.equal(plan.entrance, 0);
+  assert.deepEqual(notes, []);
+  assert.equal(READ.rooms.length, 4); // the reading itself is untouched
+  assert.deepEqual(editedPlan(READ, { left: [] }).plan, READ); // put back: the reading as it was
+  const model = { rooms: { mode: "plan" }, seed: 0, rows: [], plan: { plan } };
+  assert.deepEqual(buildRequest(model).request.plan.rooms.map((r) => r.id), ["lr", "k", "b"]);
+});
+
+test("a name or type edited stays edited when a room is left out and put back", () => {
+  const edits = { b: { type: "office", name: "Study" } };
+  const out = editedPlan(READ, { edits, left: ["c"] }).plan;
+  assert.deepEqual([out.rooms[2].type, out.rooms[2].name], ["office", "Study"]);
+  assert.deepEqual(editedPlan(READ, { edits, left: [] }).plan.rooms[2].type, "office");
+});
+
+test("leaving out the room the entrance opens into says so, and another outside door can be the entrance", () => {
+  const { plan, notes } = editedPlan(READ, { left: ["lr"] });
+  assert.equal(plan.entrance, null);
+  assert.deepEqual(notes, ["the entrance was in Living room: choose another"]);
+  assert.deepEqual(outsideDoors(READ, ["lr"]), [{ index: 4, label: "door 5: Kitchen – outside" }]);
+  const chosen = editedPlan(READ, { left: ["lr"], entrance: 4 });
+  assert.deepEqual(chosen.notes, []);
+  assert.deepEqual(chosen.plan.doors[chosen.plan.entrance].rooms, ["k", "outside"]);
+  // the note replaces the check's own "no entrance" line; every other problem stays
+  assert.deepEqual(shownProblems(["no entrance: the plan names no door as the entrance",
+                                  "room 'k' is not reachable from the entrance through doors"], notes),
+                   ["the entrance was in Living room: choose another",
+                    "room 'k' is not reachable from the entrance through doors"]);
+  assert.deepEqual(shownProblems(["no entrance: the plan names no door as the entrance"], []),
+                   ["no entrance: the plan names no door as the entrance"]);
+});
+
+test("a room left out is drawn faintly over the image, not as a room", () => {
+  const { plan } = editedPlan(READ, { left: ["c"] });
+  const shapes = overlayShapes(plan, { size: { w: 1100, h: 800 }, left: READ.rooms.filter((r) => r.id === "c") });
+  assert.equal(shapes.rooms.length, 3);
+  assert.deepEqual(shapes.left, [{ id: "c", points: rect(890, 600, 1000, 760) }]);
+  const { made, make } = fakeMake();
+  drawOverlay(make("svg"), shapes, make);
+  assert.equal(made.filter((n) => n.tag === "polygon" && n.attrs.class === "left").length, 1);
 });

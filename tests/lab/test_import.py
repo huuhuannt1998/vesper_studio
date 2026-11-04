@@ -64,7 +64,8 @@ def test_a_hand_written_three_room_plan_in_metres_imports_with_no_scale(tmp_path
     for f in ("home.yaml", "map.json", "windows.json", "furniture.json", "plan.json"):
         assert (out / f).is_file(), f
     text = (out / "home.yaml").read_text()
-    assert text.startswith("# Imported from three.json")
+    # no command named: the lobby's Import a plan builds the same home
+    assert text.splitlines()[0] == "# Imported from three.json (floor-plan import): 3 rooms, their doors"
     home = load_lab_home(out / "home.yaml", load_catalog(cat))
     assert home.scene == "imported/three"
     ids = {r.id for r in home.map.rooms}

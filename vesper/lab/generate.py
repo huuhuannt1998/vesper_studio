@@ -541,8 +541,7 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
     inside = [s for s in plan["doors"][entrance]["rooms"] if s != "outside"] if entrance is not None else []
     start = "living" if "living" in indoor else (inside or indoor)[0]
     one_line = lambda text: " ".join(str(text).split())  # noqa: E731  a name never breaks the comment
-    lines = [f"# Imported from {one_line(Path(source).name)} by `vesper lab import` (floor-plan import): {len(indoor)} "
-             "rooms, their doors",
+    lines = [f"# Imported from {one_line(Path(source).name)} (floor-plan import): {len(indoor)} rooms, their doors",
              "# and windows as the plan draws them, its walls straightened; the porch, windows marked source: rule,",
              f"# the furniture and every device's position are by rule (assumed), seed {request.seed}. The rooms (the "
              "plan's id and name):"]
