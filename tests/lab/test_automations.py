@@ -274,7 +274,7 @@ def test_to_null_is_any_change_and_a_disabled_trigger_never_fires(tmp_path):
 
 REFUSED = [
     ("data: {brightness_pct: \"{{ states('input_number.dim') }}\"}",
-     "action light.turn_on: data brightness_pct: \"{{ states('input_number.dim') }}\" is not a number"),
+     "entity input_number.dim is not one of this home's"),
     ("data_template: {glow: 100}", "action light.turn_on: data 'glow' is not supported"),
 ]
 

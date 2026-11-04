@@ -800,7 +800,10 @@ class Engine:
                     return {"kind": "record", "service": f"event.{name}" if key == "event" else "scene.turn_on",
                             "targets": [] if key == "event" else [name]}
                 raise AutomationError(f"action {key} is not supported ({why})")
-        service = x.get("action", x.get("service"))
+        service = x.get("action", x.get("service", x.get("service_template")))
+        from vesper.lab.ha_template import is_template
+        if "service_template" in x or is_template(service):
+            return self._dynamic(x, service)
         domain, _, verb = str(service).partition(".")
         if domain == "homeassistant" and verb in HOMEASSISTANT_VERBS:
             return self._homeassistant(x, service, verb)
@@ -821,9 +824,24 @@ class Engine:
         for e in ents:
             if self._entity(e).platform != domain:
                 raise AutomationError(f"{where}: {e} is not a {domain}")
+        if domain == "light" and any(isinstance(v, _Tpl) for v in (self._complex(v, where) for v in data.values())):
+            # rendered when it runs; a value Home Assistant's light service refuses then stops the run, as there
+            return {"kind": "call", "service": service, "entities": ents, "brightness": None,
+                    "data": self._complex(data, where), "where": where}
         return {"kind": "call", "service": service, "entities": ents,
                 "brightness": self._light_data(service, ents, data, where) if domain == "light" else
                 self._no_data(data, where)}
+
+    def _dynamic(self, x: dict, service) -> dict:
+        """A service named by a template (service_template, or a template in action/service): rendered when it
+        runs. Strict mode refuses it (what it would call is not known when the file loads); permissive mode runs
+        the rendered service as it would run that service written out, or records it."""
+        if not self.permissive:
+            raise AutomationError("action service_template is not supported (a service chosen when it runs)")
+        if not isinstance(service, str):
+            raise AutomationError(f"action {service!r} is not supported")
+        rest = {k: v for k, v in x.items() if k not in ("action", "service", "service_template")}
+        return {"kind": "dynamic", "template": self._template(service, "action service_template"), "rest": rest}
 
     def _repeat(self, step: dict) -> dict:
         """repeat: count (a number), while (checked before each iteration), until (after each) or for_each (a
@@ -894,12 +912,19 @@ class Engine:
         for key, value in data.items():
             if key not in allowed:
                 raise AutomationError(f"{where}: data {key!r} is not supported")
-            if key in ("brightness", "brightness_pct"):
-                top = 255 if key == "brightness" else 100
-                v = _number(value, f"{where}: data {key}")
-                if not 0 <= v <= top:
-                    raise AutomationError(f"{where}: data {key}: {value!r} is not between 0 and {top}")
-                brightness = round(v * 255 / 100) if key == "brightness_pct" else v  # the light service's 0..255
+            if key == "brightness":  # Home Assistant: vol.Coerce(int), clamped to 0..255
+                try:
+                    if isinstance(value, bool):
+                        raise ValueError
+                    brightness = min(max(int(value), 0), 255)
+                except (TypeError, ValueError):
+                    raise AutomationError(f"{where}: data brightness: {value!r} is not a number") from None
+                continue
+            if key == "brightness_pct":  # vol.Coerce(float) within 0..100, then round(pct * 255 / 100)
+                v = _coerced(value, f"{where}: data {key}")
+                if not 0 <= v <= 100:
+                    raise AutomationError(f"{where}: data {key}: {value!r} is not between 0 and 100")
+                brightness = round(v * 255 / 100)
                 continue
             if key in COLOUR_KEYS or key in TEMPERATURE_KEYS or key == "white":
                 # a light with a colour mode converts between colour forms, and from a colour temperature
@@ -1513,6 +1538,18 @@ class Engine:
             elif kind == "variables":  # a template that fails stops the run, as in Home Assistant
                 if not self._render_variables(x["variables"], run.context):
                     run.frames.clear()
+            elif kind == "dynamic":
+                step = self._resolved(x, run.context)
+                if step is None:  # Home Assistant: a template error or an unknown service stops the run
+                    run.frames.clear()
+                else:
+                    f.steps.insert(0, step)
+            elif kind == "call" and x.get("data") is not None:  # light data rendered now
+                step = self._resolved_data(x, run.context)
+                if step is None:  # a value the light service refuses stops the run, as in Home Assistant
+                    run.frames.clear()
+                else:
+                    f.steps.insert(0, step)
             elif kind == "record":  # no twin: the session writes down the call and sends nothing
                 for target in x["targets"] or [""]:  # an action that names no entity (notify.notify) is kept too
                     self.session.automation_command(a.name, run.why, x["service"], target, "", "", None)
@@ -1525,6 +1562,30 @@ class Engine:
                 for entity_id in x["entities"]:
                     self._call(a, x, self.entities[entity_id], run.why)
         a.running = False
+
+    def _resolved(self, x: dict, context: dict) -> dict | None:
+        """A templated service's step, now: the rendered service as written out, or None if it cannot run."""
+        from vesper.lab.ha_template import TemplateFailed
+        notes, self._notes = self._notes, []
+        try:
+            name = self.templates.render(x["template"], context)[0]
+            return self._action({**x["rest"], "action": name})
+        except (TemplateFailed, AutomationError):
+            return None
+        finally:
+            self._notes = notes
+
+    def _resolved_data(self, x: dict, context: dict) -> dict | None:
+        from vesper.lab.ha_template import TemplateFailed
+        notes, self._notes = self._notes, []
+        try:
+            data = self._rendered(x["data"], context)
+            brightness = self._light_data(x["service"], x["entities"], data, x["where"])
+        except (TemplateFailed, AutomationError):
+            return None
+        finally:
+            self._notes = notes
+        return {k: v for k, v in x.items() if k != "data"} | {"brightness": brightness}
 
     def _end_frame(self, run: _Run) -> None:
         f = run.frames.pop()

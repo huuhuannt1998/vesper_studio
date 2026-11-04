@@ -642,3 +642,44 @@ def test_a_template_outside_the_subset_is_refused_by_name(tmp_path, template, re
 def test_a_template_needing_a_date_needs_a_site(tmp_path):
     assert refusal(tmp_path, [auto([], conditions=["{{ now().hour > 7 }}"])]) == (
         "condition template: template now(): the home has no site, so it has no date")
+
+
+def test_brightness_is_coerced_and_clamped_and_brightness_pct_coerced_as_home_assistants_light_schema(tmp_path):
+    def autos(ids):
+        lamp = lamp_motion(ids)[0]
+        return [auto([{"action": "light.turn_on", "target": {"entity_id": lamp}, "data": {"brightness": 300}},
+                      {"action": "light.turn_on", "target": {"entity_id": lamp}, "data": {"brightness": "64"}},
+                      {"action": "light.turn_on", "target": {"entity_id": lamp}, "data": {"brightness_pct": "50"}}])]
+    _, s, e, _ = setup(tmp_path, autos)
+    assert [x["brightness"] for x in e.automations[0].actions] == [255, 64, 128]
+
+
+def test_light_data_with_a_template_is_rendered_when_the_action_runs(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        return [auto([{"action": "light.turn_on", "target": {"entity_id": lamp},
+                       "data": {"brightness": f"{{{{ 200 if is_state('{motion}', 'on') else 20 }}}}"}}],
+                     alias="dim"),
+                auto([{"action": "light.turn_on", "target": {"entity_id": lamp},
+                       "data": {"brightness_pct": "{{ 'bright' }}"}},
+                      {"action": "light.turn_off", "target": {"entity_id": lamp}}], alias="bad", triggers=at("09:00"))]
+    ids, s, e, calls = setup(tmp_path, autos)
+    _, motion = lamp_motion(ids)
+    e._apply([e._set(motion, "on")])
+    s.clock.advance(3 * H)
+    # the lamp's own scale is 254: 200 of Home Assistant's 255; "bright" is not a number, so 'bad' stops there
+    assert [(c[0], c[5], c[6]) for c in calls] == [("dim", "state", "ON"), ("dim", "brightness", 199)]
+
+
+def test_a_service_template_is_refused_in_strict_mode_and_rendered_in_permissive_mode(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        return [auto([{"service_template": f"{{{{ 'light.turn_on' if is_state('{motion}', 'on') else "
+                                           "'light.turn_off' }}", "entity_id": lamp},
+                      {"service": "{{ 'notify.' ~ 'phone' }}", "data": {"message": "hi"}}])]
+    assert refusal(tmp_path, autos) == "action service_template is not supported (a service chosen when it runs)"
+    (tmp_path / "p").mkdir()
+    ids, s, e, calls = setup(tmp_path / "p", autos, permissive=True)
+    e._apply([e._set(lamp_motion(ids)[1], "on")])
+    s.clock.advance(1.5 * H)
+    assert [c[2] for c in calls] == ["light.turn_on", "notify.phone"]
