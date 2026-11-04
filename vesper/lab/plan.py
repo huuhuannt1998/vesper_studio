@@ -25,7 +25,8 @@ from vesper.lab.generate import AREAS
 from vesper.lab.geometry import Point, point_in_polygon, polygon_area
 
 FORMAT = "vesper-plan/1"
-ROOM_TYPES = (*AREAS, "corridor", "hall", "other")
+ROOM_TYPES = (*AREAS, "corridor", "hall", "balcony", "other")
+OUTDOOR_TYPES = ("balcony",)  # outdoor rooms (a balcony, terrace, patio or loggia): built like a porch, no ceiling
 OTHER_AREA = (2.0, 60.0)  # the plausible m² of a room type with no typical area (corridor, hall, other)
 AREA_SLACK = (0.5, 1.5)  # a room's plausible area: 0.5 x the smallest typical to 1.5 x the largest
 
@@ -38,6 +39,9 @@ MAX_PASSES = 8  # at most this many rounds of closing wall gaps
 TRIM_MAX_M = 0.5  # an overlap thicker than this is two rooms drawn into each other, not a wall drawn twice
 _EPS = 1e-9
 MAX_ABS = 1e9  # no coordinate, width or scale of a plan is larger than this (metres or pixels)
+NARROW_LEAST_M = 0.6  # a door or window wider than its wall is narrowed to fit a wall this long or longer
+END_M = 0.05  # a narrowed door or window keeps this much wall at each end; two doors meeting end to end on one wall
+# are narrowed to leave twice this between them (a doorway reaching another doorway would join three rooms)
 
 _KEYS = {"format", "units", "scale", "rooms", "doors", "windows", "entrance"}
 _ROOM_KEYS = {"id", "name", "type", "polygon"}
@@ -596,9 +600,10 @@ def _shared_walls(a: list[Point], b: list[Point]) -> list[tuple[Point, Point]]:
     return out
 
 
-def _outside_walls(k: int, rings: list[list[Point]]) -> list[tuple[Point, Point]]:
-    """The stretches of room k's wall that no other room shares."""
-    others = [_edges(r) for i, r in enumerate(rings) if i != k]
+def _outside_walls(k: int, rings: list[list[Point]], skip: frozenset = frozenset()) -> list[tuple[Point, Point]]:
+    """The stretches of room k's wall that no other room shares (a room in `skip`, such as a balcony, sharing it
+    leaves it outside)."""
+    others = [_edges(r) for i, r in enumerate(rings) if i != k and i not in skip]
     out = []
     for e in _edges(rings[k]):
         if e["cls"] is None:
@@ -624,11 +629,14 @@ def _closest(a: Point, b: Point, p: Point) -> Point:
     return (a[0] + t * dx, a[1] + t * dz)
 
 
-def _nearest(segs: list[tuple[Point, Point]], p: Point, width: float) -> tuple[Point, float] | None:
+Seg = tuple[Point, Point]
+
+
+def _nearest(segs: list[Seg], p: Point, width: float) -> tuple[Point, float, Seg] | None:
     """Where an opening `width` wide goes on the walls: the point of the wall nearest p, moved along the wall until
-    its centre is half a width from each end of the stretch; and how far p was from the wall. Stretches shorter than
-    the opening do not count; None when none is long enough."""
-    best: tuple[Point, float] | None = None
+    its centre is half a width from each end of the stretch; how far p was from the wall; and the stretch. Stretches
+    shorter than the opening do not count; None when none is long enough."""
+    best: tuple[Point, float, Seg] | None = None
     for a, b in segs:
         length = math.dist(a, b)
         if length < width - 1e-6:
@@ -639,12 +647,62 @@ def _nearest(segs: list[tuple[Point, Point]], p: Point, width: float) -> tuple[P
         dx, dz = b[0] - a[0], b[1] - a[1]
         q = _closest((a[0] + dx * f, a[1] + dz * f), (b[0] - dx * f, b[1] - dz * f), q)
         if best is None or d < best[1]:
-            best = (q, d)
+            best = (q, d, (a, b))
     return best
 
 
-def _longest(segs: list[tuple[Point, Point]]) -> float:
+def _fit(segs: list[Seg], p: Point, width: float) -> tuple[Point, float, Seg, float] | None:
+    """`_nearest`, and the opening's width there: as `_nearest` places it when a stretch within DOOR_REACH_M of p is
+    long enough; else the nearest of those and of the shorter stretches of at least NARROW_LEAST_M, an opening on
+    one of these narrowed to the stretch's length less END_M at each end. None when no stretch is NARROW_LEAST_M or
+    the opening's width long."""
+    hit = _nearest(segs, p, width)
+    if hit is not None and hit[1] <= DOOR_REACH_M + 1e-9:
+        return (*hit, width)
+    best = None if hit is None else (*hit, width)
+    for a, b in segs:
+        length = math.dist(a, b)
+        if not NARROW_LEAST_M - 1e-9 <= length < width - 1e-6:
+            continue
+        narrow = length - 2 * END_M
+        got = _nearest([(a, b)], p, narrow)
+        if got is not None and (best is None or got[1] < best[1]):
+            best = (*got, narrow)
+    return best
+
+
+def _longest(segs: list[Seg]) -> float:
     return max((math.dist(a, b) for a, b in segs), default=0.0)
+
+
+def _reached(ids: list[str], doors: list[dict], entrance: int | None, skip=frozenset()) -> set[str]:
+    """The rooms reached from the entrance through the doors (but those in `skip`)."""
+    graph: dict[str, set[str]] = {i: set() for i in ids}
+    for j, d in enumerate(doors):
+        if j not in skip and "outside" not in d["rooms"]:
+            a, b = d["rooms"]
+            graph[a].add(b)
+            graph[b].add(a)
+    if entrance is None or not 0 <= entrance < len(doors):
+        return set()
+    seen = {s for s in doors[entrance]["rooms"] if s != "outside"}
+    todo = list(seen)
+    while todo:
+        for nb in graph[todo.pop()]:
+            if nb not in seen:
+                seen.add(nb)
+                todo.append(nb)
+    return seen
+
+
+def _span(q: Point, seg: Seg, width: float) -> tuple[str, float, float, float] | None:
+    """An opening at q, `width` wide on an axis-aligned stretch: (class, offset, from, to) along the wall."""
+    (a, b) = seg
+    if abs(a[1] - b[1]) < 1e-9:
+        return ("h", a[1], q[0] - width / 2, q[0] + width / 2)
+    if abs(a[0] - b[0]) < 1e-9:
+        return ("v", a[0], q[1] - width / 2, q[1] + width / 2)
+    return None
 
 
 # --- rectify -----------------------------------------------------------------------------------------------------
@@ -673,14 +731,21 @@ def plan_transform(plan_m: dict) -> dict:
     return {"angle_deg": angle, "centre": [about[0], about[1]]}
 
 
-def rectify(plan_m: dict) -> dict:
+def rectify(plan_m: dict, warnings: list[str] | None = None) -> dict:
     """The plan straightened. In order: the plan is turned so its dominant wall direction is the x axis; every wall
     within 10 degrees of an axis is made exactly parallel to it, consecutive walls on one line become one wall, and
     steps narrower than 15 cm are ironed out; where two rooms overlap the larger loses the strip (the smaller keeps
     it); a gap narrower than 25 cm between two rooms' facing walls closes to its middle, and walls of different rooms
     within 15 cm of one line become one line; each door moves onto the wall its two rooms share (or the outside wall
-    of its room), each window onto an outside wall of its room. A door or window more than 50 cm from its wall, or a
-    door between rooms with no wall in common, is a PlanError naming them."""
+    of its room), each window onto an outside wall of its room (a wall onto a balcony is one).
+
+    What the image cannot support is left out or narrowed, never invented, and a sentence saying so is appended to
+    `warnings` (when a list is given): a window on no outside wall, or in an outdoor room, is left out; a door or
+    window wider than its wall is narrowed to the wall's length less 10 cm (a door's wall must be 60 cm long); two
+    doors meeting end to end on one wall are narrowed to leave 10 cm of wall between them; a door between rooms with
+    no wall in common is left out when no room needs it to be reached from the entrance. A PlanError names what is
+    left: a door more than 50 cm from its wall, on a wall shorter than 60 cm, between rooms with no wall in common
+    that a room needs, or between two rooms that cannot be straightened."""
     load_plan(plan_m)
     if plan_m["units"] != "m":
         raise PlanError("rectify: the plan is in pixels; scale it to metres first (scale_plan)")
@@ -824,41 +889,111 @@ def rectify(plan_m: dict) -> dict:
         raise PlanError(f"rectifying would move the walls of {', '.join(far)} more than {DOOR_REACH_M} m: the rooms' "
                         f"walls are too far apart or too far off to be straightened; redraw them")
 
-    # 5. doors and windows onto their walls
+    # 5. doors and windows onto their walls; what the walls cannot carry is left out or narrowed, and said
+    def say(text: str) -> None:
+        if warnings is not None:
+            warnings.append(text)
+
+    rnd = lambda q: [round(q[0], 9) + 0.0, round(q[1], 9) + 0.0]  # noqa: E731
+    outdoor = frozenset(k for k, r in enumerate(plan["rooms"]) if r["type"] in OUTDOOR_TYPES)
+    entrance = plan["entrance"]
+    loose: list[int] = []  # doors between rooms with no wall in common
+    spans: dict[int, tuple] = {}  # door -> (class, offset, from, to) of its opening on an axis-aligned wall
     for k, d in enumerate(doors):
         a, b = d["rooms"]
         at = tuple(d["at"])
+        what = f"door {k} between {a!r} and {b!r}"
         if "outside" in d["rooms"]:
             room = b if a == "outside" else a
             segs = _outside_walls(ids.index(room), rings)
-            what = f"door {k} between {a!r} and {b!r}"
             if not segs:
                 raise PlanError(f"{what}: {room!r} has no outside wall")
-            wall = "the nearest outside wall"
+            wall, its = "the nearest outside wall", "its outside wall"
         else:
             segs = _shared_walls(rings[ids.index(a)], rings[ids.index(b)])
-            what = f"door {k} between {a!r} and {b!r}"
             if not segs:
-                raise PlanError(f"{what}: the rooms do not touch (they have no wall in common)")
-            wall = "their shared wall"
-        hit = _nearest(segs, at, d["width"])
+                if k == entrance:
+                    raise PlanError(f"{what}: the rooms do not touch (they have no wall in common)")
+                loose.append(k)
+                continue
+            wall, its = "their shared wall", "their wall"
+        hit = _fit(segs, at, d["width"])
         if hit is None:
             raise PlanError(f"{what}: the door ({d['width']:.2f} m) is wider than the wall it belongs to "
                             f"(at most {_longest(segs):.2f} m)")
-        q, dist = hit
+        q, dist, seg, width = hit
         if dist > DOOR_REACH_M + 1e-9:
             raise PlanError(f"{what}: it is {dist:.2f} m from {wall} (more than {DOOR_REACH_M} m)")
-        d["at"] = [round(q[0], 9) + 0.0, round(q[1], 9) + 0.0]
+        if width < d["width"]:
+            say(f"{what} ({d['width']:.2f} m) is wider than {its} ({math.dist(*seg):.2f} m): narrowed to "
+                f"{width:.2f} m")
+            d["width"] = round(width, 9)
+        d["at"] = rnd(q)
+        if (span := _span(q, seg, d["width"])) is not None:
+            spans[k] = span
+
+    # two doors meeting end to end on one wall would open one gap into three rooms: a wall is left between them
+    lines: dict[tuple, list[int]] = {}
+    for k, (cls, off, _, _) in spans.items():
+        lines.setdefault((cls, round(off, 6)), []).append(k)
+    for line in lines.values():
+        line.sort(key=lambda k: spans[k][2] + spans[k][3])
+        for i, j in zip(line, line[1:]):
+            if set(doors[i]["rooms"]) == set(doors[j]["rooms"]):
+                continue
+            cls, off, lo_i, hi_i = spans[i]
+            _, _, lo_j, hi_j = spans[j]
+            if lo_j - hi_i >= 2 * END_M - 1e-9:
+                continue
+            mid = (hi_i + lo_j) / 2
+            hi_i, lo_j = mid - END_M, mid + END_M
+            if min(hi_i - lo_i, hi_j - lo_j) < NARROW_LEAST_M - 2 * END_M - 1e-9:
+                raise PlanError(f"doors {i} and {j} overlap on one wall: move one of them")
+            for k, lo, hi in ((i, lo_i, hi_i), (j, lo_j, hi_j)):
+                spans[k] = (cls, off, lo, hi)
+                doors[k]["width"] = round(hi - lo, 9)
+                doors[k]["at"] = rnd(((lo + hi) / 2, off) if cls == "h" else (off, (lo + hi) / 2))
+            say(f"doors {i} and {j} meet end to end on one wall: narrowed to {hi_i - lo_i:.2f} m and "
+                f"{hi_j - lo_j:.2f} m to leave {2 * END_M:.2f} m of wall between them")
+
+    # a door between rooms that do not touch: left out when no room needs it to be reached from the entrance
+    if loose:
+        lost = _reached(ids, doors, entrance) - _reached(ids, doors, entrance, frozenset(loose))
+        if lost:
+            need = next((k for k in loose if _reached(ids, doors, entrance, frozenset(loose) - {k})
+                         - _reached(ids, doors, entrance, frozenset(loose))), loose[0])
+            a, b = doors[need]["rooms"]
+            raise PlanError(f"door {need} between {a!r} and {b!r}: the rooms do not touch (they have no wall in "
+                            f"common), and without it {', '.join(repr(r) for r in ids if r in lost)} cannot be "
+                            f"reached from the entrance")
+        for k in loose:
+            a, b = doors[k]["rooms"]
+            say(f"door {k} between {a!r} and {b!r}: the rooms do not touch (they have no wall in common): left out "
+                f"(no room needs it to be reached from the entrance)")
+        if entrance is not None:
+            plan["entrance"] = entrance - sum(1 for k in loose if k < entrance)
+        plan["doors"] = [d for k, d in enumerate(doors) if k not in loose]
+
+    kept = []
     for k, w in enumerate(windows):
-        segs = _outside_walls(ids.index(w["room"]), rings)
-        hit = _nearest(segs, tuple(w["at"]), w["width"]) if segs else None
-        if segs and hit is None:
-            raise PlanError(f"window {k} of {w['room']!r}: the window ({w['width']:.2f} m) is wider than the wall it "
-                            f"belongs to (at most {_longest(segs):.2f} m)")
+        r = ids.index(w["room"])
+        what = f"window {k} of {w['room']!r}"
+        if r in outdoor:
+            say(f"{what} is in an outdoor room: left out")
+            continue
+        segs = _outside_walls(r, rings, outdoor)  # a wall onto a balcony is an outside wall
+        hit = _fit(segs, tuple(w["at"]), w["width"]) if segs else None
         if hit is None or hit[1] > DOOR_REACH_M + 1e-9:
-            raise PlanError(f"window {k} of {w['room']!r}: it is not within {DOOR_REACH_M} m of an outside wall "
-                            f"of the room")
-        w["at"] = [round(hit[0][0], 9) + 0.0, round(hit[0][1], 9) + 0.0]
+            say(f"{what} is not on an outside wall: left out")
+            continue
+        q, _, seg, width = hit
+        if width < w["width"]:
+            say(f"{what} ({w['width']:.2f} m) is wider than its wall ({math.dist(*seg):.2f} m): narrowed to "
+                f"{width:.2f} m")
+            w["width"] = round(width, 9)
+        w["at"] = rnd(q)
+        kept.append(w)
+    plan["windows"] = kept
 
     for r, ring in zip(plan["rooms"], rings, strict=True):
         r["polygon"] = [[x, z] for x, z in ring]
@@ -870,14 +1005,15 @@ def rectify(plan_m: dict) -> dict:
 def check_house(plan_m: dict) -> list[str]:
     """Every way a plan in metres is not a house (an empty list when it is): rooms that overlap, a room whose area is
     outside [0.5 x the smallest, 1.5 x the largest] of its type's typical area (`generate.AREAS`; 2 to 60 m² for
-    types with none), no entrance (a door to the outside), and rooms not reachable from it through doors."""
+    types with none; an outdoor room, such as a balcony, has any size), no entrance (a door to the outside), and
+    rooms not reachable from it through doors."""
     load_plan(plan_m)
     if plan_m["units"] != "m":
         raise PlanError("check_house: the plan is in pixels; scale it to metres first (scale_plan)")
     problems: list[str] = []
     rooms, doors = plan_m["rooms"], plan_m.get("doors", [])
     rings = {r["id"]: _ring(r["polygon"]) for r in rooms}
-    for r in rooms:
+    for r in (r for r in rooms if r["type"] not in OUTDOOR_TYPES):
         lo, hi = ((AREA_SLACK[0] * AREAS[r["type"]][0], AREA_SLACK[1] * AREAS[r["type"]][1])
                   if r["type"] in AREAS else OTHER_AREA)
         area = polygon_area(rings[r["id"]])

@@ -319,10 +319,11 @@ def test_a_door_keeps_clear_of_the_corner_of_its_wall():
     assert rectify(p)["doors"][0]["at"] == [5, pytest.approx(3.55)]
 
 
-def test_a_door_between_rooms_that_do_not_touch_is_rejected_naming_both():
+def test_a_door_between_rooms_that_do_not_touch_is_rejected_naming_both_when_a_room_needs_it():
     p = metres([room("living", "living", rect(0, 0, 5, 4)), room("kitchen", "kitchen", rect(7, 0, 10.5, 4))],
-               doors=[{"at": [5, 2], "width": 0.9, "rooms": ["living", "kitchen"]}])
-    with pytest.raises(PlanError, match=r"'living'.*'kitchen'.*do not touch"):
+               doors=[{"at": [5, 2], "width": 0.9, "rooms": ["living", "kitchen"]},
+                      {"at": [0, 2], "width": 0.9, "rooms": ["living", "outside"]}], entrance=1)
+    with pytest.raises(PlanError, match=r"'living'.*'kitchen'.*do not touch.*'kitchen' cannot be reached"):
         rectify(p)
 
 
@@ -349,9 +350,10 @@ def test_a_window_moves_onto_the_outside_wall_of_its_room():
                windows=[{"at": [2.5, 0.3], "width": 1.2, "room": "living"}])
     assert rectify(p)["windows"][0] == {"at": [2.5, 0], "width": 1.2, "room": "living"}
     far = copy.deepcopy(p)
-    far["windows"][0]["at"] = [2.5, 2]
-    with pytest.raises(PlanError, match=r"window 0.*'living'"):
-        rectify(far)
+    far["windows"][0]["at"] = [2.5, 2]  # no outside wall within 50 cm: left out (task A6), with a warning
+    warnings = []
+    assert rectify(far, warnings)["windows"] == [] and warnings == ["window 0 of 'living' is not on an outside wall: "
+                                                                     "left out"]
 
 
 def test_rectify_rotates_doors_and_windows_with_the_plan():
@@ -602,16 +604,6 @@ def test_a_door_near_a_corner_is_measured_to_its_wall_then_kept_clear_of_the_cor
     assert rectify(p)["doors"][0]["at"] == [5, pytest.approx(3.55)]
 
 
-def test_a_door_or_window_wider_than_its_wall_is_refused():
-    p = metres([room("living", "living", rect(0, 0, 5, 4)), room("hall", "corridor", rect(5, 0, 5.8, 1.2))],
-               doors=[{"at": [5, 0.6], "width": 1.5, "rooms": ["living", "hall"]}])
-    with pytest.raises(PlanError, match=r"door 0 between 'living' and 'hall'.*wider"):
-        rectify(p)
-    q = metres([room("living", "living", rect(0, 0, 5, 4))], windows=[{"at": [2.5, 0], "width": 6, "room": "living"}])
-    with pytest.raises(PlanError, match=r"window 0 of 'living'.*wider"):
-        rectify(q)
-
-
 def test_a_room_drawn_inside_another_is_refused_with_how_far_in_it_is():
     p = metres([room("living", "living", rect(0, 0, 8, 6)), room("kitchen", "kitchen", rect(2, 1.5, 5, 4.5))])
     with pytest.raises(PlanError, match=r"room 'kitchen' lies inside 'living' by 3.00 m: redraw them as separate"):
@@ -808,7 +800,8 @@ def test_walls_never_move_more_than_half_a_metre_whatever_the_gaps():
             if i:
                 doors += [{"at": [cols[i], 2], "width": 0.8, "rooms": [f"a{i - 1}", f"a{i}"]},
                           {"at": [cols[i], 6], "width": 0.8, "rooms": [f"b{i - 1}", f"b{i}"]}]
-        p = metres(rooms, doors=doors)
+        doors.append({"at": [0, 2], "width": 0.8, "rooms": ["a0", "outside"]})  # the entrance: a door no room
+        p = metres(rooms, doors=doors, entrance=len(doors) - 1)  # needs is left out, one the b rooms need refused
         try:
             out = rectify(p)
         except PlanError:
@@ -829,3 +822,149 @@ def test_a_plan_that_does_not_settle_in_the_allowed_passes_is_refused(monkeypatc
         rectify(p)
     clean = metres([room("living", "living", rect(0, 0, 5, 4))])
     assert rectify(clean) == clean  # nothing to settle: one pass confirms it
+
+
+# --- real plans (task A6): an outdoor room, and what the image cannot support left out or narrowed, with a warning --
+# Each plan below is a small hand-made copy of a way CubiCasa5K plans were refused (docs/experiments/
+# results-plan-import.md). VESPER never invents a layout: it leaves out or narrows what cannot be built, and says so.
+
+def test_a_balcony_is_an_outdoor_room_type():
+    assert "balcony" in plan_module.ROOM_TYPES and plan_module.OUTDOOR_TYPES == ("balcony",)
+    load_plan(metres([room("b", "balcony", rect(0, 0, 2, 1))]))
+
+
+def with_balcony():
+    """A living room and, 20 cm north of it (a thin wall drawn as a gap), a balcony; the window between them."""
+    return metres([room("living", "living", rect(0, 0, 5, 4)), room("bal", "balcony", rect(0, 4.2, 5, 5.5))],
+                  doors=[{"at": [0, 2], "width": 0.9, "rooms": ["living", "outside"]},
+                         {"at": [4, 4.1], "width": 0.9, "rooms": ["living", "bal"]}],
+                  windows=[{"at": [2.5, 4.1], "width": 1.2, "room": "living"}], entrance=0)
+
+
+def test_a_window_onto_a_balcony_is_kept_on_the_wall_they_share():
+    warnings = []
+    out = rectify(with_balcony(), warnings)
+    assert min(pt[1] for pt in by_id(out, "bal")["polygon"]) == pytest.approx(4.1)  # the gap closed: a shared wall
+    assert out["windows"] == [{"at": [pytest.approx(2.5), pytest.approx(4.1)], "width": 1.2, "room": "living"}]
+    assert warnings == []
+
+
+def test_a_window_on_no_outside_wall_is_left_out_with_a_warning_not_refused():
+    p = metres([room("living", "living", rect(0, 0, 5, 4)), room("store", "other", rect(0, 4.2, 5, 5.5))],
+               doors=[{"at": [4, 4.1], "width": 0.9, "rooms": ["living", "store"]}],
+               windows=[{"at": [2.5, 0], "width": 1.2, "room": "living"},
+                        {"at": [2.5, 4.1], "width": 1.2, "room": "living"}])  # onto the store room: indoors
+    warnings = []
+    out = rectify(p, warnings)
+    assert out["windows"] == [{"at": [2.5, 0], "width": 1.2, "room": "living"}]
+    assert warnings == ["window 1 of 'living' is not on an outside wall: left out"]
+    middle = copy.deepcopy(p)
+    middle["windows"] = [{"at": [2.5, 2], "width": 1.2, "room": "living"}]  # in the middle of the room
+    assert rectify(middle)["windows"] == []  # no list given: no warning kept, the window still left out
+
+
+def test_a_window_of_a_balcony_is_left_out_with_a_warning():
+    p = with_balcony()
+    p["windows"].append({"at": [2.5, 5.5], "width": 1.0, "room": "bal"})
+    warnings = []
+    out = rectify(p, warnings)
+    assert [w["room"] for w in out["windows"]] == ["living"]
+    assert warnings == ["window 1 of 'bal' is in an outdoor room: left out"]
+
+
+def test_a_door_wider_than_its_shared_wall_is_narrowed_to_fit_with_a_warning():
+    p = metres([room("living", "living", rect(0, 0, 5, 4)), room("hall", "corridor", rect(5, 0, 5.8, 1.2))],
+               doors=[{"at": [5, 0.6], "width": 1.5, "rooms": ["living", "hall"]}])
+    warnings = []
+    out = rectify(p, warnings)
+    assert out["doors"][0] == {"at": [5, pytest.approx(0.6)], "width": pytest.approx(1.1), "rooms": ["living", "hall"]}
+    assert warnings == ["door 0 between 'living' and 'hall' (1.50 m) is wider than their wall (1.20 m): narrowed to "
+                        "1.10 m"]
+
+
+def test_a_door_on_a_wall_shorter_than_60_cm_is_still_refused():
+    p = metres([room("living", "living", rect(0, 0, 5, 4)), room("hall", "corridor", rect(5, 0, 6, 0.5))],
+               doors=[{"at": [5, 0.25], "width": 0.9, "rooms": ["living", "hall"]}])
+    with pytest.raises(PlanError, match=r"door 0 between 'living' and 'hall'.*wider than the wall.*0.50 m"):
+        rectify(p)
+
+
+def test_a_window_wider_than_its_wall_is_narrowed_and_one_on_a_tiny_stretch_left_out():
+    p = metres([room("living", "living", rect(0, 0, 5, 4))], windows=[{"at": [2.5, 0], "width": 6, "room": "living"}])
+    warnings = []
+    assert rectify(p, warnings)["windows"] == [{"at": [2.5, 0], "width": pytest.approx(4.9), "room": "living"}]
+    assert warnings == ["window 0 of 'living' (6.00 m) is wider than its wall (5.00 m): narrowed to 4.90 m"]
+    tiny = metres([room("living", "living", rect(0, 0, 5, 4)), room("k", "kitchen", rect(0, 4, 4.5, 7)),
+                   room("b", "bedroom", rect(5, 0, 8, 7))],  # the outside wall by the window: 0.5 m of it
+                  windows=[{"at": [4.75, 4], "width": 1.0, "room": "living"}])
+    warnings = []
+    assert rectify(tiny, warnings)["windows"] == []
+    assert warnings == ["window 0 of 'living' is not on an outside wall: left out"]
+
+
+def test_a_door_between_rooms_that_do_not_touch_is_left_out_when_the_house_stays_connected():
+    p = house()
+    p["doors"].insert(0, {"at": [5, 4.6], "width": 0.9, "rooms": ["kitchen", "bed"]})  # across the corridor
+    p["entrance"] = 1
+    warnings = []
+    out = rectify(p, warnings)
+    assert [d["rooms"] for d in out["doors"]] == [d["rooms"] for d in house()["doors"]]
+    assert out["entrance"] == 0  # still the front door
+    assert warnings == ["door 0 between 'kitchen' and 'bed': the rooms do not touch (they have no wall in common): "
+                        "left out (no room needs it to be reached from the entrance)"]
+    assert check_house(out) == []
+
+
+def test_a_door_between_rooms_that_do_not_touch_is_refused_when_a_room_needs_it():
+    p = house()
+    p["doors"][3] = {"at": [2, 5.2], "width": 0.9, "rooms": ["kitchen", "bed"]}  # the bedroom's only door
+    with pytest.raises(PlanError, match=r"door 3 between 'kitchen' and 'bed': the rooms do not touch.*'bed'"):
+        rectify(p)
+
+
+def t_junction(left=1.98, right=2.43):
+    """A kitchen along the top; under it a hall (x 0 to 2) and a living room (x 2 to 5); a door from the kitchen
+    into each, the two meeting end to end where the hall's and the living room's wall comes up (plan 2207)."""
+    return metres([room("kitchen", "kitchen", rect(0, 0, 5, 2.5)), room("hall", "hall", rect(0, 2.5, 2, 4.5)),
+                   room("living", "living", rect(2, 2.5, 5, 7))],
+                  doors=[{"at": [1.0, 2.5], "width": left, "rooms": ["kitchen", "hall"]},
+                         {"at": [2.01 + right / 2, 2.5], "width": right, "rooms": ["kitchen", "living"]},
+                         {"at": [5, 5], "width": 0.9, "rooms": ["living", "outside"]}], entrance=2)
+
+
+def test_two_doors_meeting_end_to_end_on_one_wall_are_narrowed_to_leave_wall_between_them():
+    warnings = []
+    out = rectify(t_junction(), warnings)
+    a, b = out["doors"][:2]
+    hall_end, living_start = a["at"][0] + a["width"] / 2, b["at"][0] - b["width"] / 2
+    assert hall_end == pytest.approx(1.95) and living_start == pytest.approx(2.05)
+    assert a["at"][0] - a["width"] / 2 == pytest.approx(0.01) and b["at"][0] + b["width"] / 2 == pytest.approx(4.44)
+    assert warnings == ["doors 0 and 1 meet end to end on one wall: narrowed to 1.94 m and 2.39 m to leave 0.10 m of "
+                        "wall between them"]
+    assert rectify(out, []) == out  # stable
+
+
+def test_doors_apart_on_a_wall_or_of_the_same_two_rooms_are_left_as_they_are():
+    warnings = []
+    out = rectify(t_junction(left=0.9, right=0.9), warnings)
+    assert warnings == [] and [d["width"] for d in out["doors"]] == [0.9, 0.9, 0.9]
+    p = t_junction(left=0.9, right=0.9)
+    p["doors"][1] = {"at": [1.45, 2.5], "width": 0.9, "rooms": ["kitchen", "hall"]}  # 5 cm from the first
+    p["doors"].append({"at": [3, 2.5], "width": 0.9, "rooms": ["kitchen", "living"]})
+    out = rectify(p, warnings)
+    assert warnings == [] and [d["at"] for d in out["doors"][:2]] == [[1.0, 2.5], [1.45, 2.5]]
+
+
+def test_rectify_without_a_warnings_list_still_leaves_out():
+    p = house()
+    p["doors"].append({"at": [5, 4.6], "width": 0.9, "rooms": ["kitchen", "bed"]})
+    assert len(rectify(p)["doors"]) == 4
+
+
+def test_a_balcony_s_area_is_not_judged_by_an_indoor_room_s_range():
+    def with_bal(w, d):
+        return metres([room("living", "living", rect(0, 0, 5, 4)), room("bal", "balcony", rect(0, 4, w, 4 + d))],
+                      doors=[{"at": [0, 2], "width": 0.9, "rooms": ["living", "outside"]},
+                             {"at": [0.5, 4], "width": 0.8, "rooms": ["living", "bal"]}], entrance=0)
+    assert check_house(with_bal(1.2, 1.0)) == []  # 1.2 m²: a small balcony
+    assert check_house(with_bal(5, 14)) == []  # 70 m²: a large terrace
