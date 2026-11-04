@@ -1,0 +1,344 @@
+{
+ "analysis": "R2-a.1 thermal-mass sensitivity of the below-10 C finding (post hoc)",
+ "automations": 7,
+ "baselines_per_scale": 6,
+ "commit_of_inputs": "dc119cd",
+ "elapsed_s": 225.1,
+ "environments": [
+  "Minneapolis 2026-01-14 n0",
+  "Minneapolis 2026-01-14 n180",
+  "Seattle 2026-01-14 n0",
+  "Seattle 2026-01-14 n180",
+  "Stockholm 2026-01-14 n0",
+  "Stockholm 2026-01-14 n180"
+ ],
+ "per_scale": {
+  "0.5": {
+   "automations_with_caused_breach": 7,
+   "breached_cells_any_cause": 194,
+   "by_automation": {
+    "A1": 28,
+    "A2": 28,
+    "A3": 28,
+    "A4": 26,
+    "A5": 28,
+    "A6": 28,
+    "A7": 28
+   },
+   "by_city": {
+    "Minneapolis": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 14.8,
+     "caused_cells": 98,
+     "coldest_room_per_run_c": [
+      3.3,
+      5.9
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 14
+    },
+    "Seattle": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 16.8,
+     "caused_cells": 0,
+     "coldest_room_per_run_c": [
+      11.7,
+      13.7
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 0
+    },
+    "Stockholm": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 18.5,
+     "caused_cells": 96,
+     "coldest_room_per_run_c": [
+      6.3,
+      9.4
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 14
+    }
+   },
+   "caused_cells": 194,
+   "cells": 294,
+   "coldest_room_in_caused_runs_c": [
+    3.3,
+    6.1,
+    9.4
+   ],
+   "largest_drop_below_baseline_k": 13.2,
+   "runs": 42,
+   "runs_with_caused_breach": 28
+  },
+  "1.0": {
+   "automations_with_caused_breach": 7,
+   "breached_cells_any_cause": 108,
+   "by_automation": {
+    "A1": 28,
+    "A2": 28,
+    "A3": 7,
+    "A4": 6,
+    "A5": 22,
+    "A6": 9,
+    "A7": 8
+   },
+   "by_city": {
+    "Minneapolis": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 15.6,
+     "caused_cells": 72,
+     "coldest_room_per_run_c": [
+      5.3,
+      9.4
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 14
+    },
+    "Seattle": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 17.9,
+     "caused_cells": 0,
+     "coldest_room_per_run_c": [
+      13.4,
+      16.0
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 0
+    },
+    "Stockholm": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 18.5,
+     "caused_cells": 36,
+     "coldest_room_per_run_c": [
+      8.0,
+      12.6
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 6
+    }
+   },
+   "caused_cells": 108,
+   "cells": 294,
+   "coldest_room_in_caused_runs_c": [
+    5.3,
+    8.5,
+    9.5
+   ],
+   "largest_drop_below_baseline_k": 13.2,
+   "runs": 42,
+   "runs_with_caused_breach": 20
+  },
+  "2.0": {
+   "automations_with_caused_breach": 3,
+   "breached_cells_any_cause": 26,
+   "by_automation": {
+    "A1": 14,
+    "A2": 8,
+    "A3": 0,
+    "A4": 0,
+    "A5": 4,
+    "A6": 0,
+    "A7": 0
+   },
+   "by_city": {
+    "Minneapolis": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 16.8,
+     "caused_cells": 26,
+     "coldest_room_per_run_c": [
+      7.7,
+      12.8
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 6
+    },
+    "Seattle": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 18.5,
+     "caused_cells": 0,
+     "coldest_room_per_run_c": [
+      15.2,
+      17.3
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 0
+    },
+    "Stockholm": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 18.6,
+     "caused_cells": 0,
+     "coldest_room_per_run_c": [
+      11.6,
+      14.8
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 0
+    }
+   },
+   "caused_cells": 26,
+   "cells": 294,
+   "coldest_room_in_caused_runs_c": [
+    7.7,
+    8.75,
+    9.7
+   ],
+   "largest_drop_below_baseline_k": 11.1,
+   "runs": 42,
+   "runs_with_caused_breach": 6
+  },
+  "4.0": {
+   "automations_with_caused_breach": 0,
+   "breached_cells_any_cause": 0,
+   "by_automation": {
+    "A1": 0,
+    "A2": 0,
+    "A3": 0,
+    "A4": 0,
+    "A5": 0,
+    "A6": 0,
+    "A7": 0
+   },
+   "by_city": {
+    "Minneapolis": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 17.7,
+     "caused_cells": 0,
+     "coldest_room_per_run_c": [
+      12.4,
+      15.8
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 0
+    },
+    "Seattle": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 19.1,
+     "caused_cells": 0,
+     "coldest_room_per_run_c": [
+      16.9,
+      18.1
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 0
+    },
+    "Stockholm": {
+     "baseline_cells_below_10": 0,
+     "baseline_coldest_room_c": 18.6,
+     "caused_cells": 0,
+     "coldest_room_per_run_c": [
+      14.6,
+      16.2
+     ],
+     "runs": 14,
+     "runs_with_caused_breach": 0
+    }
+   },
+   "caused_cells": 0,
+   "cells": 294,
+   "coldest_room_in_caused_runs_c": null,
+   "largest_drop_below_baseline_k": -0.0,
+   "runs": 42,
+   "runs_with_caused_breach": 0
+  }
+ },
+ "reproduces_confirmation_at_scale_1": {
+  "caused_below_10_mismatches": 0,
+  "cells": 294,
+  "max_abs_baseline_min_c_diff": 0.0,
+  "max_abs_min_c_diff": 0.0
+ },
+ "rule": "a cell (room x run) is a caused breach when the room's minimum over days 1-2 is below 10 C with the automation and not in the same environment's baseline at the same scale",
+ "runs_per_scale": 42,
+ "scales": [
+  0.5,
+  1.0,
+  2.0,
+  4.0
+ ],
+ "time_constants": {
+  "definition": "tau = C / H, C = C_PER_M2 x floor area (EN ISO 13790 'medium', 165 kJ/(m2 K)), H = U A of the outside walls and windows + 0.34 ACH V (to the outdoors only)",
+  "edt_home_rooms": {
+   "bathroom": {
+    "C_MJ_per_K": 1.129,
+    "H_interior_W_per_K": 47.0,
+    "H_out_W_per_K": 4.86,
+    "floor_m2": 6.84,
+    "label": "bathroom",
+    "tau_h": 64.5
+   },
+   "bedroom_1": {
+    "C_MJ_per_K": 1.505,
+    "H_interior_W_per_K": 31.0,
+    "H_out_W_per_K": 10.81,
+    "floor_m2": 9.12,
+    "label": "bedroom",
+    "tau_h": 38.7
+   },
+   "bedroom_2": {
+    "C_MJ_per_K": 2.383,
+    "H_interior_W_per_K": 38.0,
+    "H_out_W_per_K": 14.3,
+    "floor_m2": 14.44,
+    "label": "bedroom",
+    "tau_h": 46.3
+   },
+   "corridor": {
+    "C_MJ_per_K": 1.65,
+    "H_interior_W_per_K": 96.0,
+    "H_out_W_per_K": 6.0,
+    "floor_m2": 10.0,
+    "label": "hallway",
+    "tau_h": 76.4
+   },
+   "kitchen": {
+    "C_MJ_per_K": 1.129,
+    "H_interior_W_per_K": 47.0,
+    "H_out_W_per_K": 5.53,
+    "floor_m2": 6.84,
+    "label": "kitchen",
+    "tau_h": 56.7
+   },
+   "living": {
+    "C_MJ_per_K": 3.762,
+    "H_interior_W_per_K": 49.0,
+    "H_out_W_per_K": 22.97,
+    "floor_m2": 22.8,
+    "label": "living room",
+    "tau_h": 45.5
+   },
+   "office": {
+    "C_MJ_per_K": 2.132,
+    "H_interior_W_per_K": 36.0,
+    "H_out_W_per_K": 13.3,
+    "floor_m2": 12.92,
+    "label": "office",
+    "tau_h": 44.5
+   }
+  },
+  "edt_home_whole": {
+   "C_MJ_per_K": 13.688,
+   "H_out_W_per_K": 77.78,
+   "tau_h": 48.9
+  },
+  "iso13790_classes_kJ_per_m2K": {
+   "heavy": 260,
+   "light": 110,
+   "medium": 165,
+   "very heavy": 370,
+   "very light": 80
+  },
+  "scales_as_iso13790_classes": {
+   "0.5": 82.5,
+   "1.0": 165.0,
+   "2.0": 330.0,
+   "4.0": 660.0
+  },
+  "validation_standard_room": {
+   "C_MJ_per_K": 2.64,
+   "H_out_W_per_K": 11.81,
+   "floor_m2": 16.0,
+   "tau_h": 62.1
+  }
+ }
+}

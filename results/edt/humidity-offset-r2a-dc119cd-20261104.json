@@ -1,0 +1,90 @@
+{
+ "analysis": "R2-a.2b humidity flag stability under a +-2 K error in the temperature the humidity is computed at (post hoc)",
+ "commit_of_inputs": "dc119cd",
+ "elapsed_s": 276.3,
+ "environments": 48,
+ "failed_environments": 0,
+ "flagged": {
+  "-2.0": {
+   "automation_env_outcomes": 1776,
+   "automations": 37,
+   "automations_with_any_outcome_change": 34,
+   "divergence_kinds_changed": 2,
+   "flag_changed": 1,
+   "flag_gained": 0,
+   "flag_lost": 1,
+   "kinds_after": {
+    "fires_somewhere_only": 31,
+    "flaps": 6,
+    "time_spread": 35
+   },
+   "outcomes_changed_beyond_confirmation_tolerance": 543,
+   "outcomes_changed_exact": 721
+  },
+  "2.0": {
+   "automation_env_outcomes": 1776,
+   "automations": 37,
+   "automations_with_any_outcome_change": 34,
+   "divergence_kinds_changed": 3,
+   "flag_changed": 0,
+   "flag_gained": 0,
+   "flag_lost": 0,
+   "kinds_after": {
+    "fires_somewhere_only": 31,
+    "flaps": 7,
+    "time_spread": 33
+   },
+   "outcomes_changed_beyond_confirmation_tolerance": 452,
+   "outcomes_changed_exact": 598
+  }
+ },
+ "flagged_either_offset": {
+  "divergence_kinds_changed": 4,
+  "flag_changed": 1
+ },
+ "humidity_coupled_flagged_published": 37,
+ "humidity_coupled_run": 63,
+ "offset0_against_published_sweep": {
+  "flag_mismatches": 0,
+  "kind_mismatches": 0,
+  "outcome_mismatches_exact": 0,
+  "outcomes": 3024
+ },
+ "offsets_k": [
+  -2.0,
+  0.0,
+  2.0
+ ],
+ "reference": "offset 0, recorded afresh with the same code and weather",
+ "refused_replays": {
+  "-2.0": 0,
+  "0.0": 0,
+  "2.0": 0
+ },
+ "unflagged": {
+  "-2.0": {
+   "automation_env_outcomes": 1248,
+   "automations": 26,
+   "automations_with_any_outcome_change": 0,
+   "divergence_kinds_changed": 0,
+   "flag_changed": 0,
+   "flag_gained": 0,
+   "flag_lost": 0,
+   "kinds_after": {},
+   "outcomes_changed_beyond_confirmation_tolerance": 0,
+   "outcomes_changed_exact": 0
+  },
+  "2.0": {
+   "automation_env_outcomes": 1248,
+   "automations": 26,
+   "automations_with_any_outcome_change": 0,
+   "divergence_kinds_changed": 0,
+   "flag_changed": 0,
+   "flag_gained": 0,
+   "flag_lost": 0,
+   "kinds_after": {},
+   "outcomes_changed_beyond_confirmation_tolerance": 0,
+   "outcomes_changed_exact": 0
+  }
+ }
+}

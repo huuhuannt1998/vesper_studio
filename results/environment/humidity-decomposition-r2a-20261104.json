@@ -1,0 +1,433 @@
+{
+ "analysis": "R2-a.2a humidity decomposition: modelled vapour at the measured room temperature (post hoc)",
+ "class_pa_at_or_below_0c": 270.0,
+ "datasets": {
+  "A": {
+   "median_bias_pp": {
+    "modelled": 5.142,
+    "modelled vapour at measured T": 1.483
+   },
+   "median_rmse_pp": {
+    "modelled (validation H)": 8.2,
+    "modelled vapour at measured T": 6.208,
+    "modelled vapour at modelled T, hourly (check)": 8.195
+   },
+   "median_temperature_rmse_c": 2.08,
+   "median_vapour_pressure_hpa": {
+    "bias": 0.329,
+    "rmse": 1.41
+   },
+   "rooms": [
+    {
+     "modelled": {
+      "bias": 1.136,
+      "n": 3289,
+      "r": 0.6982,
+      "rmse": 5.844,
+      "within_2": 0.2974
+     },
+     "modelled_vapour_at_measured_t": {
+      "bias": -1.735,
+      "n": 3289,
+      "r": 0.709,
+      "rmse": 5.036,
+      "within_2": 0.3247
+     },
+     "modelled_vapour_at_modelled_t_hourly": {
+      "bias": 1.134,
+      "n": 3289,
+      "r": 0.6981,
+      "rmse": 5.844,
+      "within_2": 0.2998
+     },
+     "room": "kitchen",
+     "temperature": {
+      "bias": -1.123,
+      "n": 3289,
+      "r": 0.6271,
+      "rmse": 1.759,
+      "within_2": 0.7315
+     },
+     "vapour_pressure_hpa": {
+      "bias": -0.468,
+      "n": 3289,
+      "r": 0.8036,
+      "rmse": 1.311,
+      "within_2": 0.8705
+     }
+    },
+    {
+     "modelled": {
+      "bias": 5.17,
+      "n": 3289,
+      "r": 0.6863,
+      "rmse": 8.2,
+      "within_2": 0.2028
+     },
+     "modelled_vapour_at_measured_t": {
+      "bias": 1.483,
+      "n": 3289,
+      "r": 0.7923,
+      "rmse": 4.963,
+      "within_2": 0.3402
+     },
+     "modelled_vapour_at_modelled_t_hourly": {
+      "bias": 5.17,
+      "n": 3289,
+      "r": 0.6864,
+      "rmse": 8.195,
+      "within_2": 0.2016
+     },
+     "room": "living room",
+     "temperature": {
+      "bias": -1.333,
+      "n": 3289,
+      "r": 0.6313,
+      "rmse": 2.224,
+      "within_2": 0.6431
+     },
+     "vapour_pressure_hpa": {
+      "bias": 0.329,
+      "n": 3289,
+      "r": 0.8391,
+      "rmse": 1.177,
+      "within_2": 0.9015
+     }
+    },
+    {
+     "modelled": {
+      "bias": 1.669,
+      "n": 3289,
+      "r": 0.5398,
+      "rmse": 6.702,
+      "within_2": 0.2381
+     },
+     "modelled_vapour_at_measured_t": {
+      "bias": -2.107,
+      "n": 3289,
+      "r": 0.61,
+      "rmse": 5.238,
+      "within_2": 0.2958
+     },
+     "modelled_vapour_at_modelled_t_hourly": {
+      "bias": 1.668,
+      "n": 3289,
+      "r": 0.5397,
+      "rmse": 6.706,
+      "within_2": 0.2384
+     },
+     "room": "laundry room",
+     "temperature": {
+      "bias": -1.514,
+      "n": 3289,
+      "r": 0.5574,
+      "rmse": 2.28,
+      "within_2": 0.6014
+     },
+     "vapour_pressure_hpa": {
+      "bias": -0.579,
+      "n": 3289,
+      "r": 0.7807,
+      "rmse": 1.41,
+      "within_2": 0.8431
+     }
+    },
+    {
+     "modelled": {
+      "bias": 5.142,
+      "n": 3289,
+      "r": 0.7095,
+      "rmse": 7.877,
+      "within_2": 0.1806
+     },
+     "modelled_vapour_at_measured_t": {
+      "bias": 1.603,
+      "n": 3289,
+      "r": 0.7673,
+      "rmse": 5.22,
+      "within_2": 0.3308
+     },
+     "modelled_vapour_at_modelled_t_hourly": {
+      "bias": 5.141,
+      "n": 3289,
+      "r": 0.7093,
+      "rmse": 7.874,
+      "within_2": 0.1839
+     },
+     "room": "office",
+     "temperature": {
+      "bias": -1.339,
+      "n": 3289,
+      "r": 0.6602,
+      "rmse": 2.08,
+      "within_2": 0.6196
+     },
+     "vapour_pressure_hpa": {
+      "bias": 0.354,
+      "n": 3289,
+      "r": 0.8202,
+      "rmse": 1.229,
+      "within_2": 0.8918
+     }
+    },
+    {
+     "modelled": {
+      "bias": -4.597,
+      "n": 3289,
+      "r": 0.1853,
+      "rmse": 11.845,
+      "within_2": 0.1912
+     },
+     "modelled_vapour_at_measured_t": {
+      "bias": -7.133,
+      "n": 3289,
+      "r": 0.1379,
+      "rmse": 12.749,
+      "within_2": 0.1666
+     },
+     "modelled_vapour_at_modelled_t_hourly": {
+      "bias": -4.598,
+      "n": 3289,
+      "r": 0.1857,
+      "rmse": 11.844,
+      "within_2": 0.1906
+     },
+     "room": "bathroom",
+     "temperature": {
+      "bias": -0.851,
+      "n": 3289,
+      "r": 0.6937,
+      "rmse": 1.739,
+      "within_2": 0.7203
+     },
+     "vapour_pressure_hpa": {
+      "bias": -1.651,
+      "n": 3289,
+      "r": 0.4184,
+      "rmse": 2.983,
+      "within_2": 0.6342
+     }
+    },
+    {
+     "modelled": {
+      "bias": 10.311,
+      "n": 3289,
+      "r": 0.7098,
+      "rmse": 11.943,
+      "within_2": 0.0608
+     },
+     "modelled_vapour_at_measured_t": {
+      "bias": 6.81,
+      "n": 3289,
+      "r": 0.7589,
+      "rmse": 8.664,
+      "within_2": 0.149
+     },
+     "modelled_vapour_at_modelled_t_hourly": {
+      "bias": 10.308,
+      "n": 3289,
+      "r": 0.7098,
+      "rmse": 11.94,
+      "within_2": 0.0611
+     },
+     "room": "ironing room",
+     "temperature": {
+      "bias": -1.294,
+      "n": 3289,
+      "r": 0.7062,
+      "rmse": 2.028,
+      "within_2": 0.6309
+     },
+     "vapour_pressure_hpa": {
+      "bias": 1.563,
+      "n": 3289,
+      "r": 0.8255,
+      "rmse": 1.947,
+      "within_2": 0.6467
+     }
+    },
+    {
+     "modelled": {
+      "bias": -0.897,
+      "n": 3289,
+      "r": 0.6517,
+      "rmse": 6.042,
+      "within_2": 0.2673
+     },
+     "modelled_vapour_at_measured_t": {
+      "bias": -5.03,
+      "n": 3289,
+      "r": 0.7304,
+      "rmse": 7.194,
+      "within_2": 0.1812
+     },
+     "modelled_vapour_at_modelled_t_hourly": {
+      "bias": -0.897,
+      "n": 3289,
+      "r": 0.652,
+      "rmse": 6.044,
+      "within_2": 0.2657
+     },
+     "room": "teenager room",
+     "temperature": {
+      "bias": -1.712,
+      "n": 3289,
+      "r": 0.5455,
+      "rmse": 2.428,
+      "within_2": 0.4959
+     },
+     "vapour_pressure_hpa": {
+      "bias": -1.374,
+      "n": 3289,
+      "r": 0.7666,
+      "rmse": 1.918,
+      "within_2": 0.6345
+     }
+    },
+    {
+     "modelled": {
+      "bias": 5.736,
+      "n": 3289,
+      "r": 0.6088,
+      "rmse": 9.01,
+      "within_2": 0.1712
+     },
+     "modelled_vapour_at_measured_t": {
+      "bias": 2.596,
+      "n": 3289,
+      "r": 0.7071,
+      "rmse": 6.208,
+      "within_2": 0.2961
+     },
+     "modelled_vapour_at_modelled_t_hourly": {
+      "bias": 5.735,
+      "n": 3289,
+      "r": 0.6093,
+      "rmse": 9.002,
+      "within_2": 0.1706
+     },
+     "room": "parents' room",
+     "temperature": {
+      "bias": -1.061,
+      "n": 3289,
+      "r": 0.7023,
+      "rmse": 1.92,
+      "within_2": 0.6516
+     },
+     "vapour_pressure_hpa": {
+      "bias": 0.559,
+      "n": 3289,
+      "r": 0.8023,
+      "rmse": 1.35,
+      "within_2": 0.8653
+     }
+    }
+   ]
+  },
+  "B": {
+   "median_bias_pp": {
+    "modelled": -11.681,
+    "modelled vapour at measured T": 4.931
+   },
+   "median_rmse_pp": {
+    "modelled (validation H)": 14.915,
+    "modelled vapour at measured T": 9.189,
+    "modelled vapour at modelled T, hourly (check)": 14.918
+   },
+   "median_temperature_rmse_c": 7.788,
+   "median_vapour_pressure_hpa": {
+    "bias": 1.008,
+    "rmse": 1.827
+   },
+   "rooms": [
+    {
+     "modelled": {
+      "bias": -11.681,
+      "n": 1036,
+      "r": 0.7303,
+      "rmse": 12.82,
+      "within_2": 0.0319
+     },
+     "modelled_vapour_at_measured_t": {
+      "bias": 4.931,
+      "n": 1036,
+      "r": 0.7739,
+      "rmse": 9.189,
+      "within_2": 0.2384
+     },
+     "modelled_vapour_at_modelled_t_hourly": {
+      "bias": -11.689,
+      "n": 1036,
+      "r": 0.7304,
+      "rmse": 12.826,
+      "within_2": 0.029
+     },
+     "room": "dining room",
+     "temperature": {
+      "bias": 7.13,
+      "n": 1036,
+      "r": 0.7727,
+      "rmse": 7.434,
+      "within_2": 0.0222
+     },
+     "vapour_pressure_hpa": {
+      "bias": 1.008,
+      "n": 1036,
+      "r": 0.7254,
+      "rmse": 1.827,
+      "within_2": 0.7423
+     }
+    },
+    {
+     "modelled": {
+      "bias": -13.78,
+      "n": 1036,
+      "r": 0.7382,
+      "rmse": 14.915,
+      "within_2": 0.0087
+     },
+     "modelled_vapour_at_measured_t": {
+      "bias": 3.783,
+      "n": 1036,
+      "r": 0.8828,
+      "rmse": 7.168,
+      "within_2": 0.222
+     },
+     "modelled_vapour_at_modelled_t_hourly": {
+      "bias": -13.783,
+      "n": 1036,
+      "r": 0.7381,
+      "rmse": 14.918,
+      "within_2": 0.0077
+     },
+     "room": "room",
+     "temperature": {
+      "bias": 7.452,
+      "n": 1036,
+      "r": 0.7343,
+      "rmse": 7.788,
+      "within_2": 0.0193
+     },
+     "vapour_pressure_hpa": {
+      "bias": 0.764,
+      "n": 1036,
+      "r": 0.8198,
+      "rmse": 1.462,
+      "within_2": 0.8465
+     }
+    }
+   ]
+  }
+ },
+ "humidity_class": 1,
+ "moisture_excess_kpa": {
+  "t_out_0c_or_below": 0.27,
+  "t_out_10c": 0.135,
+  "t_out_20c_or_above": 0.0
+ },
+ "notes": [
+  "RH clamped to 15-85 % as indoor.step does; the validation's modelled RH is the hourly mean of 10-min integer readings, the decomposition's is per hour unrounded (the 'check' row shows the difference this makes)",
+  "bias: model minus measured"
+ ],
+ "person_vapour_kpa": 0.15
+}
