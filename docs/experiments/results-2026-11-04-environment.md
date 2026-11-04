@@ -61,3 +61,13 @@ The grounded rooms follow the measured ones from hour to hour far better (correl
 on B their level is off by the overheating above. For humidity a constant 45 % is closer than the grounded model on
 both homes: without moisture sources the grounded humidity follows the outdoor air too closely. RQ2 is answered as
 mixed: grounding wins on dynamics, loses on level where the one-node room is biased, and loses on humidity.
+
+## Humidity class (addendum 2; `results/environment/fit-humidity-20261104T065407Z.json`)
+
+EN ISO 13788's internal humidity classes on dataset A, H median RMSE (points): class 0 (the first run) 9.3, class 1
+8.2, class 2 14.2, class 3 22.0, class 4 30.0, class 5 37.1. Class 1 was chosen; held out on dataset B it gives
+14.9 points against 16.2, so by the addendum it is VESPER's default from 2026-11-04 (`vesper/env/indoor.py`).
+After it (`environment-20261104T065549Z.json`): H passes on A (8.2) and still fails on B (14.9 > 10); W, T and D
+are unchanged. The constant 45 % of the assumed curve is still closer on both homes (6.6 and 8.3 points). The low
+class is consistent with A's rooms being simulated too cold (warmer simulated air would hold the measured vapour
+at a lower relative humidity); that remains untested.
