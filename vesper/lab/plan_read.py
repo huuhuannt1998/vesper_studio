@@ -14,6 +14,7 @@ from pathlib import Path
 
 from vesper.lab.plan import ROOM_TYPES, PlanError, load_plan
 
+DEFAULT_MODEL = "sonnet"  # reading a plan needs sight, not long thinking: the cheaper model is faster and costs less
 TIMEOUT_S = 600  # one reading of a large image can take a few minutes
 
 PROMPT = f"""You are reading a floor-plan image for VESPER, a smart-home simulator. The image is the file given below
@@ -43,7 +44,9 @@ How to fill it:
   joins two rooms; the rooms must be joined so that every room can be reached from the entrance.
 - Every window: "at" its middle in the wall, "width" in pixels, "room" the room it lights. Leave "windows" empty if
   the plan shows none.
-- "entrance" is the index (counting from 0) of the main door to the outdoors in your "doors" list.
+- "entrance" is the index (counting from 0) of the main door to the outdoors in your "doors" list. If no outside
+  door is drawn, do not refuse: add a door to "outside" at the most plausible front-door position (on an outside wall
+  of the hall, living room or corridor, whichever a visitor would enter by) and make that the entrance.
 - The scale: if the image prints dimension text for rooms or walls, or a scale bar, or the home's total floor area,
   put it into "scale": a scale bar or a measured length as {{"length_m": metres, "from": [x, y], "to": [x, y]}} (the two
   pixel points the length spans, along a straight line), a printed total area as {{"area_m2": number}}. Lengths are
@@ -117,12 +120,35 @@ def _check(text: str) -> tuple[dict | None, str]:
         return None, str(e)
 
 
-def read_plan_image(path: Path, runner=None) -> dict:
+def summary(plan_m: dict) -> str:
+    """What was read, for the user to check against the image: each room's name, type and area, the doors, and the
+    entrance. `plan_m` is a plan in metres (scaled)."""
+    from vesper.lab.geometry import polygon_area
+    rooms, doors = plan_m["rooms"], plan_m.get("doors", [])
+    names = {r["id"]: r.get("name") or r["id"] for r in rooms}
+    names["outside"] = "outside"
+    lines = [f"Claude read {len(rooms)} room{'s' if len(rooms) != 1 else ''} and {len(doors)} door"
+             f"{'s' if len(doors) != 1 else ''}; check them against your image:"]
+    lines += [f"  {names[r['id']]} ({r['type']}): {polygon_area([tuple(p) for p in r['polygon']]):.1f} m²"
+              for r in rooms]
+    lines += [f"  door {k}: {names[d['rooms'][0]]} - {names[d['rooms'][1]]} ({d['width']:.2f} m)"
+              for k, d in enumerate(doors)]
+    ent = plan_m.get("entrance")
+    if ent is None or not 0 <= ent < len(doors):
+        lines.append("  entrance: none given")
+    else:
+        inside = [names[x] for x in doors[ent]["rooms"] if x != "outside"]
+        lines.append(f"  entrance: door {ent} between {' and '.join(inside + ['outside'])}")
+    return "\n".join(lines)
+
+
+def read_plan_image(path: Path, runner=None, model: str | None = DEFAULT_MODEL) -> dict:
     """A validated `vesper-plan/1` (in pixels) read from the floor-plan image or PDF at `path`.
 
-    `runner(args) -> str` runs the `claude` argument list and returns its stdout; the default runs the CLI. Raises a
-    PlanError when the CLI is missing, fails or reports an error, or when two answers in a row are not a valid plan
-    (the message carries Claude's last text)."""
+    `model` is passed as `--model` (an alias such as "sonnet" or "opus", or a full model name; None: Claude Code's
+    own default). `runner(args) -> str` runs the `claude` argument list and returns its stdout; the default runs the
+    CLI. Raises a PlanError when the CLI is missing, fails or reports an error, or when two answers in a row are not
+    a valid plan (the message carries Claude's last text)."""
     path = Path(path)
     if not path.is_file():
         raise PlanError(f"{path}: no such file")
@@ -131,7 +157,7 @@ def read_plan_image(path: Path, runner=None) -> dict:
     prompt = f"{PROMPT}\nThe image: {full}\n"
     # Only the Read tool exists for this run, and it may read only this file (`//` marks an absolute path).
     base = ["--tools", "Read", "--allowedTools", f"Read(/{full})", "--add-dir", str(full.parent),
-            "--output-format", "json"]
+            "--output-format", "json", *(["--model", model] if model else [])]
     text, problem = "", ""
     for attempt in range(2):
         if attempt:

@@ -69,6 +69,25 @@ def test_the_arguments_carry_the_image_path_the_json_format_and_only_the_read_to
     assert "--dangerously-skip-permissions" not in args
 
 
+def test_the_model_defaults_to_sonnet_and_can_be_chosen(image):
+    fake = Fake(envelope(json.dumps(px_plan())), envelope(json.dumps(px_plan())))
+    read_plan_image(image, runner=fake)
+    read_plan_image(image, runner=fake, model="opus")
+    assert fake.calls[0][fake.calls[0].index("--model") + 1] == "sonnet"
+    assert fake.calls[1][fake.calls[1].index("--model") + 1] == "opus"
+
+
+def test_a_retry_keeps_the_model(image):
+    fake = Fake(envelope("no plan here"), envelope(json.dumps(px_plan())))
+    read_plan_image(image, runner=fake, model="haiku")
+    assert [c[c.index("--model") + 1] for c in fake.calls] == ["haiku", "haiku"]
+
+
+def test_the_prompt_places_a_missing_entrance_at_the_likeliest_front_door():
+    flat = " ".join(PROMPT.split())
+    assert "If no outside door is drawn, do not refuse" in flat and "most plausible front-door position" in flat
+
+
 def test_the_prompt_names_the_schema_the_types_and_the_things_to_read():
     for needle in ('"vesper-plan/1"', '"units": "px"', "m_per_px", "length_m", "area_m2", "polygon", "entrance",
                    "outside", "living", "kitchen", "laundry", "corridor", "hall", "other", "windows", "doors",
@@ -174,7 +193,12 @@ def test_the_default_runner_returns_stdout(monkeypatch, image):
 
 def fake_claude(monkeypatch, *answers):
     fake = Fake(*answers)
-    monkeypatch.setattr(plan_read, "read_plan_image", lambda path, runner=None: read_plan_image(path, runner=fake))
+    fake.models = []
+
+    def reader(path, runner=None, model="sonnet"):
+        fake.models.append(model)
+        return read_plan_image(path, runner=fake, model=model)
+    monkeypatch.setattr(plan_read, "read_plan_image", reader)
     return fake
 
 
@@ -243,3 +267,43 @@ def test_an_existing_directory_stops_an_image_import_before_claude_is_run(tmp_pa
     out.mkdir()
     assert cli.main(["lab", "import", str(image), str(out), "--catalog", str(cat)]) == 1
     assert fake.calls == [] and "already exists" in capsys.readouterr().err
+
+
+def test_the_cli_passes_the_model_to_the_reader(tmp_path, monkeypatch, image):
+    cat, _ = setup(tmp_path)
+    fake = fake_claude(monkeypatch, envelope(json.dumps(px_plan())), envelope(json.dumps(px_plan())))
+    assert cli.main(["lab", "import", str(image), str(tmp_path / "a"), "--catalog", str(cat)]) == 0
+    assert cli.main(["lab", "import", str(image), str(tmp_path / "b"), "--model", "opus", "--catalog", str(cat)]) == 0
+    assert fake.models == ["sonnet", "opus"]
+
+
+def test_an_image_import_prints_what_was_read_before_building(tmp_path, monkeypatch, capsys, image):
+    cat, _ = setup(tmp_path)
+    fake_claude(monkeypatch, envelope(json.dumps(px_plan())))
+    assert cli.main(["lab", "import", str(image), str(tmp_path / "mine"), "--catalog", str(cat)]) == 0
+    out = capsys.readouterr().out
+    assert "Claude read 3 rooms and 3 doors" in out
+    assert "Living room (living): 25.0 m²" in out and "Kitchen (kitchen): 10.5 m²" in out
+    assert "Bedroom (bedroom): 14.0 m²" in out
+    assert "door 1: Living room - Kitchen" in out
+    assert "entrance: door 0 between Living room and outside" in out
+    assert out.index("entrance: door 0") < out.index("3 rooms (living")  # shown before the home is built
+
+
+def test_the_summary_is_printed_even_when_the_plan_is_then_refused(tmp_path, monkeypatch, capsys, image):
+    cat, _ = setup(tmp_path)
+    plan = px_plan()
+    plan["rooms"][1]["polygon"] = [[250, 0], [300, 0], [300, 100], [250, 100]]  # a 2 m² kitchen
+    fake_claude(monkeypatch, envelope(json.dumps(plan)))
+    out = tmp_path / "mine"
+    assert cli.main(["lab", "import", str(image), str(out), "--catalog", str(cat)]) == 1
+    captured = capsys.readouterr()
+    assert "Kitchen (kitchen)" in captured.out and not out.exists()
+
+
+def test_a_json_plan_prints_no_reading_summary(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    src = tmp_path / "three.json"
+    src.write_text(json.dumps(three_rooms()))
+    assert cli.main(["lab", "import", str(src), str(tmp_path / "mine"), "--catalog", str(cat)]) == 0
+    assert "Claude read" not in capsys.readouterr().out

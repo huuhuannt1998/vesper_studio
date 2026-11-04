@@ -952,7 +952,7 @@ def _lab_import(args, catalog) -> int:
         if is_image:  # the picture goes to Anthropic through the user's Claude Code session
             from vesper.lab import plan_read
             print(f"reading {src.name} with Claude (this can take a minute or two)...", flush=True)
-            raw = plan_read.read_plan_image(src)
+            raw = plan_read.read_plan_image(src, model=args.model)
         else:
             try:
                 raw = json.loads(src.read_text())
@@ -961,6 +961,8 @@ def _lab_import(args, catalog) -> int:
             except ValueError as e:
                 raise GenerateError(f"{src.name}: not valid JSON: {e}") from None
         plan = rectify(scale_plan(load_plan(raw), args.scale, args.area))
+        if is_image:
+            print(plan_read.summary(plan), flush=True)
         problems = check_house(plan)
         if problems:
             print(f"FAILED: {src.name} is not a house VESPER can build ({len(problems)} problem"
@@ -2051,6 +2053,8 @@ def main(argv: list[str] | None = None) -> int:
     lab_import.add_argument("dir", help="the new home's directory")
     lab_import.add_argument("--scale", help="a plan in pixels: a room's dimension, such as 'kitchen width 3.2 m'")
     lab_import.add_argument("--area", type=float, help="a plan in pixels: the home's floor area (m²)")
+    lab_import.add_argument("--model", default="sonnet", help="an image plan: the Claude model that reads it (an alias "
+                                                              "such as sonnet or opus, or a full name)")
     lab_import.add_argument("--request", help="a vesper-request/1 file: the devices, seed, furnishing and site (the "
                                               "rooms are the plan's)")
     lab_import.add_argument("--catalog", default="catalog/vds")
