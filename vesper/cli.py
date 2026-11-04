@@ -414,6 +414,21 @@ def _validate_environment(args) -> int:
         print("FAILED environment: neither dataset is there (see docs/experiments/environment-validation.md)",
               file=sys.stderr)
         return 1
+    if args.fit_humidity:
+        from vesper.validation.environment import humidity_fit_report
+        if not (have["a"] and have["b"]):
+            print("FAILED environment --fit-humidity: needs both datasets", file=sys.stderr)
+            return 1
+        fit = humidity_fit_report(have["a"], have["b"], Path(args.weather_cache))
+        out = args.out or Path("results/environment") / f"fit-humidity-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+        path = _write_report(str(out), "fit-humidity", fit, args)
+        grid = ", ".join(f"{g['class']}: {g['H']['median_rmse_pp']:.1f}" for g in fit["grid_on_A"])
+        print(f"humidity class on A (median RMSE, points): {grid}; chosen {fit['chosen']}; held out on B: "
+              f"{fit['held_out_B']['H']['median_rmse_pp']:.1f} against {fit['baseline_B']['H']['median_rmse_pp']:.1f} "
+              "as it stands; " + ("the current class is A's best: the model stays" if fit["unchanged"] else
+                                  "adopt" if fit["adopt"] else "B got worse: keep the current class")
+              + f"; report {path}")
+        return 0
     if args.fit:
         from vesper.validation.environment import fit_report
         if not (have["a"] and have["b"]):
@@ -1745,6 +1760,8 @@ def main(argv: list[str] | None = None) -> int:
     envv.add_argument("--catalog", default="catalog/vds")
     envv.add_argument("--fit", action="store_true", help="addendum 1: fit ACH and solar-to-air on dataset A, judge "
                                                          "the chosen pair once on dataset B")
+    envv.add_argument("--fit-humidity", action="store_true", help="addendum 2: fit EN ISO 13788's humidity class "
+                                                                  "on dataset A, judge it once on dataset B")
     envv.add_argument("--out")
     xs = checks.add_parser("crosssite", help="RQ3: one home, the same automations, across cities, seasons and "
                                              "orientations (logical clock)")

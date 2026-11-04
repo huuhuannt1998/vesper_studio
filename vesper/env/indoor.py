@@ -11,7 +11,8 @@
   exactly over each step; plus what passes through the interior walls a room shares with its neighbours, U_INTERIOR
   each (assumed; added 2026-11-04: with rooms isolated, a small sunny room overheated, see
   docs/experiments/results-2026-11-04-environment.md). The validation's standard room has no neighbours.
-- Humidity: the outdoor air's water vapour, plus what people add, at the room's temperature (Magnus formula).
+- Humidity: the outdoor air's water vapour, plus a dwelling's moisture by EN ISO 13788's internal humidity class
+  (HUMIDITY_CLASS; 0 none), plus what people add, at the room's temperature (Magnus formula).
 """
 from __future__ import annotations
 
@@ -35,6 +36,8 @@ HEAT_W_PER_M2 = 100.0  # a room's heating at full output (assumed)
 COOL_W_PER_M2 = 80.0  # what a room's cooling removes at full output (assumed; ~ 80 W/m², a split unit's sizing)
 PERSON_W, PERSON_VAPOUR_KPA = 80.0, 0.15  # what a person adds: sensible heat, and to the room's vapour (assumed)
 START_C = 20.5  # every room's temperature when a run begins (assumed)
+HUMIDITY_CLASS = 0  # EN ISO 13788 internal humidity class 1-5 (0: no moisture beyond the outdoor air and people)
+CLASS_PA = 270.0  # the vapour-pressure excess per class at an outdoor temperature at or below 0 °C (EN ISO 13788)
 U_INTERIOR = 2.0  # W/m²K, an interior partition with its doorway (assumed; plasterboard or block, 1.5-2.5)
 NEIGHBOUR_GAP_M = 0.35  # rooms whose facing edges are at most this apart share a wall (a wall's thickness)
 
@@ -42,6 +45,12 @@ NEIGHBOUR_GAP_M = 0.35  # rooms whose facing edges are at most this apart share 
 def e_sat(t_c: float) -> float:
     """Saturation vapour pressure, kPa (Magnus/Tetens)."""
     return 0.6108 * math.exp(17.27 * t_c / (t_c + 237.3))
+
+
+def moisture_excess_kpa(t_out_c: float) -> float:
+    """A dwelling's indoor vapour-pressure excess over the outdoor air, kPa (EN ISO 13788 internal humidity
+    classes): CLASS_PA per class at or below 0 °C outside, falling linearly to none at 20 °C."""
+    return HUMIDITY_CLASS * CLASS_PA / 1000 * min(1.0, max(0.0, (20.0 - t_out_c) / 20.0))
 
 
 def _angle(a: float, b: float) -> float:
@@ -173,7 +182,7 @@ class HomeEnvironment:
         state = self.outdoor.at(seconds)
         dt_s = 0.0 if self._t is None else max(0.0, seconds - self._t)
         self._t, self.last = seconds, state
-        e_out = state.humidity_pct / 100 * e_sat(state.temperature_c)
+        e_out = state.humidity_pct / 100 * e_sat(state.temperature_c) + moisture_excess_kpa(state.temperature_c)
         out = {}
         before = {rid: r.temperature for rid, r in self.rooms.items()}  # the walls pass heat from the last step's
         for rid, r in self.rooms.items():
@@ -204,4 +213,5 @@ class HomeEnvironment:
             "U_wall": U_WALL, "U_window": U_WINDOW, "ach": ACH, "solar_to_air": SOLAR_TO_AIR,
             "heat_w_per_m2": HEAT_W_PER_M2,
             "cool_w_per_m2": COOL_W_PER_M2, "u_interior": U_INTERIOR,
+            "humidity_class": HUMIDITY_CLASS,
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}

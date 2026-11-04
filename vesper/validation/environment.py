@@ -441,3 +441,42 @@ def fit_report(appliances: str, sml2010: str, cache) -> dict:
             "unchanged": (best["ach"], best["solar_to_air"]) == (indoor.ACH, indoor.SOLAR_TO_AIR),
             "adopt": (best["ach"], best["solar_to_air"]) != (indoor.ACH, indoor.SOLAR_TO_AIR)
             and held_out["T"]["median_rmse_c"] <= baseline_b["T"]["median_rmse_c"]}
+
+
+FIT_HUMIDITY_CLASSES = (0, 1, 2, 3, 4, 5)  # addendum 2
+
+
+def _humidity_with(df, site, cache, spec, cls: int) -> dict:
+    from vesper.env import indoor
+    old = indoor.HUMIDITY_CLASS
+    indoor.HUMIDITY_CLASS = cls
+    try:
+        r = indoor_check(df, site, cache, **spec)
+    finally:
+        indoor.HUMIDITY_CLASS = old
+    return {"class": cls, "H": r["H"], "rooms": [{"room": x["room"], "humidity": x.get("humidity")}
+                                                for x in r["rooms"] if "humidity" in x]}
+
+
+def humidity_fit_report(appliances: str, sml2010: str, cache) -> dict:
+    """Addendum 2: the humidity class with the smallest H median RMSE on dataset A, then once on B."""
+    from vesper.env import indoor
+    from vesper.env.site import parse_site
+    a = load_appliances(appliances)
+    site_a = parse_site({"city": "Chièvres, Belgium", "date": a.index[0].date().isoformat()})
+    spec_a = {"t_out": "T_out", "rh_out": "RH_out", "rooms": APPLIANCES_ROOMS,
+              "rh_of": {c: "RH_" + c[1:] for c in APPLIANCES_ROOMS}}
+    grid = [_humidity_with(a, site_a, cache, spec_a, c) for c in FIT_HUMIDITY_CLASSES]
+    best = min(grid, key=lambda g: g["H"]["median_rmse_pp"])
+    b = load_sml2010(sml2010)
+    site_b = parse_site({"city": "Valencia, Spain", "date": b.index[0].date().isoformat()})
+    spec_b = {"t_out": "t_out", "rh_out": "rh_out", "rooms": SML_ROOMS,
+              "rh_of": {"t_dining": "rh_dining", "t_room": "rh_room"}}
+    held_out = _humidity_with(b, site_b, cache, spec_b, best["class"])
+    baseline_b = _humidity_with(b, site_b, cache, spec_b, indoor.HUMIDITY_CLASS)
+    return {"protocol": "docs/experiments/environment-validation.md, addendum 2", "current": indoor.HUMIDITY_CLASS,
+            "grid_on_A": [{"class": g["class"], "H": g["H"]} for g in grid], "chosen": best["class"],
+            "chosen_on_A": best, "held_out_B": held_out, "baseline_B": baseline_b,
+            "unchanged": best["class"] == indoor.HUMIDITY_CLASS,
+            "adopt": best["class"] != indoor.HUMIDITY_CLASS
+            and held_out["H"]["median_rmse_pp"] <= baseline_b["H"]["median_rmse_pp"]}
