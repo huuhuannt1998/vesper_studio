@@ -261,3 +261,14 @@ def test_a_negative_control_that_never_fires_is_reported_uninformative():
     assert nc["fired"] == 0 and nc["rate"] is None and nc["halt"] is False and nc["uninformative"] is True
     assert negative_control_summary({})["uninformative"] is False  # no control at all: nothing to report
     assert negative_control_summary({"f": _nc(True, False)})["uninformative"] is False
+
+
+def test_prefetch_weather_fetches_once_per_city_and_date(tmp_path, monkeypatch):
+    from vesper.edt import sweep as sw
+    from vesper.edt import trace
+    calls = []
+    monkeypatch.setattr(trace, "_fetch_weather", lambda site, cache, get: calls.append((site.lat, site.lon, cache)))
+    envs = [Env("Stockholm, Sweden", "2026-01-15", 0.0, 4), Env("Stockholm, Sweden", "2026-01-15", 180.0, 4),
+            Env("Phoenix, AZ, USA", "2026-07-15", 0.0, 4), Env("Phoenix, AZ, USA", "2026-07-15", 0.0, 1)]
+    sw._prefetch_weather(envs, tmp_path)
+    assert len(calls) == 2 and all(c[2] == tmp_path / "weather" for c in calls)

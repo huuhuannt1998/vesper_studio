@@ -175,12 +175,12 @@ def reason_class(reason: str) -> str:
 
 def _prefetch_weather(envs: list[Env], cache: Path) -> None:
     """Recorded weather for every city and date the sweep needs, fetched once, before the workers start."""
-    from vesper.edt.trace import _fetch_weather, _site
+    from vesper.edt.trace import _fetch_weather, env_site
     seen = set()
     for env in envs:
         if env.rung >= 3 and env.city and env.date and (env.city, env.date) not in seen:
             seen.add((env.city, env.date))
-            _fetch_weather(_site(env), cache / "weather", None)
+            _fetch_weather(env_site(env), cache / "weather", None)
 
 
 def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int | None = None, *, fetch: bool = True,
