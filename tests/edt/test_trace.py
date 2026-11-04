@@ -30,7 +30,7 @@ def read(path):
 def test_grid():
     assert len(ENVIRONMENTS) == 48
     assert {e.city for e in ENVIRONMENTS} == set(crosssite.CITIES)
-    assert {e.date for e in ENVIRONMENTS} == {"2026-01-15", "2026-04-15", "2026-07-15", "2026-10-15"}
+    assert {e.date for e in ENVIRONMENTS} == {"2026-01-14", "2026-04-15", "2026-07-15", "2026-10-14"}  # protocol A3.1
     assert {e.north_deg for e in ENVIRONMENTS} == {0.0, 180.0}
     assert {e.rung for e in ENVIRONMENTS} == {4}
     assert len({e.key for e in ENVIRONMENTS}) == 48
@@ -242,3 +242,10 @@ def test_header_site_round_trips_through_the_site_parser(home, tmp_path):
     site = parse_site(header["site"])
     assert site.as_dict() == header["site"]
     assert site.north_deg == 180.0 and site.tz == "America/Phoenix"
+
+
+def test_every_environment_s_measured_days_share_their_weekdays():
+    import datetime as dt
+    days = {dt.date.fromisoformat(e.date).weekday() for e in ENVIRONMENTS}
+    assert days == {2}  # protocol A3.1: every start date a Wednesday, so measured days 1-2 are Thursday and Friday
+    assert sorted({e.date for e in ENVIRONMENTS}) == ["2026-01-14", "2026-04-15", "2026-07-15", "2026-10-14"]

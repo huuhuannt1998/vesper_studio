@@ -42,7 +42,7 @@ import yaml
 from vesper.edt.types import Env
 from vesper.validation.crosssite import CITIES
 
-DATES = ("2026-01-15", "2026-04-15", "2026-07-15", "2026-10-15")
+DATES = ("2026-01-14", "2026-04-15", "2026-07-15", "2026-10-14")  # all Wednesdays (protocol A3.1)
 NORTHS = (0.0, 180.0)
 RUNG3_DAYLIGHT_SCALE = 1 / 14.8
 ENVIRONMENTS: list[Env] = [Env(city, date, north, 4)

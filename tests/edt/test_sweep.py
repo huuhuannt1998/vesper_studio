@@ -272,3 +272,15 @@ def test_prefetch_weather_fetches_once_per_city_and_date(tmp_path, monkeypatch):
             Env("Phoenix, AZ, USA", "2026-07-15", 0.0, 4), Env("Phoenix, AZ, USA", "2026-07-15", 0.0, 1)]
     sw._prefetch_weather(envs, tmp_path)
     assert len(calls) == 2 and all(c[2] == tmp_path / "weather" for c in calls)
+
+
+def test_negative_control_excludes_templates_and_environment_reads_in_actions():
+    roles = {"binary_sensor.m": "motion", "light.l": "light"}
+    trig = [{"trigger": "state", "entity_id": "binary_sensor.m", "to": "on"}]
+    plain = {"triggers": trig, "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.l"}}]}
+    assert is_negative_control(plain, plain, roles)
+    templ = {"triggers": trig, "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.l"},
+                                            "data": {"brightness_pct": "{{ states('sensor.lux') | int }}"}}]}
+    assert not is_negative_control(templ, templ, roles)
+    reads = {"triggers": trig, "actions": [{"action": "light.turn_on", "target": {"entity_id": "sensor.lux"}}]}
+    assert not is_negative_control(reads, reads, {**roles, "sensor.lux": "illuminance"})

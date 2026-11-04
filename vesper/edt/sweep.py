@@ -86,10 +86,16 @@ def is_negative_control(raw: dict, bound: dict, entity_roles: dict[str, str]) ->
     if not all(_condition_ok(c) for c in conditions):
         return False
     for text in _strings([triggers, conditions]):
-        if "{{" in text or "{%" in text:
-            return False
         for part in (p.strip() for p in text.split(",")):
             if ENTITY.match(part) and entity_roles.get(part) not in NC_ROLES:
+                return False
+    actions = _first(bound, "action", "actions")
+    for text in _strings([triggers, conditions, actions]):  # protocol A3.2: no template anywhere
+        if "{{" in text or "{%" in text:
+            return False
+    for text in _strings([actions]):  # entities an action names (not its service) have a control role
+        for part in (p.strip() for p in text.split(",")):
+            if ENTITY.match(part) and part in entity_roles and entity_roles[part] not in NC_ROLES:
                 return False
     return True
 
