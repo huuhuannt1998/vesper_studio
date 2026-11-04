@@ -1,6 +1,7 @@
 # Cross-site runs (RQ3, 2026-11-04)
 
-`vesper validate crosssite`; report `results/environment/crosssite-20261104T062057Z.json`. One generated home (six
+`vesper validate crosssite`; report `results/environment/crosssite-20261104T065237Z.json` (the earlier
+`crosssite-20261104T062057Z.json` has the radiator rows only, identical). One generated home (six
 rooms, seed 7, its starter devices plus a Philips Hue indoor motion sensor reporting light in the living room and in
 the office), four automations (living lamp on below 50 lx between 07:00 and 22:00, off above 150 lx; bedroom lamp 30
 min before sunset; every lamp off at 23:30), no residents. Three logical days from midnight on 15 January and 15
@@ -32,11 +33,27 @@ plan facing north (0) or south (180). Descriptive: no criterion was declared.
   minutes and is dark 249 or 211 minutes depending on which way the plan faces; Phoenix in January 203 or 162.
 - Singapore barely changes between January and July (day length within minutes of 12 h), as expected.
 
+## With cooling (a heat pump in the hallway, auto, 20 °C heating and 24 °C cooling)
+
+The same runs with the hallway's radiator thermostat replaced by a heat pump's (Leviton RC-2000WH). Winter rows are
+unchanged except where the sun overheats a south-facing room (Phoenix, plan 180: 53 minutes of cooling in January).
+In summer the rooms stay at 22-29 °C instead of 27-38 °C:
+
+| Place, 17 July (plan 0 / 180) | Cooling (min) | Rooms, radiator (°C) | Rooms, heat pump (°C) |
+|---|---|---|---|
+| Phoenix | 151 / 168 | 32-35 / 32-36 | 23-27 / 23-27 |
+| Seattle | 48 / 47 | 23-29 / 24-28 | 22-28 / 23-27 |
+| Minneapolis | 253 / 275 | 30-38 / 31-38 | 23-28 / 23-29 |
+| Stockholm | 154 / 168 | 27-33 / 28-36 | 23-28 / 22-29 |
+| Singapore | 180 / 174 | 30-35 / 29-33 | 23-28 / 23-27 |
+| Sydney (17 Jan, its summer) | 47 / 46 | 26-29 / 26-29 | 23-26 / 24-26 |
+
 ## Limits
 
-- No cooling: the home has a radiator thermostat (heating only), and VESPER models neither air conditioning nor
-  windows opened. Summer rooms settle at 31-35 °C in Phoenix, 30-38 °C in Minneapolis, 27-33 °C in Stockholm (whose
-  outdoor maximum is 28.8 °C): an unconditioned home, overheated further by the one-node rooms' solar bias that the
-  validation found on dataset B. Indoor temperatures in summer are therefore not claimed realistic.
+- With the radiator thermostat the home has no cooling, and VESPER models no window opening: its summer rooms are
+  those of an unconditioned home, overheated further by the one-node rooms' solar bias that the validation found on
+  dataset B. The bias shows in winter too: in a Phoenix January with the plan facing south, rooms reach 34 °C under
+  a 22 °C outdoor maximum, although rooms now pass heat to their neighbours. Indoor temperatures of sunny rooms are
+  therefore not claimed realistic; the heat pump's rooms are held by its setpoints.
 - One home, one day per condition, no residents: the counts show the direction and size of the environment's effect,
   not a distribution.
