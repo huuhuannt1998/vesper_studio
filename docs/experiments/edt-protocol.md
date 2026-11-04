@@ -253,6 +253,24 @@ recorded: a helper or presence id (the domains of A2.1 and `counter`, `input_tex
 unbound; the permissive engine records the action. Nothing in the run depends on it, so it is not an assumption. A
 helper both set and read stays unbindable, as in A2.2.
 
+**A2.5 Binder conventions (2026-11-04, after the binder review, before the first full run).**
+- Outdoor names (garden, patio, porch, yard, terrace, ... and weather services' temperature, humidity and
+  illuminance) bind to the porch, the standard home's outdoor room. Sensors of semi-outdoor spaces (garage, shed,
+  pool, carport, veranda, greenhouse) are refused ("semi-outdoor spaces are not modelled"); their actuators bind to
+  the porch's.
+- Forecasts, statistics and derived values (high/low, min/max, mean, daily, tomorrow, feels-like, wind chill, trend,
+  `1d`/`0h`, ...) and non-ambient temperatures (3D printers, CPUs, disks, water, pools, fridges, soil, batteries,
+  boilers, pipes) name no role. A temperature compared with a threshold above 45 or below -30 is refused ("threshold
+  looks Fahrenheit or non-ambient"). Two distinct entities that would bind onto one home entity are refused
+  ("distinct entities collapse onto one device").
+- Device triggers, conditions and actions are translated as Home Assistant defines them (device automations of the
+  light, switch, binary_sensor, sensor, lock and climate integrations). Actuator and motion/door device steps on an
+  opaque registry id (no name) bind in the living room; sensor device steps (illuminance, temperature, humidity) on
+  one are refused ("device steps on a registry id name no room").
+- A `group` is a gate only when the state it requires is `home` / `not_home` (a presence group); any other group gate
+  is refused ("device groups are not modelled"); a helper `numeric_state` gate with neither `above` nor `below` is
+  refused.
+
 ## Addendum 3 (2026-11-04, before the first full run)
 
 Found in a 10,000-automation smoke run once the engine supported `weekday` conditions and triggers: the plan's four
