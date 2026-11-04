@@ -63,7 +63,7 @@ def record_trace(home_yaml: Path, env: Env, cache: Path, *, hours: float | None 
     cache, home_yaml = Path(cache), Path(home_yaml)
     out = cache / f"trace-{env.key}.jsonl.gz"
     cache.mkdir(parents=True, exist_ok=True)
-    site = _site(env)
+    site = env_site(env)
     if site is not None and env.rung >= 3 and fetch:
         _fetch_weather(site, cache / "weather", get)
     seconds = (RUN_DAYS * 86400) if hours is None else hours * 3600
@@ -108,7 +108,7 @@ def _cached_weather_source(site, cache: Path) -> str | None:
     return None if w is None else w.source
 
 
-def _site(env: Env):
+def env_site(env: Env):
     """The environment's place (city, date, orientation), or None when it names none."""
     from vesper.env.site import parse_site
     if env.city is None or env.date is None:
@@ -136,20 +136,27 @@ def _fetch_weather(site, cache: Path, get) -> None:
 def _run(home_yaml: Path, env: Env, site, weather_cache: Path, seconds: float, catalog_dir: str):
     """Live the home `seconds` from local midnight in `env`: (initial state, weather source, reports). The home is
     copied, never touched."""
+    with rung_scaling(env), tempfile.TemporaryDirectory(prefix="edt-trace-") as tmp:
+        return _live(copy_home(home_yaml, Path(tmp) / "home", site if env.rung >= 3 else None, weather_cache),
+                     seconds, catalog_dir)
+
+
+@contextlib.contextmanager
+def rung_scaling(env: Env):
+    """Within the block, the model's daylight scaling is the rung's (rung 3: 1/14.8; else untouched)."""
     from vesper.env import indoor
     old_scale = indoor.DAYLIGHT_SCALE
     if env.rung == 3:
         indoor.DAYLIGHT_SCALE = RUNG3_DAYLIGHT_SCALE
     try:
-        with tempfile.TemporaryDirectory(prefix="edt-trace-") as tmp:
-            return _live(_copy_home(home_yaml, Path(tmp) / "home", site if env.rung >= 3 else None, weather_cache),
-                         seconds, catalog_dir)
+        yield
     finally:
         indoor.DAYLIGHT_SCALE = old_scale
 
 
-def _copy_home(home_yaml: Path, out: Path, site, weather_cache: Path) -> Path:
-    """A copy of the EDT home for one run: the site (or none), midnight start, no residents, no automations."""
+def copy_home(home_yaml: Path, out: Path, site, weather_cache: Path, automations: list[dict] | None = None) -> Path:
+    """A copy of the EDT home for one run: the site (or none), midnight start, no residents, and `automations` as the
+    home's automations (default none)."""
     shutil.copytree(home_yaml.parent, out, ignore=shutil.ignore_patterns("traces", "looks", "weather"))
     data = yaml.safe_load((out / "home.yaml").read_text())
     data["start_time"] = "00:00"
@@ -158,7 +165,7 @@ def _copy_home(home_yaml: Path, out: Path, site, weather_cache: Path) -> Path:
     if site is not None:
         data["site"] = {k: v for k, v in site.as_dict().items() if k != "name"} | {"city": site.name}
     data["automations"] = "automations.yaml"
-    (out / "automations.yaml").write_text("[]\n")
+    (out / "automations.yaml").write_text(yaml.safe_dump(automations or [], sort_keys=False, allow_unicode=True))
     (out / "home.yaml").write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))
     if site is not None and weather_cache.is_dir():
         shutil.copytree(weather_cache, out / "weather", dirs_exist_ok=True)
