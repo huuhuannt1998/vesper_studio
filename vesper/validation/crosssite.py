@@ -20,6 +20,11 @@ CITIES = ("Phoenix, AZ, USA", "Seattle, WA, USA", "Minneapolis, MN, USA", "Stock
           "Sydney, Australia")
 DATES = ("2026-01-15", "2026-07-15")
 NORTHS = (0.0, 180.0)
+HVACS = {  # the hallway thermostat: the starter's radiator thermostat, or a heat pump's that also cools
+    "radiator": None,
+    "heat pump": {"product": "zigbee:leviton:rc-2000wh",
+                  "state": {"system_mode": "auto", "occupied_heating_setpoint": 20, "occupied_cooling_setpoint": 24}},
+}
 DARK_LUX = 50.0
 WARMUP_DAYS = 2  # a room's thermal mass takes days to forget its start (20.5 C): measure the third day
 EXTRA_DEVICES = [  # a motion sensor that also reports light and temperature (Philips Hue indoor motion sensor)
@@ -49,7 +54,7 @@ RULES = [  # (needs the sun, rule)
 ]
 
 
-def prepare(base: Path, out: Path, site: dict | None, catalog) -> Path:
+def prepare(base: Path, out: Path, site: dict | None, catalog, hvac: str = "radiator") -> Path:
     """A copy of the base home for one condition: its site (or none), midnight start, the extra sensors and the
     automations; returns its home.yaml."""
     from vesper.lab.automations import entity_ids
@@ -62,6 +67,10 @@ def prepare(base: Path, out: Path, site: dict | None, catalog) -> Path:
     data.pop("residents", None)
     data["devices"] = [d for d in data["devices"] if d["name"] not in {x["name"] for x in EXTRA_DEVICES}]
     data["devices"] += EXTRA_DEVICES
+    if HVACS[hvac]:
+        for d in data["devices"]:
+            if d["name"] == "corridor_thermostat":
+                d["product"], d["state"] = HVACS[hvac]["product"], dict(HVACS[hvac]["state"])
     if site is None:
         data.pop("site", None)
     else:
@@ -103,6 +112,7 @@ def run_day(home_yaml: Path, catalog) -> dict:
         heat = sum(1 for r in env if r["heating"])
         rooms = {rid: [r["rooms"][rid]["temperature"] for r in env] for rid in env[0]["rooms"]}
         out["heating_min"] = heat  # one record a minute
+        out["cooling_min"] = sum(1 for r in env if r.get("cooling"))
         out["rooms_c"] = {rid: {"min": min(v), "max": max(v), "mean": round(sum(v) / len(v), 2)}
                           for rid, v in rooms.items()}
         day = [r for r in env if 7 * 3600 <= r["t"] - t0 < 22 * 3600]
@@ -137,7 +147,7 @@ def base_home(work: Path, catalog_dir: str) -> Path:
 
 
 def crosssite_report(base: Path | None, work: Path, catalog_dir: str = "catalog/vds", fetch: bool = True,
-                     cities=CITIES, dates=DATES, norths=NORTHS) -> dict:
+                     cities=CITIES, dates=DATES, norths=NORTHS, hvacs=tuple(HVACS)) -> dict:
     """Every condition, and the home without a site. `base`: the home (default: base_home)."""
     base = base or base_home(work, catalog_dir)
     from vesper.env import weather
@@ -148,7 +158,8 @@ def crosssite_report(base: Path | None, work: Path, catalog_dir: str = "catalog/
     work.mkdir(parents=True, exist_ok=True)
     runs = []
     baseline = prepare(base, work / "no-site", None, catalog)
-    runs.append({"city": None, "date": None, "north_deg": None, **run_day(baseline, catalog)})
+    runs.append({"city": None, "date": None, "north_deg": None, "hvac": "radiator",
+                 **run_day(baseline, catalog)})
     for city in cities:
         for date in dates:
             site = parse_site({"city": city, "date": date})
@@ -157,12 +168,17 @@ def crosssite_report(base: Path | None, work: Path, catalog_dir: str = "catalog/
                 days = weather.utc_days(site.utc(0), site.utc(RUN_DAYS * 86400))
                 weather.fetch(site.lat, site.lon, days[0], days[-1], cache)
             for north in norths:
-                name = f"{city.split(',')[0].lower().replace(' ', '-')}-{date}-n{int(north)}"
-                home_yaml = prepare(base, work / name, {"city": city, "date": date, "north_deg": north}, catalog)
-                shutil.copytree(cache, work / name / "weather", dirs_exist_ok=True) if cache.exists() else None
-                measured = (dt.date.fromisoformat(date) + dt.timedelta(days=WARMUP_DAYS)).isoformat()
-                runs.append({"city": city, "date": date, "measured_date": measured, "north_deg": north,
-                             **run_day(home_yaml, catalog)})
+                for hvac in hvacs:
+                    place = city.split(",")[0].lower().replace(" ", "-")
+                    name = f"{place}-{date}-n{int(north)}-{hvac.replace(' ', '-')}"
+                    home_yaml = prepare(base, work / name, {"city": city, "date": date, "north_deg": north}, catalog,
+                                        hvac)
+                    if cache.exists():
+                        shutil.copytree(cache, work / name / "weather", dirs_exist_ok=True)
+                    measured = (dt.date.fromisoformat(date) + dt.timedelta(days=WARMUP_DAYS)).isoformat()
+                    runs.append({"city": city, "date": date, "measured_date": measured, "north_deg": north,
+                                 "hvac": hvac, **run_day(home_yaml, catalog)})
     return {"design": __doc__.split("\n\n")[1].replace("\n", " "), "dark_lux": DARK_LUX,
             "cities": list(cities), "dates": list(dates), "norths": list(norths),
+            "hvacs": {k: v for k, v in HVACS.items() if k in hvacs},
             "generated": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"), "runs": runs}

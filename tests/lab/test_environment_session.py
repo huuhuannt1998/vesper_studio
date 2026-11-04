@@ -91,3 +91,26 @@ def test_a_thermostat_reports_heat_while_it_heats_and_idle_when_it_stops(tmp_pat
     t.clock.advance(120)
     assert t.rules._heating["bedroom_thermostat"] is False
     assert t.state("bedroom_thermostat")["running_state"] == "idle"
+
+
+
+def test_a_cooling_thermostat_keeps_a_summer_room_cooler_and_reports_cool(tmp_path):
+    """No home could cool (found 2026-11-04: summer rooms settled at 27-38 degrees): a thermostat with a cooling
+    setpoint in cool (or auto) cools its room above it, and says so."""
+    phoenix = SITED.replace('lat: 35.2271, lon: -80.8431, elevation_m: 229, tz: America/New_York, date: "2026-06-21"',
+                            'city: "Phoenix, AZ, USA", date: "2026-07-15"')
+    def run(mode, path):
+        text = phoenix.replace("zigbee:acme:therm-1", "zigbee:acme:therm-3").replace(
+            "state: {system_mode: heat, current_heating_setpoint: 25}",
+            f"state: {{system_mode: \"{mode}\", occupied_cooling_setpoint: 18}}")  # no weather cached: a mild day
+        path.mkdir()
+        t = sited(path, text)
+        t.seen = set()
+        for _ in range(8 * 60):  # 07:30 to 15:30, what the thermostat says each minute
+            t.clock.advance(60)
+            t.seen.add(t.state("bedroom_thermostat")["running_state"])
+        return t
+    cooled, off = run("cool", tmp_path / "cool"), run("off", tmp_path / "off")
+    assert cooled.rules.rooms_now["bedroom"]["temperature"] < off.rules.rooms_now["bedroom"]["temperature"] - 1
+    assert "cool" in cooled.seen and "cool" not in off.seen
+    assert any("bedroom_thermostat" in r.get("cooling", []) for r in cooled.log if r.get("rule") == "environment")

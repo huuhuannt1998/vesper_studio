@@ -19,6 +19,16 @@ CLIMATE = {"type": "climate", "features": [  # a radiator thermostat as zigbee-h
      "unit": "°C", "value_min": 5, "value_max": 30, "value_step": 0.5},
     {"name": "system_mode", "access": 7, "type": "enum", "property": "system_mode", "values": ["off", "auto", "heat"]},
     {"name": "running_state", "access": 5, "type": "enum", "property": "running_state", "values": ["idle", "heat"]}]}
+HEAT_COOL = {"type": "climate", "features": [  # a heat-pump thermostat: heats and cools
+    {"name": "local_temperature", "access": 5, "type": "numeric", "property": "local_temperature", "unit": "°C"},
+    {"name": "occupied_heating_setpoint", "access": 7, "type": "numeric", "property": "occupied_heating_setpoint",
+     "unit": "°C", "value_min": 7, "value_max": 30, "value_step": 0.5},
+    {"name": "occupied_cooling_setpoint", "access": 7, "type": "numeric", "property": "occupied_cooling_setpoint",
+     "unit": "°C", "value_min": 7, "value_max": 30, "value_step": 0.5},
+    {"name": "system_mode", "access": 7, "type": "enum", "property": "system_mode",
+     "values": ["off", "heat", "cool", "auto"]},
+    {"name": "running_state", "access": 5, "type": "enum", "property": "running_state",
+     "values": ["idle", "heat", "cool"]}]}
 
 
 def records():
@@ -29,6 +39,7 @@ def records():
         zdef("DIM-1", "Acme", [BRIGHTNESS_ONLY]),
         zdef("PLUG-1", "Acme", [SWITCH, POWER]),
         zdef("THERM-2", "Acme", [CLIMATE, BATTERY]),
+        zdef("THERM-3", "Acme", [HEAT_COOL]),
     ]}
     return {r["identity"]["model"]: r for r in zigbee_records(doc)}
 

@@ -32,6 +32,7 @@ U_WALL, U_WINDOW = 0.35, 1.4  # W/m²K, a recent house's walls and double glazin
 ACH = 0.5  # air changes per hour (assumed)
 C_PER_M2 = 165_000.0  # J/K per m² of floor (EN ISO 13790 "medium")
 HEAT_W_PER_M2 = 100.0  # a room's heating at full output (assumed)
+COOL_W_PER_M2 = 80.0  # what a room's cooling removes at full output (assumed; ~ 80 W/m², a split unit's sizing)
 PERSON_W, PERSON_VAPOUR_KPA = 80.0, 0.15  # what a person adds: sensible heat, and to the room's vapour (assumed)
 START_C = 20.5  # every room's temperature when a run begins (assumed)
 U_INTERIOR = 2.0  # W/m²K, an interior partition with its doorway (assumed; plasterboard or block, 1.5-2.5)
@@ -179,7 +180,8 @@ class HomeEnvironment:
             if dt_s > 0:
                 inner = {n: U_INTERIOR * a for n, a in r.neighbours.items() if n in before}
                 h = r.h_w_per_k + sum(inner.values())
-                q = self._solar_w(r, state) + heating.get(rid, 0.0) * HEAT_W_PER_M2 * r.floor_m2 + \
+                share = heating.get(rid, 0.0)  # heating (> 0) or cooling (< 0), a share of full output
+                q = self._solar_w(r, state) + share * (HEAT_W_PER_M2 if share > 0 else COOL_W_PER_M2) * r.floor_m2 + \
                     people.get(rid, 0) * PERSON_W
                 # the equilibrium with the outdoor air and the neighbours' temperatures, each through its own wall
                 eq = (r.h_w_per_k * state.temperature_c + sum(g * before[n] for n, g in inner.items()) + q) / h
@@ -200,5 +202,6 @@ class HomeEnvironment:
             "T_glass": T_GLASS, "sky_angle_deg": SKY_ANGLE, "reflectance": REFLECT, "sun_share": SUN_SHARE,
             "thermal": "one node per room (EN ISO 13790 medium mass), no exchange between rooms",
             "U_wall": U_WALL, "U_window": U_WINDOW, "ach": ACH, "solar_to_air": SOLAR_TO_AIR,
-            "heat_w_per_m2": HEAT_W_PER_M2, "u_interior": U_INTERIOR,
+            "heat_w_per_m2": HEAT_W_PER_M2,
+            "cool_w_per_m2": COOL_W_PER_M2, "u_interior": U_INTERIOR,
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}

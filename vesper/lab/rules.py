@@ -55,6 +55,7 @@ def ambient_at(seconds_of_day: float, lamps_on: int) -> dict:
 
 
 HEAT_SETPOINTS = ("occupied_heating_setpoint", "current_heating_setpoint")
+COOL_SETPOINT = "occupied_cooling_setpoint"  # a heat pump's or an air conditioner's (cools in cool or auto)
 
 
 def thermostat(twin) -> dict | None:
@@ -67,9 +68,11 @@ def thermostat(twin) -> dict | None:
         return None
     mode = feats.get("system_mode")
     hand = mode is not None and mode["type"] == "enum" and "set" in mode.get("access", ())
+    cool = COOL_SETPOINT if COOL_SETPOINT in feats else None
     return {"temperature": state.get("local_temperature"), "setpoint_feature": sp, "setpoint": state[sp],
             "range": feats[sp].get("range"), "mode_feature": "system_mode" if hand else None,
-            "mode": state.get("system_mode"), "modes": list(mode.get("values") or []) if hand else []}
+            "mode": state.get("system_mode"), "modes": list(mode.get("values") or []) if hand else [],
+            "cool_setpoint": state.get(cool) if cool else None}
 
 
 def hand_settings(twin) -> tuple[str, ...]:
@@ -157,6 +160,7 @@ class Rules:
         self.rooms_now: dict[str, dict] = {}  # each room's last ambient values
         self._room_of: dict[str, str] = {}  # actor -> the room it was last seen in
         self._heating: dict[str, bool] = {}  # thermostat -> heating now
+        self._cooling: dict[str, bool] = {}  # thermostat -> cooling now
 
     # -- set-up -------------------------------------------------------------------------------
     def start(self) -> None:
@@ -361,7 +365,8 @@ class Rules:
             self.rooms_now = self.env.step(seconds, lamps, self._heating_now(), people, LAMP_LUX)
             outdoor = self.env.last
             self.record({"t": self.now(), "rule": "environment", "outdoor": outdoor.as_dict(),
-                         "rooms": self.rooms_now, "heating": sorted(n for n, on in self._heating.items() if on)})
+                         "rooms": self.rooms_now, "heating": sorted(n for n, on in self._heating.items() if on),
+                         "cooling": sorted(n for n, on in self._cooling.items() if on)})
         for name, dev in self.devices.items():
             if dev.room and _AMBIENT & set(self.twin(name).features):
                 if self.env is None:
@@ -375,19 +380,21 @@ class Rules:
                 self.runtime.stimulate(self.twin_ids[name], {"type": "ambient", **values})
         self.runtime.clock.call_at(self.now() + AMBIENT_EVERY_S, self._ambient_tick)
 
-    def _report_running(self, name: str, on: bool) -> None:
-        """A thermostat reports what it is doing (its running_state: heat while it calls for heat, else idle), as a
-        real one does; Home Assistant shows it as the climate entity's action."""
+    def _report_running(self, name: str, value: str) -> None:
+        """A thermostat reports what it is doing (its running_state: heat or cool while it calls for it, else
+        idle), as a real one does; Home Assistant shows it as the climate entity's action."""
         f = self.twin(name).features.get("running_state")
-        if not f or not {"heat", "idle"} <= set(f.get("values") or ()):
+        values = set(f.get("values") or ()) if f else set()
+        if not {value, "idle"} <= values:
             return
-        value = "heat" if on else "idle"
         if self.twin(name).state.get("running_state") != value:
             self.runtime.stimulate(self.twin_ids[name], {"type": "measured", "feature": "running_state",
                                                          "value": value})
 
     def _heating_now(self) -> dict[str, float]:
-        """Each room's heating (1 on, 0 off) from the thermostats' states and the rooms' temperatures."""
+        """Each room's heating or cooling from the thermostats' states and the rooms' temperatures: 1 heating, -1
+        cooling, 0 neither. A thermostat heats in heat or auto below its heating setpoint and cools in cool or
+        auto above its cooling setpoint, each within HEAT_BAND_C; one in a hallway does so for the whole home."""
         rooms = self.env.rooms
         out: dict[str, float] = {}
         central = []
@@ -395,22 +402,25 @@ class Rules:
             t = thermostat(self.twin(name))
             if t is None or dev.room not in rooms:
                 continue
-            temp, sp = rooms[dev.room].temperature, t["setpoint"]
+            temp, sp, csp = rooms[dev.room].temperature, t["setpoint"], t["cool_setpoint"]
             heats = t["mode"] in (None, "heat", "auto") and isinstance(sp, int | float)
-            was = self._heating.get(name, False)
+            cools = t["mode"] in ("cool", "auto") and isinstance(csp, int | float)
+            was, wasc = self._heating.get(name, False), self._cooling.get(name, False)
             on = heats and (temp < sp - HEAT_BAND_C or (was and temp < sp + HEAT_BAND_C))
-            self._heating[name] = on
-            self._report_running(name, on)
+            cool = not on and cools and (temp > csp + HEAT_BAND_C or (wasc and temp > csp - HEAT_BAND_C))
+            self._heating[name], self._cooling[name] = on, cool
+            self._report_running(name, "heat" if on else "cool" if cool else "idle")
+            share = 1.0 if on else -1.0 if cool else 0.0
             label = self.home.map.room(dev.room).label.lower()
             if any(w in label for w in CENTRAL_ROOMS):
-                central.append((name, on))
-            out[dev.room] = max(out.get(dev.room, 0.0), 1.0 if on else 0.0)
+                central.append(share)
+            out[dev.room] = share if share else out.get(dev.room, 0.0)
         if central:
             served = {d.room for n, d in self.devices.items() if thermostat(self.twin(n)) is not None}
-            on = any(o for _, o in central)
+            share = 1.0 if 1.0 in central else -1.0 if -1.0 in central else 0.0
             for rid in rooms:
                 if rid not in served:
-                    out[rid] = 1.0 if on else 0.0
+                    out[rid] = share
         return out
 
     def daylight(self, room: str) -> float:

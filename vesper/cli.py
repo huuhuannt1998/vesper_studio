@@ -373,21 +373,30 @@ def _validate_sun(args) -> int:
     return 0
 
 
+def _room_range(run: dict) -> str:
+    rooms = run.get("rooms_c")
+    if not rooms:
+        return "-"
+    return f"{min(v['min'] for v in rooms.values()):.0f}..{max(v['max'] for v in rooms.values()):.0f}"
+
+
 def _validate_crosssite(args) -> int:
     """RQ3: the same home and automations across places, seasons and orientations."""
     from vesper.validation.crosssite import crosssite_report
     report = crosssite_report(None, Path(args.work), args.catalog, fetch=not args.no_fetch)
     out = args.out or Path("results/environment") / f"crosssite-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
     path = _write_report(str(out), "crosssite", report, args)
-    print(f"{'place':<22} {'date':<10} {'N':>4} {'heat min':>8} {'dark min':>8} {'dark at':>7} {'outdoor C':>11}")
+    print(f"{'place':<22} {'date':<10} {'N':>4} {'hvac':<10} {'heat':>5} {'cool':>5} {'dark min':>8} {'dark at':>7} "
+          f"{'rooms C':>11} {'outdoor C':>11}")
     for r in report["runs"]:
         dark = r["automations_first_fired_h"].get("living lamp when it gets dark")
         o = r.get("outdoor") or {}
         print(f"{(r['city'] or 'no site (assumed)')[:22]:<22} {r['date'] or '-':<10} "
-              f"{'-' if r['north_deg'] is None else int(r['north_deg']):>4} "
-              f"{'-' if r['heating_min'] is None else r['heating_min']:>8} "
+              f"{'-' if r['north_deg'] is None else int(r['north_deg']):>4} {r.get('hvac', '-'):<10} "
+              f"{'-' if r['heating_min'] is None else r['heating_min']:>5} {r.get('cooling_min', '-'):>5} "
               f"{r['living_dark_min'] if isinstance(r['living_dark_min'], int) else '-':>8} "
               f"{'-' if dark is None else f'{dark:.2f}':>7} "
+              f"{_room_range(r):>11} "
               f"{(str(o.get('min_c')) + '..' + str(o.get('max_c'))) if o else '-':>11}")
     print(f"report {path}")
     return 0
