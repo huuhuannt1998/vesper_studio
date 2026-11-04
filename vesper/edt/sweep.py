@@ -282,7 +282,8 @@ def negative_control_summary(autos: dict) -> dict:
     flagged = sum(1 for a in fired if a["divergences"])
     rate = flagged / len(fired) if fired else None
     return {"n": len(nc), "fired": len(fired), "flagged": flagged, "rate": rate, "threshold": NC_HALT,
-            "halt": rate is not None and rate > NC_HALT, "rate_over": "control automations that fire somewhere"}
+            "halt": rate is not None and rate > NC_HALT, "rate_over": "control automations that fire somewhere",
+            "uninformative": bool(nc) and not fired}  # a control none of whose automations fires tests nothing
 
 
 def _summarise(rung: int, envs: list[Env], autos: dict, failed_envs: dict[str, str]) -> dict:

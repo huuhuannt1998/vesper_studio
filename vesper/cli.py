@@ -2365,6 +2365,9 @@ def _edt_run(args) -> int:
     failed = result.get("failed_envs") or {}
     if failed:
         print(f"FAILED environments: {len(failed)} ({', '.join(sorted(failed))})", file=sys.stderr)
+    if nc.get("uninformative"):
+        print("WARNING: the negative control is uninformative (none of its automations fires anywhere)",
+              file=sys.stderr)
     if nc["halt"]:
         print(f"HALT: the negative control's flag rate {rate:.1%} is above {nc['threshold']:.0%} of its firing "
               "subset; the harness is wrong, do not use these results (docs/experiments/edt-protocol.md, A1.2)",

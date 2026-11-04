@@ -90,7 +90,8 @@ def test_negative_control_rate(result):
     nc = {k for k, a in result["automations"].items() if a["negative_control"]}
     assert nc == {hid(MOTION), hid(MORNING)}
     assert result["negative_control"] == {"n": 2, "fired": 1, "flagged": 0, "rate": 0.0, "threshold": 0.05,
-                                          "halt": False, "rate_over": "control automations that fire somewhere"}
+                                          "halt": False, "rate_over": "control automations that fire somewhere",
+                                          "uninformative": False}
     assert result["negative_control_rate"] == 0.0
     assert result["automations"][hid(MORNING)]["outcomes"][ENVS[0].key]["fired"] is True
 
@@ -253,3 +254,10 @@ def test_refused_in_one_environment_and_run_in_the_others(corpus, work, result, 
     assert a["refused"] == {ENVS[0].key: "trigger 'x' is not supported"}
     assert sorted(a["outcomes"]) == sorted(e.key for e in ENVS[1:])
     assert r["partially_refused"] == 1 and r["yield"]["run"] == 4
+
+
+def test_a_negative_control_that_never_fires_is_reported_uninformative():
+    nc = negative_control_summary({f"q{i}": _nc(False, False) for i in range(5)})
+    assert nc["fired"] == 0 and nc["rate"] is None and nc["halt"] is False and nc["uninformative"] is True
+    assert negative_control_summary({})["uninformative"] is False  # no control at all: nothing to report
+    assert negative_control_summary({"f": _nc(True, False)})["uninformative"] is False
