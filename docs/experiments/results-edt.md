@@ -325,6 +325,70 @@ then city) changes the **date** for 669, the **orientation** for 129, the **city
 pair, Minneapolis January versus April (370), reflects the tie-break to the smaller environment key (Minneapolis sorts
 first), not a property of Minneapolis.
 
+## Controls: the oracle against known answers (protocol Addendum 4)
+
+The negative control above shows that the harness is consistent (clock-only automations agree across
+environments); it cannot show that a divergence the oracle reports is the one that is there. Two synthetic controls,
+pre-registered with their pass criteria in Addendum 4 (commit `84452f4`) before either was run, measure that. Every
+number below is in `results/edt/controls-ad4822b.json` (the synthetic automations, their per-environment
+expectations, the sweep's outcomes and the scores; no corpus content).
+
+- **Run**: commit `ad4822b`, `vesper edt controls --work <the sweep's work directory> --out FILE --workers 4`
+  (`nice`), rung 4, all 48 environments, the standard home; every trace was reused from the real sweep's cache (none
+  recorded; the rebuilt home has the same hash). Run once; nothing was changed after it.
+- **Positive control**: 57 candidates, 13 dropped before the run by the pre-registered boundary rule (all for a
+  condition boundary within 10 min of a firing in at least one environment), **44 run**. Expectations are computed
+  without the replay: sun events from `vesper.env.sun.sun_events` plus the offset, Home Assistant's sun and time
+  condition semantics, and for `numeric_state` Home Assistant's armed rule over the recorded trace's own reports.
+- **Negative control**: 16 automations reading porch and indoor temperatures, humidities, illuminances and a motion
+  sensor with thresholds or states outside every environment's range.
+
+| Positive, by kind | Automations | Expected divergences | Detected | False positives | First firings compared | MAE (min) | Max (min) |
+|---|---|---|---|---|---|---|---|
+| sun trigger (sunrise/sunset, -70..+65 min) | 10 | 10 (time_spread) | 10 | 0 | 480 | 0.00 | 0.00 |
+| time trigger, no condition | 5 | 0 | 0 | 0 | 240 | 0.00 | 0.00 |
+| time trigger + sun condition | 6 | 5 (fires_somewhere_only) | 5 | 0 | 150 | 0.00 | 0.00 |
+| sun trigger + time-window condition | 2 | 2 (fires_somewhere_only) | 2 | 0 | 22 | 0.00 | 0.00 |
+| numeric_state (porch temperature at its pooled 5th-95th percentiles; living-room and porch illuminance) | 21 | 37 (18 fires_somewhere_only, 19 time_spread) | 37 | 0 | 490 | 0.00 | 0.00 |
+| **All** | **44** | **54** (25 fires_somewhere_only, 29 time_spread, 0 flaps) | **54 (100 %)** | **0** | **1,382** | **0.00** | **0.00** |
+
+Per environment, fired / not fired agrees in 2,112 of 2,112 (automation, environment) cells; no automation was
+refused or failed in any environment; the expected and observed static kinds agree (none).
+
+| Negative | Automations | Run in 48 environments | Fire anywhere | Flagged |
+|---|---|---|---|---|
+| numeric_state (temperature < -25 C, humidity < 2 % or > 100.5 %, illuminance > 10^7 lx or < -1 lx) | 11 | 11 | 0 | 0 |
+| state (temperature `to: boiling`, illuminance `to: dark`, motion `to: jammed`) | 3 | 3 | 0 | 0 |
+| time / sun trigger + an impossible numeric_state condition | 2 | 2 | 0 | 0 |
+| **All** | **16** | **16** | **0** | **0** |
+
+**Verdict against Addendum 4.** Positive: detection 54/54 = 100 % (>= 95 %), 0 false positives, first-firing MAE
+0.00 min (<= 2 min): **PASS**. Negative: 0 of 16 flagged: **PASS**. No divergence was missed and none was reported
+that is not there, so the controls revealed no fault.
+
+What the controls do and do not establish:
+
+- **Zero error is by construction where the two sides share an input.** The expected sun times come from the same
+  `vesper.env.sun.sun_events` (astral) that the engine schedules from, and the numeric_state expectations from the same
+  recorded trace the replay reads. The controls therefore check everything between those inputs and the oracle's
+  verdict: offset arithmetic, per-day scheduling (including a late offset from the warm-up day), the alignment of
+  local midnight across six time zones, the measured window, Home Assistant's sun and time condition semantics, the
+  numeric_state armed rule, the replay's sensor delivery (0.05 s after `observed_t`), and the oracle's
+  fires_somewhere_only and time_spread rules. They do not check the astral sun model or the environment model's
+  physics (validations D and T do that).
+- **Not exercised**: flapping (no candidate is expected to flap: the porch temperature reports on a change of up to
+  about 1 C or hourly, never two reports within 7 min, so a threshold cannot be crossed into range seven times in an
+  hour; the controls test only the absence of spurious flaps), the lamp and cover envelopes (every control acts on a
+  smart plug, by design), and rungs 1-3.
+- **The boundary rule cost the condition kinds most of their candidates**: 8 of 14 time-plus-sun-condition and 5 of 7
+  sun-plus-time-window candidates were dropped. Across the 48 environments sunrise falls between 03:57 and 08:29 and
+  sunset between 15:26 and 21:49 local, so almost every fixed clock time in those spans lies within 10 min of some
+  environment's sun event. The two remaining sun-plus-time-window controls are a thin test of that combination.
+- **The negative control's margins are wide**: over the 48 traces the sensors read 15.7-39.0 C indoors, -14.6-41.1 C
+  on the porch, 8-100 % relative humidity and 0-106,260 lx, so the thresholds are far outside. It shows that binding,
+  the sensors' reports and their delivery add no spurious firing or flag for sensor readers that cannot fire; it says
+  nothing about readers near a threshold (that is the positive control's numeric_state kind).
+
 ## Deviations and disclosures
 
 - **Addendum 3 (before the full run): dates and the negative control.** The plan's dates put the judged days on
