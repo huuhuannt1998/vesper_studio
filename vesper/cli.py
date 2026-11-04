@@ -2205,6 +2205,14 @@ def main(argv: list[str] | None = None) -> int:
     edt_confirm.add_argument("--seed", type=int, default=0)
     edt_confirm.add_argument("--workers", type=int, default=2, help="processes (default 2)")
     edt_confirm.add_argument("--cache", help="recorded weather (<cache>/weather; default <work>/cache; never fetched)")
+    edt_controls = edt_actions.add_parser("controls", help="the synthetic positive and sensor-path negative controls "
+                                                           "of the oracle (protocol addendum 4)")
+    edt_controls.add_argument("--work", required=True, help="the EDT home and trace cache (the sweep's, to reuse "
+                                                            "its traces)")
+    edt_controls.add_argument("--out", required=True, help="the controls report (JSON)")
+    edt_controls.add_argument("--workers", type=int, default=2, help="processes over the environments (default 2)")
+    edt_controls.add_argument("--no-fetch", action="store_true", help="fetch no weather (cached, else clear sky)")
+    edt_controls.add_argument("--catalog", default="catalog/vds")
     args = parser.parse_args(argv)
     _configured_defaults(args)
     if args.command in ("setup", "twins", "validate", "lab"):
@@ -2571,8 +2579,29 @@ def _edt_confirm(args) -> int:
     return 0
 
 
+def _edt_controls(args) -> int:
+    """`vesper edt controls`: the synthetic positive and sensor-path negative controls (protocol addendum 4)."""
+    from vesper.edt.controls import run_controls
+    report = run_controls(Path(args.work), workers=args.workers, catalog_dir=args.catalog, fetch=not args.no_fetch,
+                          log=lambda msg: print(msg, file=sys.stderr, flush=True))
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name(out.name + ".tmp")
+    tmp.write_text(json.dumps(report, indent=1, sort_keys=True, default=str) + "\n")
+    tmp.replace(out)
+    pos, neg = report["positive"]["score"], report["negative"]["score"]
+    rate, mae = pos["detection_rate"], pos["first_time"]["mae_min"]
+    print(f"positive: {pos['detected']}/{pos['expected_divergences']} expected divergences detected"
+          + (f" ({rate:.1%})" if rate is not None else "") + f", {len(pos['false_positives'])} false positives, "
+          f"first-firing MAE " + (f"{mae:.2f} min" if mae is not None else "n/a")
+          + f" -> {'PASS' if pos['pass'] else 'FAIL'}; negative: {len(neg['flagged'])}/{neg['ran']} flagged, "
+          f"{len(neg['fired'])} fire -> {'PASS' if neg['pass'] else 'FAIL'}; report {out}")
+    return 0 if pos["pass"] and neg["pass"] else 4
+
+
 _EDT_ACTIONS = {"census": _edt_census, "ladder": _edt_ladder, "run": _edt_run,
-                "cover": _edt_cover, "confirm": _edt_confirm}  # one entry per `vesper edt` subcommand
+                "cover": _edt_cover, "confirm": _edt_confirm,
+                "controls": _edt_controls}  # one entry per `vesper edt` subcommand
 
 
 def _dispatch(args) -> int:
