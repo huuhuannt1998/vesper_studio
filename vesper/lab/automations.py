@@ -151,6 +151,7 @@ class Entity:
     attrs: dict[str, str] = field(default_factory=dict)  # attribute -> the feature it follows
     static: dict = field(default_factory=dict)  # attributes that do not change (a climate's hvac_modes)
     actions: dict = field(default_factory=dict)  # a climate's running state -> its hvac_action
+    optimistic: bool = False  # a climate whose mode nothing reports: its state is the mode last commanded
 
     def features(self) -> set[str]:
         return {self.feature, self.state_feature, *self.attrs.values()} - {""}
@@ -166,8 +167,10 @@ def _model(e: Entity) -> None:
     """What Home Assistant's MQTT entity reports beyond the state the engine always had: a climate's state is its
     hvac mode, with its setpoint, current temperature and hvac action as attributes; a JSON light's brightness."""
     cfg = e.cfg
-    if e.platform == "climate" and not cfg.get("matter") and not cfg.get("tasmota"):
+    if e.platform == "climate":
         e.state_feature = _json_key(cfg.get("mode_state_template"))
+        # Home Assistant's MQTT climate without a mode state topic is optimistic: off until a mode is commanded
+        e.optimistic = not e.state_feature
         e.attrs = {k: v for k, v in (("temperature", _json_key(cfg.get("temperature_state_template")) or e.feature),
                                      ("current_temperature", _json_key(cfg.get("current_temperature_template"))),
                                      ("hvac_action", _json_key(cfg.get("action_template")))) if v}
@@ -426,6 +429,8 @@ class Engine:
         self._templates = None  # vesper.lab.ha_template.Templates, on first use
         self._varnames: set[str] = set()
         self._watches: list[_Watch] = []  # the template triggers under way
+        self._modes: dict[str, str] = {}  # an optimistic climate -> the mode last commanded
+        self._armed: dict[int, set] = {}  # owner (automation or wait) -> its armed (numeric_state trigger, entity)
         self._held: dict[str, list[_Held]] = {}  # entity -> the `for:` timers waiting on it
         self._waits: list[_Wait] = []  # the wait_for_trigger steps under way
         self._burst: tuple[float, dict] = (-1.0, {})  # (instant, automation -> firings at it): the loop guard
@@ -543,6 +548,12 @@ class Engine:
             except TemplateFailed:
                 return False
         return True
+
+    def _now(self):
+        """Home Assistant's `trigger.now` of a time trigger: the local time (None for a home without a site)."""
+        if self.site is None:
+            return None
+        return self.site.utc(self.session.clock.now() - self._midnight).astimezone(self.site.zone)
 
     def _datetime_of(self, t: float):
         from vesper.lab.ha_template import TemplateFailed
@@ -1048,6 +1059,8 @@ class Engine:
         self._changed = dict.fromkeys(self._state, clock.now())
         if self.site is not None:
             self._sun_update_events(initial=True)
+        for a in self.automations:
+            self._arm(id(a), a.triggers)
         for day in (0, 1):
             self._schedule_day(day)
         clock.call_at(self._midnight + DAY_S, lambda: self._next_day(2))
@@ -1080,7 +1093,7 @@ class Engine:
                         when = self._midnight + day * DAY_S + at
                         if when >= now:
                             self.session.clock.call_at(when, lambda a=a, t=t, at=at: self._fire(
-                                a, f"time {at:g}", _tvars(t)))
+                                a, f"time {at:g}", _tvars(t, now=self._now(), entity_id=None)))
 
     # -- Home Assistant's sun entity (sun/entity.py) ------------------------------------------------
     def _utc(self, t: float):
@@ -1171,7 +1184,7 @@ class Engine:
 
         def fire():
             self._pattern_next(a, t)
-            self._fire(a, f"time_pattern {(when - self._midnight) % DAY_S:g}", _tvars(t))
+            self._fire(a, f"time_pattern {(when - self._midnight) % DAY_S:g}", _tvars(t, now=self._now()))
         self.session.clock.call_at(when, fire)
 
     def _next_pattern(self, t: dict, after: float) -> float:
@@ -1195,7 +1208,9 @@ class Engine:
     # -- entity states, as Home Assistant's integrations make them -----------------------------------
     def _entity_state(self, e: Entity) -> str:
         value = self._feat.get((e.twin_id, e.state_feature or e.feature))
-        if e.platform == "climate":  # Home Assistant's climate state is its hvac mode
+        if e.platform == "climate":  # Home Assistant's climate state is its hvac mode, never its setpoint
+            if e.optimistic:
+                return self._modes.get(e.entity_id, "off")
             return "unknown" if value is None else str(value)
         return self._state_of(e, value)
 
@@ -1267,11 +1282,11 @@ class Engine:
             entity = change[0]
             for a in self.automations:
                 for t in a.triggers:
-                    if entity in t.get("entities", ()) and self._matches(t, change):
+                    if entity in t.get("entities", ()) and self._matches(t, change, id(a)):
                         self._triggered(t, change, lambda why, tv, a=a: self._fire(a, why, tv))
             for w in list(self._waits):
                 for t in w.triggers:
-                    if w.active and entity in t.get("entities", ()) and self._matches(t, change):
+                    if w.active and entity in t.get("entities", ()) and self._matches(t, change, id(w)):
                         self._triggered(t, change, w.done)
         if changes and self._watches:
             self._watches = [w for w in self._watches if w.active]
@@ -1286,14 +1301,31 @@ class Engine:
         """What a state or numeric_state trigger or condition looks at: the state, or its `attribute`."""
         return state if t.get("attribute") is None else (attrs or {}).get(t["attribute"])
 
-    def _matches(self, t: dict, change: tuple) -> bool:
+    def _arm(self, owner: int, triggers: list) -> None:
+        """Home Assistant's numeric_state trigger at setup: each (trigger, entity) out of range is armed."""
+        armed = self._armed.setdefault(owner, set())
+        for t in triggers:
+            if t["kind"] == "numeric_state":
+                for entity in t["entities"]:
+                    if not self._in_range(t, self._value(t, self._state.get(entity), self._attrs.get(entity))):
+                        armed.add((id(t), entity))
+
+    def _matches(self, t: dict, change: tuple, owner: int) -> bool:
         """Home Assistant's state trigger (an attribute trigger ignores the other attributes' changes; with none of
         to/from/not_to/not_from any change fires, an attribute's too, else the value must change) and numeric_state
-        trigger (the value enters the range)."""
-        _, old, new, old_attrs, new_attrs = change
+        trigger (armed per entity while out of range, it fires when the value is in range and it was armed, so a
+        threshold entity that moved counts when the entity next changes)."""
+        entity, old, new, old_attrs, new_attrs = change
         before, after = self._value(t, old, old_attrs), self._value(t, new, new_attrs)
         if t["kind"] == "numeric_state":
-            return self._in_range(t, after) and not self._in_range(t, before)
+            armed, key = self._armed.setdefault(owner, set()), (id(t), entity)
+            if not self._in_range(t, after):
+                armed.add(key)
+                return False
+            if key in armed:
+                armed.discard(key)
+                return True
+            return False
         if t.get("attribute") is not None and before == after:
             return False
         if not t["match_all"] and before == after:
@@ -1350,10 +1382,12 @@ class Engine:
         clock.call_at(clock.now() + t["for"], held)
 
     # -- template triggers -------------------------------------------------------------------------
-    def _watch(self, t: dict, fire: Callable, variables: dict) -> _Watch:
-        """Start a template trigger: rendered now, armed if false (Home Assistant arms it at setup only then)."""
-        rendered = {}
-        self._render_variables(variables, rendered)
+    def _watch(self, t: dict, fire: Callable, variables: dict, rendered: dict | None = None) -> _Watch:
+        """Start a template trigger: rendered now, armed if false (Home Assistant arms it at setup only then);
+        `variables` are rendered for it, or `rendered` (a wait's: its run's variables) is used as it is."""
+        if rendered is None:
+            rendered = {}
+            self._render_variables(variables, rendered)
         w = _Watch(t, fire, rendered)
         result = self._watch_render(w)
         w.armed = not isinstance(result, tuple) and not self._truthy(result)
@@ -1561,6 +1595,9 @@ class Engine:
                     for feature, value in x["commands"][entity_id]:
                         self.session.automation_command(a.name, run.why, x["service"], entity_id,
                                                         self.entities[entity_id].twin_id, feature, value)
+                        if feature == "system_mode" and self.entities[entity_id].optimistic:
+                            self._modes[entity_id] = value  # an optimistic climate takes the mode it was sent
+                            self._apply([self._set(entity_id, value)])
             else:
                 for entity_id in x["entities"]:
                     self._call(a, x, self.entities[entity_id], run.why)
@@ -1635,6 +1672,7 @@ class Engine:
         def end():
             w.active = False
             self._waits.remove(w)
+            self._armed.pop(id(w), None)
             for watch in watches:
                 watch.active = False
 
@@ -1645,12 +1683,13 @@ class Engine:
                 self._run(run)
         w.done = done
         self._waits.append(w)
+        self._arm(id(w), x["triggers"])
         for t in x["triggers"]:
             when = self._next_time(t)
             if when is not None:
-                clock.call_at(when, lambda t=t: done(f"{t['kind']} (wait)", _tvars(t)))
+                clock.call_at(when, lambda t=t: done(f"{t['kind']} (wait)", _tvars(t, now=self._now())))
             if t["kind"] == "template":
-                watches.append(self._watch(t, done, {}))
+                watches.append(self._watch(t, done, {}, rendered=run.context))
         if x["timeout"] is not None:
             def timeout():
                 if w.active:
@@ -1759,10 +1798,21 @@ def _event_class(event_type) -> str:
     return "a custom event another automation or script fires"
 
 
+DESCRIPTIONS = {"time": "time", "time_pattern": "time pattern", "homeassistant": "Home Assistant starting",
+                "template": "template"}
+
+
 def _tvars(t: dict, **extra) -> dict:
-    """Home Assistant's `trigger` variables of a trigger that fired: its platform, id and index, and what else it
-    says (an entity's from_state/to_state, a sun event)."""
-    return {"platform": t["kind"], "id": t["id"], "idx": t["idx"], **extra}
+    """Home Assistant's `trigger` variables of a trigger that fired: its platform, id, index and description, and
+    what else it says (an entity's from_state/to_state, a sun event, the time `now`)."""
+    kind = t["kind"]
+    if kind in ("state", "numeric_state"):
+        description = f"{'numeric ' if kind == 'numeric_state' else ''}state of {extra.get('entity_id')}"
+    elif kind == "sun":
+        description = f"{t['event']} with offset"
+    else:
+        description = DESCRIPTIONS.get(kind, kind)
+    return {"platform": kind, "id": t["id"], "idx": t["idx"], "description": description, **extra}
 
 
 def _list(value, where: str) -> list:

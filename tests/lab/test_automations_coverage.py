@@ -798,3 +798,119 @@ def test_the_budget_restores_an_outer_alarm():
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, old)
+
+
+# ---- review fixes: Home Assistant's armed numeric_state, wait variables, trigger.now, rate limits, optimistic climate
+
+def test_a_numeric_state_trigger_is_armed_per_entity_so_a_moved_threshold_entity_counts(tmp_path):
+    """Home Assistant arms (trigger, entity) at setup when out of range and fires when the value is in range while
+    armed. The reviewer's probe: limit 15, temperature 20 (out of range: armed); the limit moves to 25; 20 -> 21
+    fires, though 20 was already below the new limit."""
+    def autos(ids):
+        temp, battery = ids["kitchen_climate"]["temperature"], ids["kitchen_climate"]["battery"]
+        return [auto([], [{"trigger": "numeric_state", "entity_id": temp, "below": battery}])]
+    ids, s, e, _ = setup(tmp_path, autos)
+    temp, battery = ids["kitchen_climate"]["temperature"], ids["kitchen_climate"]["battery"]
+    (a,) = e.automations
+    t, owner = a.triggers[0], id(a)
+    e._armed.clear()
+    e._state.update({temp: "20", battery: "15"})
+    e._arm(owner, a.triggers)
+    e._state[battery] = "25"
+    assert e._matches(t, (temp, "20", "21", {}, {}), owner) is True
+    assert e._matches(t, (temp, "21", "22", {}, {}), owner) is False  # fired: disarmed until out of range again
+    e._state[battery] = "15"
+    assert e._matches(t, (temp, "22", "23", {}, {}), owner) is False  # out of range: armed again
+    e._state[battery] = "25"
+    assert e._matches(t, (temp, "23", "24", {}, {}), owner) is True
+
+
+def test_an_entity_in_range_at_setup_is_not_armed(tmp_path):
+    def autos(ids):
+        return [auto([], [{"trigger": "numeric_state", "entity_id": ids["kitchen_climate"]["temperature"],
+                           "above": 10}])]
+    ids, s, e, _ = setup(tmp_path, autos)
+    temp = ids["kitchen_climate"]["temperature"]
+    (a,) = e.automations
+    t, owner = a.triggers[0], id(a)
+    e._armed.clear()
+    e._state[temp] = "20"
+    e._arm(owner, a.triggers)
+    assert e._matches(t, (temp, "20", "21", {}, {}), owner) is False  # Home Assistant: not armed at setup
+    assert e._matches(t, (temp, "21", "5", {}, {}), owner) is False
+    assert e._matches(t, (temp, "5", "12", {}, {}), owner) is True
+
+
+def test_a_wait_for_a_template_trigger_renders_with_the_runs_variables(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        return [auto([{"variables": {"who": motion}},
+                      {"wait_for_trigger": [{"trigger": "template", "value_template": "{{ is_state(who, 'on') }}"}],
+                       "timeout": 600, "continue_on_timeout": False},
+                      {"action": "light.turn_on", "target": {"entity_id": lamp}}])]
+    ids, s, e, calls = setup(tmp_path, autos)
+    assert e.refused == []
+    s.clock.advance(H + 60)  # 08:01: waiting
+    e._apply([e._set(lamp_motion(ids)[1], "on")])
+    s.clock.advance(1)
+    assert services(calls) == ["light.turn_on"]
+
+
+def test_time_triggers_carry_trigger_now_and_a_description(tmp_path):
+    def autos(ids):
+        return [auto([{"condition": "template", "value_template":
+                       "{{ trigger.now.hour == 8 and trigger.now.minute == 0 and trigger.description == 'time' }}"},
+                      {"action": "light.turn_on", "target": {"entity_id": lamp_motion(ids)[0]}}], at("08:00")),
+                auto([{"condition": "template", "value_template":
+                       "{{ trigger.now.minute == 45 and trigger.platform == 'time_pattern' }}"},
+                      {"action": "light.turn_off", "target": {"entity_id": lamp_motion(ids)[0]}}],
+                     [{"trigger": "time_pattern", "minutes": 45}])]
+    _, s, e, calls = setup(tmp_path, autos, text_home=sited_home)
+    s.clock.advance(1.5 * H)  # 07:30 -> 09:00
+    assert services(calls) == ["light.turn_off", "light.turn_on", "light.turn_off"]  # 07:45, 08:00, 08:45
+
+
+def test_a_template_reading_all_states_renders_at_most_once_a_minute(tmp_path):
+    def autos(ids):
+        return [auto([{"action": "light.turn_on", "target": {"entity_id": lamp_motion(ids)[0]}}],
+                     [{"trigger": "template", "value_template":
+                       "{{ states | selectattr('state', 'eq', 'on') | list | count > 0 }}"}])]
+    ids, s, e, calls = setup(tmp_path, autos)
+    (w,) = e._watches
+    lamp, motion = lamp_motion(ids)
+    e._apply([e._set(motion, "off")])
+    rendered = w.rendered_at
+    e._apply([e._set(motion, "on")])  # within the minute: not rendered now, but scheduled
+    assert w.rendered_at == rendered and w.pending and calls == []
+    s.clock.advance(61)
+    assert w.rendered_at == rendered + 60 and len(calls) == 1
+
+
+def test_a_template_reading_a_domain_renders_at_most_once_a_second(tmp_path):
+    def autos(ids):
+        return [auto([], [{"trigger": "template",
+                           "value_template": "{{ states.binary_sensor | selectattr('state', 'eq', 'on') | list }}"}])]
+    ids, s, e, _ = setup(tmp_path, autos)
+    (w,) = e._watches
+    _, motion = lamp_motion(ids)
+    e._apply([e._set(motion, "on")])
+    first = w.rendered_at
+    e._apply([e._set(motion, "off")])
+    assert w.rendered_at == first and w.pending
+    s.clock.advance(1.5)
+    assert w.rendered_at == first + 1
+
+
+def test_a_climate_whose_mode_nothing_reports_is_optimistic_as_home_assistants_mqtt_climate(tmp_path):
+    ids, s, e, calls = setup(tmp_path, [], text_home=sited_home)
+    climate = next(x for x in ids["bedroom_thermostat"].values() if x.startswith("climate."))
+    entity = e.entities[climate]
+    entity.state_feature, entity.optimistic = "", True  # as a discovery with no mode_state_template
+    assert e._entity_state(entity) == "off"  # not its setpoint
+    e2 = Engine(s, automations=[auto([{"action": "climate.set_hvac_mode", "target": {"entity_id": climate},
+                                       "data": {"hvac_mode": "heat"}}])])
+    e2.entities[climate].state_feature, e2.entities[climate].optimistic = "", True
+    e2.start()
+    assert e2._state[climate] == "off"
+    s.clock.advance(1 * H)  # 08:00
+    assert e2._state[climate] == "heat"
