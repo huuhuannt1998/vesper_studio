@@ -417,6 +417,47 @@ def _validate_crosssite(args) -> int:
     return 0
 
 
+def _validate_plans(args) -> int:
+    """The floor-plan import's evaluation on CubiCasa5K (vesper.validation.plans): each sampled test plan read once
+    (readings saved under <dataset>/readings and reused), measured against its ground truth."""
+    from vesper.twins.home import load_catalog
+    from vesper.validation.plans import evaluate
+    try:
+        catalog = load_catalog(Path(args.catalog))
+    except FileNotFoundError:
+        catalog = None
+        print(f"no catalog in {args.catalog}: the homes are not built, the layout check is skipped")
+    say = lambda text: print(text, flush=True)  # noqa: E731
+    try:
+        result = evaluate(Path(args.dataset), args.n, args.seed, model=args.model, timeout=args.timeout,
+                          catalog=catalog, offline=args.offline, fetch_missing=args.fetch, say=say)
+    except (FileNotFoundError, ValueError, OSError) as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    out = args.out or Path("results/plans") / f"plans-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+    path = _write_report(str(out), "plans", result, args)
+    pct = lambda v: "-" if v is None else f"{100 * v:.0f}%"  # noqa: E731
+    print(f"{'plan':<34} {'rooms':>9} {'room F1':>7} {'types':>5} {'doors':>7} {'area':>5} {'house':>5} "
+          f"{'layout':>6} {'s':>5} {'$':>6}")
+    for r in result["plans"]:
+        s, b = r["score"], r["build"] or {}
+        layout = "-" if b.get("layout_errors") is None else str(b["layout_errors"])
+        print(f"{r['id']:<34} {s['rooms_matched']:>3}/{s['rooms_true']:<2}({s['rooms_pred']:>2}) {s['room_f1']:>7.2f} "
+              f"{pct(s['type_accuracy']):>5} {s['doors_found']:>3}/{s['doors_true']:<3} "
+              f"{pct(s['area_error_total']):>5} {'yes' if b.get('check_house') else 'no':>5} {layout:>6} "
+              f"{r['seconds'] or 0:>5.0f} {r['cost_usd'] or 0:>6.2f}")
+    a = result["aggregate"]
+    print(f"{a['plans']} plans ({a['plans_read']} read): room F1 {a['room_f1']:.2f} (P {a['room_precision']:.2f}, "
+          f"R {a['room_recall']:.2f}), types {pct(a['type_accuracy'])} "
+          f"(hall=corridor {pct(a['type_accuracy_lenient'])}), doors found {pct(a['door_recall'])}, "
+          f"total area error {pct(a['area_error_total_mean'])}, "
+          f"check_house {pct(a['check_house_share'])}, layout with 0 errors {pct(a['layout_zero_errors_share'])}")
+    if result["not_read"]:
+        print(f"not read (offline): {', '.join(result['not_read'])}")
+    print(f"report {path}")
+    return 0
+
+
 def _validate_environment(args) -> int:
     """Phase 6: W, T, H and D of docs/experiments/environment-validation.md."""
     try:
@@ -1948,7 +1989,19 @@ def main(argv: list[str] | None = None) -> int:
     xs.add_argument("--daylight-scale", type=float, default=1.0,
                     help="scale every room's daylight (sensitivity; validation D measured 1/14.8 of the model)")
     xs.add_argument("--out")
-    disc = checks.add_parser("discovery", help="Home Assistant's own schemas over every discovery message")
+    pl = checks.add_parser("plans", help="the floor-plan import read on CubiCasa5K test plans: rooms, types, doors, "
+                                         "areas, check_house and the layout check (runs Claude for each new plan)")
+    pl.add_argument("--dataset", default=".vesper/datasets/cubicasa5k", help="CubiCasa5K's folders and test.txt")
+    pl.add_argument("--n", type=int, default=10, help="how many test plans (a seeded choice)")
+    pl.add_argument("--seed", type=int, default=0)
+    pl.add_argument("--model", help="Claude's model (--model of `claude`); default: your Claude Code's own")
+    pl.add_argument("--timeout", type=float, help="seconds one Claude call may take (default 900)")
+    pl.add_argument("--fetch", action="store_true", help="copy missing plans out of the published archive "
+                                                         "(HTTP range requests: only the files needed)")
+    pl.add_argument("--offline", action="store_true", help="run no Claude: measure only the saved readings")
+    pl.add_argument("--catalog", default="catalog/vds", help="to build each home for the layout check")
+    pl.add_argument("--out", help="the results (JSON)")
+    disc = checks.add_parser("discovery",help="Home Assistant's own schemas over every discovery message")
     disc.add_argument("--catalog", default="catalog/vds")
     disc.add_argument("--root", default=".vesper")
     disc.add_argument("--out")
@@ -2635,6 +2688,8 @@ def _dispatch(args) -> int:
         return _validate_environment(args)
     if args.action == "crosssite":
         return _validate_crosssite(args)
+    if args.action == "plans":
+        return _validate_plans(args)
     if args.action == "rules":
         return _validate_rules(args)
     if args.action == "latency":
