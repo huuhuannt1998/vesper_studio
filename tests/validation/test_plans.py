@@ -375,3 +375,31 @@ def test_the_cli_writes_the_results_and_prints_the_metrics(tmp_path, capsys):
     assert res["aggregate"]["room_f1"] == pytest.approx(1.0) and res["protocol"]["n"] == 1
     printed = capsys.readouterr().out
     assert "high_quality/7" in printed and "room F1" in printed
+
+
+def test_a_ranged_read_waits_and_retries_when_the_server_says_too_many_requests(monkeypatch):
+    from vesper.validation import plans
+
+    class Resp:
+        def __init__(self, status, content=b"", headers=None):
+            self.status_code, self.content, self.headers = status, content, headers or {}
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError(f"HTTP {self.status_code}")
+
+    class Http:
+        def __init__(self):
+            self.calls = 0
+
+        def get(self, url, headers):
+            self.calls += 1
+            return Resp(429, headers={"retry-after": "2"}) if self.calls < 3 else Resp(206, b"abcd")
+
+    slept = []
+    monkeypatch.setattr(plans.time, "sleep", slept.append)
+    r = plans._Ranged.__new__(plans._Ranged)
+    r._http, r._url, r._size, r._pos, r.fetched = Http(), "u", 4, 0, 0
+    buf = bytearray(4)
+    assert r.readinto(buf) == 4 and bytes(buf) == b"abcd"
+    assert r._http.calls == 3 and slept[:2] == [2.0, 2.0]

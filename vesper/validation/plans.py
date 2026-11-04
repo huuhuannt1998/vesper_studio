@@ -505,6 +505,9 @@ def sample(ids: list[str], n: int, seed: int) -> list[str]:
     return order[:n]
 
 
+RETRIES = 8  # range requests retried when the archive server answers 429/503
+
+
 class _Ranged(io.RawIOBase):
     """A remote file read with HTTP range requests: the zip's directory and the members asked for, nothing else."""
 
@@ -535,7 +538,15 @@ class _Ranged(io.RawIOBase):
         if self._pos >= self._size or not len(buf):
             return 0
         end = min(self._size, self._pos + len(buf)) - 1
-        r = self._http.get(self._url, headers={"Range": f"bytes={self._pos}-{end}"})
+        for attempt in range(RETRIES):
+            r = self._http.get(self._url, headers={"Range": f"bytes={self._pos}-{end}"})
+            if r.status_code not in (429, 503) or attempt == RETRIES - 1:
+                break
+            try:  # the server asks to slow down: wait as long as it says (else back off), then ask again
+                wait = float(r.headers.get("retry-after", ""))
+            except ValueError:
+                wait = min(60.0, 2.0 ** (attempt + 1))
+            time.sleep(min(wait, 120.0))
         r.raise_for_status()
         if r.status_code != 206:
             raise OSError(f"{self._url}: the server ignored the range request (status {r.status_code})")
@@ -561,7 +572,7 @@ def fetch(dest: Path, names: list[str], opener=None) -> list[str]:
     missing = [n for n in map(_safe, names) if not (dest / n).is_file()]
     if not missing:
         return []
-    raw = opener() if opener is not None else io.BufferedReader(_Ranged(SOURCE_URL), buffer_size=1 << 16)
+    raw = opener() if opener is not None else io.BufferedReader(_Ranged(SOURCE_URL), buffer_size=1 << 20)
     manifest_path = dest / "MANIFEST.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
     manifest.update(url=SOURCE_URL, record=SOURCE_RECORD, licence=LICENCE)
