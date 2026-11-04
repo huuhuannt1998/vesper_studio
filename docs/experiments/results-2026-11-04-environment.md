@@ -198,7 +198,7 @@ side, medians over rooms:
 
 For 2R2C+solar the converged fit is better on A (RMSE 1.15 -> 1.05 °C, AIC down by 1,400) and worse on B (3.21 ->
 5.50 °C, with r 0.89 but a +5.1 °C bias: B is simulated too warm, as the one-node room was). A's median parameters moved
-a lot (R_ao 0.27 -> 1.28 K/W, C_m 71 -> 302 MJ/K, g·A 0.63 -> 0.42 m²); B's own refits are the same as before in
+a lot (R_ao 0.27 -> 1.28 K/W, C_m 102 -> 302 MJ/K, g·A 0.63 -> 0.42 m²); B's own refits are the same as before in
 kind (R_ao on its bound, g·A 20.6x A's median, C_m 0.055x). Intervals are still all wide: every one of the five
 spans at least 43x, with ends at a bound or at the grid's end. The verdict by the registered rule is **sponge**,
 unchanged, and the outcome is **sponge** with order 2R2C+solar (lowest AIC), unchanged. Two things hold now that did
