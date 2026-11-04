@@ -13,6 +13,7 @@ the plan's top), side (z0|z1|x0|x1 of its room), source ("rule" | "hssd")}. Ever
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 FORMAT = "vesper-windows/1"
@@ -117,6 +118,46 @@ def from_openings(world_map, openings: list[dict]) -> list[dict]:
         out.append({"id": f"{room.id}_window_{k + 1}", "room": room.id, "x": round(p[0], 3), "z": round(p[1], 3),
                     "width": width, "sill": round(y - height / 2, 2) if isinstance(y, (int, float)) else sill,
                     "height": height, "facing": FACING[side], "side": side, "source": "hssd"})
+    return out
+
+
+ON_WALL_M = 0.02  # a rule window lies on its room's outline within this
+
+
+def from_plan(plan_m: dict, world_map) -> list[dict]:
+    """An imported home's windows (floor-plan import): each of the plan's windows where the plan puts it (on its
+    room's outline, the wall's centre line) at the plan's width, the sill and height its room's kind has by RULES
+    (DEFAULT_PANE for a hall or another room), facing out of the wall it is on (source "plan"); then, in a room with
+    none, `plan_windows`' rule windows that lie on the room's outline (source "rule"). The map's room ids are the
+    plan's (vesper.lab.generate.floor_plan_from)."""
+    from vesper.lab.furnishing import room_kind
+    from vesper.lab.generate import _edges, _gap, _inward, _outline
+    outlines = {r["id"]: _outline(r["polygon"]) for r in plan_m["rooms"]}
+    windows = plan_m.get("windows") or []
+    count = {w["room"]: sum(1 for x in windows if x["room"] == w["room"]) for w in windows}
+    seen: dict[str, int] = {}
+    out = []
+    for w in windows:
+        rid, at = w["room"], (float(w["at"][0]), float(w["at"][1]))
+        ring = outlines[rid]
+        edge = min(_edges(ring), key=lambda e: _gap(e, at))
+        nx, nz = _inward(ring, edge)
+        facing = round(math.degrees(math.atan2(-nx, nz))) % 360  # out of the room, clockwise from the plan's top
+        side = min(FACING, key=lambda s: min(abs(FACING[s] - facing), 360 - abs(FACING[s] - facing)))
+        kind = room_kind(world_map.room(rid))
+        sill, height = RULES[kind][2:] if kind in RULES else DEFAULT_PANE[1:]
+        seen[rid] = seen.get(rid, 0) + 1
+        out.append({"id": f"{rid}_window{seen[rid] if count[rid] > 1 else ''}", "room": rid, "x": round(at[0], 3),
+                    "z": round(at[1], 3), "width": round(float(w["width"]), 2), "sill": sill, "height": height,
+                    "facing": facing, "side": side, "source": "plan"})
+    for r in plan_windows(world_map):
+        if r["room"] in count or r["room"] not in outlines:
+            continue
+        half = r["width"] / 2
+        ends = ([(r["x"] - half, r["z"]), (r["x"] + half, r["z"])] if r["side"] in ("z0", "z1")
+                else [(r["x"], r["z"] - half), (r["x"], r["z"] + half)])
+        if any(all(_gap(e, p) <= ON_WALL_M for p in ends) for e in _edges(outlines[r["room"]])):
+            out.append(r)  # a room that is not a rectangle: only a window on one of its real walls
     return out
 
 

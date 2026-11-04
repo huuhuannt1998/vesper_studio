@@ -5,7 +5,8 @@ nightstands, a kitchen a counter run and a fridge...), each against a wall or wh
 No piece stands within DOOR_CLEAR_M of a doorway or within DEVICE_CLEAR_M of a wall or floor device or a light's wall
 switch, and none taller than a window's sill stands in front of it (a sofa, a bed or a desk may sit under one);
 and a piece is kept only if, with the floor under it taken, every doorway of its room and every device a
-hand reaches there can still be reached on foot. `block` then takes the floor under each solid piece off the walking
+hand reaches there can still be reached on foot, and a room's doorways stay joined by a WALKWAY_M path (an imported
+plan's room often has two or more doors). `block` then takes the floor under each solid piece off the walking
 map, so people walk round the furniture; the 3D view draws each piece as a model (furniture3d.js).
 
 Rooms are taken as their bounding box (VESPER's generated rooms are rectangles); a piece is also kept inside the
@@ -13,6 +14,7 @@ room's polygon. Deterministic: the same map and devices give the same furniture.
 """
 from __future__ import annotations
 
+import math
 from collections import deque
 
 from vesper.lab.geometry import distance, point_in_polygon
@@ -25,6 +27,7 @@ WALL_GAP_M = 0.03  # a piece's back off its wall
 GAP_M = 0.08  # between two pieces
 AISLE_M = 0.8  # what a wall piece leaves across the room
 REACH_M = 0.9  # a device stays within this of the floor people walk (rules.INTERACT_M is 1.0)
+WALKWAY_M = 0.9  # a room's doorways stay joined by a path this wide (vesper.lab.layoutcheck's walkway rule)
 
 # Each room kind's pieces, in the order they are placed: (kind, width along its wall, depth, height, where, solid).
 # where: "back" (the wall facing the room's door, centred), "wall" (any wall, its ends first), "corner", "middle",
@@ -321,4 +324,31 @@ def _still_reachable(r, taken) -> bool:
         return False
     if len(seen & free) < len(r.cells) / 3:
         return False
-    return all(any(distance(g.center(*c), p) <= REACH_M for c in seen) for p in r.reach)
+    if not all(any(distance(g.center(*c), p) <= REACH_M for c in seen) for p in r.reach):
+        return False
+    return _walkway(r, taken)
+
+
+def _walkway(r, taken) -> bool:
+    """With `taken` off the floor, a room with two or more doorways keeps them joined by floor WALKWAY_M wide, as
+    the layout check measures it (vesper.lab.layoutcheck: cells with a (2k - 1)-cell square of floor about them,
+    within the room's box and 0.3 m round it)."""
+    if len(r.doorways) < 2:
+        return True
+    g = r.map.grid
+    k = max(1, math.ceil(WALKWAY_M / 2 / g.cell))
+    box = (r.x0 - 0.3, r.z0 - 0.3, r.x1 + 0.3, r.z1 + 0.3)
+    near = (box[0] - k * g.cell, box[1] - k * g.cell, box[2] + k * g.cell, box[3] + k * g.cell)
+    free = {c for c in _cells_in(g, near) if g.is_walkable(*c) and c not in taken}
+    inside = {c for c in _cells_in(g, box) if all((c[0] + di, c[1] + dj) in free for di in range(-k + 1, k)
+                                                   for dj in range(-k + 1, k))}
+    starts = [{c for c in inside if distance(g.center(*c), d.center) <= WALKWAY_M} for d in r.doorways]
+    seen, todo = set(), deque(starts[0])
+    while todo:
+        c = todo.popleft()
+        if c in seen or c not in inside:
+            continue
+        seen.add(c)
+        i, j = c
+        todo.extend(((i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)))
+    return all(s & seen for s in starts[1:])

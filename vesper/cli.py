@@ -788,6 +788,8 @@ def _lab(args) -> int:
             return _lab_scenario(args, catalog)
         if args.action == "generate":
             return _lab_generate(args, catalog)
+        if args.action == "import":
+            return _lab_import(args, catalog)
         if args.action == "compose":
             return _lab_compose(args, catalog)
         if args.action == "dress":
@@ -923,6 +925,63 @@ def _lab_generate(args, catalog) -> int:
         print(f"{args.count} homes in {out}, summary {out / 'summary.csv'} (synthetic layouts; positions by rule)")
         return 0
     except GenerateError as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+
+
+def _lab_import(args, catalog) -> int:
+    """`vesper lab import` (floor-plan import, task A2): a home from a `vesper-plan/1` file, scaled to metres,
+    straightened, checked to be a house (every problem listed, nothing written), then built as `generate` builds."""
+    import dataclasses
+
+    import yaml
+
+    from vesper.lab.generate import GenerateError, Request, generate_from_plan, load_request, starter
+    from vesper.lab.home import load_lab_home
+    from vesper.lab.plan import PlanError, check_house, load_plan, rectify, scale_plan
+    src, out = Path(args.src), Path(args.dir)
+    if src.suffix.lower() != ".json":
+        print(f"vesper lab import: {src.name} is not a vesper-plan/1 .json file; reading images arrives in the next "
+              "step (write the plan as JSON meanwhile)", file=sys.stderr)
+        return 2
+    if out.exists():
+        print(f"FAILED: {out} already exists", file=sys.stderr)
+        return 1
+    try:
+        try:
+            raw = json.loads(src.read_text())
+        except OSError as e:
+            raise GenerateError(f"{src}: cannot read it: {e.strerror}") from None
+        except ValueError as e:
+            raise GenerateError(f"{src.name}: not valid JSON: {e}") from None
+        plan = rectify(scale_plan(load_plan(raw), args.scale, args.area))
+        problems = check_house(plan)
+        if problems:
+            print(f"FAILED: {src.name} is not a house VESPER can build ({len(problems)} problem"
+                  f"{'s' if len(problems) != 1 else ''}):", file=sys.stderr)
+            for p in problems:
+                print(f"  - {p}", file=sys.stderr)
+            return 1
+        types = [r["type"] for r in plan["rooms"]]
+        if args.request:
+            request = load_request(Path(args.request))
+            spec = yaml.safe_load(Path(args.request).read_text())
+            if any(spec.get(k) is not None for k in ("rooms", "program", "scene")):
+                raise GenerateError("an imported home's rooms come from the plan: a request for it names no rooms, "
+                                    "program or scene")
+            request = dataclasses.replace(request, program=types)
+        else:
+            request = Request(Path("."), types, 0, [])
+        request, left = _with_starter(request, catalog, starter)
+        generate_from_plan(plan, request, catalog, out, source=src.name)
+        home = load_lab_home(out / "home.yaml", catalog)
+        print(f"{len(types)} rooms ({', '.join(types)}), {len(home.devices)} devices: {out / 'home.yaml'} "
+              f"(imported from {src.name}; positions by rule)")
+        if left:
+            print(f"starter devices left out (none in the catalog, or no such room): {', '.join(left)}")
+        _warn_range(home)
+        return 0
+    except (GenerateError, PlanError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
         return 1
 
@@ -1978,6 +2037,15 @@ def main(argv: list[str] | None = None) -> int:
     lab_generate.add_argument("--seed", type=int, default=0)
     lab_generate.add_argument("--count", type=int, help="make this many homes (seeds seed, seed+1, ...)")
     lab_generate.add_argument("--catalog", default="catalog/vds")
+    lab_import = lab_actions.add_parser("import", help="a home from a floor plan: a vesper-plan/1 file (rooms, doors, "
+                                        "windows), its walls straightened, then devices and furniture as generate's")
+    lab_import.add_argument("src", help="the plan: a vesper-plan/1 .json file")
+    lab_import.add_argument("dir", help="the new home's directory")
+    lab_import.add_argument("--scale", help="a plan in pixels: a room's dimension, such as 'kitchen width 3.2 m'")
+    lab_import.add_argument("--area", type=float, help="a plan in pixels: the home's floor area (m²)")
+    lab_import.add_argument("--request", help="a vesper-request/1 file: the devices, seed, furnishing and site (the "
+                                              "rooms are the plan's)")
+    lab_import.add_argument("--catalog", default="catalog/vds")
     lab_dress = lab_actions.add_parser("dress", help="a Blender build script and brief for a home: furnish it in "
                                        "Blender (or with Claude through Blender MCP), export scene.glb, play it")
     lab_dress.add_argument("home", help="the home's home.yaml")

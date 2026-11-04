@@ -127,6 +127,220 @@ def _fill(grid: Grid, x0: float, z0: float, x1: float, z1: float) -> None:
                 grid.walkable[j * grid.width + i] = 1
 
 
+# -- a home from a floor plan (floor-plan import, task A2) ------------------------------------------------------
+# A plan's room types (vesper.lab.plan.ROOM_TYPES): the label each gets on the map (what the furnisher reads, so an
+# "other" room gets no furniture of a kind) and the stem of its id (what the device placer reads)
+PLAN_LABELS = {**LABELS, "corridor": "hallway", "hall": "hall", "other": "other"}
+PLAN_STEMS = {"other": "room"}
+PORCH_LABEL = "porch/terrace/deck/driveway"
+PORCH_TRIES = ((2.0, 3.0), (2.0, 2.0), (1.5, 2.0), (1.0, 1.5))  # (depth, width): the first that fits outside
+MARGIN = 0.3  # the map's floor grid reaches this far past the plan, so every outer wall has cells
+_TOL = 1e-6
+
+
+def typed_ids(plan_m: dict) -> tuple[dict, list[tuple[str, str, str]]]:
+    """The plan with its rooms renamed as a generated home's are, by type (living, bedroom_1, bedroom_2, ...: the
+    device placer and a request's `at:` read a room's type from its id), and (new id, plan id, name) per room."""
+    import copy
+    plan = copy.deepcopy(plan_m)
+    stems = [PLAN_STEMS.get(r["type"], r["type"]) for r in plan["rooms"]]
+    seen: dict[str, int] = {}
+    rename, out = {}, []
+    for r, stem in zip(plan["rooms"], stems, strict=True):
+        seen[stem] = seen.get(stem, 0) + 1
+        new = stem if stems.count(stem) == 1 else f"{stem}_{seen[stem]}"
+        rename[r["id"]] = new
+        out.append((new, r["id"], r["name"]))
+        r["id"] = new
+    for d in plan.get("doors") or []:
+        d["rooms"] = [s if s == "outside" else rename[s] for s in d["rooms"]]
+    for w in plan.get("windows") or []:
+        w["room"] = rename[w["room"]]
+    return plan, out
+
+
+def floor_plan_from(plan_m: dict, scene: str) -> WorldMap:
+    """The map of a rectified plan in metres (vesper.lab.plan): its rooms keep their ids, each room's polygon is its
+    outline taken in by half a wall (WALL), as a generated room's is, so a wall between two rooms is solid floor-less
+    cells; each door opens the wall across its width; an outside door gets an outdoor room before it (the entrance's
+    `porch`, PORCH deep and wide when it fits, any other `porch_2`, ...). Rooms may be any simple polygon."""
+    from vesper.lab.plan import PlanError, load_plan
+    try:
+        load_plan(plan_m)
+    except PlanError as e:
+        raise GenerateError(str(e)) from None
+    if plan_m["units"] != "m":
+        raise GenerateError("the plan is in pixels: scale it to metres first (vesper.lab.plan.scale_plan)")
+    outlines = {r["id"]: _outline(r["polygon"]) for r in plan_m["rooms"]}
+    rooms = []
+    for r in plan_m["rooms"]:
+        inner = _inset(outlines[r["id"]], WALL)
+        if inner is None:
+            raise GenerateError(f"room {r['id']!r}: a part of it is narrower than its walls ({2 * WALL:.1f} m)")
+        rooms.append(Room(r["id"], PLAN_LABELS[r["type"]], tuple((round(x, 3), round(z, 3)) for x, z in inner)))
+    doors = plan_m.get("doors") or []
+    entrance = plan_m.get("entrance")
+    order = ([entrance] if entrance is not None else []) + [k for k in range(len(doors)) if k != entrance]
+    openings, porches, joins = [], [], {}
+    taken = set(outlines)
+    for k in order:
+        d = doors[k]
+        sides = [s for s in d["rooms"] if s != "outside"]
+        where = min(((s, e) for s in sides for e in _edges(outlines[s])), key=lambda se: _gap(se[1], d["at"]))
+        (a, b), along = where[1], _unit(where[1])
+        openings.append((tuple(d["at"]), along, d["width"]))
+        pair = set(sides)
+        if "outside" in d["rooms"]:
+            pid = _unique("porch", taken)
+            taken.add(pid)
+            inward = _inward(outlines[sides[0]], (a, b))
+            porch = _porch(tuple(d["at"]), along, (-inward[0], -inward[1]), d["width"],
+                           [*outlines.values(), *(p.polygon for p in porches)])
+            if porch is None:
+                raise GenerateError(f"door {k} (from {sides[0]!r} to the outside): another room stands where its "
+                                    "porch would be; check the plan")
+            porches.append(Room(pid, PORCH_LABEL, porch, outdoor=True))
+            pair.add(pid)
+        joins[k] = pair
+    every = [*rooms, *porches]
+    xs = [x for poly in [*outlines.values(), *(p.polygon for p in porches)] for x, _ in poly]
+    zs = [z for poly in [*outlines.values(), *(p.polygon for p in porches)] for _, z in poly]
+    ox, oz = (round(math.floor((v - MARGIN) / CELL + _TOL) * CELL, 6) for v in (min(xs), min(zs)))
+    width, height = math.ceil((max(xs) + MARGIN - ox) / CELL), math.ceil((max(zs) + MARGIN - oz) / CELL)
+    grid = Grid(origin=(ox, oz), cell=CELL, width=width, height=height, walkable=bytearray(width * height))
+    for r in every:
+        _fill_polygon(grid, r.polygon)
+    for at, along, w in openings:
+        _fill_door(grid, at, along, w)
+    from vesper.lab.worldmap import MapError
+    try:
+        world_map = WorldMap(scene=scene, rooms=every, grid=grid)
+    except MapError as e:
+        raise GenerateError(str(e)) from None
+    found = [set(d.rooms) for d in world_map.doorways]
+    for k, pair in sorted(joins.items()):
+        if pair not in found:
+            raise GenerateError(f"door {k} does not open between {' and '.join(sorted(pair))} on the map: check "
+                                "that it stands on the wall they share")
+    return world_map
+
+
+def _outline(poly) -> list[tuple[float, float]]:
+    pts = [(float(x), float(z)) for x, z in poly]
+    if len(pts) > 1 and math.dist(pts[0], pts[-1]) < 1e-9:
+        pts.pop()
+    return pts
+
+
+def _edges(ring):
+    return [(ring[i], ring[(i + 1) % len(ring)]) for i in range(len(ring))]
+
+
+def _unit(edge):
+    (ax, az), (bx, bz) = edge
+    n = math.hypot(bx - ax, bz - az)
+    return (bx - ax) / n, (bz - az) / n
+
+
+def _gap(edge, p) -> float:
+    """The distance from p to the segment."""
+    (ax, az), (bx, bz) = edge
+    dx, dz = bx - ax, bz - az
+    t = max(0.0, min(1.0, ((p[0] - ax) * dx + (p[1] - az) * dz) / (dx * dx + dz * dz)))
+    return math.hypot(p[0] - ax - t * dx, p[1] - az - t * dz)
+
+
+def _signed(ring) -> float:
+    return sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(ring, ring[1:] + ring[:1], strict=True)) / 2
+
+
+def _inward(ring, edge):
+    """The unit normal of one of the ring's edges, pointing into the ring."""
+    ux, uz = _unit(edge)
+    s = 1.0 if _signed(ring) > 0 else -1.0
+    return -uz * s, ux * s
+
+
+def _inset(ring, d: float):
+    """The polygon `d` inside the ring (each edge moved in by d, corners where the moved edges meet), or None when a
+    part of the room is too narrow for that (an edge would turn round, or the result would cross itself)."""
+    from vesper.lab.plan import _polygon_problem
+    n = len(ring)
+    lines = []
+    for e in _edges(ring):
+        nx, nz = _inward(ring, e)
+        lines.append(((e[0][0] + d * nx, e[0][1] + d * nz), _unit(e)))
+    out = []
+    for i in range(n):
+        (p, t), (q, u) = lines[i - 1], lines[i]
+        cross = t[0] * u[1] - t[1] * u[0]
+        if abs(cross) < 1e-9:  # two edges on one line: the corner just moves in
+            out.append(q)
+            continue
+        lam = ((q[0] - p[0]) * u[1] - (q[1] - p[1]) * u[0]) / cross
+        out.append((p[0] + lam * t[0], p[1] + lam * t[1]))
+    if _polygon_problem([list(p) for p in out]) is not None:
+        return None
+    if _signed(out) * _signed(ring) <= 0 or abs(_signed(out)) >= abs(_signed(ring)):
+        return None
+    for (a, b), e in zip(_edges(out), _edges(ring), strict=True):  # every edge keeps its direction
+        if math.dist(a, b) > 1e-9 and sum(x * y for x, y in zip(_unit((a, b)), _unit(e), strict=True)) <= 0:
+            return None
+    return out
+
+
+def _porch(at, along, out, door_w: float, others):
+    """An outdoor room before an outside door: from WALL to `depth` out from the wall, `width` along it, centred on
+    the door; the first of PORCH_TRIES that stands clear of every room."""
+    for depth, width in PORCH_TRIES:
+        width = max(width, door_w + 0.4)
+        corners = []
+        for s, t in ((-width / 2, WALL), (width / 2, WALL), (width / 2, depth), (-width / 2, depth)):
+            corners.append((round(at[0] + s * along[0] + t * out[0], 3), round(at[1] + s * along[1] + t * out[1], 3)))
+        if _clear(corners, others):
+            return tuple(corners)
+    return None
+
+
+def _clear(poly, others) -> bool:
+    """Whether the polygon shares no floor with any of the others (sampled every 5 cm, just inside it)."""
+    xs, zs = [x for x, _ in poly], [z for _, z in poly]
+    steps = 0.05
+    nx, nz = int((max(xs) - min(xs)) / steps), int((max(zs) - min(zs)) / steps)
+    for i in range(nx):
+        for j in range(nz):
+            p = (min(xs) + (i + 0.5) * steps, min(zs) + (j + 0.5) * steps)
+            if point_in_polygon(p, poly) and any(point_in_polygon(p, o) for o in others):
+                return False
+    return not any(point_in_polygon(c, poly) for o in others for c in o)
+
+
+def _fill_polygon(grid: Grid, poly) -> None:
+    """Every cell whose centre lies in the polygon becomes walkable."""
+    xs, zs = [x for x, _ in poly], [z for _, z in poly]
+    lo, hi = grid.cell_of(min(xs), min(zs)) or (0, 0), grid.cell_of(max(xs), max(zs)) or (grid.width - 1,
+                                                                                           grid.height - 1)
+    for j in range(max(0, lo[1]), min(grid.height, hi[1] + 1)):
+        for i in range(max(0, lo[0]), min(grid.width, hi[0] + 1)):
+            if point_in_polygon(grid.center(i, j), poly):
+                grid.walkable[j * grid.width + i] = 1
+
+
+def _fill_door(grid: Grid, at, along, width: float) -> None:
+    """The cells of a door through its wall: `width` along the wall (a half-open span, as `_fill`), and a cell past
+    each face of the wall, so the opening meets the floor on both sides."""
+    reach = width / 2 + 2 * CELL
+    lo, hi = grid.cell_of(at[0] - reach, at[1] - reach), grid.cell_of(at[0] + reach, at[1] + reach)
+    lo, hi = lo or (0, 0), hi or (grid.width - 1, grid.height - 1)
+    for j in range(max(0, lo[1]), min(grid.height, hi[1] + 1)):
+        for i in range(max(0, lo[0]), min(grid.width, hi[0] + 1)):
+            cx, cz = grid.center(i, j)
+            u = (cx - at[0]) * along[0] + (cz - at[1]) * along[1]
+            v = -(cx - at[0]) * along[1] + (cz - at[1]) * along[0]
+            if -width / 2 - _TOL <= u < width / 2 - _TOL and abs(v) < WALL + CELL - _TOL:
+                grid.walkable[j * grid.width + i] = 1
+
+
 # -- the request and its devices (spec §1, §3) ------------------------------------------------------------------
 REQUEST_FORMAT = "vesper-request/1"
 PROTOCOLS = ("zigbee", "tasmota", "matter", "zwave")  # on the hub first (Matter with --matter-interface, plan W7a3)
@@ -234,6 +448,56 @@ def generate_home(request: Request, catalog: dict, out: Path, export=None) -> No
              f"# home; {len(indoor)} rooms, seed {request.seed}; every device's position is by rule (assumed).",
              "version: 2", f"scene: {world_map.scene}", "map: map.json", f"seed: {request.seed}",
              'start_time: "07:00"', f"avatar: {{model: female_0, start: {{room: {start}}}}}", "doors: []"]
+    lines += _site_lines(request)
+    lines.append("devices:" if devices else "devices: []")
+    lines += [f"  - {yaml.safe_dump(d, default_flow_style=True, sort_keys=False, width=1000).strip()}"
+              for d in devices]
+    (out / "home.yaml").write_text("\n".join(lines) + "\n")
+    if request.furnish:
+        _furnish(out, catalog)
+
+
+def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path, source: str = "plan.json") -> None:
+    """Write the home of a rectified plan in metres into `out`, a new directory, as `generate_home` writes a generated
+    one: its rooms renamed by type (`typed_ids`, listed in home.yaml's header), the map (`floor_plan_from`), the plan's
+    windows and rule windows where a room has none (vesper.lab.windows.from_plan), the request's devices placed by
+    rule, the built-in furniture, and the plan itself (`plan.json`, with the map's room ids). `source` is the plan's
+    file name: the scene is `imported/<its stem>`. The request's program is not used: the rooms are the plan's."""
+    import json
+
+    from vesper.lab.plan import PlanError, check_house
+    from vesper.lab.windows import from_plan, write_windows
+    if request.scene is not None:
+        raise GenerateError("an imported home's rooms come from the plan: a request for it names no scene")
+    try:
+        problems = check_house(plan_m)
+    except PlanError as e:
+        raise GenerateError(str(e)) from None
+    if problems:
+        raise GenerateError("the plan is not a house: " + "; ".join(problems))
+    plan, names = typed_ids(plan_m)
+    world_map = floor_plan_from(plan, f"imported/{Path(source).stem}")
+    devices = place_devices(world_map, request, catalog)
+    windows = from_plan(plan, world_map)
+    out = Path(out)
+    out.mkdir(parents=True)
+    world_map.save(out / "map.json")
+    write_windows(out, windows)
+    (out / "plan.json").write_text(json.dumps(plan, indent=1) + "\n")
+    indoor = [r.id for r in world_map.rooms if not r.outdoor]
+    entrance = plan.get("entrance")
+    inside = [s for s in plan["doors"][entrance]["rooms"] if s != "outside"] if entrance is not None else []
+    start = "living" if "living" in indoor else (inside or indoor)[0]
+    one_line = lambda text: " ".join(str(text).split())  # noqa: E731  a name never breaks the comment
+    lines = [f"# Imported from {one_line(Path(source).name)} by `vesper lab import` (floor-plan import): {len(indoor)} "
+             "rooms, their doors",
+             "# and windows as the plan draws them, its walls straightened; the porch, windows marked source: rule,",
+             f"# the furniture and every device's position are by rule (assumed), seed {request.seed}. The rooms (the "
+             "plan's id and name):"]
+    for new, old, name in names:
+        lines.append(f"#   {new}: {one_line(old)}" + (f" ({one_line(name)})" if one_line(name) else ""))
+    lines += ["version: 2", f"scene: {world_map.scene}", "map: map.json", f"seed: {request.seed}",
+              'start_time: "07:00"', f"avatar: {{model: female_0, start: {{room: {start}}}}}", "doors: []"]
     lines += _site_lines(request)
     lines.append("devices:" if devices else "devices: []")
     lines += [f"  - {yaml.safe_dump(d, default_flow_style=True, sort_keys=False, width=1000).strip()}"
@@ -371,8 +635,8 @@ def _targets(d: dict, world_map: WorldMap, rooms, types: dict, rule: str, where:
     elif d.get("at") is not None:
         at = d["at"]
         outdoor = [w for w in world_map.doorways if w.outdoor]
-        if at == "front_door":
-            return outdoor[:1]
+        if at == "front_door":  # an imported home's entrance opens onto `porch`; a back door onto porch_2, ...
+            return sorted(outdoor, key=lambda w: "porch" not in w.rooms)[:1]
         if at == "exterior_doors":
             return outdoor
         if any(w.id == at for w in world_map.doorways):
