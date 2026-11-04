@@ -940,11 +940,8 @@ def _lab_import(args, catalog) -> int:
     from vesper.lab.home import load_lab_home
     from vesper.lab.plan import PlanError, check_house, load_plan, rectify, scale_plan
     src, out = Path(args.src), Path(args.dir)
-    if src.suffix.lower() in (".png", ".jpg", ".jpeg", ".pdf"):
-        print(f"vesper lab import: {src.name} is an image; reading images arrives in the next step (write the plan "
-              "as a vesper-plan/1 .json file meanwhile)", file=sys.stderr)
-        return 2
-    if src.suffix.lower() != ".json":
+    is_image = src.suffix.lower() in (".png", ".jpg", ".jpeg", ".pdf")
+    if not is_image and src.suffix.lower() != ".json":
         print(f"vesper lab import: {src.name}: expected a vesper-plan/1 .json file (or a floor-plan image)",
               file=sys.stderr)
         return 2
@@ -952,12 +949,17 @@ def _lab_import(args, catalog) -> int:
         print(f"FAILED: {out} already exists", file=sys.stderr)
         return 1
     try:
-        try:
-            raw = json.loads(src.read_text())
-        except OSError as e:
-            raise GenerateError(f"{src}: cannot read it: {e.strerror}") from None
-        except ValueError as e:
-            raise GenerateError(f"{src.name}: not valid JSON: {e}") from None
+        if is_image:  # the picture goes to Anthropic through the user's Claude Code session
+            from vesper.lab import plan_read
+            print(f"reading {src.name} with Claude (this can take a minute or two)...", flush=True)
+            raw = plan_read.read_plan_image(src)
+        else:
+            try:
+                raw = json.loads(src.read_text())
+            except OSError as e:
+                raise GenerateError(f"{src}: cannot read it: {e.strerror}") from None
+            except ValueError as e:
+                raise GenerateError(f"{src.name}: not valid JSON: {e}") from None
         plan = rectify(scale_plan(load_plan(raw), args.scale, args.area))
         problems = check_house(plan)
         if problems:
@@ -2041,9 +2043,11 @@ def main(argv: list[str] | None = None) -> int:
     lab_generate.add_argument("--seed", type=int, default=0)
     lab_generate.add_argument("--count", type=int, help="make this many homes (seeds seed, seed+1, ...)")
     lab_generate.add_argument("--catalog", default="catalog/vds")
-    lab_import = lab_actions.add_parser("import", help="a home from a floor plan: a vesper-plan/1 file (rooms, doors, "
-                                        "windows), its walls straightened, then devices and furniture as generate's")
-    lab_import.add_argument("src", help="the plan: a vesper-plan/1 .json file")
+    lab_import = lab_actions.add_parser("import", help="a home from a floor plan: a vesper-plan/1 file or an image "
+                                        "Claude reads (rooms, doors, windows), its walls straightened, then "
+                                        "devices and furniture as generate's")
+    lab_import.add_argument("src", help="the plan: a vesper-plan/1 .json file, or a floor-plan image (.png .jpg .pdf) "
+                                        "that Claude reads (sent to Anthropic through your Claude Code login)")
     lab_import.add_argument("dir", help="the new home's directory")
     lab_import.add_argument("--scale", help="a plan in pixels: a room's dimension, such as 'kitchen width 3.2 m'")
     lab_import.add_argument("--area", type=float, help="a plan in pixels: the home's floor area (m²)")

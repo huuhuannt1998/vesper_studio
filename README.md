@@ -40,6 +40,7 @@ its pages in your browser, or as a desktop app for macOS and Windows.
   - [A day in seconds, and exact replays](#a-day-in-seconds-and-exact-replays)
   - [Choosing products](#choosing-products)
   - [Generated homes](#generated-homes)
+  - [Importing a floor plan](#importing-a-floor-plan)
   - [Furniture](#furniture)
   - [A home in a real place: sun, weather, windows](#a-home-in-a-real-place-sun-weather-windows)
   - [Checking a layout](#checking-a-layout)
@@ -666,6 +667,24 @@ corner, contact sensors and locks on the door, plugs along the walls); every suc
 moved in the home file. Without a request, a home gets a starter set. A batch makes many homes and a summary table:
 
     vesper lab generate homes/batch --count 100 --rooms 3-10
+
+### Importing a floor plan
+
+    vesper lab import plans/flat.png homes/flat --area 62
+    vesper lab import plans/flat.json homes/flat
+
+`vesper lab import` builds a home from a floor plan: its rooms inside their walls, the doorways, a porch at the front
+door, the windows, then devices, furniture and the layout check as `generate` does. A picture (`.png`, `.jpg`, `.pdf`)
+is read by Claude into a `vesper-plan/1` file (rooms as polygons with a type, doors, windows, the entrance, any scale
+read off the drawing), which VESPER straightens and checks before it builds anything; a plan that is not a house VESPER
+can build (a room too small or large for its type, a room with no way in) is refused with every problem listed, and no
+home is written. The image goes to Anthropic through your Claude Code session (your own login); a hand-written
+vesper-plan/1 file needs no network. Reading an image needs the `claude` command installed and signed in.
+
+A picture has no scale unless it prints one. If the plan has none, VESPER does not guess: give a room's size with
+`--scale "kitchen width 3.2 m"` or the home's floor area with `--area 62`, or it stops with "no scale: give --scale or
+--area". A plan written by hand can use metres (`"units": "m"`) and needs neither. Limit: a shared wall drawn wandering
+more than about 25 cm is refused ("the rooms do not touch"); redraw it straight.
 
 ### Furniture
 

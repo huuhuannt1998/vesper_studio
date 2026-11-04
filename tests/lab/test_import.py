@@ -123,20 +123,11 @@ def test_a_plan_file_that_is_not_valid_is_refused_naming_the_mistake(tmp_path, c
     assert "bad.json" in capsys.readouterr().err and not out.exists()
 
 
-def test_an_image_is_for_the_next_step_and_writes_nothing(tmp_path, capsys):
-    cat, _ = setup(tmp_path)
-    img = tmp_path / "plan.png"
-    img.write_bytes(b"\x89PNG\r\n")
-    out = tmp_path / "mine"
-    assert cli.main(["lab", "import", str(img), str(out), "--catalog", str(cat)]) == 2
-    assert "reading images arrives in the next step" in capsys.readouterr().err and not out.exists()
-
-
 def test_a_file_that_is_neither_a_plan_nor_an_image_is_refused(tmp_path, capsys):
     cat, _ = setup(tmp_path)
     for name, message in (("plan.txt", "expected a vesper-plan/1 .json file"),
-                          ("plan.PDF", "reading images arrives in the next step"),
-                          ("plan.jpeg", "reading images arrives in the next step")):
+                          ("plan.svg", "expected a vesper-plan/1 .json file"),
+                          ("plan", "expected a vesper-plan/1 .json file")):
         src = tmp_path / name
         src.write_text("x")
         assert cli.main(["lab", "import", str(src), str(tmp_path / "mine"), "--catalog", str(cat)]) == 2
