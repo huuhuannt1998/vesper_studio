@@ -318,3 +318,68 @@ dates for the sweep and every rung; the cross-site validation (`vesper validate 
 besides section 5's rule, no template appears anywhere in it (triggers, conditions or actions) and every entity its
 actions name has a motion, door, light, switch or lock role (an action whose data reads an illuminance template was
 the eleventh smoke flag).
+
+## Addendum 4 (2026-11-04, controls, before their first run)
+
+Written before either control below has been run (no synthetic automation has been replayed). The real-corpus sweep's
+results are unchanged; this adds two synthetic controls that measure the oracle's **accuracy** against answers known
+without the replay, where section 5's negative control measures only its internal consistency. Code:
+`vesper/edt/controls.py`; command:
+
+    vesper edt controls --work DIR --out FILE [--workers N]
+
+Both controls run through the unchanged sweep (`vesper.edt.sweep.sweep`): rung 4, all 48 environments of section 2,
+the standard home, the same trace cache as the real sweep when `--work` names its work directory. Every synthetic
+automation is ours, written against role names the binder binds (`sensor.porch_temperature`,
+`sensor.living_room_illuminance`, ...), checked to bind before the run, and acts only on a smart plug
+(`switch.turn_on`), so no lamp or cover envelope can arise. The automations and the per-environment expectations are
+written into the result.
+
+**A4.1 Positive control: analytically known behaviour.** About 50 automations of five kinds; for each, its expected
+firing times per environment are computed without the replay, then reduced to an outcome (fired, first firing's local
+time of day, flapping) and to the expected environmental divergences exactly as section 4 defines them (written out
+independently of `vesper.edt.oracle`):
+
+- `sun_trigger`: sunrise or sunset with a fixed offset (-70 to +70 min). Expected firing times: the site's
+  `vesper.env.sun.sun_events` for days 0-2 plus the offset, kept in the measured window. Fires everywhere; across the
+  48 environments its first firing spreads by more than 3 h (expected `time_spread`).
+- `time_trigger`: a time trigger with no condition. Fires everywhere at the same local time: expected no divergence.
+- `time_sun_condition`: a time trigger with a sun condition (after sunrise or before sunset, Home Assistant's
+  semantics: the day's event plus offset). Expected fired/not fired per environment from the site's sun events.
+- `sun_time_condition`: a sunrise or sunset trigger with a time-of-day window condition (`after`/`before`, Home
+  Assistant's semantics, the window possibly across midnight).
+- `numeric_state`: an `above` or `below` trigger on the porch temperature (thresholds at the 5th to 95th percentile of
+  the porch temperature pooled over the 48 traces' measured days), the living room's illuminance and the porch's
+  illuminance. Expected firing times are computed **from the trace itself** (the recorded reports, not the replay):
+  Home Assistant's armed semantics (armed at start iff the initial value is out of range; a report into range while
+  armed fires and disarms; a report out of range re-arms), each report delivered at its `observed_t` + 0.05 s.
+
+No boundary may be close: a candidate automation is dropped **before the run**, by the generator from the analytic
+expectations alone, if in any environment a firing candidate lies within 10 min of a condition's boundary, or its
+expected first-firing spread lies within 10 min of the 3 h threshold; numeric thresholds are chosen half-way between
+recorded values (the sensors report in steps of 0.1 C and 1 lx), so no report equals one.
+
+Scoring. An expected divergence is a pair (automation, kind) with kind in `fires_somewhere_only`, `time_spread`,
+`flaps` among the automation's expected environmental divergences; it is detected if the sweep reports that kind for
+that automation. A false positive is a pair the sweep reports that is not expected. The first-firing error is the
+circular difference between the sweep's `first_tod_h` and the expected one, over every (automation, environment)
+where both fire. Reported: the detection rate overall and per divergence kind and per automation kind, the false
+positives with their automations, the first-firing MAE and maximum (minutes) overall and per kind, and the
+per-environment fired agreement. An automation that does not bind, is refused or fails counts as not detected.
+
+**Pass (positive):** detection rate >= 95 % of the expected divergences, 0 false positives, first-firing MAE <= 2 min.
+
+**A4.2 Sensor-path negative control: provably environment-independent sensor readers.** About 15 automations that read
+a sensor but can never fire in any environment, so they exercise binding, the sensors' reporting and the replay's
+sensor delivery without any environmental effect: `numeric_state` triggers below -25 C on indoor and outdoor
+temperatures (the binder refuses thresholds outside -30..35 C), below 2 % or above 100.5 % relative humidity, above
+10^7 lx or below -1 lx; `state` triggers to states no sensor of that role reports (a temperature `to: boiling`, an
+illuminance `to: dark`, a motion sensor `to: jammed`); a time trigger with a `numeric_state` condition below -25 C;
+a sunset trigger with an illuminance condition above 10^7 lx. Expected: none fires in any environment, none is flagged.
+
+**Pass (negative):** 0 flagged (no environmental divergence). Anything that fires is reported with its environments,
+and is a finding even when it is not flagged.
+
+The results go to `results/edt/controls-<commit>.json` and a section of `docs/experiments/results-edt.md` with the
+verdict against these criteria; a miss or a false positive is reported with its cause, and nothing above is changed
+after the run.
