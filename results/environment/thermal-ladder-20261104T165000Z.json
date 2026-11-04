@@ -1,0 +1,3997 @@
+{
+  "area_m2": 16.0,
+  "best_aic_order": "2R2C+solar",
+  "code_sha256": "a77b5031314e1de67843df535d85b61f33d222e462dc22261293606151aec6ab",
+  "criteria": {
+    "neither": {
+      "b_rmse_c": 5.0
+    },
+    "repair": {
+      "b_r": 0.7,
+      "b_rmse_c": 3.0,
+      "param_tolerance": 0.5
+    }
+  },
+  "orders": {
+    "1R1C": {
+      "A": {
+        "median_params": {
+          "c": 400000.0016733244,
+          "r": 0.16830222872087863
+        },
+        "median_r": 0.4127,
+        "median_rmse": 2.442354990483363,
+        "n_eff": {
+          "max": 25.507610511162273,
+          "min": 16.286432160804036,
+          "rho_capped_rooms": 7,
+          "sse_ratio_threshold_max": 1.2659723478374423,
+          "sse_ratio_threshold_min": 1.162511219269025
+        },
+        "per_m2": {
+          "c": 25000.000104582774,
+          "r": 0.3713557477818866
+        },
+        "rooms": {
+          "T1": {
+            "aic": 4085.8,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000000.00076462
+              ],
+              "r": [
+                0.025991995220431312,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "r": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 13,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c": 400000.00002548733,
+              "r": 0.6695044444731716
+            },
+            "r": 0.4235,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 1.877,
+            "room": "kitchen",
+            "setpoint_c": 19.73,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T2": {
+            "aic": 6224.9,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000000.042220844
+              ],
+              "r": [
+                0.019250583640875753,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "r": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 24,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 25.5,
+            "params": {
+              "c": 400000.0014073615,
+              "r": 0.09768178167491695
+            },
+            "r": 0.4932,
+            "rho": 0.9844,
+            "rho_capped": false,
+            "rmse": 2.611,
+            "room": "living room",
+            "setpoint_c": 17.86,
+            "sse_ratio_threshold": 1.162511219269025
+          },
+          "T3": {
+            "aic": 5747.4,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000000.000030529
+              ],
+              "r": [
+                0.06666666607364878,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "r": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "r": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 7,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c": 400000.00000101764,
+              "r": 1.9999999822094636
+            },
+            "r": 0.4047,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.426,
+            "room": "laundry room",
+            "setpoint_c": 19.93,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T4": {
+            "aic": 5836.7,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000001.348684251
+              ],
+              "r": [
+                0.018350977104302977,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "r": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 21,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c": 400000.04495614173,
+              "r": 0.18815641003661124
+            },
+            "r": 0.4138,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.459,
+            "room": "office",
+            "setpoint_c": 18.48,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T5": {
+            "aic": 4809.1,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000000.955954803
+              ],
+              "r": [
+                0.018242338385880994,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "r": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 23,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c": 400000.0318651601,
+              "r": 0.11420674320466966
+            },
+            "r": 0.435,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.099,
+            "room": "bathroom",
+            "setpoint_c": 17.5,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T7": {
+            "aic": 6097.4,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000000.301274767
+              ],
+              "r": [
+                0.01740751107083334,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "r": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 15,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c": 400000.01004249224,
+              "r": 0.14844804740514606
+            },
+            "r": 0.4033,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.56,
+            "room": "ironing room",
+            "setpoint_c": 17.79,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T8": {
+            "aic": 6045.7,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000000.000000026
+              ],
+              "r": [
+                0.06666666666663965,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "r": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "r": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 7,
+              "start": 1,
+              "status": 1
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c": 400000.0000000009,
+              "r": 1.9999999999991895
+            },
+            "r": 0.2926,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.54,
+            "room": "teenager room",
+            "setpoint_c": 19.42,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T9": {
+            "aic": 5702.2,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000000.058178619
+              ],
+              "r": [
+                0.016686410888745368,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "r": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 17,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c": 400000.0019392873,
+              "r": 0.1212748914096396
+            },
+            "r": 0.4116,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.409,
+            "room": "parents' room",
+            "setpoint_c": 17.09,
+            "sse_ratio_threshold": 1.2659723478374423
+          }
+        }
+      },
+      "B": {
+        "held_out": [
+          {
+            "bias": -1.607,
+            "column": "t_dining",
+            "n": 988,
+            "r": 0.8246,
+            "rmse": 2.688,
+            "room": "dining room",
+            "setpoint_c": 16.26,
+            "within_2": 0.5061
+          },
+          {
+            "bias": -1.403,
+            "column": "t_room",
+            "n": 988,
+            "r": 0.8376,
+            "rmse": 2.493,
+            "room": "room",
+            "setpoint_c": 15.83,
+            "within_2": 0.5506
+          }
+        ],
+        "median_r": 0.8311,
+        "median_rmse": 2.5905,
+        "refit": {
+          "t_dining": {
+            "aic": 1429.9,
+            "bound_limited": {
+              "c": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                false
+              ]
+            },
+            "ci95": {
+              "c": [
+                3061458.9580208496,
+                3061458.9580208496
+              ],
+              "r": [
+                0.004064313309270097,
+                0.004064313309270097
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "inside",
+                "inside"
+              ],
+              "r": [
+                "inside",
+                "inside"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                false
+              ]
+            },
+            "fit": {
+              "nfev": 15,
+              "start": 0,
+              "status": 3
+            },
+            "n": 988,
+            "n_eff": 5.0,
+            "params": {
+              "c": 3061458.9580208496,
+              "r": 0.004064313309270097
+            },
+            "r": 0.9136,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.058,
+            "room": "dining room",
+            "setpoint_c": 16.26,
+            "sse_ratio_threshold": 2.167648008191321
+          },
+          "t_room": {
+            "aic": 1201.9,
+            "bound_limited": {
+              "c": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                false
+              ]
+            },
+            "ci95": {
+              "c": [
+                5680802.253350778,
+                5680802.253350778
+              ],
+              "r": [
+                0.0021762804922115767,
+                0.0021762804922115767
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "inside",
+                "inside"
+              ],
+              "r": [
+                "inside",
+                "inside"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                false
+              ]
+            },
+            "fit": {
+              "nfev": 20,
+              "start": 0,
+              "status": 3
+            },
+            "n": 988,
+            "n_eff": 5.8,
+            "params": {
+              "c": 5680802.253350778,
+              "r": 0.0021762804922115767
+            },
+            "r": 0.9395,
+            "rho": 0.9883,
+            "rho_capped": false,
+            "rmse": 1.834,
+            "room": "room",
+            "setpoint_c": 15.83,
+            "sse_ratio_threshold": 1.9320457558545043
+          }
+        },
+        "refit_median_params": {
+          "c": 4371130.605685813,
+          "r": 0.003120296900740837
+        },
+        "refit_over_A": {
+          "c": 10.928,
+          "r": 0.019
+        }
+      },
+      "aic_A": 44549.2,
+      "any_interval_spans_10x": true,
+      "aperture_plausible": true,
+      "identifiability": {
+        "c": {
+          "hi": 12000000.050199732,
+          "lo": 400000.0,
+          "rooms_bound_limited": 8,
+          "rooms_grid_limited": 8,
+          "rooms_open": 8,
+          "rooms_wide": 8,
+          "span": 30.00000012549933,
+          "wide": true
+        },
+        "r": {
+          "hi": 2.0,
+          "lo": 0.018800780372589365,
+          "rooms_bound_limited": 8,
+          "rooms_grid_limited": 2,
+          "rooms_open": 8,
+          "rooms_wide": 8,
+          "span": 106.37856303645268,
+          "wide": true
+        }
+      },
+      "inconclusive_middle": false,
+      "neither_clear": false,
+      "parameters_stable": false,
+      "repair": false,
+      "rests_on_width_alone": true,
+      "sponge": true,
+      "verdict": "sponge",
+      "verdict_without_width_post_hoc": "neither"
+    },
+    "1R1C+solar": {
+      "A": {
+        "median_params": {
+          "c": 404090.97061227413,
+          "ga": 0.027626368692063925,
+          "r": 1.8490131372549987
+        },
+        "median_r": 0.7836,
+        "median_rmse": 1.2801845110283743,
+        "n_eff": {
+          "max": 58.38844303040626,
+          "min": 16.286432160804036,
+          "rho_capped_rooms": 3,
+          "sse_ratio_threshold_max": 1.2659723478374423,
+          "sse_ratio_threshold_min": 1.0679955416808593
+        },
+        "per_m2": {
+          "c": 25255.685663267133,
+          "ga": 0.0017266480432539953,
+          "r": 0.03380181500104754
+        },
+        "rooms": {
+          "T1": {
+            "aic": 857.8,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                15406268.793634398
+              ],
+              "ga": [
+                0.02227888364686628,
+                0.7699158138916514
+              ],
+              "r": [
+                0.06666665577085064,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "ga": [
+                "inside",
+                "grid"
+              ],
+              "r": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "ga": [
+                false,
+                true
+              ],
+              "r": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 27,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 22.0,
+            "params": {
+              "c": 513542.2931211466,
+              "ga": 0.025663860463055046,
+              "r": 1.9999996731255192
+            },
+            "r": 0.7362,
+            "rho": 0.9865,
+            "rho_capped": false,
+            "rmse": 1.14,
+            "room": "kitchen",
+            "setpoint_c": 19.73,
+            "sse_ratio_threshold": 1.1907380106870975
+          },
+          "T2": {
+            "aic": 3503.8,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000011.531875297
+              ],
+              "ga": [
+                0.026138103951024467,
+                0.9439692570852486
+              ],
+              "r": [
+                0.04990797771798588,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "ga": [
+                "inside",
+                "inside"
+              ],
+              "r": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 18,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 58.4,
+            "params": {
+              "c": 400000.38439584326,
+              "ga": 0.03231947862624173,
+              "r": 1.4439837226958867
+            },
+            "r": 0.6909,
+            "rho": 0.9646,
+            "rho_capped": false,
+            "rmse": 1.715,
+            "room": "living room",
+            "setpoint_c": 17.86,
+            "sse_ratio_threshold": 1.0679955416808593
+          },
+          "T3": {
+            "aic": 995.6,
+            "bound_limited": {
+              "c": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                16666666.664229698,
+                500000000.0
+              ],
+              "ga": [
+                0.09570610935656045,
+                3.8834653517140367
+              ],
+              "r": [
+                0.04561564818898998,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "grid",
+                "bound"
+              ],
+              "ga": [
+                "inside",
+                "inside"
+              ],
+              "r": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 32,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 37.4,
+            "params": {
+              "c": 499999999.92689097,
+              "ga": 2.2656095665322216,
+              "r": 0.18360580106492333
+            },
+            "r": 0.8125,
+            "rho": 0.9772,
+            "rho_capped": false,
+            "rmse": 1.165,
+            "room": "laundry room",
+            "setpoint_c": 19.93,
+            "sse_ratio_threshold": 1.1080483799871197
+          },
+          "T4": {
+            "aic": 2114.8,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000011.500562929
+              ],
+              "ga": [
+                0.02574060510771864,
+                0.8454071330518338
+              ],
+              "r": [
+                0.06075237706241471,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "ga": [
+                "inside",
+                "grid"
+              ],
+              "r": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "ga": [
+                false,
+                true
+              ],
+              "r": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 14,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 35.4,
+            "params": {
+              "c": 400000.3833520976,
+              "ga": 0.02818023776839446,
+              "r": 1.8225713118724414
+            },
+            "r": 0.7775,
+            "rho": 0.9784,
+            "rho_capped": false,
+            "rmse": 1.384,
+            "room": "office",
+            "setpoint_c": 18.48,
+            "sse_ratio_threshold": 1.1146470625315381
+          },
+          "T5": {
+            "aic": 1036.7,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000049.591394912
+              ],
+              "ga": [
+                0.021512763441106208,
+                0.6997627433068699
+              ],
+              "r": [
+                0.06251516542125188,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "ga": [
+                "inside",
+                "grid"
+              ],
+              "r": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "ga": [
+                false,
+                true
+              ],
+              "r": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 20,
+              "start": 1,
+              "status": 4
+            },
+            "n": 3241,
+            "n_eff": 38.9,
+            "params": {
+              "c": 400001.6530464971,
+              "ga": 0.023325424776895663,
+              "r": 1.8754549626375563
+            },
+            "r": 0.7932,
+            "rho": 0.9763,
+            "rho_capped": false,
+            "rmse": 1.172,
+            "room": "bathroom",
+            "setpoint_c": 17.5,
+            "sse_ratio_threshold": 1.1038870533095106
+          },
+          "T7": {
+            "aic": 2246.7,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12000008.491752904
+              ],
+              "ga": [
+                0.022155327525521115,
+                0.8065496377064776
+              ],
+              "r": [
+                0.06266880936270343,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "ga": [
+                "inside",
+                "grid"
+              ],
+              "r": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "ga": [
+                false,
+                true
+              ],
+              "r": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 13,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c": 400000.2830584301,
+              "ga": 0.026884987923549254,
+              "r": 1.8800642808811028
+            },
+            "r": 0.7897,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 1.413,
+            "room": "ironing room",
+            "setpoint_c": 17.79,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T8": {
+            "aic": 3490.6,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                12245408.645341534
+              ],
+              "ga": [
+                0.02123716395182519,
+                0.8121749884720018
+              ],
+              "r": [
+                0.0666666303190808,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "ga": [
+                "inside",
+                "grid"
+              ],
+              "r": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "ga": [
+                false,
+                true
+              ],
+              "r": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 14,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c": 408180.2881780511,
+              "ga": 0.02707249961573339,
+              "r": 1.9999989095724238
+            },
+            "r": 0.6539,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 1.712,
+            "room": "teenager room",
+            "setpoint_c": 19.42,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T9": {
+            "aic": 1056.2,
+            "bound_limited": {
+              "c": [
+                true,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c": [
+                400000.0,
+                39923114.310733914
+              ],
+              "ga": [
+                0.021570433466360832,
+                1.0960222358894791
+              ],
+              "r": [
+                0.05679178942343365,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "bound",
+                "grid"
+              ],
+              "ga": [
+                "inside",
+                "grid"
+              ],
+              "r": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                true,
+                true
+              ],
+              "ga": [
+                false,
+                true
+              ],
+              "r": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 21,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c": 1330770.4770244637,
+              "ga": 0.0365340745296493,
+              "r": 1.7037536827030095
+            },
+            "r": 0.83,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 1.176,
+            "room": "parents' room",
+            "setpoint_c": 17.09,
+            "sse_ratio_threshold": 1.2659723478374423
+          }
+        }
+      },
+      "B": {
+        "held_out": [
+          {
+            "bias": 7.778,
+            "column": "t_dining",
+            "n": 988,
+            "r": 0.648,
+            "rmse": 8.411,
+            "room": "dining room",
+            "setpoint_c": 16.26,
+            "within_2": 0.0466
+          },
+          {
+            "bias": 8.103,
+            "column": "t_room",
+            "n": 988,
+            "r": 0.6606,
+            "rmse": 8.706,
+            "room": "room",
+            "setpoint_c": 15.83,
+            "within_2": 0.0415
+          }
+        ],
+        "median_r": 0.6543,
+        "median_rmse": 8.558499999999999,
+        "refit": {
+          "t_dining": {
+            "aic": -693.1,
+            "bound_limited": {
+              "c": [
+                false,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                false
+              ]
+            },
+            "ci95": {
+              "c": [
+                33904070.26399527,
+                33904070.26399527
+              ],
+              "ga": [
+                9.219594012785704,
+                9.219594012785704
+              ],
+              "r": [
+                0.001000000182644339,
+                0.001000000182644339
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "inside",
+                "inside"
+              ],
+              "ga": [
+                "inside",
+                "inside"
+              ],
+              "r": [
+                "inside",
+                "inside"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                false,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                false
+              ]
+            },
+            "fit": {
+              "nfev": 17,
+              "start": 1,
+              "status": 3
+            },
+            "n": 988,
+            "n_eff": 20.1,
+            "params": {
+              "c": 33904070.26399527,
+              "ga": 9.219594012785704,
+              "r": 0.001000000182644339
+            },
+            "r": 0.9782,
+            "rho": 0.9602,
+            "rho_capped": false,
+            "rmse": 0.702,
+            "room": "dining room",
+            "setpoint_c": 16.26,
+            "sse_ratio_threshold": 1.2108835708110495
+          },
+          "t_room": {
+            "aic": -522.2,
+            "bound_limited": {
+              "c": [
+                false,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                false
+              ]
+            },
+            "ci95": {
+              "c": [
+                31525719.962738015,
+                31525719.962738015
+              ],
+              "ga": [
+                7.770775055437556,
+                7.770775055437556
+              ],
+              "r": [
+                0.0010000004688099108,
+                0.0010000004688099108
+              ]
+            },
+            "ci_end": {
+              "c": [
+                "inside",
+                "inside"
+              ],
+              "ga": [
+                "inside",
+                "inside"
+              ],
+              "r": [
+                "inside",
+                "inside"
+              ]
+            },
+            "ci_open": {
+              "c": [
+                false,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r": [
+                false,
+                false
+              ]
+            },
+            "fit": {
+              "nfev": 19,
+              "start": 0,
+              "status": 3
+            },
+            "n": 988,
+            "n_eff": 25.3,
+            "params": {
+              "c": 31525719.962738015,
+              "ga": 7.770775055437556,
+              "r": 0.0010000004688099108
+            },
+            "r": 0.9738,
+            "rho": 0.9501,
+            "rho_capped": false,
+            "rmse": 0.765,
+            "room": "room",
+            "setpoint_c": 15.83,
+            "sse_ratio_threshold": 1.1641534120397943
+          }
+        },
+        "refit_median_params": {
+          "c": 32714895.11336664,
+          "ga": 8.49518453411163,
+          "r": 0.001000000325727125
+        },
+        "refit_over_A": {
+          "c": 80.959,
+          "ga": 307.503,
+          "r": 0.001
+        }
+      },
+      "aic_A": 15302.2,
+      "any_interval_spans_10x": true,
+      "aperture_plausible": false,
+      "identifiability": {
+        "c": {
+          "hi": 12122729.118368223,
+          "lo": 400000.0,
+          "rooms_bound_limited": 8,
+          "rooms_grid_limited": 8,
+          "rooms_open": 8,
+          "rooms_wide": 8,
+          "span": 30.306822795920557,
+          "wide": true
+        },
+        "ga": {
+          "hi": 0.8287910607619178,
+          "lo": 0.0222171055861937,
+          "rooms_bound_limited": 0,
+          "rooms_grid_limited": 6,
+          "rooms_open": 6,
+          "rooms_wide": 8,
+          "span": 37.304186971904684,
+          "wide": true
+        },
+        "r": {
+          "hi": 2.0,
+          "lo": 0.06163377124183329,
+          "rooms_bound_limited": 8,
+          "rooms_grid_limited": 6,
+          "rooms_open": 8,
+          "rooms_wide": 8,
+          "span": 32.44974240100564,
+          "wide": true
+        }
+      },
+      "inconclusive_middle": false,
+      "neither_clear": false,
+      "parameters_stable": false,
+      "repair": false,
+      "rests_on_width_alone": false,
+      "sponge": true,
+      "verdict": "sponge",
+      "verdict_without_width_post_hoc": "sponge"
+    },
+    "2R2C": {
+      "A": {
+        "median_params": {
+          "c_a": 400000.0000000009,
+          "c_m": 406095.44707425626,
+          "r_am": 1.9992727412741282,
+          "r_ao": 0.16966786728094968
+        },
+        "median_r": 0.4345,
+        "median_rmse": 2.4381464140230227,
+        "n_eff": {
+          "max": 25.476383855374934,
+          "min": 16.286432160804036,
+          "rho_capped_rooms": 7,
+          "sse_ratio_threshold_max": 1.2659723478374423,
+          "sse_ratio_threshold_min": 1.162725804315716
+        },
+        "per_m2": {
+          "c_a": 25000.000000000055,
+          "c_m": 25380.965442141016,
+          "r_am": 0.03126136755116714,
+          "r_ao": 0.36836674499189337
+        },
+        "rooms": {
+          "T1": {
+            "aic": 4092.3,
+            "bound_limited": {
+              "c_a": [
+                true,
+                false
+              ],
+              "c_m": [
+                true,
+                false
+              ],
+              "r_am": [
+                false,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                12000000.000000026
+              ],
+              "c_m": [
+                400000.0,
+                15837685.011516154
+              ],
+              "r_am": [
+                0.06662229018451124,
+                2.0
+              ],
+              "r_ao": [
+                0.02544569352984973,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "grid"
+              ],
+              "c_m": [
+                "bound",
+                "grid"
+              ],
+              "r_am": [
+                "grid",
+                "bound"
+              ],
+              "r_ao": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 14,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c_a": 400000.0000000009,
+              "c_m": 527922.8337172051,
+              "m0": 0.015262430343609195,
+              "r_am": 1.9986687055353374,
+              "r_ao": 0.7428025120930313
+            },
+            "r": 0.4371,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 1.877,
+            "room": "kitchen",
+            "setpoint_c": 19.73,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T2": {
+            "aic": 6233.8,
+            "bound_limited": {
+              "c_a": [
+                true,
+                false
+              ],
+              "c_m": [
+                true,
+                false
+              ],
+              "r_am": [
+                false,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                12000000.000000026
+              ],
+              "c_m": [
+                400000.0,
+                12238335.650457103
+              ],
+              "r_am": [
+                0.06666177302403282,
+                2.0
+              ],
+              "r_ao": [
+                0.011084112131988764,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "grid"
+              ],
+              "c_m": [
+                "bound",
+                "grid"
+              ],
+              "r_am": [
+                "grid",
+                "bound"
+              ],
+              "r_ao": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 50,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 25.5,
+            "params": {
+              "c_a": 400000.0000000009,
+              "c_m": 407944.5216819034,
+              "m0": 19.677138716239245,
+              "r_am": 1.9998531907209849,
+              "r_ao": 0.09781071428345782
+            },
+            "r": 0.4959,
+            "rho": 0.9844,
+            "rho_capped": false,
+            "rmse": 2.612,
+            "room": "living room",
+            "setpoint_c": 17.86,
+            "sse_ratio_threshold": 1.162725804315716
+          },
+          "T3": {
+            "aic": 5728.6,
+            "bound_limited": {
+              "c_a": [
+                true,
+                false
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "r_am": [
+                true,
+                false
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                12000000.000000026
+              ],
+              "c_m": [
+                3102211.1530718287,
+                500000000.0
+              ],
+              "r_am": [
+                0.001,
+                0.2485362007266775
+              ],
+              "r_ao": [
+                0.06666666662853288,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "grid"
+              ],
+              "c_m": [
+                "grid",
+                "bound"
+              ],
+              "r_am": [
+                "bound",
+                "grid"
+              ],
+              "r_ao": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 54,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c_a": 400000.0000000009,
+              "c_m": 93066334.59215486,
+              "m0": 0.010248132873112216,
+              "r_am": 0.008284540024222584,
+              "r_ao": 1.9999999988559862
+            },
+            "r": 0.4319,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.416,
+            "room": "laundry room",
+            "setpoint_c": 19.93,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T4": {
+            "aic": 5844.9,
+            "bound_limited": {
+              "c_a": [
+                true,
+                false
+              ],
+              "c_m": [
+                true,
+                false
+              ],
+              "r_am": [
+                false,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                12000000.000000112
+              ],
+              "c_m": [
+                400000.0,
+                12127391.173998274
+              ],
+              "r_am": [
+                0.06665625064137257,
+                2.0
+              ],
+              "r_ao": [
+                0.01828815701464998,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "grid"
+              ],
+              "c_m": [
+                "bound",
+                "grid"
+              ],
+              "r_am": [
+                "grid",
+                "bound"
+              ],
+              "r_ao": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 21,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c_a": 400000.0000000037,
+              "c_m": 404246.3724666091,
+              "m0": 0.11505610335426293,
+              "r_am": 1.9996875192411772,
+              "r_ao": 0.19017626805071486
+            },
+            "r": 0.4177,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.46,
+            "room": "office",
+            "setpoint_c": 18.48,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T5": {
+            "aic": 4819.4,
+            "bound_limited": {
+              "c_a": [
+                true,
+                false
+              ],
+              "c_m": [
+                true,
+                false
+              ],
+              "r_am": [
+                false,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                12000000.000000026
+              ],
+              "c_m": [
+                400000.0,
+                12000317.55111191
+              ],
+              "r_am": [
+                0.06666632282068737,
+                2.0
+              ],
+              "r_ao": [
+                0.018185233302988196,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "grid"
+              ],
+              "c_m": [
+                "bound",
+                "grid"
+              ],
+              "r_am": [
+                "grid",
+                "bound"
+              ],
+              "r_ao": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 16,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c_a": 400000.0000000009,
+              "c_m": 400010.5850370637,
+              "m0": 0.010000238914398102,
+              "r_am": 1.999989684620621,
+              "r_ao": 0.1139751991921082
+            },
+            "r": 0.4376,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.1,
+            "room": "bathroom",
+            "setpoint_c": 17.5,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T7": {
+            "aic": 6106.5,
+            "bound_limited": {
+              "c_a": [
+                true,
+                false
+              ],
+              "c_m": [
+                true,
+                false
+              ],
+              "r_am": [
+                false,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                12000000.000000026
+              ],
+              "c_m": [
+                400000.0,
+                12065034.06331159
+              ],
+              "r_am": [
+                0.06662859877690264,
+                2.0
+              ],
+              "r_ao": [
+                0.017372425354605488,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "grid"
+              ],
+              "c_m": [
+                "bound",
+                "grid"
+              ],
+              "r_am": [
+                "grid",
+                "bound"
+              ],
+              "r_ao": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 44,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c_a": 400000.0000000009,
+              "c_m": 402167.8021103863,
+              "m0": 0.010026097608096352,
+              "r_am": 1.9988579633070793,
+              "r_ao": 0.1491594665111845
+            },
+            "r": 0.4066,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.561,
+            "room": "ironing room",
+            "setpoint_c": 17.79,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T8": {
+            "aic": 6009.8,
+            "bound_limited": {
+              "c_a": [
+                false,
+                true
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "r_am": [
+                true,
+                false
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                1481496.9283734867,
+                50000000.0
+              ],
+              "c_m": [
+                3452162.997942592,
+                500000000.0
+              ],
+              "r_am": [
+                0.001,
+                0.2016514823814376
+              ],
+              "r_ao": [
+                0.06666666665743906,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "grid",
+                "bound"
+              ],
+              "c_m": [
+                "grid",
+                "bound"
+              ],
+              "r_am": [
+                "bound",
+                "grid"
+              ],
+              "r_ao": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 44,
+              "start": 1,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c_a": 44444907.851204604,
+              "c_m": 103564889.93827777,
+              "m0": 0.15867494463713858,
+              "r_am": 0.006721716079381253,
+              "r_ao": 1.9999999997231717
+            },
+            "r": 0.5327,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.523,
+            "room": "teenager room",
+            "setpoint_c": 19.42,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T9": {
+            "aic": 5712.3,
+            "bound_limited": {
+              "c_a": [
+                true,
+                false
+              ],
+              "c_m": [
+                true,
+                false
+              ],
+              "r_am": [
+                false,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                12000000.000000026
+              ],
+              "c_m": [
+                400000.0,
+                12000000.000023816
+              ],
+              "r_am": [
+                0.066666666666666,
+                2.0
+              ],
+              "r_ao": [
+                0.01661301963922597,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "grid"
+              ],
+              "c_m": [
+                "bound",
+                "grid"
+              ],
+              "r_am": [
+                "grid",
+                "bound"
+              ],
+              "r_ao": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 27,
+              "start": 0,
+              "status": 2
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c_a": 400000.0000000009,
+              "c_m": 400000.00000079384,
+              "m0": 0.010001254988268956,
+              "r_am": 1.99999999999998,
+              "r_ao": 0.12015935366557026
+            },
+            "r": 0.4143,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 2.41,
+            "room": "parents' room",
+            "setpoint_c": 17.09,
+            "sse_ratio_threshold": 1.2659723478374423
+          }
+        }
+      },
+      "B": {
+        "held_out": [
+          {
+            "bias": -1.66,
+            "column": "t_dining",
+            "n": 988,
+            "r": 0.8305,
+            "rmse": 2.738,
+            "room": "dining room",
+            "setpoint_c": 16.26,
+            "within_2": 0.4949
+          },
+          {
+            "bias": -1.463,
+            "column": "t_room",
+            "n": 988,
+            "r": 0.8431,
+            "rmse": 2.545,
+            "room": "room",
+            "setpoint_c": 15.83,
+            "within_2": 0.5385
+          }
+        ],
+        "median_r": 0.8368,
+        "median_rmse": 2.6414999999999997,
+        "refit": {
+          "t_dining": {
+            "aic": 523.6,
+            "bound_limited": {
+              "c_a": [
+                false,
+                false
+              ],
+              "c_m": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                false
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.39809420967,
+                400000.39809420967
+              ],
+              "c_m": [
+                499999999.95786,
+                499999999.95786
+              ],
+              "r_am": [
+                0.10853461758648092,
+                0.10853461758648092
+              ],
+              "r_ao": [
+                0.03604398773719556,
+                0.03604398773719556
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "inside",
+                "inside"
+              ],
+              "c_m": [
+                "inside",
+                "inside"
+              ],
+              "r_am": [
+                "inside",
+                "inside"
+              ],
+              "r_ao": [
+                "inside",
+                "inside"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                false,
+                false
+              ],
+              "c_m": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                false
+              ]
+            },
+            "fit": {
+              "nfev": 17,
+              "start": 0,
+              "status": 2
+            },
+            "n": 988,
+            "n_eff": 6.3,
+            "params": {
+              "c_a": 400000.39809420967,
+              "c_m": 499999999.95786,
+              "m0": 19.999999999997776,
+              "r_am": 0.10853461758648092,
+              "r_ao": 0.03604398773719556
+            },
+            "r": 0.9412,
+            "rho": 0.9873,
+            "rho_capped": false,
+            "rmse": 1.297,
+            "room": "dining room",
+            "setpoint_c": 16.26,
+            "sse_ratio_threshold": 1.840865830923502
+          },
+          "t_room": {
+            "aic": 1196.5,
+            "bound_limited": {
+              "c_a": [
+                false,
+                false
+              ],
+              "c_m": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                false
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                2842475.423702289,
+                2842475.423702289
+              ],
+              "c_m": [
+                3305181.2799667562,
+                3305181.2799667562
+              ],
+              "r_am": [
+                0.001479013006340027,
+                0.001479013006340027
+              ],
+              "r_ao": [
+                0.0020709686636945996,
+                0.0020709686636945996
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "inside",
+                "inside"
+              ],
+              "c_m": [
+                "inside",
+                "inside"
+              ],
+              "r_am": [
+                "inside",
+                "inside"
+              ],
+              "r_ao": [
+                "inside",
+                "inside"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                false,
+                false
+              ],
+              "c_m": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                false
+              ]
+            },
+            "fit": {
+              "nfev": 17,
+              "start": 0,
+              "status": 2
+            },
+            "n": 988,
+            "n_eff": 5.0,
+            "params": {
+              "c_a": 2842475.423702289,
+              "c_m": 3305181.2799667562,
+              "m0": 19.99999999999999,
+              "r_am": 0.001479013006340027,
+              "r_ao": 0.0020709686636945996
+            },
+            "r": 0.9497,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 1.823,
+            "room": "room",
+            "setpoint_c": 15.83,
+            "sse_ratio_threshold": 2.167648008191321
+          }
+        },
+        "refit_median_params": {
+          "c_a": 1621237.9108982494,
+          "c_m": 251652590.61891338,
+          "r_am": 0.05500681529641047,
+          "r_ao": 0.01905747820044508
+        },
+        "refit_over_A": {
+          "c_a": 4.053,
+          "c_m": 619.688,
+          "r_am": 0.028,
+          "r_ao": 0.112
+        }
+      },
+      "aic_A": 44547.6,
+      "any_interval_spans_10x": true,
+      "aperture_plausible": true,
+      "identifiability": {
+        "c_a": {
+          "hi": 12000000.000000026,
+          "lo": 400000.0,
+          "rooms_bound_limited": 8,
+          "rooms_grid_limited": 8,
+          "rooms_open": 8,
+          "rooms_wide": 8,
+          "span": 30.000000000000064,
+          "wide": true
+        },
+        "c_m": {
+          "hi": 12182863.412227688,
+          "lo": 400000.0,
+          "rooms_bound_limited": 8,
+          "rooms_grid_limited": 8,
+          "rooms_open": 8,
+          "rooms_wide": 8,
+          "span": 30.45715853056922,
+          "wide": true
+        },
+        "r_am": {
+          "hi": 2.0,
+          "lo": 0.0666424247091376,
+          "rooms_bound_limited": 8,
+          "rooms_grid_limited": 8,
+          "rooms_open": 8,
+          "rooms_wide": 8,
+          "span": 30.01091284912045,
+          "wide": true
+        },
+        "r_ao": {
+          "hi": 2.0,
+          "lo": 0.018236695158819087,
+          "rooms_bound_limited": 8,
+          "rooms_grid_limited": 2,
+          "rooms_open": 8,
+          "rooms_wide": 8,
+          "span": 109.66899334459838,
+          "wide": true
+        }
+      },
+      "inconclusive_middle": false,
+      "neither_clear": false,
+      "parameters_stable": false,
+      "repair": false,
+      "rests_on_width_alone": true,
+      "sponge": true,
+      "verdict": "sponge",
+      "verdict_without_width_post_hoc": "neither"
+    },
+    "2R2C+solar": {
+      "A": {
+        "median_params": {
+          "c_a": 5858813.371199187,
+          "c_m": 101974619.74068654,
+          "ga": 0.6329452755588341,
+          "r_am": 0.01431599215304204,
+          "r_ao": 0.2716826021125866
+        },
+        "median_r": 0.82745,
+        "median_rmse": 1.1495488387020538,
+        "n_eff": {
+          "max": 76.26467979967946,
+          "min": 16.286432160804036,
+          "rho_capped_rooms": 2,
+          "sse_ratio_threshold_max": 1.2659723478374423,
+          "sse_ratio_threshold_min": 1.0516539068474695
+        },
+        "per_m2": {
+          "c_a": 366175.8356999492,
+          "c_m": 6373413.7337929085,
+          "ga": 0.03955907972242713,
+          "r_am": 4.365747014377849,
+          "r_ao": 0.23004785552701565
+        },
+        "rooms": {
+          "T1": {
+            "aic": -100.6,
+            "bound_limited": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                50000000.0
+              ],
+              "c_m": [
+                4059333.5203523664,
+                500000000.0
+              ],
+              "ga": [
+                0.019951700967209652,
+                4.7329095683801645
+              ],
+              "r_am": [
+                0.0012153102937090732,
+                1.0937792643381659
+              ],
+              "r_ao": [
+                0.015514193861762867,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "bound"
+              ],
+              "c_m": [
+                "grid",
+                "bound"
+              ],
+              "ga": [
+                "grid",
+                "inside"
+              ],
+              "r_am": [
+                "grid",
+                "grid"
+              ],
+              "r_ao": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "ga": [
+                true,
+                false
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 60,
+              "start": 1,
+              "status": 0
+            },
+            "n": 3241,
+            "n_eff": 27.1,
+            "params": {
+              "c_a": 6482246.094905511,
+              "c_m": 121780005.610571,
+              "ga": 0.5985510290162895,
+              "m0": 13.969475660211433,
+              "r_am": 0.0364593088112722,
+              "r_ao": 0.1307803661316352
+            },
+            "r": 0.7907,
+            "rho": 0.9834,
+            "rho_capped": false,
+            "rmse": 0.983,
+            "room": "kitchen",
+            "setpoint_c": 19.73,
+            "sse_ratio_threshold": 1.1524526020488797
+          },
+          "T2": {
+            "aic": 2026.7,
+            "bound_limited": {
+              "c_a": [
+                true,
+                false
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                false
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                1441468.3353149202
+              ],
+              "c_m": [
+                8555114.494449163,
+                500000000.0
+              ],
+              "ga": [
+                0.24555599425185543,
+                3.420874465090084
+              ],
+              "r_am": [
+                0.0012489621038738684,
+                0.027497665539359405
+              ],
+              "r_ao": [
+                0.03446458741684258,
+                0.3537050649675407
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "inside"
+              ],
+              "c_m": [
+                "inside",
+                "bound"
+              ],
+              "ga": [
+                "inside",
+                "inside"
+              ],
+              "r_am": [
+                "inside",
+                "inside"
+              ],
+              "r_ao": [
+                "inside",
+                "inside"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                false
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                false
+              ]
+            },
+            "fit": {
+              "nfev": 18,
+              "start": 0,
+              "status": 3
+            },
+            "n": 3241,
+            "n_eff": 76.3,
+            "params": {
+              "c_a": 400000.06534430437,
+              "c_m": 33381592.791801997,
+              "ga": 0.6673395221013786,
+              "m0": 14.112415950401916,
+              "r_am": 0.00911659164844022,
+              "r_ao": 0.09939804604336137
+            },
+            "r": 0.7986,
+            "rho": 0.954,
+            "rho_capped": false,
+            "rmse": 1.365,
+            "room": "living room",
+            "setpoint_c": 17.86,
+            "sse_ratio_threshold": 1.0516539068474695
+          },
+          "T3": {
+            "aic": 976.6,
+            "bound_limited": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                true,
+                false
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                50000000.0
+              ],
+              "c_m": [
+                2738974.462360069,
+                500000000.0
+              ],
+              "ga": [
+                0.018286930771869436,
+                4.874560904107466
+              ],
+              "r_am": [
+                0.001,
+                0.35541493648834843
+              ],
+              "r_ao": [
+                0.01584103512125706,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "bound"
+              ],
+              "c_m": [
+                "grid",
+                "bound"
+              ],
+              "ga": [
+                "grid",
+                "inside"
+              ],
+              "r_am": [
+                "bound",
+                "grid"
+              ],
+              "r_ao": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "ga": [
+                true,
+                false
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 60,
+              "start": 1,
+              "status": 0
+            },
+            "n": 3241,
+            "n_eff": 36.8,
+            "params": {
+              "c_a": 9377209.379141098,
+              "c_m": 82169233.87080207,
+              "ga": 0.5486079231560831,
+              "m0": 1.8309651412914252,
+              "r_am": 0.011847164549611615,
+              "r_ao": 0.3381022293276875
+            },
+            "r": 0.8172,
+            "rho": 0.9775,
+            "rho_capped": false,
+            "rmse": 1.16,
+            "room": "laundry room",
+            "setpoint_c": 19.93,
+            "sse_ratio_threshold": 1.1099348800040545
+          },
+          "T4": {
+            "aic": 863.3,
+            "bound_limited": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                50000000.0
+              ],
+              "c_m": [
+                1207471.1644500317,
+                500000000.0
+              ],
+              "ga": [
+                0.014467377842208903,
+                5.3445485673378395
+              ],
+              "r_am": [
+                0.0015323541990112095,
+                1.3791187791100885
+              ],
+              "r_ao": [
+                0.013947413607803277,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "bound"
+              ],
+              "c_m": [
+                "inside",
+                "bound"
+              ],
+              "ga": [
+                "grid",
+                "inside"
+              ],
+              "r_am": [
+                "grid",
+                "grid"
+              ],
+              "r_ao": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                true,
+                false
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 60,
+              "start": 1,
+              "status": 0
+            },
+            "n": 3241,
+            "n_eff": 52.7,
+            "params": {
+              "c_a": 4163499.202889217,
+              "c_m": 36014939.15806395,
+              "ga": 0.4340213352662671,
+              "m0": 0.4764895256549526,
+              "r_am": 0.045970625970336285,
+              "r_ao": 0.20526297489748568
+            },
+            "r": 0.8377,
+            "rho": 0.968,
+            "rho_capped": false,
+            "rmse": 1.14,
+            "room": "office",
+            "setpoint_c": 18.48,
+            "sse_ratio_threshold": 1.0755841186436281
+          },
+          "T5": {
+            "aic": -835.3,
+            "bound_limited": {
+              "c_a": [
+                true,
+                false
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                12000023.905686311
+              ],
+              "c_m": [
+                17432152.401958223,
+                500000000.0
+              ],
+              "ga": [
+                0.0036571203110629265,
+                0.24801833566912507
+              ],
+              "r_am": [
+                0.04332653958523181,
+                1.7517091675898153
+              ],
+              "r_ao": [
+                0.06072371882694652,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "grid"
+              ],
+              "c_m": [
+                "inside",
+                "bound"
+              ],
+              "ga": [
+                "inside",
+                "grid"
+              ],
+              "r_am": [
+                "grid",
+                "inside"
+              ],
+              "r_ao": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                true
+              ],
+              "r_am": [
+                true,
+                false
+              ],
+              "r_ao": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 60,
+              "start": 0,
+              "status": 0
+            },
+            "n": 3241,
+            "n_eff": 70.0,
+            "params": {
+              "c_a": 400000.7968562104,
+              "c_m": 499999999.9999881,
+              "ga": 0.008267277855637502,
+              "m0": 19.544148343328278,
+              "r_am": 1.2997961875569544,
+              "r_ao": 1.8217115648083957
+            },
+            "r": 0.8856,
+            "rho": 0.9577,
+            "rho_capped": false,
+            "rmse": 0.877,
+            "room": "bathroom",
+            "setpoint_c": 17.5,
+            "sse_ratio_threshold": 1.056445335280616
+          },
+          "T7": {
+            "aic": 967.0,
+            "bound_limited": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                true,
+                false
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                400000.0,
+                50000000.0
+              ],
+              "c_m": [
+                2528603.5702358517,
+                500000000.0
+              ],
+              "ga": [
+                0.023528894368209374,
+                6.980350054071512
+              ],
+              "r_am": [
+                0.001,
+                0.503544592694174
+              ],
+              "r_ao": [
+                0.010275576113380872,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "bound",
+                "bound"
+              ],
+              "c_m": [
+                "grid",
+                "bound"
+              ],
+              "ga": [
+                "grid",
+                "inside"
+              ],
+              "r_am": [
+                "bound",
+                "grid"
+              ],
+              "r_ao": [
+                "inside",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "ga": [
+                true,
+                false
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 60,
+              "start": 0,
+              "status": 0
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c_a": 5235380.647492864,
+              "c_m": 75858107.10707556,
+              "ga": 0.7058668310462812,
+              "m0": 0.013309223612627577,
+              "r_am": 0.016784819756472464,
+              "r_ao": 0.1503136417366497
+            },
+            "r": 0.8456,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 1.159,
+            "room": "ironing room",
+            "setpoint_c": 17.79,
+            "sse_ratio_threshold": 1.2659723478374423
+          },
+          "T8": {
+            "aic": 1614.4,
+            "bound_limited": {
+              "c_a": [
+                false,
+                true
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                true,
+                false
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                766766.5744429425,
+                50000000.0
+              ],
+              "c_m": [
+                12883956.333373373,
+                500000000.0
+              ],
+              "ga": [
+                0.08026760008464712,
+                3.386963325330366
+              ],
+              "r_am": [
+                0.001,
+                0.03550132690520748
+              ],
+              "r_ao": [
+                0.06666666545704686,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "grid",
+                "bound"
+              ],
+              "c_m": [
+                "grid",
+                "bound"
+              ],
+              "ga": [
+                "inside",
+                "inside"
+              ],
+              "r_am": [
+                "bound",
+                "grid"
+              ],
+              "r_ao": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 60,
+              "start": 1,
+              "status": 3
+            },
+            "n": 3241,
+            "n_eff": 18.4,
+            "params": {
+              "c_a": 23002997.233288277,
+              "c_m": 386518690.0012012,
+              "ga": 1.3712884924958237,
+              "m0": 9.545661736674747,
+              "r_am": 0.001183377563506916,
+              "r_ao": 1.9999999637114056
+            },
+            "r": 0.7583,
+            "rho": 0.9887,
+            "rho_capped": false,
+            "rmse": 1.28,
+            "room": "teenager room",
+            "setpoint_c": 19.42,
+            "sse_ratio_threshold": 1.2315445068785997
+          },
+          "T9": {
+            "aic": -649.4,
+            "bound_limited": {
+              "c_a": [
+                false,
+                true
+              ],
+              "c_m": [
+                false,
+                true
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                true,
+                false
+              ],
+              "r_ao": [
+                false,
+                true
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                1666666.6666666605,
+                50000000.0
+              ],
+              "c_m": [
+                6831946.235357576,
+                500000000.0
+              ],
+              "ga": [
+                0.03129647502633952,
+                4.14641565301597
+              ],
+              "r_am": [
+                0.001,
+                0.11675912239938967
+              ],
+              "r_ao": [
+                0.05847189787359078,
+                2.0
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "grid",
+                "bound"
+              ],
+              "c_m": [
+                "grid",
+                "bound"
+              ],
+              "ga": [
+                "grid",
+                "inside"
+              ],
+              "r_am": [
+                "bound",
+                "grid"
+              ],
+              "r_ao": [
+                "grid",
+                "bound"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                true,
+                true
+              ],
+              "c_m": [
+                true,
+                true
+              ],
+              "ga": [
+                true,
+                false
+              ],
+              "r_am": [
+                true,
+                true
+              ],
+              "r_ao": [
+                true,
+                true
+              ]
+            },
+            "fit": {
+              "nfev": 60,
+              "start": 0,
+              "status": 0
+            },
+            "n": 3241,
+            "n_eff": 16.3,
+            "params": {
+              "c_a": 49999999.999999814,
+              "c_m": 204958387.0607273,
+              "ga": 0.9388942507901856,
+              "m0": 2.270132256332716,
+              "r_am": 0.0038919707466463223,
+              "r_ao": 1.7541569362077234
+            },
+            "r": 0.8934,
+            "rho": 0.99,
+            "rho_capped": true,
+            "rmse": 0.903,
+            "room": "parents' room",
+            "setpoint_c": 17.09,
+            "sse_ratio_threshold": 1.2659723478374423
+          }
+        }
+      },
+      "B": {
+        "held_out": [
+          {
+            "bias": 2.205,
+            "column": "t_dining",
+            "n": 988,
+            "r": 0.7394,
+            "rmse": 3.196,
+            "room": "dining room",
+            "setpoint_c": 16.26,
+            "within_2": 0.4565
+          },
+          {
+            "bias": 2.267,
+            "column": "t_room",
+            "n": 988,
+            "r": 0.749,
+            "rmse": 3.218,
+            "room": "room",
+            "setpoint_c": 15.83,
+            "within_2": 0.4453
+          }
+        ],
+        "median_r": 0.7442,
+        "median_rmse": 3.207,
+        "refit": {
+          "t_dining": {
+            "aic": -1111.4,
+            "bound_limited": {
+              "c_a": [
+                false,
+                false
+              ],
+              "c_m": [
+                false,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                false
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                25124798.751196966,
+                25124798.751196966
+              ],
+              "c_m": [
+                15008569.707968088,
+                15008569.707968088
+              ],
+              "ga": [
+                9.277254990882446,
+                9.277254990882446
+              ],
+              "r_am": [
+                0.00100000000007021,
+                0.00100000000007021
+              ],
+              "r_ao": [
+                0.0010000000032529697,
+                0.0010000000032529697
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "inside",
+                "inside"
+              ],
+              "c_m": [
+                "inside",
+                "inside"
+              ],
+              "ga": [
+                "inside",
+                "inside"
+              ],
+              "r_am": [
+                "inside",
+                "inside"
+              ],
+              "r_ao": [
+                "inside",
+                "inside"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                false,
+                false
+              ],
+              "c_m": [
+                false,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                false
+              ]
+            },
+            "fit": {
+              "nfev": 13,
+              "start": 1,
+              "status": 3
+            },
+            "n": 988,
+            "n_eff": 16.7,
+            "params": {
+              "c_a": 25124798.751196966,
+              "c_m": 15008569.707968088,
+              "ga": 9.277254990882446,
+              "m0": 19.99999999999999,
+              "r_am": 0.00100000000007021,
+              "r_ao": 0.0010000000032529697
+            },
+            "r": 0.9856,
+            "rho": 0.9667,
+            "rho_capped": false,
+            "rmse": 0.566,
+            "room": "dining room",
+            "setpoint_c": 16.26,
+            "sse_ratio_threshold": 1.2578169146958411
+          },
+          "t_room": {
+            "aic": -1162.6,
+            "bound_limited": {
+              "c_a": [
+                false,
+                false
+              ],
+              "c_m": [
+                false,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                false
+              ]
+            },
+            "ci95": {
+              "c_a": [
+                21776098.032871798,
+                21776098.032871798
+              ],
+              "c_m": [
+                18114978.660797942,
+                18114978.660797942
+              ],
+              "ga": [
+                7.815206997786286,
+                7.815206997786286
+              ],
+              "r_am": [
+                0.001000000000000001,
+                0.001000000000000001
+              ],
+              "r_ao": [
+                0.0010000000000000464,
+                0.0010000000000000464
+              ]
+            },
+            "ci_end": {
+              "c_a": [
+                "inside",
+                "inside"
+              ],
+              "c_m": [
+                "inside",
+                "inside"
+              ],
+              "ga": [
+                "inside",
+                "inside"
+              ],
+              "r_am": [
+                "inside",
+                "inside"
+              ],
+              "r_ao": [
+                "inside",
+                "inside"
+              ]
+            },
+            "ci_open": {
+              "c_a": [
+                false,
+                false
+              ],
+              "c_m": [
+                false,
+                false
+              ],
+              "ga": [
+                false,
+                false
+              ],
+              "r_am": [
+                false,
+                false
+              ],
+              "r_ao": [
+                false,
+                false
+              ]
+            },
+            "fit": {
+              "nfev": 15,
+              "start": 1,
+              "status": 4
+            },
+            "n": 988,
+            "n_eff": 23.7,
+            "params": {
+              "c_a": 21776098.032871798,
+              "c_m": 18114978.660797942,
+              "ga": 7.815206997786286,
+              "m0": 19.99999999999999,
+              "r_am": 0.001000000000000001,
+              "r_ao": 0.0010000000000000464
+            },
+            "r": 0.9866,
+            "rho": 0.9531,
+            "rho_capped": false,
+            "rmse": 0.552,
+            "room": "room",
+            "setpoint_c": 15.83,
+            "sse_ratio_threshold": 1.175803655068182
+          }
+        },
+        "refit_median_params": {
+          "c_a": 23450448.39203438,
+          "c_m": 16561774.184383016,
+          "ga": 8.546230994334366,
+          "r_am": 0.0010000000000351056,
+          "r_ao": 0.001000000001626508
+        },
+        "refit_over_A": {
+          "c_a": 4.003,
+          "c_m": 0.162,
+          "ga": 13.502,
+          "r_am": 0.07,
+          "r_ao": 0.004
+        }
+      },
+      "aic_A": 4862.8,
+      "any_interval_spans_10x": true,
+      "aperture_plausible": true,
+      "identifiability": {
+        "c_a": {
+          "hi": 50000000.0,
+          "lo": 400000.0,
+          "rooms_bound_limited": 8,
+          "rooms_grid_limited": 3,
+          "rooms_open": 8,
+          "rooms_wide": 7,
+          "span": 125.0,
+          "wide": true
+        },
+        "c_m": {
+          "hi": 500000000.0,
+          "lo": 5445639.877854971,
+          "rooms_bound_limited": 8,
+          "rooms_grid_limited": 5,
+          "rooms_open": 8,
+          "rooms_wide": 8,
+          "span": 91.81657458350867,
+          "wide": true
+        },
+        "ga": {
+          "hi": 4.4396626106980674,
+          "lo": 0.02174029766770951,
+          "rooms_bound_limited": 0,
+          "rooms_grid_limited": 6,
+          "rooms_open": 6,
+          "rooms_wide": 8,
+          "span": 204.2135153141082,
+          "wide": true
+        },
+        "r_am": {
+          "hi": 0.4294797645912612,
+          "lo": 0.0011076551468545367,
+          "rooms_bound_limited": 4,
+          "rooms_grid_limited": 7,
+          "rooms_open": 7,
+          "rooms_wide": 8,
+          "span": 387.73779529745894,
+          "wide": true
+        },
+        "r_ao": {
+          "hi": 2.0,
+          "lo": 0.02515281126904982,
+          "rooms_bound_limited": 7,
+          "rooms_grid_limited": 3,
+          "rooms_open": 7,
+          "rooms_wide": 8,
+          "span": 79.513974744484,
+          "wide": true
+        }
+      },
+      "inconclusive_middle": false,
+      "neither_clear": false,
+      "parameters_stable": false,
+      "repair": false,
+      "rests_on_width_alone": true,
+      "sponge": true,
+      "verdict": "sponge",
+      "verdict_without_width_post_hoc": "neither"
+    }
+  },
+  "outcome": "sponge",
+  "outcome_order": "2R2C+solar",
+  "protocol": "docs/experiments/environment-validation.md, addendum 3",
+  "run": {
+    "catalog_code_sha256": "139b8ebe38b83db10b2233221c249c5e98358e0e3edc6e402bf6fb327429c2e4",
+    "catalog_inputs": {
+      "dcl": {
+        "manifest_sha256": "d69e4b734bd541894c45789f44c6dfb589944aa1b9e9d1cc119b8fafb499f77b",
+        "version": "height-324961"
+      },
+      "ha": {
+        "manifest_sha256": "6917c7888197cc38aec661c2da0d14317c8e3ab1cbc4bfeb7772b7ac032e19f2",
+        "version": "2026.10.2"
+      },
+      "matter_zap": {
+        "manifest_sha256": "e608206f3ad32b1d1cfb4ba7231e4a690a0075bbcfe1cb9dcbedebf15ba2cf31",
+        "version": "v1.6.1.0"
+      },
+      "tasmota": {
+        "manifest_sha256": "f80efec1ca20e85eb2a6d2285f533b66717aa560d74ae2b38daf7b89356e86ce",
+        "version": "30d9c9b16014817641f83a0cf8f2f266a0dbaef2"
+      },
+      "zigbee": {
+        "manifest_sha256": "89edf8fad5a7f13adabc4cc8caf8d10fdf85379d95a49ca2eb6d6e5377166c67",
+        "version": "26.123.0"
+      },
+      "zwave": {
+        "manifest_sha256": "0889173c4fc30ba289600959b8907fdb7f34435f811ea7ebef4962a993eabeb6",
+        "version": "15.31.2"
+      }
+    },
+    "command": "validate environment",
+    "finished_utc": "2026-11-04T16:50:00Z",
+    "git_commit": "41f3d6dd98a42556dffc0dd877664459f41f43d9",
+    "git_dirty": false,
+    "parameters": {
+      "appliances": ".vesper/datasets/uci-appliances",
+      "catalog": "catalog/vds",
+      "fit": false,
+      "fit_humidity": false,
+      "sml2010": ".vesper/datasets/uci-sml2010",
+      "thermal_ladder": true,
+      "weather_cache": ".vesper/datasets/era5",
+      "workers": 2
+    },
+    "thermal_ladder_sha256": "a77b5031314e1de67843df535d85b61f33d222e462dc22261293606151aec6ab",
+    "vesper_version": "0.2.0.dev0"
+  }
+}

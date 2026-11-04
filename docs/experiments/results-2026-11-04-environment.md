@@ -72,40 +72,90 @@ are unchanged. The constant 45 % of the assumed curve is still closer on both ho
 class is consistent with A's rooms being simulated too cold (warmer simulated air would hold the measured vapour
 at a lower relative humidity); that remains untested.
 
-## The thermal ladder (addendum 3; `results/environment/thermal-ladder-20261104T162908Z.json`)
+## The thermal ladder (addendum 3; `results/environment/thermal-ladder-20261104T165000Z.json`)
 
-Four grey-box orders fitted on each of dataset A's eight rooms (3,289 h, 10-minute steps, heater held at 1600 W, the
-room's own 10th-percentile setpoint rule on the model's own state), then handed A's median parameters for B's two
-rooms (1,197 h; nothing fitted on B for the held-out column). Medians over rooms:
+**The first run's report (`thermal-ladder-20261104T162908Z.json`, commit e3da446) is superseded.** Its code bounded
+R_am at (1e-3, 1.0) K/W and C_m at (1e6, 5e8) J/K; addendum 3 registered R_am 1e-3-2 and C_m 4e5-5e8, and the 2R2C
+optima sat on those bounds. The difference was found in review on 2026-11-04, after the first run had been written
+and committed; the bounds were set to the registered ones (a test now pins them), and the ladder was run again,
+once, with the corrected code (a8e22d8, sha256 of `thermal_ladder.py` in the report's `run`). The first JSON is kept.
+Everything below is from the second.
 
-| Order | A RMSE (r) | B held-out RMSE (r), bias | AIC on A (sum of 8 rooms) | A's parameters at a bound | Verdict |
+Four grey-box orders fitted on each of dataset A's eight rooms (3,241 scored hours each, 10-minute steps, heater held
+at 1600 W, the room's own 10th-percentile setpoint rule on the model's own state), then handed A's median parameters
+for B's two rooms (nothing fitted on B for the held-out column). Medians over rooms:
+
+| Order | A RMSE (r) | B held-out RMSE (r), bias | AIC on A (sum of 8 rooms) | A's optima on a bound | Verdict (pre-registered rule) |
 |---|---|---|---|---|---|
 | one-node model as it stands (`vesper validate environment`) | 2.08 °C (0.55-0.71) | 7.79 °C (0.73-0.77) | | | |
 | 1R1C | 2.44 °C (0.41) | 2.59 °C (0.83), -1.5 °C | 44,549 | C at its lower bound in 8 rooms of 8, R at its upper in 2 | sponge |
-| 1R1C+solar | 1.28 °C (0.78) | 8.56 °C (0.65), +7.9 °C | 15,302 | R at its upper bound in 2 rooms, C at a bound in 5 | sponge |
-| 2R2C | 2.44 °C (0.44) | 2.70 °C (0.84), -1.6 °C | 44,565 | C_a at its lower bound in 7, R_am at its upper in 6, C_m at its lower in 3, R_ao at its upper in 2 | sponge |
-| 2R2C+solar | 1.08 °C (0.83) | 4.08 °C (0.74), +3.4 °C | 5,125 | C_a at a bound in 2 rooms, C_m at its upper in 1, R_ao at its upper in 2 | sponge |
+| 1R1C+solar | 1.28 °C (0.78) | 8.56 °C (0.65), +7.9 °C | 15,302 | R at its upper in 2, C at a bound in 5 | sponge |
+| 2R2C | 2.44 °C (0.43) | 2.64 °C (0.84), -1.6 °C | 44,548 | C_a at its lower in 7, R_am at its upper in 6, C_m at its lower in 2, R_ao at its upper in 2 | sponge |
+| 2R2C+solar | 1.15 °C (0.83) | 3.21 °C (0.74), +2.2 °C | 4,863 | C_a at a bound in 3, C_m at its upper in 1, R_ao at its upper in 1 | sponge |
 
-**Outcome: sponge.** No order repairs. Every parameter of every order has a 95 % profile-likelihood interval that
-spans an order of magnitude (upper/lower between 30 and 594 for A's median of rooms; for 2R2C+solar: R_ao
-0.025-2 K/W, R_am 0.0014-0.82 K/W, C_a 0.4-50 MJ/K, C_m 4.8-500 MJ/K, g·A 0.017-4.6 m²), and most of those intervals
-are open: the profile never crosses the 95 % threshold within the grid's 1/30-to-30× range (so a span of "30" means "at
-least 30"). The optima sit on a bound in most rooms (table). Fitting each B room by itself gives parameters
-nowhere near A's (2R2C+solar: C_m 0.23×, g·A 16×, R_ao 0.005× A's median). The only aperture in the plausible 0.5-3
-m² window is 2R2C+solar's (median 0.52 m² conditional on the 1600 W heater, across rooms 0.02-1.4); it has an interval of 0.017-4.6 m².
+**Outcome: sponge (order 2R2C+solar, the lowest AIC; no order repairs). The same as in the superseded run.** Numbers
+that moved with the bounds: 2R2C+solar's B RMSE 4.08 -> 3.21 °C (bias +3.4 -> +2.2) and A 1.08 -> 1.15 °C; 2R2C's B
+2.70 -> 2.64 °C; 1R1C and 1R1C+solar are unchanged (their bounds did not change).
+
+Identifiability, 95 % profile-likelihood intervals (median over A's rooms of the lower and of the upper end). Every
+interval spans at least a factor 30, and an end is either at a **parameter bound** or at the **grid's end**
+(1/30 to 30 times the optimum) without the profile having crossed the threshold, in most rooms: the spans are
+grid- or bound-limited, not measured widths; "30" means "at least 30". The report flags each end (`ci_end`:
+inside / grid / bound; `bound_limited`) and counts rooms per parameter. 2R2C+solar: R_ao 0.025-2 K/W (bound-limited
+above in 7 rooms), R_am 0.0011-0.43 (4 rooms bound-limited, 7 open), C_a 0.4-50 MJ/K, C_m 5.4-500 MJ/K, g·A 0.022-4.4 m²
+(6 rooms open, grid-limited). B's own refits are far from A's (2R2C+solar: C_m 0.16x, g·A 13.5x, R_ao 0.004x A's
+median) and sit on bounds themselves (R_ao, R_am at 1e-3 K/W, the mass start at +10 °C). The only median aperture in
+the 0.5-3 m² window is 2R2C+solar's (0.63 m², conditional on the 1600 W heater; across rooms 0.01-1.4 m²).
 
 What the table says, as interpretation (not tested here):
 
-- The two orders without solar gain pass B's numerical criteria (2.6-2.7 °C, r 0.83-0.84, against the one-node room's
+- The two orders without solar gain pass B's numerical criteria (2.6 °C, r 0.83-0.84, against the one-node room's
   7.79 °C) with parameters at bounds and no identifiable structure: with a heater that holds the room's own
   10th-percentile floor and almost no heat loss (C at its lower bound), the model is close to a room held at its
-  floor; the cold bias on B (-1.4 to -1.7 °C) is consistent with that. This is the "sponge" the protocol names, not a
-  thermal model that transfers; it also fits A worse (2.44 °C) than the one-node room does (2.08 °C).
-- The solar orders fit A much better (AIC down by 29,000 for 1R1C+solar, 39,000 for 2R2C+solar relative to 1R1C) and
-  hold out on B much worse for 1R1C+solar (+7.9 °C, the same overheating as the one-node room) and in between for 2R2C+solar
-  (+3.4 °C): the solar aperture and the heater absorb A's winter, which B's spring sun does not obey.
-- The scale of (1/R, C, heater power, g·A) is not identifiable (found by the synthetic test: three starts reached the
-  same error with different constants); it is why the heater is held at VESPER's value, and every R, C and g·A above is
-  conditional on it.
-- Neither dataset publishes room geometry, heating or occupancy; a repair of the one-node model cannot be separated
-  from these omissions with this data. Nothing in `vesper/env/indoor.py` changes because of this result.
+  floor; the cold bias on B (-1.4 to -1.7 °C) is consistent with that. They also fit A worse (2.44 °C) than the
+  one-node room does (2.08 °C).
+- The solar orders fit A much better (AIC down by 29,000 for 1R1C+solar and 39,700 for 2R2C+solar against 1R1C) and
+  hold out on B much worse for 1R1C+solar (+7.9 °C, the same overheating as the one-node room) and in between for
+  2R2C+solar (+2.2 °C).
+- The scale of (1/R, C, heater power, g·A) is not identifiable (found by the synthetic test); it is why the heater is
+  held at VESPER's value, and every R, C and g·A above is conditional on it.
+- Nothing in `vesper/env/indoor.py` changes because of this result.
+
+### Deviations and disclosures (2026-11-04)
+
+The verdict is the pre-registered rule's, as run. These are the things the registration did not say or that differ
+from it, so that the paper can cite the result with them.
+
+1. **Bounds (above).** The first run used R_am and C_m bounds that differed from the registration; superseded.
+2. **The autocorrelation cap.** n_eff = n(1-ρ)/(1+ρ) was registered with ρ the residual's lag-1 autocorrelation; the
+   cap ρ ≤ 0.99 was not. With n = 3,241 scored hours, 19 of the 32 fits are at the cap (1R1C 7 of 8 rooms, 1R1C+solar 3,
+   2R2C 7, 2R2C+solar 2), where n_eff = 16.3; over all fits n_eff runs from 16.3 to 76.3, so the threshold on the
+   SSE ratio, exp(3.841/n_eff), runs from 1.05 to 1.27: an interval end is where the error has risen by 5-27 %. An
+   uncapped ρ would only shrink n_eff and widen the intervals, so the cap works against the "sponge" verdict. No n_eff
+   sensitivity analysis was run.
+3. **Which verdicts rest on interval width alone.** Without the condition that no interval span an order of magnitude
+   (post hoc, `verdict_without_width_post_hoc` in the report, a diagnostic that does not change the verdict) the
+   verdicts would be: 1R1C, 2R2C and 2R2C+solar "neither" ("inconclusive middle": B's RMSE is 3 °C or less for the first two,
+   3.21 °C for the third, and B's refit parameters are outside ±50 % of A's in all of them), and 1R1C+solar "sponge"
+   (its median aperture, 0.028 m², is outside 0.5-3 m²). So three of the four "sponge" verdicts, including the
+   outcome's order 2R2C+solar, rest on width alone. No order could have been a repair even without the width
+   condition: B's own refit lies outside ±50 % of A's parameters in every order. The widths are mostly grid- or
+   bound-limited (above), which is what an unidentified parameter looks like, but also what a profile that does not
+   cross within 1/30-30x looks like for a flat objective; the registration made that the criterion.
+4. **Not every main fit converged.** In 6 of 8 rooms of 2R2C+solar the least-squares fit stopped at its 60-evaluation
+   limit (`fit.status` 0 in the report), the other orders' fits converged (status 1-4). Those optima and their
+   profiles are those of an unfinished fit; a longer fit could lower A's error and move the intervals. Not rerun.
+5. **Profile refits stop early** (12 evaluations, tolerance 1e-5, versus 60 and 1e-7 for the main fit), which can leave
+   the profile's error too high away from the optimum and so narrows the intervals (conservative against "sponge").
+6. **Exploratory fits.** Two timing fits were run on dataset A, room T1 (1R1C+solar and 2R2C+solar, no profile), after
+   the addendum was committed and before the full run, to size the computation. Nothing was tuned from them except the
+   profile tolerances above.
+7. **The thermostat** is a proportional ±1 °C band on the model's own state (heater share linear from full at
+   setpoint - 1 to none at setpoint + 1), not `simulate_room`'s ±0.3 °C hysteresis; registered in addendum 3, but the
+   one-node room it is compared with uses the hysteresis.
+8. **B's held-out prediction uses B's own 10th-percentile setpoint** (registered: the setpoint rule needs a floor and
+   none is published). It is a statistic of B's measured temperatures, so the held-out column is not a prediction from
+   A and the weather alone; the heater power and the rest are A's. A model that is close to "the room held at its
+   floor" (the non-solar orders) benefits from exactly this.
+9. **The mass start** is fitted for the two-node orders as a nuisance (registered in the corrections); its bound is
+   -10 to +10 °C as registered, parametrised as 0.01-20 (offset + 10), so the lower bound is -9.99 °C.
