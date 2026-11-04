@@ -385,6 +385,21 @@ def _validate_environment(args) -> int:
         print("FAILED environment: neither dataset is there (see docs/experiments/environment-validation.md)",
               file=sys.stderr)
         return 1
+    if args.fit:
+        from vesper.validation.environment import fit_report
+        if not (have["a"] and have["b"]):
+            print("FAILED environment --fit: needs both datasets", file=sys.stderr)
+            return 1
+        fit = fit_report(have["a"], have["b"], Path(args.weather_cache))
+        out = args.out or Path("results/environment") / f"fit-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+        path = _write_report(str(out), "fit", fit, args)
+        c, b0, b1 = fit["chosen"], fit["baseline_B"]["T"], fit["held_out_B"]["T"]
+        print(f"fit on A: ACH {c['ach']}, solar-to-air {c['solar_to_air']} (A's median RMSE "
+              f"{c['A']['T']['median_rmse_c']:.2f} C, {c['A']['T']['median_within_2c']:.0%} within 2 C); "
+              f"held out on B: median RMSE {b1['median_rmse_c']:.2f} C ({b1['median_within_2c']:.0%} within 2 C) against "
+              f"{b0['median_rmse_c']:.2f} C as it stands; {'adopt' if fit['adopt'] else 'keep the current constants'}; "
+              f"report {path}")
+        return 0
     report = environment_report(have["a"], have["b"], Path(args.weather_cache), args.catalog)
     out = args.out or Path("results/environment") / f"environment-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
     path = _write_report(str(out), "environment", report, args)
@@ -1698,6 +1713,8 @@ def main(argv: list[str] | None = None) -> int:
     envv.add_argument("--sml2010", default=".vesper/datasets/uci-sml2010", help="UCI SML2010 (NEW-DATA-*.T15.txt)")
     envv.add_argument("--weather-cache", default=".vesper/datasets/era5", help="where ERA5's days are cached")
     envv.add_argument("--catalog", default="catalog/vds")
+    envv.add_argument("--fit", action="store_true", help="addendum 1: fit ACH and solar-to-air on dataset A, judge "
+                                                         "the chosen pair once on dataset B")
     envv.add_argument("--out")
     disc = checks.add_parser("discovery", help="Home Assistant's own schemas over every discovery message")
     disc.add_argument("--catalog", default="catalog/vds")

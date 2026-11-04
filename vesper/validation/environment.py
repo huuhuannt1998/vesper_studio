@@ -213,8 +213,14 @@ class _MeasuredOutdoor:
     def __init__(self, site, start, temp, rh, ghi, cloud):
         self.site, self.start = site, start
         self.temp, self.rh, self.ghi, self.cloud = temp, rh, ghi, cloud
+        self._seen: dict[float, object] = {}  # every room and every fitted constant sees the same outdoors
 
     def at(self, seconds: float):
+        if seconds not in self._seen:
+            self._seen[seconds] = self._at(seconds)
+        return self._seen[seconds]
+
+    def _at(self, seconds: float):
         from vesper.env.outdoor import OutdoorState
         from vesper.env.sun import direct_fraction, lux, sun_at
         k = min(int(seconds // 3600), len(self.temp) - 1)
@@ -226,9 +232,9 @@ class _MeasuredOutdoor:
                             direct_fraction=direct_fraction(self.cloud[k]))
 
 
-def simulate_room(site, start, temp, rh, ghi, cloud, setpoint: float) -> tuple[list[float], list[float]]:
+def simulate_room(site, start, temp, rh, ghi, cloud, setpoint: float, outdoor=None) -> tuple[list[float], list[float]]:
     """T and H: the standard room driven by these hourly series, heated to `setpoint` within VESPER's band; its
-    hourly mean temperature and humidity."""
+    hourly mean temperature and humidity. `outdoor`: a _MeasuredOutdoor of the same series, to share."""
     from vesper.env.indoor import HomeEnvironment, RoomModel
     from vesper.lab.rules import HEAT_BAND_C
     s = STANDARD_ROOM
@@ -236,8 +242,8 @@ def simulate_room(site, start, temp, rh, ghi, cloud, setpoint: float) -> tuple[l
     room = RoomModel("r", s["w"] * s["d"], 2 * (s["w"] + s["d"]),
                      s["outside_wall_m"] * 2.5 - s["window"][0] * s["window"][1], [win])
     room.temperature = setpoint
-    env = HomeEnvironment(replace(site, north_deg=0.0), _MeasuredOutdoor(site, start, temp, rh, ghi, cloud),
-                          {"r": room})
+    outdoor = outdoor or _MeasuredOutdoor(site, start, temp, rh, ghi, cloud)
+    env = HomeEnvironment(replace(site, north_deg=0.0), outdoor, {"r": room})
     heating, t_out, h_out = False, [], []
     for hour, value in enumerate(temp):
         if value is None:  # a gap in the record: no value, and the room goes on from where it was
@@ -283,12 +289,13 @@ def indoor_check(df, site, cache, *, t_out: str, rh_out: str, rooms: dict[str, s
               "W": weather_check(out_t, era["temperature_2m"]),
               "W_humidity": _agreement(era["relative_humidity_2m"], out_rh)}
     start = df.index[0].to_pydatetime()
+    shared = _MeasuredOutdoor(site, start, out_t, out_rh, era["shortwave_radiation"], era["cloud_cover"])
     rows = []
     for col, label in rooms.items():
         measured = _values(df[col])
         setpoint = _percentile(measured, SETPOINT_PERCENTILE)
         sim_t, sim_h = simulate_room(site, start, out_t, out_rh, era["shortwave_radiation"], era["cloud_cover"],
-                                     setpoint)
+                                     setpoint, outdoor=shared)
         t = _agreement(sim_t, measured)
         row = {"room": label, "column": col, "setpoint_c": round(setpoint, 2), "temperature": t,
                "swing_measured_c": _daily_swing(df.index, measured, site.zone),
@@ -380,3 +387,43 @@ def environment_report(appliances: str | None, sml2010: str | None, cache, catal
                                    rh_of={"t_dining": "rh_dining", "t_room": "rh_room"})
         report["D"] = daylight_check(b, site, vesper_daylight_factors(catalog))
     return report
+
+
+FIT_ACH = (0.5, 1.0, 1.5, 2.0, 3.0, 4.0)  # addendum 1
+FIT_SOLAR_TO_AIR = (1.0, 0.75, 0.5, 0.35, 0.25)
+
+
+def _rooms_with(df, site, cache, spec, ach: float, solar: float) -> dict:
+    from vesper.env import indoor
+    old = indoor.ACH, indoor.SOLAR_TO_AIR
+    indoor.ACH, indoor.SOLAR_TO_AIR = ach, solar
+    try:
+        r = indoor_check(df, site, cache, **spec)
+    finally:
+        indoor.ACH, indoor.SOLAR_TO_AIR = old
+    return {"ach": ach, "solar_to_air": solar, "T": r["T"], "H": r["H"],
+            "rooms": [{"room": x["room"], "temperature": x["temperature"]} for x in r["rooms"]]}
+
+
+def fit_report(appliances: str, sml2010: str, cache) -> dict:
+    """Addendum 1: the 30 pairs on dataset A, the best by T's median RMSE (ties by H's), then once on B."""
+    from vesper.env import indoor
+    from vesper.env.site import parse_site
+    a = load_appliances(appliances)
+    site_a = parse_site({"city": "Chièvres, Belgium", "date": a.index[0].date().isoformat()})
+    spec_a = {"t_out": "T_out", "rh_out": "RH_out", "rooms": APPLIANCES_ROOMS,
+              "rh_of": {c: "RH_" + c[1:] for c in APPLIANCES_ROOMS}}
+    grid = [_rooms_with(a, site_a, cache, spec_a, ach, s) for ach in FIT_ACH for s in FIT_SOLAR_TO_AIR]
+    best = min(grid, key=lambda g: (g["T"]["median_rmse_c"], g["H"]["median_rmse_pp"]))
+    b = load_sml2010(sml2010)
+    site_b = parse_site({"city": "Valencia, Spain", "date": b.index[0].date().isoformat()})
+    spec_b = {"t_out": "t_out", "rh_out": "rh_out", "rooms": SML_ROOMS,
+              "rh_of": {"t_dining": "rh_dining", "t_room": "rh_room"}}
+    held_out = _rooms_with(b, site_b, cache, spec_b, best["ach"], best["solar_to_air"])
+    baseline_b = _rooms_with(b, site_b, cache, spec_b, indoor.ACH, indoor.SOLAR_TO_AIR)
+    return {"protocol": "docs/experiments/environment-validation.md, addendum 1",
+            "current": {"ach": indoor.ACH, "solar_to_air": indoor.SOLAR_TO_AIR},
+            "grid_on_A": [{k: g[k] for k in ("ach", "solar_to_air", "T", "H")} for g in grid],
+            "chosen": {"ach": best["ach"], "solar_to_air": best["solar_to_air"], "A": best},
+            "held_out_B": held_out, "baseline_B": baseline_b,
+            "adopt": held_out["T"]["median_rmse_c"] <= baseline_b["T"]["median_rmse_c"]}

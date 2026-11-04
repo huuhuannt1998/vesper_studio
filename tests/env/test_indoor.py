@@ -89,3 +89,12 @@ def test_provenance_names_the_assumed_constants():
 def test_the_sun_s_site_day_is_the_site_s_date():
     e = env()
     assert e.site.utc(0) == dt.datetime(2026, 1, 15, 5, 0, tzinfo=dt.UTC)
+
+
+def test_only_solar_to_air_of_the_sun_through_the_glass_warms_the_room(monkeypatch):
+    from vesper.env import indoor
+    e = env()
+    full = e._solar_w(e.rooms["bedroom"], state())
+    assert indoor.SOLAR_TO_AIR == 1.0 and full > 0  # the default: all of it (the first validation run's model)
+    monkeypatch.setattr(indoor, "SOLAR_TO_AIR", 0.25)
+    assert e._solar_w(e.rooms["bedroom"], state()) == pytest.approx(0.25 * full)

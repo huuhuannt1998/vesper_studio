@@ -95,3 +95,20 @@ def test_the_datasets_are_read_hourly_in_utc(tmp_path):
         (tmp_path / f"NEW-DATA-{k}.T15.txt").write_text("# header\n" + row)
     b = load_sml2010(tmp_path)
     assert str(b.index[0]) == "2012-03-13 11:00:00+00:00"
+
+
+def test_a_fitted_pair_runs_and_the_model_s_constants_are_put_back(tmp_path, monkeypatch):
+    import pandas as pd
+
+    from vesper.env import indoor
+    from vesper.env.site import parse_site
+    from vesper.validation import environment as ev
+    idx = pd.date_range("2016-01-11", periods=48, freq="1h", tz="UTC")
+    df = pd.DataFrame({"T_out": 5.0, "RH_out": 80.0, "T1": 20.0, "RH_1": 40.0}, index=idx)
+    monkeypatch.setattr(ev, "_era5", lambda site, index, cache: {k: [0.0] * len(index) for k in (
+        "temperature_2m", "relative_humidity_2m", "shortwave_radiation", "cloud_cover")})
+    site = parse_site({"city": "Chièvres, Belgium", "date": "2016-01-11"})
+    spec = {"t_out": "T_out", "rh_out": "RH_out", "rooms": {"T1": "kitchen"}, "rh_of": {"T1": "RH_1"}}
+    r = ev._rooms_with(df, site, tmp_path, spec, 3.0, 0.25)
+    assert (r["ach"], r["solar_to_air"]) == (3.0, 0.25) and r["T"]["median_rmse_c"] is not None
+    assert (indoor.ACH, indoor.SOLAR_TO_AIR) == (0.5, 1.0)

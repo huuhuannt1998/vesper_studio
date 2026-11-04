@@ -24,6 +24,7 @@ SKY_ANGLE = 80.0  # visible sky angle, degrees (assumed: lightly obstructed; 90 
 REFLECT = 0.5  # mean interior reflectance (assumed; BRE typical)
 SUN_SHARE = 0.5  # share of the sun through a window counted in the room's average illuminance (assumed)
 G_SOLAR = 0.6  # solar energy transmittance of the glazing (assumed)
+SOLAR_TO_AIR = 1.0  # share of the solar gain that warms the room's own air and mass; the rest the rest of the house
 SHADE_LIGHT, SHADE_SOLAR = 0.1, 0.4  # what a closed shade lets through of light and of solar heat (assumed)
 U_WALL, U_WINDOW = 0.35, 1.4  # W/m²K, a recent house's walls and double glazing (assumed)
 ACH = 0.5  # air changes per hour (assumed)
@@ -138,7 +139,7 @@ class HomeEnvironment:
                 beam = direct / max(math.sin(math.radians(s.elevation)), 0.05) * \
                     math.cos(math.radians(s.elevation)) * math.cos(math.radians(off))
             total += G_SOLAR * glass * (diffuse_vertical + beam) * through
-        return total
+        return SOLAR_TO_AIR * total
 
     # -- the run ------------------------------------------------------------------------------
     def step(self, seconds: float, lamps: dict[str, int], heating: dict[str, float], people: dict[str, int],
@@ -172,5 +173,6 @@ class HomeEnvironment:
             "daylight": "BRE average daylight factor + direct sun share (assumed constants)",
             "T_glass": T_GLASS, "sky_angle_deg": SKY_ANGLE, "reflectance": REFLECT, "sun_share": SUN_SHARE,
             "thermal": "one node per room (EN ISO 13790 medium mass), no exchange between rooms",
-            "U_wall": U_WALL, "U_window": U_WINDOW, "ach": ACH, "heat_w_per_m2": HEAT_W_PER_M2,
+            "U_wall": U_WALL, "U_window": U_WINDOW, "ach": ACH, "solar_to_air": SOLAR_TO_AIR,
+            "heat_w_per_m2": HEAT_W_PER_M2,
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}
