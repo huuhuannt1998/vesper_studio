@@ -2,8 +2,8 @@
 
 `vesper validate crosssite`; report `results/environment/crosssite-20261104T065237Z.json` (the earlier
 `crosssite-20261104T062057Z.json` has the radiator rows only, identical). One generated home (six
-rooms, seed 7, its starter devices plus a Philips Hue indoor motion sensor reporting light in the living room and in
-the office), four automations (living lamp on below 50 lx between 07:00 and 22:00, off above 150 lx; bedroom lamp 30
+rooms, seed 7, its starter devices plus an Aqara RTCGQ11LM motion sensor reporting light in the living room and in
+the office; see the note below on the sensor), four automations (living lamp on below 50 lx between 07:00 and 22:00, off above 150 lx; bedroom lamp 30
 min before sunset; every lamp off at 23:30), no residents. Three logical days from midnight on 15 January and 15
 July 2026, recorded ERA5 weather; the third day (17 January, 17 July) is measured. Plan orientation: the top of the
 plan facing north (0) or south (180). Descriptive: no criterion was declared.
@@ -57,3 +57,12 @@ In summer the rooms stay at 22-29 °C instead of 27-38 °C:
   therefore not claimed realistic; the heat pump's rooms are held by its setpoints.
 - One home, one day per condition, no residents: the counts show the direction and size of the environment's effect,
   not a distribution.
+
+## Note: the light sensor's product (2026-11-04)
+
+The first two reports used the Philips Hue indoor motion sensor (`zigbee:philips:9290012607`), which the catalog holds
+below level L1. The sensors are now the Aqara RTCGQ11LM (`zigbee:aqara:rtcgq11lm`, L1, motion and illuminance), and
+the experiment was rerun as `results/environment/crosssite-20261104T162257Z.json`. None of the 49 runs changed in any
+field (heating, cooling, room temperatures, dark minutes, first firings, outdoors): the catalog gives both products
+the same illuminance reporting rule (at most every 10 s, at least every hour, any change), and the environment writes
+the same physical value to either.

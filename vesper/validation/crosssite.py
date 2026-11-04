@@ -27,10 +27,10 @@ HVACS = {  # the hallway thermostat: the starter's radiator thermostat, or a hea
 }
 DARK_LUX = 50.0
 WARMUP_DAYS = 2  # a room's thermal mass takes days to forget its start (20.5 C): measure the third day
-EXTRA_DEVICES = [  # a motion sensor that also reports light and temperature (Philips Hue indoor motion sensor)
-    {"product": "zigbee:philips:9290012607", "name": "living_sensor",
+EXTRA_DEVICES = [  # a motion sensor that also reports light and temperature (Aqara RTCGQ11LM)
+    {"product": "zigbee:aqara:rtcgq11lm", "name": "living_sensor",
      "at": {"room": "living", "mount": "ceiling", "xy": [3.0, 1.9]}},
-    {"product": "zigbee:philips:9290012607", "name": "office_sensor",
+    {"product": "zigbee:aqara:rtcgq11lm", "name": "office_sensor",
      "at": {"room": "office", "mount": "ceiling", "xy": [10.0, 7.0]}},
 ]
 RULES = [  # (needs the sun, rule)
