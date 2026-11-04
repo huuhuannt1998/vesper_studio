@@ -573,6 +573,22 @@ def test_the_check_scales_straightens_and_lists_problems_for_the_plan_as_the_use
     assert call(s, "/api/import/check", {"scale": "area 50"})[0] == 400
 
 
+def test_the_check_lists_what_was_left_out_as_warnings_that_do_not_block_generate(server, tmp_path):
+    s, _ = server
+    plan = px_plan()
+    plan["windows"].append({"at": [500, 100], "width": 100, "room": "k"})  # on the wall the kitchen shares
+    got = json.loads(call(s, "/api/import/check", {"plan": plan, "scale": "living width 5 m"})[1])
+    assert got["problems"] == []
+    assert got["warnings"] == ["window 2 of 'k' is not on an outside wall: left out"]
+    assert json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "living width 5 m"})[1])[
+        "warnings"] == []
+    nope = json.loads(call(s, "/api/import/check", {"plan": plan, "scale": "garage width 3 m"})[1])
+    assert nope["warnings"] == []  # not straightened: nothing left out yet
+    req = {"format": "vesper-request/1", "seed": 3, "devices": [], "plan": plan, "scale": "living width 5 m"}
+    status, body = call(s, "/api/generate", req, origin=s.url.rstrip("/"))
+    assert status == 200, body
+
+
 def test_generate_builds_the_edited_plan_as_the_composed_home(server, tmp_path):
     s, _ = server
     edited = px_plan()

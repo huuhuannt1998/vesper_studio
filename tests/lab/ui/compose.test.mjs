@@ -117,8 +117,8 @@ test("a home with a place asks for its city, day and orientation; without one, n
 });
 
 // -- importing a floor plan (floor-plan import, task A4) -------------------------------------------------------
-import { READING_TEXT, drawOverlay, editedPlan, importNote, outsideDoors, overlayShapes, problemRooms, readingLimit,
-  shownProblems, toImage } from "../../../vesper/lab/ui/compose.js";
+import { READING_TEXT, drawOverlay, editedPlan, importNote, outsideDoors, overlayShapes, problemItems, problemRooms,
+  readingLimit, shownProblems, toImage } from "../../../vesper/lab/ui/compose.js";
 
 const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
 // three rooms as Claude reads them from a 900 x 800 px image (pixels; y grows downward)
@@ -268,6 +268,20 @@ test("leaving out the room the entrance opens into says so, and another outside 
                     "room 'k' is not reachable from the entrance through doors"]);
   assert.deepEqual(shownProblems(["no entrance: the plan names no door as the entrance"], []),
                    ["no entrance: the plan names no door as the entrance"]);
+});
+
+test("what was left out or narrowed is listed under Problems as warnings that do not block, after the problems", () => {
+  const left = "window 2 of 'k' is not on an outside wall: left out";
+  assert.deepEqual(problemItems([], [], [left]),
+                   [{ text: "None: VESPER can build this house.", kind: "ok" },
+                    { text: `Warning: ${left}`, kind: "warn" }]);
+  assert.deepEqual(problemItems(["room 'k' is not reachable from the entrance through doors"], [], [left]),
+                   [{ text: "room 'k' is not reachable from the entrance through doors", kind: "bad" },
+                    { text: `Warning: ${left}`, kind: "warn" }]);
+  assert.deepEqual(problemItems([], []), [{ text: "None: VESPER can build this house.", kind: "ok" }]);
+  // a room a warning names is not marked as a problem
+  assert.deepEqual([...problemRooms(problemItems([], [], [left]).filter((i) => i.kind === "bad").map((i) => i.text),
+                                    ["k"])], []);
 });
 
 test("the reading's own entrance follows its door when an earlier door goes with a room left out", () => {

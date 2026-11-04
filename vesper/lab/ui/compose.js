@@ -105,7 +105,7 @@ export function furnishView(st) {
 // -- importing a floor plan (floor-plan import, task A4) -------------------------------------------------------
 // The room types a plan's room may have: vesper.lab.plan.ROOM_TYPES (tests/lab/test_compose.py keeps them equal).
 export const PLAN_TYPES = ["living", "kitchen", "bedroom", "bathroom", "office", "dining", "laundry", "corridor",
-                           "hall", "other"];
+                           "hall", "balcony", "other"];
 export const READING_TEXT = "Claude is reading the plan — several minutes; it uses your Claude Code quota";
 
 // The plan the page sends, made from the reading (never changed) and the user's edits: `edits` {id: {name, type}},
@@ -158,6 +158,15 @@ export function outsideDoors(read, left = [], current = null) {
 // The problems the page lists: its own notes first; a note about the entrance stands for the check's "no entrance".
 export function shownProblems(problems, notes = []) {
   return [...notes, ...(problems || []).filter((p) => !(notes.length && p.startsWith("no entrance:")))];
+}
+
+// What the Problems list shows: the problems (each one stops Generate), or that there are none; then the warnings,
+// what straightening left out or narrowed because the plan's walls cannot carry it (the home is built without it).
+export function problemItems(problems, notes = [], warnings = []) {
+  const shown = shownProblems(problems, notes);
+  return [...(shown.length ? shown.map((text) => ({ text, kind: "bad" }))
+                           : [{ text: "None: VESPER can build this house.", kind: "ok" }]),
+          ...(warnings || []).map((w) => ({ text: `Warning: ${w}`, kind: "warn" }))];
 }
 
 // The middle of a polygon (its area's centroid; the mean of its corners when it has no area).
@@ -301,7 +310,7 @@ if (typeof document !== "undefined") {
                   rows: structuredClone(STARTER), site: { city: "", date: today, north: 0 },
                   // the imported plan: the job reading it, the plan as edited, the scale text and what the check said
                   plan: { job: null, state: "none", kind: null, plan: null, scale: "", source: "", problems: [],
-                          summary: "", transform: null, straight: null, size: null, image: null, saved: null,
+                          warnings: [], summary: "", transform: null, straight: null, size: null, image: null, saved: null,
                           // the reading (kept as read) and what the user changed: names and types, rooms left out,
                           // the entrance chosen (undefined: the reading's); `plan` and `notes` follow from them
                           read: null, edits: {}, left: [], entrance: undefined, notes: [] } };
@@ -494,8 +503,8 @@ if (typeof document !== "undefined") {
   }
 
   function clearShown() {
-    Object.assign(imp, { job: null, read: null, plan: null, notes: [], problems: [], straight: null, transform: null,
-                         image: null, size: null, saved: null });
+    Object.assign(imp, { job: null, read: null, plan: null, notes: [], problems: [], warnings: [], straight: null,
+                         transform: null, image: null, size: null, saved: null });
     $("import-read").hidden = true;
     $("import-overlay").replaceChildren();
     showImport(model.rooms.mode === "plan");
@@ -553,7 +562,8 @@ if (typeof document !== "undefined") {
     imp.state = job.state;
     if (job.state !== "done") { progress(importNote(job), "bad"); return; }
     Object.assign(imp, { read: job.plan, edits: {}, left: [], entrance: undefined, problems: job.problems,
-                         summary: job.summary || "", transform: job.transform, straight: job.rooms,
+                         warnings: job.warnings || [], summary: job.summary || "", transform: job.transform,
+                         straight: job.rooms,
                          saved: job.saved || null, scale: "", size: null,
                          image: job.kind === "png" || job.kind === "jpg" ? `/api/import/${job.job}/image` : null });
     rebuild();
@@ -667,10 +677,9 @@ if (typeof document !== "undefined") {
   function drawChecked() {
     const list = $("import-problems");
     list.innerHTML = "";
-    const shown = shownProblems(imp.problems, imp.notes);
-    if (!shown.length) list.append(el("li", { className: "ok", textContent: "None: VESPER can build this house." }));
-    for (const p of shown) list.append(el("li", { textContent: p }));
-    const bad = problemRooms(shown, imp.plan.rooms.map((r) => r.id));
+    const items = problemItems(imp.problems, imp.notes, imp.warnings);
+    for (const { text, kind } of items) list.append(el("li", { className: kind === "bad" ? "" : kind, textContent: text }));
+    const bad = problemRooms(items.filter((i) => i.kind === "bad").map((i) => i.text), imp.plan.rooms.map((r) => r.id));
     const byId = Object.fromEntries(imp.read.rooms.map((r) => [r.id, r]));
     for (const tr of $("import-rooms").children) {
       tr.classList.toggle("bad", bad.has(tr.dataset.room));
@@ -691,10 +700,11 @@ if (typeof document !== "undefined") {
       try {
         const got = await api("/api/import/check", { plan: imp.plan, scale: imp.scale });
         if (mine !== checkSeq) return;
-        Object.assign(imp, { problems: got.problems, summary: got.summary, transform: got.transform, straight: got.rooms });
+        Object.assign(imp, { problems: got.problems, warnings: got.warnings || [], summary: got.summary,
+                             transform: got.transform, straight: got.rooms });
       } catch (e) {
         if (mine !== checkSeq) return;
-        imp.problems = [`Not checked: ${e.message}`];
+        Object.assign(imp, { problems: [`Not checked: ${e.message}`], warnings: [] });
       }
       drawChecked();
     }, wait);

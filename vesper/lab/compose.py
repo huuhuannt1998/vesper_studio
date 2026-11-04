@@ -151,14 +151,15 @@ def _page_words(problem: str) -> str:
 
 def import_check(plan: dict, scale: str | None = None) -> dict:
     """What the page shows for a plan as read (or as the user edited it) and the user's scale: {problems (every
-    reason VESPER would not build it, empty when it would), summary (plan_read.summary: each room, door and the
-    entrance), transform (plan_transform of the scaled plan, with m_per_px: a straightened point (x, z) goes back
-    to the image by turning it -angle_deg about centre and dividing by m_per_px), rooms (the rooms as VESPER would
-    build them, in metres; None when it cannot straighten the plan)}."""
+    reason VESPER would not build it, empty when it would), warnings (what straightening left out or narrowed
+    because the walls cannot carry it: built without it, never blocking), summary (plan_read.summary: each room,
+    door and the entrance), transform (plan_transform of the scaled plan, with m_per_px: a straightened point (x, z)
+    goes back to the image by turning it -angle_deg about centre and dividing by m_per_px), rooms (the rooms as
+    VESPER would build them, in metres; None when it cannot straighten the plan)}."""
     from vesper.lab.geometry import polygon_area
     from vesper.lab.plan import PlanError, check_house, load_plan, plan_transform, rectify, scale_plan
     from vesper.lab.plan_read import summary
-    out = {"problems": [], "summary": None, "transform": None, "rooms": None}
+    out = {"problems": [], "warnings": [], "summary": None, "transform": None, "rooms": None}
     try:
         load_plan(plan)
     except PlanError as e:
@@ -171,7 +172,9 @@ def import_check(plan: dict, scale: str | None = None) -> dict:
         drawn = sum(polygon_area([tuple(p) for p in r["polygon"]]) for r in plan["rooms"])
         real = sum(polygon_area([tuple(p) for p in r["polygon"]]) for r in scaled["rooms"])
         out["transform"] = {**plan_transform(scaled), "m_per_px": math.sqrt(real / drawn) if drawn > 0 else 1.0}
-        straight = rectify(scaled)
+        warnings: list[str] = []
+        straight = rectify(scaled, warnings)
+        out["warnings"] = warnings
         out["summary"] = summary(straight)
         out["rooms"] = [{"id": r["id"], "polygon": r["polygon"]} for r in straight["rooms"]]
         out["problems"] = check_house(straight)
