@@ -168,6 +168,10 @@ class Session:
         """The automation engine sends a command as Home Assistant would, through the bridge (`platform_set`), and
         across the device's links: it reaches the device when they deliver it."""
         acting = {"automation": automation, "trigger": trigger, "service": service, "entity": entity}
+        if not twin_id:  # a recorded action (permissive engine): no device to command; write it down, send nothing
+            self._write({"kind": "automation", **acting, "device": "", "feature": feature, "value": value,
+                         "accepted": True})
+            return
 
         def deliver():
             self._acting = acting

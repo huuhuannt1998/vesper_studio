@@ -88,6 +88,20 @@ def test_given_automations_replace_the_homes_file(tmp_path):
     assert Engine(s, automations=[]).automations == []
 
 
+def test_a_recorded_action_fires_through_the_real_session_and_sends_nothing(tmp_path):
+    _, s = home_session(tmp_path)
+    s.start(spawn_player=False)  # no engine of its own: the permissive one below is the test's
+    e = Engine(s, permissive=True, automations=[auto([
+        {"action": "notify.mobile_app", "target": {"entity_id": "notify.mobile_app_phone"}}])])
+    e.start()
+    s.clock.advance(2 * 3600)  # 07:00 -> 09:00: the 08:00 trigger fired
+    (r,) = [r for r in s.records if r["kind"] == "automation"]
+    assert (r["automation"], r["service"], r["entity"], r["device"], r["feature"], r["value"], r["accepted"]) == (
+        "a", "notify.mobile_app", "notify.mobile_app_phone", "", "", None, True)
+    assert r["trigger"].startswith("time")
+    assert not [r for r in s.records if r["kind"] == "input"]  # nothing reached a device or the hub
+
+
 def test_the_homes_own_services_run_as_before_in_permissive_mode(tmp_path):
     ids, s = home_session(tmp_path)
     lamp = ids["bedroom_lamp"]["state"]
