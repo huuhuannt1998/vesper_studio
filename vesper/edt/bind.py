@@ -368,10 +368,62 @@ def _device_step(node: dict, roles: dict, variant: int) -> dict | Unbindable:
     return {**head, **({"state": value} if value != NUMERIC else {}), **kept}
 
 
+SETTABLE = {"input_boolean", "input_select", "input_number", "group", "person", "device_tracker", "zone", "timer",
+            "counter", "input_text", "input_datetime", "input_button"}  # helpers an action may set (protocol A2.4)
+
+
+def _plain_ids(value, domain: str) -> list[str] | None:
+    """The ids `value` names if it names plain (not templated) ids of `domain` only, else None."""
+    out = []
+    for v in value if isinstance(value, list) else [value]:
+        if not isinstance(v, str) or "{{" in v or "{%" in v:
+            return None
+        parts = [p.strip().lower() for p in v.split(",")]
+        if not all(ENTITY.match(p) and p.partition(".")[0] == domain for p in parts):
+            return None
+        out += parts
+    return out or None
+
+
+def _set_slots(node: dict) -> dict[str, list[str]]:
+    """Where an action of a helper domain's own service names the helpers it sets (`entity_id` beside the action, in
+    its `target` or its `data`): slot -> the ids. A helper set this way passes through unbound (protocol A2.4)."""
+    service = node.get("action") or node.get("service")
+    if not isinstance(service, str) or service.partition(".")[0] not in SETTABLE or any(k in node for k in HANDLES):
+        return {}
+    domain = service.partition(".")[0]
+    out = {}
+    for slot in ("entity_id", "target", "data"):
+        holder = node if slot == "entity_id" else node.get(slot)
+        if isinstance(holder, dict) and "entity_id" in holder:
+            ids = _plain_ids(holder["entity_id"], domain)
+            if ids:
+                out[slot] = ids
+    return out
+
+
 def _rewrite(node, roles: dict, variant: int, key: str | None = None):
     """The node with every entity id rewritten, or the Unbindable the first one that cannot be."""
     if isinstance(node, dict):
         node = {k: v for k, v in node.items() if not (k in HANDLES and _empty(v))}  # an empty handle names nothing
+        slots = _set_slots(node)
+        if slots:  # the helpers this action sets stay as written; the rest of it is bound as usual
+            out = {}
+            for k, v in node.items():
+                if k == "entity_id" and k in slots:
+                    out[k] = v
+                    continue
+                if k in slots:
+                    inner = _rewrite({kk: vv for kk, vv in node[k].items() if kk != "entity_id"}, roles, variant, k)
+                    if isinstance(inner, Unbindable):
+                        return inner
+                    out[k] = {**inner, "entity_id": node[k]["entity_id"]}
+                    continue
+                v = _rewrite(v, roles, variant, k)
+                if isinstance(v, Unbindable):
+                    return v
+                out[k] = v
+            return out
         if any(k in node for k in HANDLES) and ({"domain", "type"} <= set(node) or "device" in (
                 node.get("trigger"), node.get("platform"), node.get("condition"))):
             return _device_step(node, roles, variant)
@@ -592,6 +644,25 @@ def _helper_refusal(raw: dict) -> Unbindable | None:
     return None
 
 
+def _without_sets(node, found: set):
+    """A copy of `node` without the helper ids its actions only set (`_set_slots`), collecting them in `found`."""
+    if isinstance(node, list):
+        return [_without_sets(v, found) for v in node]
+    if not isinstance(node, dict):
+        return node
+    slots = _set_slots(node)
+    out = {}
+    for k, v in node.items():
+        if k == "entity_id" and k in slots:
+            found.update(slots[k])
+            continue
+        if k in slots:
+            found.update(slots[k])
+            v = {kk: vv for kk, vv in v.items() if kk != "entity_id"}
+        out[k] = _without_sets(v, found)
+    return out
+
+
 def bind_with_assumptions(raw: dict, roles: dict, variant: int) -> tuple[dict, list[str]] | Unbindable:
     """`raw` bound as `bind` does, with its helper gates held open: (the bound automation, the assumptions, i.e. the
     state each removed gate requires); or why it cannot be bound. The engine refuses unknown top-level keys, so the
@@ -608,7 +679,12 @@ def bind_with_assumptions(raw: dict, roles: dict, variant: int) -> tuple[dict, l
     assumptions = _assumptions(reqs)
     if isinstance(assumptions, Unbindable):
         return assumptions
-    refusal = _helper_refusal(raw)
+    set_ids: set[str] = set()
+    read = _without_sets(raw, set_ids)  # the automation as it reads helpers: the ones its actions only set removed
+    gated_and_set = sorted(set_ids & {eid for eid, _ in reqs})
+    if gated_and_set:
+        return Unbindable(f"{gated_and_set[0].partition('.')[0]} in a template or an action")
+    refusal = _helper_refusal(read)
     if refusal:
         return refusal
     bound = _rewrite(raw, roles, variant)

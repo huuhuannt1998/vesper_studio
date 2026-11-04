@@ -596,8 +596,6 @@ def test_an_and_left_empty_disappears_and_a_single_condition_form_works(edt):
      "conflicting conditions on one helper (for input_number.t)"),
     (gated({"condition": "template", "value_template": "{{ is_state('input_boolean.a', 'on') }}"}),
      "input_boolean in a template or an action"),
-    (gated(LUX, actions=[{"action": "input_boolean.turn_off", "target": {"entity_id": "input_boolean.a"}}]),
-     "input_boolean in a template or an action"),
     (gated(LUX, actions=[{"action": "notify.me", "data": {"message": "{{ states('person.me') }}"}}]),
      "person in a template or an action"),
     (gated({"condition": "zone", "entity_id": "person.me", "zone": "zone.home"}), "person in a zone condition"),
@@ -607,5 +605,56 @@ def test_an_and_left_empty_disappears_and_a_single_condition_form_works(edt):
      "input_number compared against an entity or a template"),
 ])
 def test_helpers_anywhere_but_a_gate_stay_unbindable(edt, raw, reason):
+    _, roles, _, _ = edt
+    assert bind(raw, roles, 0) == Unbindable(reason)
+
+
+# --- helpers only set by an action (protocol A2.4) ------------------------------------------------------------------
+
+@pytest.mark.parametrize("action", [
+    {"action": "input_boolean.turn_on", "target": {"entity_id": "input_boolean.flag"}},
+    {"service": "input_boolean.turn_off", "entity_id": "input_boolean.flag"},
+    {"service": "input_select.select_option", "data": {"entity_id": "input_select.mode", "option": "night"}},
+    {"action": "input_number.set_value", "target": {"entity_id": ["input_number.t"]}, "data": {"value": 3}},
+    {"action": "timer.start", "target": {"entity_id": "timer.t"}},
+    {"action": "counter.increment", "entity_id": "counter.c"},
+    {"action": "input_text.set_value", "target": {"entity_id": "input_text.note"}, "data": {"value": "dusk"}},
+    {"action": "input_datetime.set_datetime", "target": {"entity_id": "input_datetime.last"},
+     "data": {"time": "{{ now().strftime('%H:%M:%S') }}"}},
+    {"action": "input_button.press", "target": {"entity_id": "input_button.b"}},
+])
+def test_a_helper_only_set_by_an_action_passes_through_and_the_engine_records_it(edt, action):
+    _, roles, _, home = edt
+    from vesper.edt.bind import bind_with_assumptions
+    from vesper.lab.automations import Engine
+    from vesper.lab.session import Session
+    from vesper.twins.clock import LogicalClock
+    raw = gated(LUX, actions=[*LAMP, action])
+    bound, assumptions = bind_with_assumptions(raw, roles, 0)
+    assert assumptions == []  # nothing in the run depends on it
+    assert bound["actions"][1] == action
+    assert bound["actions"][0]["target"]["entity_id"] == roles[("light", "kitchen", 0)]
+    engine = Engine(Session(home, clock=LogicalClock()), permissive=True, automations=[bound])
+    assert engine.refused == [] and len(engine.automations) == 1
+
+
+@pytest.mark.parametrize("raw,reason", [
+    (gated(LUX, triggers=[{"trigger": "state", "entity_id": "input_boolean.flag", "to": "on"}],
+           actions=[{"action": "input_boolean.turn_off", "target": {"entity_id": "input_boolean.flag"}}]),
+     "input_boolean in a trigger (helpers and presence change only with residents)"),
+    (gated(state("input_boolean.flag", "off"),
+           actions=[{"action": "input_boolean.turn_on", "target": {"entity_id": "input_boolean.flag"}}]),
+     "input_boolean in a template or an action"),
+    (gated(LUX, actions=[{"action": "input_boolean.turn_on", "target": {"entity_id": "input_boolean.flag"}},
+                         {"action": "notify.me", "data": {"message": "{{ states('input_boolean.flag') }}"}}]),
+     "input_boolean in a template or an action"),
+    (gated(LUX, actions=[{"action": "light.turn_on", "target": {"entity_id": "input_boolean.flag"}}]),
+     "input_boolean in a template or an action"),  # not its own domain's service: the engine would refuse it
+    (gated(LUX, actions=[{"action": "input_boolean.turn_on", "target": {"entity_id": "{{ 'input_boolean.flag' }}"}}]),
+     "input_boolean in a template or an action"),
+    (gated(LUX, actions=[{"action": "counter.increment", "entity_id": "counter.c"}],
+           triggers=[{"trigger": "state", "entity_id": "counter.c"}]), "counter.c: counter entities are not modelled"),
+])
+def test_a_helper_set_and_read_or_set_otherwise_stays_unbindable(edt, raw, reason):
     _, roles, _, _ = edt
     assert bind(raw, roles, 0) == Unbindable(reason)
