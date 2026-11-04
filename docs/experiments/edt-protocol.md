@@ -143,3 +143,64 @@ outcome per environment, its refusals per environment, its environmental diverge
 it is in the negative control; then the yield, the flag counts by kind and the negative-control rate. The cover
 report is a second JSON (`vesper edt cover`). Results go to `results/edt/` with a results document; the corpus path
 is never written into either.
+
+## Addendum 1 (2026-11-04, before the first full run)
+
+Written after the code review of the sweep and before any full sweep has run; the smoke runs (4 environments, at
+most 10,000 automations) were used only to check the harness and fix nothing below on their numbers. Each item
+supersedes the section it names.
+
+**A1.1 Cover open at night (corrects section 4).** "Cover open at night" is a cover the automation opened **after
+that day's sunset** and did not close before midnight: the plan's wording. The "or before its sunrise" side is
+withdrawn; it came from an earlier controller ruling, which this corrects. A cover opened at 06:30, before sunrise,
+and left open is not flagged.
+
+**A1.2 What the negative control tests (amends section 5).** The standard home has no residents, so the motion, door,
+light, switch and lock entities never change during a trace: the control's automations can only fire on the local
+clock (time triggers, and state conditions on constant states). The control therefore tests one thing: that local
+clock time lines up across environments (every trace starts at its site's local midnight), so a clock-only automation
+fires at the same local time everywhere. It does not test the binder's or the oracle's treatment of sensors.
+The result reports `negative_control.n` (control automations that ran), `negative_control.fired` (those that fire in
+at least one environment) and the flag rate over **the firing subset** (an automation that never fires anywhere cannot
+diverge, so it would only dilute the rate). **Halt: the flag rate over the firing subset above 5 %.** The result
+records `negative_control.halt` and the threshold; `vesper edt run` prints HALT and exits non-zero when it trips.
+
+**A1.3 Exposure ties and set-based coverage (amends section 6).** Ties: when an automation fires in exactly as many
+environments as it does not, **both sides** expose it (neither is the majority); when several circular 3-hour windows
+hold the most firing environments, the environments outside **any** of those windows (the union of their outside
+sets) expose it. The minority exposure stays the primary criterion of the cover; its assumption is that an
+automation's majority behaviour is the neutral one and a departure from it is the finding, which a reader can
+disagree with (an automation that misbehaves in most environments is exposed by its well-behaved minority). Beside
+every cover and baseline the report therefore also gives the **set-based coverage**, which assumes nothing: a set S of
+environments covers an automation iff its environmental divergences restricted to S are non-empty, i.e. the oracle's
+`divergences` over the outcomes in S, with an envelope kind that holds in every environment of S counted as static,
+exactly as section 4 does over all environments.
+
+**A1.4 Necessity ladder pass criteria (pre-registered; verbatim).** "Rung 0 matches rung 4 iff its repo-grouped AUC
+>= 0.90 and its held-out recall at precision 0.55 >= 0.80. A rung r in {1, 2, 3} reproduces rung 4 iff
+reproduced_share >= 0.90, firing-time MAE <= 0.5 h and the Spearman correlation of time spreads >= 0.90. The physics is
+necessary for detection iff rung 0 does not match rung 4, and for quantification iff rung 1 or rung 2 does not
+reproduce rung 4. Rung 3 reproducing rung 4 means the findings are robust to the daylight model's error."
+
+The ladder's statistical choices (`vesper/edt/ladder.py`):
+
+- rung 0 is a logistic regression (L2 1.0, standardised features) on eight syntactic features of the automation as
+  written, over the automations bound at rung 4, labelled "flagged at rung 4";
+- cross-validation is 5-fold with whole repositories per fold (near-duplicates never straddle training and test),
+  seed 0; the AUC of a plain stratified split is reported beside it, not used;
+- recall at precision 0.55 has no oracle threshold: each fold's threshold is chosen on its training rows and applied
+  to its held-out rows, the held-out predictions pooled, the base rate reported beside it;
+- the AUC's 95 % interval is a percentile bootstrap over repositories (1,000 resamples with replacement, seed 0;
+  resamples holding one class are not counted; no interval below 100 usable resamples);
+- a fold whose training set holds one class is degenerate: it is excluded (and counted); fewer than 2 usable folds
+  gives no AUC;
+- rungs 1-3 are compared with rung 4 over the automations bound at both, environments matched on (city, date,
+  north_deg): reproduced_share = rung-4 flags also flagged at the rung; firing-time MAE = mean circular difference of
+  first-firing times of day where both fire; an automation's time spread = the circular range of its first firings
+  (the shortest arc of the clock holding them all); Spearman's rho is over the automations whose rung-4 spread is
+  above 0 (a flat spread has no rank).
+
+**A1.5 Failures.** An environment in which every replay of every automation fails (or whose trace cannot be
+recorded) is an environment-level failure, recorded once under `failed_envs` with its reason, not as a refusal of
+each automation. An automation refused in some environments and run in others is counted in `partially_refused`; its
+divergences are over the environments where it ran.
