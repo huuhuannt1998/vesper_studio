@@ -275,6 +275,14 @@ helper both set and read stays unbindable, as in A2.2.
   role in one room bind to distinct devices in order of first appearance in the automation; only an automation that
   names more than the room has is refused ("distinct entities collapse onto one device"). An `area_id` target is
   every device of the action's domain in that room, as Home Assistant expands it.
+- (2026-11-04, after the re-review) More name tokens: outdoor sensors `extern`/`external`, `ute`, `balcon`,
+  `parking`/`parkeerplaats`; the outdoor actuator `lyktstolpe`; semi-outdoor (sensors refused) `pumphus`/`pumphouse`/
+  `pump_house`; non-ambient (no sensor role) `fuse`, `cooler`, `frys`, `freezer`, `tank`, `ballon`, `probe`, `mech`,
+  `derivative`, `set`. The ambient range of a temperature threshold narrows to -30..35 C. An actuator name with no
+  room word binds to the living room's copies. Every ambient sensor name bound in the 10,000-automation sample is
+  audited by hand (illuminance, temperature, humidity; room, role, verdict); the audit lives outside the repository
+  (it names corpus entities) and only its counts are reported here.
+
 
 
 ## Addendum 3 (2026-11-04, before the first full run)
