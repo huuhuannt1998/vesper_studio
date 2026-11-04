@@ -70,3 +70,15 @@ What may be fitted after the first run (results-2026-11-04-environment.md), and 
 - The chosen pair is then run once on dataset B and reported as the held-out result, pass or fail. If the best pair
   is the current one (0.5, 1.0), the model stays as it is and that is the result.
 - The fitted values become VESPER's defaults only if B's T RMSE does not get worse than in the first run (7.79 °C).
+
+## Addendum 2 (2026-11-04, before the humidity fit)
+
+The first run's humidity is closer to a constant 45 % than to the measured rooms (no moisture sources). Added to
+the indoor model: EN ISO 13788's internal humidity classes, a vapour-pressure excess over the outdoor air of 270 x
+k Pa (class k = 1..5) at an outdoor temperature at or below 0 °C, falling linearly to 0 at 20 °C; class 0 is the
+first run's model (no excess).
+
+- Fitted on dataset A only: the class among {0, 1, 2, 3, 4, 5} with the smallest H median RMSE; the standard room,
+  the setpoint rule and T are unchanged (the excess does not change temperature).
+- Run once on dataset B and reported as held out. It becomes VESPER's default only if B's H RMSE is no worse than
+  in the first run (16.2 points); otherwise class 0 stays.
