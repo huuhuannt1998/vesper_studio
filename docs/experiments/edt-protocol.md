@@ -270,6 +270,12 @@ helper both set and read stays unbindable, as in A2.2.
 - A `group` is a gate only when the state it requires is `home` / `not_home` (a presence group); any other group gate
   is refused ("device groups are not modelled"); a helper `numeric_state` gate with neither `above` nor `below` is
   refused.
+- (2026-11-04, after the collapse measurement) Every lit room has three lights and three plugs, the porch two outdoor
+  lights and two outdoor plugs (the same products; sensors stay one per role and room). Distinct entity ids of one
+  role in one room bind to distinct devices in order of first appearance in the automation; only an automation that
+  names more than the room has is refused ("distinct entities collapse onto one device"). An `area_id` target is
+  every device of the action's domain in that room, as Home Assistant expands it.
+
 
 ## Addendum 3 (2026-11-04, before the first full run)
 
