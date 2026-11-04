@@ -761,7 +761,7 @@ def test_a_temperature_threshold_out_of_the_ambient_range_is_refused(edt, thresh
     raw = {"alias": "t", "triggers": [trigger], "actions": LAMP}
     assert bind(raw, roles, 0) == Unbindable("threshold looks Fahrenheit or non-ambient")
     assert isinstance(bind(gated(numeric("sensor.kitchen_temperature", **threshold)), roles, 0), Unbindable)
-    ok = {"alias": "t", "triggers": [{**trigger, "above": 25, "below": 45}], "actions": LAMP}
+    ok = {"alias": "t", "triggers": [{**trigger, "above": 25, "below": 35}], "actions": LAMP}
     assert isinstance(bind(ok, roles, 0), dict)
     lux = {"alias": "l", "triggers": [{"trigger": "numeric_state", "entity_id": "sensor.kitchen_lux", "above": 300}],
            "actions": LAMP}
@@ -814,3 +814,50 @@ def test_review_gate_refusals(edt, cond, reason):
     _, roles, _, _ = edt
     assert bind(gated(cond), roles, 0) == Unbindable(reason)
     assert isinstance(bind(gated(state("group.family", "not_home")), roles, 0), dict)
+
+
+# --- re-review tokens ------------------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize("entity_id,expected", [
+    ("sensor.i_regul_heatpump_external_temperature", ("temperature", "porch")),
+    ("sensor.netatmo_ute_temperature", ("temperature", "porch")),
+    ("sensor.th_balcon_nord_temperature", ("temperature", "porch")),
+    ("sensor.parkeerplaats_lux", ("illuminance", "porch")),
+    ("sensor.parking_illuminance", ("illuminance", "porch")),
+    ("light.lyktstolpe", ("light", "porch")),
+    ("sensor.fuse_box_temperature", None),
+    ("sensor.beer_cooler_temperature", None),
+    ("sensor.frys_forrad_temperature", None),
+    ("sensor.freezer_temperature", None),
+    ("sensor.water_tank_temperature", None),
+    ("sensor.temperature_ballon_haut", None),
+    ("sensor.temp_mech_room", None),
+    ("sensor.probe_bathroom_wall", None),
+    ("sensor.temperature_derivative", None),
+    ("sensor.heating_set_temperature", None),
+    ("sensor.temperature_set", None),
+])
+def test_rereview_tokens(entity_id, expected):
+    assert infer_role(entity_id) == expected
+
+
+@pytest.mark.parametrize("entity_id", ["sensor.pumphus_temperature", "sensor.pumphouse_humidity",
+                                       "sensor.pump_house_temperature"])
+def test_a_pump_house_sensor_is_semi_outdoor(edt, entity_id):
+    _, roles, _, _ = edt
+    assert bind(one(entity_id), roles, 0) == Unbindable(f"semi-outdoor spaces are not modelled (for {entity_id})")
+
+
+@pytest.mark.parametrize("threshold,ok", [({"above": 36}, False), ({"above": 35}, True), ({"below": -31}, False)])
+def test_the_ambient_temperature_range_is_minus_30_to_35(edt, threshold, ok):
+    _, roles, _, _ = edt
+    raw = {"alias": "t", "triggers": [{"trigger": "numeric_state", "entity_id": "sensor.kitchen_temperature",
+                                       **threshold}], "actions": LAMP}
+    r = bind(raw, roles, 0)
+    assert isinstance(r, dict) if ok else r == Unbindable("threshold looks Fahrenheit or non-ambient")
+
+
+def test_a_room_less_actuator_name_binds_to_the_living_rooms_copies(edt):
+    _, roles, _, _ = edt
+    b = bind(act(action="light.turn_on", target={"entity_id": ["light.lamp", "light.strip"]}), roles, 0)
+    assert b["actions"][0]["target"]["entity_id"] == [roles[("light", "living", 0)], roles[("light", "living", 1)]]

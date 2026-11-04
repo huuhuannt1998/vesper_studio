@@ -20,7 +20,7 @@ device automation stands for, on its entity, or on the role its type names (an o
 actuator's or motion/door step takes the living room's, a sensor's is refused).
 
 Precision over yield (protocol A2.5): semi-outdoor sensors, forecasts, statistics and non-ambient temperatures, a
-temperature threshold outside -30..45, and two distinct names bound onto one home entity are refused.
+temperature threshold outside -30..35, and two distinct names bound onto one home entity are refused.
 """
 from __future__ import annotations
 
@@ -56,7 +56,8 @@ OTHER_MEASURE = {"power", "energy", "current", "voltage", "watt", "watts", "kwh"
                  "today", "tomorrow", "realfeel", "feel", "chill", "windchill", "trend",
                  # non-ambient temperatures
                  "tool", "nozzle", "hotend", "printer", "octoprint", "cpu", "gpu", "disk", "nvme", "water", "aquarium",
-                 "pool", "fridge", "freezer", "boiler", "pipe"}  # a sensor with one of these measures something the
+                 "pool", "fridge", "freezer", "boiler", "pipe", "fuse", "cooler", "frys", "tank", "ballon", "probe",
+                 "mech", "derivative", "set"}  # a sensor with one of these measures something the
 # home has no role for (`current` before a role word is the adjective: current_temperature)
 OTHER_MEASURE_TOKEN = re.compile(r"^(\d+[dh]|tool\d+)$")  # a forecast's horizon (0d, 1d, 12h), a printer's tool0
 ROOMS = (  # (name token prefix, room id): the first that matches; no match is the living room
@@ -67,12 +68,14 @@ OUTDOOR_ROOM = "porch"  # the home's outdoor room (vesper.edt.home.OUTDOOR_ROOM)
 BEDROOM_2 = re.compile(r"(?<![a-z])(bed|bedroom)_?(2|two)(?![0-9a-z])|(?<![a-z])guest")
 OUTDOOR = ("outdoor", "outside", "garden", "garage", "porch", "balcony", "patio", "driveway", "terrace", "carport",
            "shed", "pool", "veranda", "greenhouse", "lawn", "aussen", "buiten", "exterior", "exterieur", "garten",
-           "jardin", "terrass", "balkon")  # name-token prefixes
-OUTDOOR_TOKENS = {"deck"}  # whole tokens only (German Decke, Deckenlampe: a ceiling)
-SEMI_OUTDOOR = ("garage", "shed", "pool", "carport", "veranda", "greenhouse")  # name-token prefixes: their sensors
-# do not read the outdoor air or light (refused); their actuators bind to the porch's
+           "jardin", "terrass", "balkon", "balcon", "extern", "parking", "parkeerplaats", "lyktstolpe",
+           )  # name-token prefixes
+OUTDOOR_TOKENS = {"deck", "ute"}  # whole tokens only (German Decke, Deckenlampe: a ceiling; Swedish ute: outside)
+SEMI_OUTDOOR = ("garage", "shed", "pool", "carport", "veranda", "greenhouse", "pumphus", "pumphouse")  # name-token
+# prefixes: their sensors do not read the outdoor air or light (refused); their actuators bind to the porch's
+SEMI_OUTDOOR_NAMES = ("pump_house",)  # and inside a name
 SENSOR_ROLES = ("illuminance", "temperature", "humidity", "motion", "door")
-AMBIENT_C = (-30, 45)  # a temperature threshold outside this looks Fahrenheit or non-ambient
+AMBIENT_C = (-30, 35)  # a temperature threshold outside this looks Fahrenheit or non-ambient
 OUTDOOR_ANYWHERE = ("yard",)  # and inside a token (backyard, courtyard)
 WEATHER_SERVICES = ("weather", "openweathermap", "owm", "darksky", "pirateweather", "accuweather", "buienradar",
                     "wetter", "meteo", "weatherbit", "climacell", "wunderground")  # name-token prefixes: outdoors
@@ -147,8 +150,8 @@ def _outdoor(tokens) -> bool:
 def _semi_outdoor(entity_id: str) -> bool:
     """A sensor of a garage, shed, pool, carport, veranda or greenhouse (protocol A2.5)."""
     domain, _, name = entity_id.partition(".")
-    return domain in ("sensor", "binary_sensor") and any(
-        t.startswith(p) for t in name.split("_") for p in SEMI_OUTDOOR)
+    return domain in ("sensor", "binary_sensor") and (any(
+        t.startswith(p) for t in name.split("_") for p in SEMI_OUTDOOR) or any(n in name for n in SEMI_OUTDOOR_NAMES))
 
 
 def _weather_service(tokens) -> bool:
