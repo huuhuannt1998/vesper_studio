@@ -323,3 +323,13 @@ def test_a_batch_that_hangs_is_bisected_and_the_hung_automation_refused_as_a_rep
     sweep_module._replay(None, ["a", "b", "hang", "c"], out)
     assert time.monotonic() - t0 < 2
     assert out["errors"] == {"hang": "replay timeout"} and set(out["firings"]) == {"a", "b", "c"}
+
+
+def test_a_home_variant_is_named_in_the_result_and_the_standard_home_is_not(corpus, tmp_path, result):
+    """Protocol Addendum 5: `home_variant` builds that variant in the work directory; the default result is unchanged
+    (no `home_variant` key). The variant has the standard role set, so the same automations bind."""
+    var = sweep(corpus, tmp_path / "w", ENVS[:1], rung=4, workers=1, limit=20, fetch=False, home_variant="mirror-ew")
+    assert var["home_variant"] == "mirror-ew" and "home_variant" not in result
+    assert var["yield"] == result["yield"]
+    assert {a: e["bound"] for a, e in var["automations"].items()} == \
+        {a: e["bound"] for a, e in result["automations"].items()}

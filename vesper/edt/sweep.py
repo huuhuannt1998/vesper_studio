@@ -199,11 +199,13 @@ def _prefetch_weather(envs: list[Env], cache: Path) -> None:
 
 
 def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int | None = None, *, fetch: bool = True,
-          catalog_dir: str = "catalog/vds", batch: int = BATCH, log=None) -> dict:
+          catalog_dir: str = "catalog/vds", batch: int = BATCH, log=None, home_variant: str | None = None) -> dict:
     """Sweep the corpus (`corpus/raw`, or `corpus` itself) across `envs` (default: the 48 of
     `vesper.edt.trace.ENVIRONMENTS`), every one at `rung`. `work`: the EDT home and the trace cache (`work/cache`;
     one work directory per catalog version). `limit`: the first N de-duplicated automations. `fetch`: fetch recorded
     weather (False: what is cached, else the assumed clear sky). `log`: a callable given progress lines.
+    `home_variant`: one of vesper.edt.home.VARIANTS instead of the standard home (protocol Addendum 5); the result
+    then also names it (`home_variant`), and is otherwise the same shape.
 
     Returns {"rung", "envs": [{city, date, north_deg, rung, key}], "automations": {id: {repo, hash, kinds, raw,
     bound, unbindable, outcomes: {env key: Outcome fields}, refused: {env key: reason}, approximations, divergences,
@@ -219,7 +221,7 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
     cache = work / "cache"
     envs = [dataclasses.replace(e, rung=rung) for e in (ENVIRONMENTS if envs is None else envs)]
     raw_dir = Path(corpus) / "raw" if (Path(corpus) / "raw").is_dir() else Path(corpus)
-    home_yaml, roles = build_edt_home(work, catalog_dir)
+    home_yaml, roles = build_edt_home(work, catalog_dir, home_variant)
     entity_roles = {eid: role for (role, _room, _v), eid in roles.items()}
 
     autos: dict[str, dict] = {}
@@ -292,7 +294,8 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
         static = {k for k in ENVELOPE if k in kinds and all(getattr(o, k) for o in outs.values())}
         entry["divergences"] = sorted(kinds - static)
         entry["static"] = sorted(static)
-    return _summarise(rung, envs, dict(sorted(autos.items())), failed_envs)
+    result = _summarise(rung, envs, dict(sorted(autos.items())), failed_envs)
+    return result if home_variant is None else {**result, "home_variant": home_variant}
 
 
 def negative_control_summary(autos: dict) -> dict:

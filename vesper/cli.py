@@ -2251,6 +2251,8 @@ def main(argv: list[str] | None = None) -> int:
     edt_run.add_argument("--limit", type=int, help="only the first N de-duplicated automations")
     edt_run.add_argument("--no-fetch", action="store_true", help="fetch no weather (cached, else clear sky)")
     edt_run.add_argument("--catalog", default="catalog/vds")
+    edt_run.add_argument("--home-variant", default=None, help="a variant of the standard home (protocol Addendum 5): "
+                         "glazing-x0.5, glazing-x2, plan-seed8 or mirror-ew (default: the standard home)")
     edt_cover = edt_actions.add_parser("cover", help="the environment cover, witnesses and baselines of a sweep")
     edt_cover.add_argument("--sweep", required=True, help="a sweep result from `vesper edt run`")
     edt_cover.add_argument("--out", required=True, help="the cover report (JSON)")
@@ -2572,10 +2574,15 @@ def _edt_run(args) -> int:
     if not corpus.is_dir():
         print(f"FAILED edt run: {corpus} is not a directory", file=sys.stderr)
         return 1
+    from vesper.edt.home import VARIANTS
+    if args.home_variant is not None and args.home_variant not in VARIANTS:
+        print(f"FAILED edt run: --home-variant {args.home_variant!r} is not one of {', '.join(VARIANTS)}",
+              file=sys.stderr)
+        return 1
     t0 = time.monotonic()
     result = sweep(corpus, Path(args.work), rung=args.rung, workers=args.workers, limit=args.limit,
                    fetch=not args.no_fetch, catalog_dir=args.catalog,
-                   log=lambda msg: print(msg, file=sys.stderr, flush=True))
+                   log=lambda msg: print(msg, file=sys.stderr, flush=True), home_variant=args.home_variant)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.name + ".tmp")
