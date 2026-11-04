@@ -16,11 +16,20 @@ from pathlib import Path
 
 import yaml
 
-PRODUCTS = {  # all L1 in catalog/vds on 2026-11-04
-    "illuminance": ["zigbee:aqara:rtcgq11lm", "zigbee:aqara:rtcgq14lm",
-                    "zigbee:tuya:ts0601_illuminance_temperature_humidity_sensor_1"],
-    "temperature": ["zigbee:sonoff:snzb-02", "zigbee:aqara:wsdcgq11lm"],
+# One product per sensor role: every L1 Zigbee product shares one reporting rule per quantity in the catalog (library
+# defaults), so product variants would be identical rows.
+PRODUCTS = {  # both L1 in catalog/vds on 2026-11-04
+    "illuminance": ["zigbee:aqara:rtcgq11lm"],
+    "temperature": ["zigbee:sonoff:snzb-02"],
 }
+# The generator places a light and a motion sensor in every room but the corridor; the EDT home adds them there, of the
+# same starter products, at the corridor's centre and along it.
+CORRIDOR = [
+    {"product": "zigbee:m-elec:ml-st-bp-dim", "name": "corridor_light",
+     "at": {"room": "corridor", "mount": "ceiling", "xy": [5.1, 4.6], "wall_switch": [0.6, 4.3]}},
+    {"product": "zigbee:tuya:ih012-rt02", "name": "corridor_motion",
+     "at": {"room": "corridor", "mount": "ceiling", "xy": [7.6, 4.6]}},
+]
 SINGLE = {  # roles the home has one device for, answering in every room: role -> (device, feature)
     "door": ("front_door_contact", "contact"), "lock": ("front_door_lock", "state"),
     "climate": ("corridor_thermostat", "current_heating_setpoint"),
@@ -35,7 +44,7 @@ def _centre(room) -> list[float]:
 
 def sensor_devices(world_map) -> list[dict]:
     """The sensors to add, in the style of crosssite's EXTRA_DEVICES: `<room>_lux<v>` and `<room>_temp<v>`."""
-    out = []
+    out = [{**d, "at": dict(d["at"])} for d in CORRIDOR]
     for room in world_map.rooms:
         if room.outdoor:
             continue

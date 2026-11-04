@@ -71,6 +71,8 @@ def _roles_for(entity_id: str, roles: dict, variant: int) -> str | Unbindable:
     if found is None:
         return Unbindable(f"{entity_id}: its name names no role the standard home has")
     role, room = found
+    if role in VARIANT_ROLES and variant and (role, room, variant) not in roles:
+        return Unbindable(f"no variant {variant} for {role} (the home has one product per sensor role)")
     bound = roles.get((role, room, variant if role in VARIANT_ROLES else 0))
     if bound is None:
         return Unbindable(f"the standard home has no {role} in the {room} (for {entity_id})")

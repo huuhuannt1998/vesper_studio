@@ -27,28 +27,18 @@ def test_the_priority_puts_measurements_before_the_things_they_are_named_after()
                              "climate", "cover")
 
 
-def test_every_product_is_a_distinct_l1_record_with_its_feature(edt):
+def test_one_l1_product_per_sensor_role_with_its_feature(edt):
+    """Every L1 Zigbee product shares one reporting rule per quantity (library defaults), so variants of a sensor
+    would be identical rows: the home has one product per sensor role."""
     _, _, catalog, _ = edt
-    for feature, products in PRODUCTS.items():
-        assert len(set(products)) == len(products) > 1
-        for p in products:
-            assert catalog[p]["fidelity"]["reached"]["L1"], p
-            assert feature in {f["name"] for f in catalog[p]["features"]}, p
+    assert set(PRODUCTS) == {"illuminance", "temperature"} and all(len(p) == 1 for p in PRODUCTS.values())
+    for feature, (product,) in PRODUCTS.items():
+        assert catalog[product]["fidelity"]["reached"]["L1"], product
+        assert feature in {f["name"] for f in catalog[product]["features"]}, product
 
 
-@pytest.mark.xfail(strict=True, reason="the catalog gives every L1 Zigbee product the same static reporting defaults "
-                   "(vesper/catalog/normalize/zigbee.py REPORTING_DEFAULTS): no two products differ in the rule")
-def test_the_variants_of_a_feature_differ_in_their_reporting_rules(edt):
-    _, _, catalog, _ = edt
-    for feature, products in PRODUCTS.items():
-        rules = {repr(sorted(catalog[p]["behavior"]["reporting"][feature].items())) for p in products}
-        assert len(rules) == len(products), (feature, rules)
-
-
-def test_the_variants_report_under_the_rule_the_runtime_reads(edt):
-    """What the product axis does carry today: each variant has a reporting rule for its feature, read from its own
-    record by the runtime (twin.vds["behavior"]["reporting"][feature]), and the rule's fields are the ones the
-    runtime uses."""
+def test_each_product_reports_under_the_rule_the_runtime_reads(edt):
+    """The runtime reads twin.vds["behavior"]["reporting"][feature]: {change, min_s, max_s}."""
     _, _, catalog, _ = edt
     for feature, products in PRODUCTS.items():
         for p in products:
@@ -60,16 +50,43 @@ def test_the_home_has_one_sensor_per_product_in_every_room(edt):
     devices = yaml.safe_load(path.read_text())["devices"]
     by_name = {d["name"]: d for d in devices}
     for room in ROOMS:
-        for v, product in enumerate(PRODUCTS["illuminance"]):
-            d = by_name[f"{room}_lux{v}"]
-            assert d["product"] == product and d["at"]["room"] == room and d["at"]["mount"] == "ceiling"
-        for v, product in enumerate(PRODUCTS["temperature"]):
-            assert by_name[f"{room}_temp{v}"]["product"] == product
-    assert {k for k in roles if k[0] == "illuminance"} == {("illuminance", r, v) for r in ROOMS
-                                                          for v in range(len(PRODUCTS["illuminance"]))}
-    assert roles[("illuminance", "kitchen", 1)].startswith("sensor.") and roles[("humidity", "kitchen", 0)]
+        d = by_name[f"{room}_lux0"]
+        assert d["product"] == PRODUCTS["illuminance"][0] and d["at"]["room"] == room and d["at"]["mount"] == "ceiling"
+        assert by_name[f"{room}_temp0"]["product"] == PRODUCTS["temperature"][0]
+        assert f"{room}_lux1" not in by_name and f"{room}_temp1" not in by_name
+    assert {k for k in roles if k[0] == "illuminance"} == {("illuminance", r, 0) for r in ROOMS}
+    assert roles[("illuminance", "kitchen", 0)].startswith("sensor.") and roles[("humidity", "kitchen", 0)]
     sensors = [v for k, v in roles.items() if k[0] in ("illuminance", "temperature")]
     assert len(set(sensors)) == len(sensors)
+
+
+def test_the_corridor_has_a_light_and_a_motion_sensor_of_the_starter_products(edt):
+    path, roles, _, _ = edt
+    by_name = {d["name"]: d for d in yaml.safe_load(path.read_text())["devices"]}
+    for kind in ("light", "motion"):
+        assert by_name[f"corridor_{kind}"]["product"] == by_name[f"kitchen_{kind}"]["product"]
+        assert by_name[f"corridor_{kind}"]["at"]["room"] == "corridor"
+        assert by_name[f"corridor_{kind}"]["at"]["mount"] == "ceiling"
+    assert roles[("light", "corridor", 0)].startswith("light.")
+    assert roles[("motion", "corridor", 0)].startswith("binary_sensor.")
+
+
+def test_hallway_light_and_motion_bind(edt):
+    _, roles, _, _ = edt
+    raw = {"alias": "h", "triggers": [{"trigger": "state", "entity_id": "binary_sensor.hall_motion", "to": "on"}],
+           "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.hallway"}}]}
+    bound = bind(raw, roles, 0)
+    assert bound["triggers"][0]["entity_id"] == roles[("motion", "corridor", 0)]
+    assert bound["actions"][0]["target"]["entity_id"] == roles[("light", "corridor", 0)]
+
+
+def test_a_sensor_variant_that_does_not_exist_is_unbindable(edt):
+    _, roles, _, _ = edt
+    raw = {"alias": "k", "triggers": [{"trigger": "numeric_state", "entity_id": "sensor.kitchen_illuminance",
+                                       "below": 50}], "actions": []}
+    r = bind(raw, roles, 1)
+    assert isinstance(r, Unbindable) and r.reason.startswith("no variant 1 for illuminance")
+    assert isinstance(bind(raw, roles, 0), dict)
 
 
 def test_the_starter_devices_fill_the_roles_without_product_variants(edt):
@@ -110,20 +127,18 @@ KITCHEN = {"alias": "kitchen lamp", "triggers": [{"trigger": "numeric_state", "e
                        {"action": "notify.me", "data": {"message": "{{ states('sensor.kitchen_illuminance') }}"}}]}
 
 
-def test_a_kitchen_automation_binds_to_the_variants_sensor_and_the_kitchen_light(edt):
+def test_a_kitchen_automation_binds_to_the_kitchen_sensor_and_the_kitchen_light(edt):
     _, roles, _, home = edt
     from vesper.lab.automations import Engine
     from vesper.lab.session import Session
     from vesper.twins.clock import LogicalClock
-    bound = bind(KITCHEN, roles, 1)
-    assert bound["triggers"][0]["entity_id"] == roles[("illuminance", "kitchen", 1)]
+    bound = bind(KITCHEN, roles, 0)
+    assert bound["triggers"][0]["entity_id"] == roles[("illuminance", "kitchen", 0)]
     assert bound["actions"][0]["target"]["entity_id"] == roles[("light", "kitchen", 0)]
     assert bound["conditions"][0]["entity_id"] == roles[("door", "living", 0)]
     assert bound["actions"][0]["action"] == "light.turn_on"  # a service name is not an entity id
-    assert roles[("illuminance", "kitchen", 1)] in bound["actions"][1]["data"]["message"]
+    assert roles[("illuminance", "kitchen", 0)] in bound["actions"][1]["data"]["message"]
     assert KITCHEN["triggers"][0]["entity_id"] == "sensor.kitchen_illuminance"  # the input is untouched
-    assert bind(KITCHEN, roles, 0)["triggers"][0]["entity_id"] == roles[("illuminance", "kitchen", 0)] != \
-        bound["triggers"][0]["entity_id"]
     engine = Engine(Session(home, clock=LogicalClock()), permissive=True, automations=[bound])
     assert engine.refused == [] and len(engine.automations) == 1
 
