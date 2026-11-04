@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import bisect
 import json
+import math
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -52,12 +53,26 @@ TURN_ON_MODES = ("heat_cool", "heat", "cool")  # Home Assistant's climate.turn_o
 SET_TEMPERATURE_KEYS = {"temperature", "target_temp_low", "target_temp_high", "hvac_mode"}
 AUTOMATION_KEYS = {"id", "alias", "description", "mode", "max", "max_exceeded", "initial_state", "trace", "hide_entity",
                    "triggers", "trigger", "conditions", "condition", "actions", "action"}
-TRIGGER_KEYS = {"state": {"entity_id", "to", "from", "for"}, "numeric_state": {"entity_id", "above", "below", "for"},
+TRIGGER_KEYS = {"state": {"entity_id", "to", "from", "not_to", "not_from", "attribute", "for"},
+                "numeric_state": {"entity_id", "above", "below", "attribute", "value_template", "for"},
                 "time": {"at", "weekday"}, "sun": {"event", "offset"}, "time_pattern": {"hours", "minutes", "seconds"},
                 "homeassistant": {"event"}}
-CONDITION_KEYS = {"state": {"entity_id", "state"}, "numeric_state": {"entity_id", "above", "below"},
+CONDITION_KEYS = {"state": {"entity_id", "state", "attribute", "for", "match"},
+                  "numeric_state": {"entity_id", "above", "below", "attribute", "value_template"},
                   "time": {"after", "before", "weekday"}, "sun": {"after", "before", "after_offset", "before_offset"}}
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+# Home Assistant's sun entity: its events in the order it checks them, (attribute, astral event, depression, the
+# phase until that event); a phase's position update interval (4 minutes is one degree of the sun's arc)
+SUN_TIMELINE = (("", "dawn", 18.0, "night"), ("", "dawn", 12.0, "astronomical_twilight"),
+                ("next_dawn", "dawn", 6.0, "nautical_twilight"), ("next_rising", "sunrise", None, "twilight"),
+                ("", "dawn", -10.0, "small_day"), ("next_noon", "noon", None, None), ("", "dusk", -10.0, "day"),
+                ("next_setting", "sunset", None, "small_day"), ("next_dusk", "dusk", 6.0, "twilight"),
+                ("", "dusk", 12.0, "nautical_twilight"), ("", "dusk", 18.0, "astronomical_twilight"),
+                ("next_midnight", "midnight", None, None))
+SUN_PHASE_BY_ELEVATION = ((10, "day"), (0, "small_day"), (-6, "twilight"), (-12, "nautical_twilight"),
+                          (-18, "astronomical_twilight"), (-90, "night"))
+SUN_PHASE_UPDATE_S = {"night": 20 * 60, "astronomical_twilight": 8 * 60, "nautical_twilight": 8 * 60,
+                      "twilight": 4 * 60, "small_day": 2 * 60, "day": 4 * 60}
 PATTERN_MAX = {"hours": 23, "minutes": 59, "seconds": 59}
 # Triggers no simulated home fires: what each one needs
 TRIGGER_NEEDS = {"webhook": "it needs an HTTP request", "mqtt": "it needs an MQTT message",
@@ -112,9 +127,40 @@ class Entity:
     entity_id: str
     device: str
     twin_id: str
-    feature: str
+    feature: str  # what its commands set (a climate's setpoint) and, unless `state_feature`, what its state follows
     platform: str
     cfg: dict
+    state_feature: str = ""
+    attrs: dict[str, str] = field(default_factory=dict)  # attribute -> the feature it follows
+    static: dict = field(default_factory=dict)  # attributes that do not change (a climate's hvac_modes)
+    actions: dict = field(default_factory=dict)  # a climate's running state -> its hvac_action
+
+    def features(self) -> set[str]:
+        return {self.feature, self.state_feature, *self.attrs.values()} - {""}
+
+
+def _json_key(template) -> str:
+    """The feature an MQTT discovery value template reads (`value_json["x"]` or `value_json.x`), or ''."""
+    m = re.search(r"""value_json(?:\[["']([^"']+)["']\]|\.([A-Za-z0-9_]+))""", template or "")
+    return (m.group(1) or m.group(2)) if m else ""
+
+
+def _model(e: Entity) -> None:
+    """What Home Assistant's MQTT entity reports beyond the state the engine always had: a climate's state is its
+    hvac mode, with its setpoint, current temperature and hvac action as attributes; a JSON light's brightness."""
+    cfg = e.cfg
+    if e.platform == "climate" and not cfg.get("matter") and not cfg.get("tasmota"):
+        e.state_feature = _json_key(cfg.get("mode_state_template"))
+        e.attrs = {k: v for k, v in (("temperature", _json_key(cfg.get("temperature_state_template")) or e.feature),
+                                     ("current_temperature", _json_key(cfg.get("current_temperature_template"))),
+                                     ("hvac_action", _json_key(cfg.get("action_template")))) if v}
+        e.static = {"hvac_modes": list(cfg.get("modes") or []), "min_temp": cfg.get("min_temp", 7),
+                    "max_temp": cfg.get("max_temp", 35)}
+        m = re.search(r"set m = (\{[^}]*\})", cfg.get("action_template") or "")
+        if m:
+            e.actions = json.loads(m.group(1))
+    elif e.platform == "light" and cfg.get("brightness"):
+        e.attrs = {"brightness": "brightness"}
 
 
 @dataclass
@@ -129,8 +175,8 @@ class Automation:
 
 @dataclass
 class _Held:
-    """A `for:` under way: it lasts while `still(state)` holds for the entity's new states."""
-    still: Callable[[str], bool]
+    """A `for:` under way: it lasts while `still(state, attributes)` holds for the entity's new states."""
+    still: Callable[[str, dict], bool]
     alive: bool = True
 
 
@@ -324,10 +370,16 @@ class Engine:
             self.entities["sun.sun"] = Entity("sun.sun", "sun", "", "", "sun", {})
         self._of_feature: dict[tuple[str, str], list[Entity]] = {}
         for e in self.entities.values():
-            self._of_feature.setdefault((e.twin_id, e.feature), []).append(e)
+            _model(e)
+            for feature in e.features() or {""}:
+                self._of_feature.setdefault((e.twin_id, feature), []).append(e)
         self.automations: list[Automation] = []
         self.refused: list[dict] = []
         self._state: dict[str, str] = {}
+        self._attrs: dict[str, dict] = {}  # entity -> its attributes
+        self._feat: dict[tuple[str, str], object] = {}  # (twin, feature) -> its last reported value
+        self._changed: dict[str, float] = {}  # entity -> when its state last changed (Home Assistant's last_changed)
+        self._sun_phase, self._sun_change = None, None
         self._held: dict[str, list[_Held]] = {}  # entity -> the `for:` timers waiting on it
         self._waits: list[_Wait] = []  # the wait_for_trigger steps under way
         self._burst: tuple[float, dict] = (-1.0, {})  # (instant, automation -> firings at it): the loop guard
@@ -446,17 +498,43 @@ class Engine:
         if "entity_id" not in t:
             raise AutomationError(f"{where}: entity_id is required")
         out = {"kind": kind, "entities": [self._entity(x).entity_id for x in _entities(t["entity_id"])],
-               "for": _seconds(t["for"], "for") if "for" in t else 0.0}
+               "for": _seconds(t["for"], "for") if "for" in t else 0.0, "attribute": self._attribute(t, where)}
         if kind == "state":
-            out["to"] = _states(t["to"], f"{where}: to") if t.get("to") is not None else None
-            out["from"] = _states(t["from"], f"{where}: from") if t.get("from") is not None else None
+            # an attribute's values may be anything; a state is a quoted string (Home Assistant's two schemas)
+            values = (lambda v, w: v if isinstance(v, list) else [v]) if out["attribute"] else _states
+            for key in ("to", "from", "not_to", "not_from"):
+                out[key] = values(t[key], f"{where}: {key}") if t.get(key) is not None else None
+            out["match_all"] = not {"to", "from", "not_to", "not_from"} & set(t)
             out["from_only"] = "from" in t and "to" not in t  # a `for:` then lasts while the state is not `from`
         else:
-            out["above"] = _coerced(t["above"], f"{where}: above") if "above" in t else None
-            out["below"] = _coerced(t["below"], f"{where}: below") if "below" in t else None
+            self._no_value_template(t, where)
+            out["above"] = self._bound(t, "above", where)
+            out["below"] = self._bound(t, "below", where)
             if out["above"] is None and out["below"] is None:
                 raise AutomationError(f"{where}: above or below is required")
         return out
+
+    @staticmethod
+    def _attribute(item: dict, where: str) -> str | None:
+        attribute = item.get("attribute")
+        if attribute is not None and not isinstance(attribute, str):
+            raise AutomationError(f"{where}: attribute {attribute!r} is not a name")
+        return attribute
+
+    @staticmethod
+    def _no_value_template(item: dict, where: str) -> None:
+        if "value_template" in item:
+            raise AutomationError(f"{where}: value_template is not supported (a template)")
+
+    def _bound(self, item: dict, key: str, where: str):
+        """A numeric_state threshold: a number (vol.Coerce(float)), or a number, sensor or input_number entity whose
+        state is the threshold when it is checked."""
+        if key not in item:
+            return None
+        value = item[key]
+        if isinstance(value, str) and re.fullmatch(r"(input_number|number|sensor)\.\w+", value):
+            return {"entity": self._entity(value).entity_id}
+        return _coerced(value, f"{where}: {key}")
 
     def _condition(self, c) -> dict:
         if isinstance(c, dict) and "condition" not in c and len(set(c) - {"alias", "enabled"}) == 1 and \
@@ -494,12 +572,26 @@ class Engine:
                     "weekday": self._weekdays(c["weekday"], where) if "weekday" in c else None}
         if "entity_id" not in c:
             raise AutomationError(f"{where}: entity_id is required")
-        out = {"kind": kind, "entities": [self._entity(x).entity_id for x in _entities(c["entity_id"])]}
+        out = {"kind": kind, "entities": [self._entity(x).entity_id for x in _entities(c["entity_id"])],
+               "attribute": self._attribute(c, where)}
         if kind == "state":
-            out["state"] = _states(c.get("state"), f"{where}: state")
+            if "state" not in c:
+                raise AutomationError(f"{where}: state is required")
+            if out["attribute"]:
+                out["state"] = c["state"] if isinstance(c["state"], list) else [c["state"]]
+            else:
+                out["state"] = _states(c["state"], f"{where}: state")
+            for v in out["state"]:  # Home Assistant compares with an input entity's state: not one of this home's
+                if isinstance(v, str) and re.fullmatch(r"input_\w+\.\w+", v):
+                    self._entity(v)
+            out["for"] = _seconds(c["for"], f"{where}: for") if "for" in c else None
+            if c.get("match", "all") not in ("all", "any"):
+                raise AutomationError(f"{where}: match {c['match']!r} is not all or any")
+            out["any"] = c.get("match") == "any"
         else:
-            out["above"] = _coerced(c["above"], f"{where}: above") if "above" in c else None
-            out["below"] = _coerced(c["below"], f"{where}: below") if "below" in c else None
+            self._no_value_template(c, where)
+            out["above"] = self._bound(c, "above", where)
+            out["below"] = self._bound(c, "below", where)
         return out
 
     def _needs_site(self, where: str) -> None:
@@ -783,15 +875,16 @@ class Engine:
         for e in self.entities.values():
             if e.platform == "sun":
                 continue
-            value = self.runtime.state(e.twin_id).get(e.feature)
-            self._state[e.entity_id] = "unknown" if e.platform == "event" else self._state_of(e, value)
+            twin_state = self.runtime.state(e.twin_id)
+            for feature in e.features():
+                self._feat[(e.twin_id, feature)] = twin_state.get(feature)
+            self._state[e.entity_id] = "unknown" if e.platform == "event" else self._entity_state(e)
+            self._attrs[e.entity_id] = self._entity_attrs(e)
         self.session.subscribe_reports(self._on_report)  # as Home Assistant hears them: across the links
         self._midnight = clock.now() - self.home.start_time
+        self._changed = dict.fromkeys(self._state, clock.now())
         if self.site is not None:
-            from vesper.env.sun import sun_at
-            here = self.site.utc(clock.now() - self._midnight)
-            up = sun_at(self.site.lat, self.site.lon, self.site.elevation_m, here).elevation > -0.833
-            self._state["sun.sun"] = "above_horizon" if up else "below_horizon"
+            self._sun_update_events(initial=True)
         for day in (0, 1):
             self._schedule_day(day)
         clock.call_at(self._midnight + DAY_S, lambda: self._next_day(2))
@@ -807,10 +900,6 @@ class Engine:
         now = self.session.clock.now()
         if self.site is not None:
             events = self._sun_events(day)
-            for ev, state in (("sunrise", "above_horizon"), ("sunset", "below_horizon")):
-                if events[ev] is not None and self._midnight + events[ev] >= now:
-                    self.session.clock.call_at(self._midnight + events[ev],
-                                               lambda state=state: self._apply([self._set("sun.sun", state)]))
             for a in self.automations:
                 for t in a.triggers:
                     if t["kind"] == "sun" and events[t["event"]] is not None:
@@ -827,6 +916,89 @@ class Engine:
                         if when >= now:
                             self.session.clock.call_at(when, lambda a=a, t=t, at=at: self._fire(
                                 a, f"time {at:g}", _tvars(t)))
+
+    # -- Home Assistant's sun entity (sun/entity.py) ------------------------------------------------
+    def _utc(self, t: float):
+        return self.site.utc(t - self._midnight)
+
+    def _logical(self, when) -> float:
+        return self._midnight + (when - self.site.utc(0.0)).total_seconds()
+
+    def _astral_next(self, event: str, after, depression: float | None = None):
+        """Home Assistant's get_location_astral_event_next: the first `event` strictly after `after` (UTC), trying
+        the local dates from the day before on; None if it does not happen within a year (the polar day or night)."""
+        import datetime as dt
+
+        from astral import Observer
+        from astral import sun as astral_sun
+        obs = Observer(latitude=self.site.lat, longitude=self.site.lon, elevation=self.site.elevation_m)
+        date = after.astimezone(self.site.zone).date()
+        fn = getattr(astral_sun, event)
+        for mod in range(-1, 367):
+            day = date + dt.timedelta(days=mod)
+            try:
+                t = fn(obs, day, depression, tzinfo=dt.UTC) if depression is not None else fn(obs, day, tzinfo=dt.UTC)
+            except ValueError:
+                continue
+            if t > after:
+                return t
+        return None
+
+    def _sun_update_events(self, initial: bool = False) -> None:
+        """Home Assistant's update_events: the next of the sun's twelve events and the phase until it, the state
+        (above_horizon while the next rising is after the next setting) and the next_* attributes; then the position,
+        and again one second after that next event."""
+        clock = self.session.clock
+        utc = self._utc(clock.now())
+        nxt, change, phase = {}, None, None
+        for attr, event, depression, before in SUN_TIMELINE:
+            t = self._astral_next(event, utc, depression)
+            if attr:
+                nxt[attr] = t
+            if t is not None and (change is None or t < change):
+                change, phase = t, before
+        if change is not None and phase is None:  # the next event is noon or midnight: the phase from the elevation
+            elevation = self._sun_position(change)[0]
+            phase = next(p for limit, p in SUN_PHASE_BY_ELEVATION if elevation >= limit)
+        self._sun_phase = phase
+        self._sun_change = None if change is None else self._logical(change)
+        rising, setting = nxt["next_rising"], nxt["next_setting"]
+        state = "above_horizon" if rising is not None and (setting is None or rising > setting) else "below_horizon"
+        if rising is None and setting is None:  # no sunrise or sunset within a year: the polar day or night
+            state = "above_horizon" if self._sun_position(utc)[0] > -0.833 else "below_horizon"
+        attrs = {**self._attrs.get("sun.sun", {}),
+                 **{k: None if v is None else v.isoformat() for k, v in nxt.items()},
+                 "rising": nxt["next_noon"] is not None and nxt["next_midnight"] is not None
+                 and nxt["next_noon"] < nxt["next_midnight"]}
+        if initial:
+            self._state["sun.sun"], self._attrs["sun.sun"] = state, attrs
+            self._changed["sun.sun"] = clock.now()
+        else:
+            self._apply([self._set("sun.sun", state, attrs)])
+        self._sun_update_position(initial)
+        if self._sun_change is not None:
+            clock.call_at(self._sun_change + 1, self._sun_update_events)
+
+    def _sun_position(self, when) -> tuple[float, float]:
+        from astral import Observer
+        from astral.sun import azimuth, elevation
+        obs = Observer(latitude=self.site.lat, longitude=self.site.lon, elevation=self.site.elevation_m)
+        return round(elevation(obs, when), 2), round(azimuth(obs, when), 2)
+
+    def _sun_update_position(self, initial: bool = False) -> None:
+        """Home Assistant's update_sun_position: the elevation and azimuth (two decimals) now, and again after the
+        phase's interval unless the next event comes within 1.25 intervals."""
+        clock = self.session.clock
+        elevation, azimuth = self._sun_position(self._utc(clock.now()))
+        attrs = {**self._attrs.get("sun.sun", {}), "elevation": elevation, "azimuth": azimuth}
+        if initial:
+            self._attrs["sun.sun"] = attrs
+        else:
+            self._apply([self._set("sun.sun", self._state["sun.sun"], attrs)])
+        delta = SUN_PHASE_UPDATE_S.get(self._sun_phase)
+        if delta is None or self._sun_change is None or clock.now() + delta * 1.25 > self._sun_change:
+            return
+        clock.call_at(clock.now() + delta, self._sun_update_position)
 
     def _pattern_next(self, a: Automation, t: dict) -> None:
         """Schedule a time_pattern trigger's next firing (each firing schedules the one after)."""
@@ -855,6 +1027,29 @@ class Engine:
         self._schedule_day(day)
         self.session.clock.call_at(self._midnight + day * DAY_S, lambda: self._next_day(day + 1))
 
+    # -- entity states, as Home Assistant's integrations make them -----------------------------------
+    def _entity_state(self, e: Entity) -> str:
+        value = self._feat.get((e.twin_id, e.state_feature or e.feature))
+        if e.platform == "climate":  # Home Assistant's climate state is its hvac mode
+            return "unknown" if value is None else str(value)
+        return self._state_of(e, value)
+
+    def _entity_attrs(self, e: Entity) -> dict:
+        """The attributes the engine models: a light's brightness (0..255, None while off, as Home Assistant's
+        JSON light scales it), a climate's setpoint, current temperature and hvac action (its MQTT templates)."""
+        out = dict(e.static)
+        for name, feature in e.attrs.items():
+            value = self._feat.get((e.twin_id, feature))
+            if e.platform == "light" and name == "brightness":
+                if self._entity_state(e) != "on" or not value:
+                    value = None if self._entity_state(e) != "on" else self._attrs.get(e.entity_id, {}).get(name)
+                else:  # color_util.value_to_brightness((1, scale), value)
+                    value = math.ceil(value * 255 / e.cfg.get("brightness_scale", 255))
+            elif name == "hvac_action" and value is not None:
+                value = e.actions.get(value, "idle") if e.actions else value
+            out[name] = value
+        return out
+
     def _state_of(self, e: Entity, value) -> str:
         if value is None:
             return "unknown"
@@ -876,66 +1071,100 @@ class Engine:
     def _on_report(self, event) -> None:
         """A state change, as Home Assistant handles one: the `for:` timers it ends end, then every trigger it
         matches is evaluated, and only then do actions run (later, at the same instant)."""
+        self._feat[(event.twin_id, event.feature)] = event.value
         changes = []
         for e in self._of_feature.get((event.twin_id, event.feature), ()):
-            old = self._state.get(e.entity_id)
+            old, old_attrs = self._state.get(e.entity_id), self._attrs.get(e.entity_id, {})
             if e.platform == "event":  # the time of the last event: every event is a change
-                new = f"{event.observed_t:.6f}"
+                new, attrs = f"{event.observed_t:.6f}", old_attrs
             else:
-                new = self._state_of(e, event.value)
-                if new == old:
+                new, attrs = self._entity_state(e), self._entity_attrs(e)
+                if new == old and attrs == old_attrs:
                     continue
-            self._state[e.entity_id] = new
-            changes.append((e.entity_id, old, new))
+            changes.append(self._set(e.entity_id, new, attrs))
         self._apply(changes)
 
-    def _set(self, entity: str, new: str) -> tuple:
-        """A state an entity that no device reports takes (sun.sun): the change, for `_apply`."""
-        old, self._state[entity] = self._state.get(entity), new
-        return entity, old, new
+    def _set(self, entity: str, new: str, attrs: dict | None = None) -> tuple:
+        """An entity's new state (and attributes): the change, for `_apply`."""
+        old, old_attrs = self._state.get(entity), self._attrs.get(entity, {})
+        self._state[entity], self._attrs[entity] = new, old_attrs if attrs is None else attrs
+        if new != old:
+            self._changed[entity] = self.session.clock.now()
+        return entity, old, new, old_attrs, self._attrs[entity]
 
     def _apply(self, changes: list) -> None:
-        changes = [c for c in changes if c[1] != c[2]]
-        for entity, _, new in changes:
+        changes = [c for c in changes if c[1] != c[2] or c[3] != c[4]]
+        for entity, _, new, _, attrs in changes:
             for h in self._held.get(entity, ()):
-                h.alive = h.alive and h.still(new)
+                h.alive = h.alive and h.still(new, attrs)
             self._held[entity] = [h for h in self._held.get(entity, ()) if h.alive]
-        for entity, old, new in changes:
+        for change in changes:
+            entity = change[0]
             for a in self.automations:
                 for t in a.triggers:
-                    if entity in t.get("entities", ()) and self._matches(t, old, new):
-                        self._triggered(t, entity, old, new, lambda why, tv, a=a: self._fire(a, why, tv))
+                    if entity in t.get("entities", ()) and self._matches(t, change):
+                        self._triggered(t, change, lambda why, tv, a=a: self._fire(a, why, tv))
             for w in list(self._waits):
                 for t in w.triggers:
-                    if w.active and entity in t.get("entities", ()) and self._matches(t, old, new):
-                        self._triggered(t, entity, old, new, w.done)
-
-    def _matches(self, t: dict, old: str, new: str) -> bool:
-        if t["kind"] == "state":
-            return (t["to"] is None or new in t["to"]) and (t["from"] is None or old in t["from"])
-        return self._in_range(t, new) and not self._in_range(t, old)  # numeric_state: entering the range
+                    if w.active and entity in t.get("entities", ()) and self._matches(t, change):
+                        self._triggered(t, change, w.done)
 
     @staticmethod
-    def _in_range(t: dict, state) -> bool:
+    def _value(t: dict, state, attrs: dict):
+        """What a state or numeric_state trigger or condition looks at: the state, or its `attribute`."""
+        return state if t.get("attribute") is None else (attrs or {}).get(t["attribute"])
+
+    def _matches(self, t: dict, change: tuple) -> bool:
+        """Home Assistant's state trigger (an attribute trigger ignores the other attributes' changes; with none of
+        to/from/not_to/not_from any change fires, an attribute's too, else the value must change) and numeric_state
+        trigger (the value enters the range)."""
+        _, old, new, old_attrs, new_attrs = change
+        before, after = self._value(t, old, old_attrs), self._value(t, new, new_attrs)
+        if t["kind"] == "numeric_state":
+            return self._in_range(t, after) and not self._in_range(t, before)
+        if t.get("attribute") is not None and before == after:
+            return False
+        if not t["match_all"] and before == after:
+            return False
+        return ((t["to"] is None or after in t["to"]) and (t["from"] is None or before in t["from"])
+                and (t["not_to"] is None or after not in t["not_to"])
+                and (t["not_from"] is None or before not in t["not_from"]))
+
+    def _threshold(self, value) -> float | None:
+        if not isinstance(value, dict):
+            return value
+        try:  # a threshold entity's state
+            return float(self._state.get(value["entity"]))
+        except (TypeError, ValueError):
+            return None
+
+    def _in_range(self, t: dict, state) -> bool:
         try:
             v = float(state)
         except (TypeError, ValueError):
             return False
-        return (t.get("above") is None or v > t["above"]) and (t.get("below") is None or v < t["below"])
+        above, below = self._threshold(t.get("above")), self._threshold(t.get("below"))
+        if (t.get("above") is not None and above is None) or (t.get("below") is not None and below is None):
+            return False  # a threshold entity without a number: Home Assistant's condition error
+        return (above is None or v > above) and (below is None or v < below)
 
-    def _triggered(self, t: dict, entity: str, old: str, new: str, fire: Callable) -> None:
-        """A trigger matched a change: `fire(why, trigger variables)` now, or once its `for:` has held."""
+    def _triggered(self, t: dict, change: tuple, fire: Callable) -> None:
+        """A trigger matched a change: `fire(why, trigger variables)` now, or once its `for:` has held (while the
+        value stays what it became, in range, or, with from and no to, not what it was)."""
+        entity, old, new, old_attrs, new_attrs = change
         why, clock = f"{t['kind']} {entity} {old} -> {new}", self.session.clock
-        tvars = _tvars(t, entity_id=entity, from_state=old, to_state=new, **{"for": t["for"] or None})
+        tvars = _tvars(t, entity_id=entity, from_state=old, to_state=new, attribute=t.get("attribute"),
+                       **{"for": t["for"] or None})
         if not t["for"]:
             clock.call_at(clock.now(), lambda: fire(why, tvars))
             return
+        before, after = self._value(t, old, old_attrs), self._value(t, new, new_attrs)
         if t["kind"] == "numeric_state":
-            still = lambda s: self._in_range(t, s)  # noqa: E731 - Home Assistant: while the value stays in range
+            still = lambda s, a: self._in_range(t, self._value(t, s, a))  # noqa: E731
         elif t["from_only"]:
-            still = lambda s: s != old  # noqa: E731
+            still = lambda s, a: self._value(t, s, a) != before  # noqa: E731
         else:
-            still = lambda s: s == new  # noqa: E731
+            still = lambda s, a: self._value(t, s, a) == after  # noqa: E731
         h = _Held(still)
         self._held.setdefault(entity, []).append(h)
 
@@ -974,10 +1203,15 @@ class Engine:
             return not any(self._holds(x, context) for x in c["conditions"])
         if kind == "trigger":
             return context.get("trigger", {}).get("id") in c["ids"]
-        if kind == "state":
-            return all(self._state.get(e) in c["state"] for e in c["entities"])
+        if kind == "state":  # Home Assistant: `for` is how long the state has been unchanged (last_changed)
+            now = self.session.clock.now()
+            each = (self._value(c, self._state.get(e), self._attrs.get(e)) in c["state"]
+                    and (c["attribute"] is None or c["attribute"] in self._attrs.get(e, {}))
+                    and (c["for"] is None or now - c["for"] > self._changed.get(e, now)) for e in c["entities"])
+            return any(each) if c["any"] else all(each)
         if kind == "numeric_state":
-            return all(self._in_range(c, self._state.get(e, "")) for e in c["entities"])
+            return all(self._in_range(c, self._value(c, self._state.get(e, ""), self._attrs.get(e)))
+                       for e in c["entities"])
         if kind == "sun":
             since = self.session.clock.now() - self._midnight
             events = self._sun_events(int(since // DAY_S))

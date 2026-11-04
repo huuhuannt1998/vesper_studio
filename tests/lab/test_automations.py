@@ -283,16 +283,16 @@ REFUSED = [
     ("triggers: [{trigger: state, entity_id: LAMP, to: \"on\", for: {minutes: \"{{ x }}\"}}]\n  actions: []",
      "for: {'minutes': '{{ x }}'} is not a duration"),
     ("triggers: [{trigger: numeric_state, entity_id: TEMP, above: input_number.hot}]\n  actions: []",
-     "trigger numeric_state: above: 'input_number.hot' is not a number"),
-    ("triggers: [{trigger: state, entity_id: LAMP, not_to: \"on\"}]\n  actions: []",
-     "trigger state: 'not_to' is not supported"),
-    ("triggers: [{trigger: state, entity_id: LAMP, attribute: brightness}]\n  actions: []",
-     "trigger state: 'attribute' is not supported"),
+     "entity input_number.hot is not one of this home's"),
+    ("triggers: [{trigger: numeric_state, entity_id: TEMP, above: 1, value_template: x}]\n  actions: []",
+     "trigger numeric_state: value_template is not supported (a template)"),
+    ("triggers: [{trigger: state, entity_id: LAMP, attribute: [brightness]}]\n  actions: []",
+     "trigger state: attribute ['brightness'] is not a name"),
     ("triggers: [{trigger: state, to: \"on\"}]\n  actions: []", "trigger state: entity_id is required"),
     ("triggers: [{trigger: state, entity_id: LAMP, to: on}]\n  actions: []",
      "trigger state: to: True is not a quoted state; Home Assistant refuses YAML's unquoted on/off"),
     ("triggers: [{trigger: time, at: \"07:00\"}]\n  conditions: [{condition: state, entity_id: LAMP, "
-     "state: \"on\", for: \"00:01:00\"}]\n  actions: []", "condition state: 'for' is not supported"),
+     "state: \"on\", match: some}]\n  actions: []", "condition state: match 'some' is not all or any"),
     ("triggers: [{trigger: time, at: \"07:00\"}]\n  actions: [{action: light.turn_on, target: {entity_id: LAMP}, "
      + REFUSED[0][0] + "}]", REFUSED[0][1]),
     ("triggers: [{trigger: time, at: \"07:00\"}]\n  actions: [{action: light.turn_on, target: {entity_id: LAMP}, "

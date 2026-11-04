@@ -370,3 +370,162 @@ def test_homeassistant_start_fires_once_when_the_engine_starts_and_shutdown_neve
 ])
 def test_triggers_that_need_a_device_a_resident_or_a_service_are_refused_by_class(tmp_path, trigger, reason):
     assert refusal(tmp_path, [auto([], [trigger])]) == reason
+
+
+# ---- states, attributes ------------------------------------------------------------------------------------------
+
+def fired_by(calls):
+    return [c[0] for c in calls]
+
+
+def test_not_to_and_not_from_as_home_assistants_state_trigger(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        on = {"action": "light.turn_on", "target": {"entity_id": lamp}}
+        return [auto([on], [{"trigger": "state", "entity_id": motion, "not_from": ["unknown", "unavailable"],
+                             "not_to": "unavailable"}])]
+    ids, s, e, calls = setup(tmp_path, autos)
+    _, motion = lamp_motion(ids)
+    for state in ("unknown", "on", "off", "unavailable", "on"):
+        e._apply([e._set(motion, state)])
+        s.clock.advance(1)
+    assert len(calls) == 2  # on -> off; unknown -> on (not_from), off -> unavailable (not_to), unavailable -> on no
+
+
+def test_with_no_to_or_from_an_attribute_change_fires_and_with_to_null_it_does_not(tmp_path):
+    def autos(ids):
+        lamp, _ = lamp_motion(ids)
+        on = {"action": "light.turn_on", "target": {"entity_id": lamp}}
+        return [auto([on], [{"trigger": "state", "entity_id": lamp}], alias="any"),
+                auto([on], [{"trigger": "state", "entity_id": lamp, "to": None}], alias="state"),
+                auto([on], [{"trigger": "state", "entity_id": lamp, "attribute": "brightness", "to": 120}],
+                     alias="attribute"),
+                auto([on], [{"trigger": "numeric_state", "entity_id": lamp, "attribute": "brightness",
+                             "above": 100}], alias="numeric")]
+    ids, s, e, calls = setup(tmp_path, autos)
+    lamp, _ = lamp_motion(ids)
+    e._apply([e._set(lamp, "on", {"brightness": 90})])
+    s.clock.advance(1)
+    assert sorted(fired_by(calls)) == ["any", "state"]
+    calls.clear()
+    e._apply([e._set(lamp, "on", {"brightness": 120})])
+    s.clock.advance(1)
+    assert sorted(fired_by(calls)) == ["any", "attribute", "numeric"]
+
+
+def test_a_lights_brightness_attribute_is_home_assistants_scaled_brightness_and_none_while_off(tmp_path):
+    ids, s, e, _ = setup(tmp_path, [])
+    lamp, _ = lamp_motion(ids)
+    twin = e.entities[lamp].twin_id
+    scale = e.entities[lamp].cfg["brightness_scale"]
+    e._on_report(type("R", (), {"twin_id": twin, "feature": "state", "value": "ON", "observed_t": 0})())
+    e._on_report(type("R", (), {"twin_id": twin, "feature": "brightness", "value": 127, "observed_t": 0})())
+    assert e._state[lamp] == "on" and e._attrs[lamp]["brightness"] == -(-127 * 255 // scale)
+    e._on_report(type("R", (), {"twin_id": twin, "feature": "state", "value": "OFF", "observed_t": 0})())
+    assert e._attrs[lamp]["brightness"] is None
+
+
+def test_state_conditions_with_attribute_for_and_match_any(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        return [auto([], conditions=[{"condition": "state", "entity_id": [lamp, motion], "state": "on",
+                                      "match": "any"},
+                                     {"condition": "state", "entity_id": lamp, "attribute": "brightness",
+                                      "state": 120},
+                                     {"condition": "state", "entity_id": lamp, "state": "on",
+                                      "for": {"minutes": 5}}])]
+    ids, s, e, _ = setup(tmp_path, autos)
+    lamp, motion = lamp_motion(ids)
+    anyone, bright, held = e.automations[0].conditions
+    e._apply([e._set(lamp, "on", {"brightness": 120})])
+    assert (e._holds(anyone, {}), e._holds(bright, {}), e._holds(held, {})) == (True, True, False)
+    s.clock.advance(5 * 60 + 1)
+    e._apply([e._set(lamp, "on", {"brightness": 90})])  # an attribute change keeps last_changed
+    assert (e._holds(bright, {}), e._holds(held, {})) == (False, True)
+
+
+def test_a_numeric_state_threshold_may_be_a_sensor_whose_state_is_read_when_checked(tmp_path):
+    def autos(ids):
+        temp, battery = ids["kitchen_climate"]["temperature"], ids["kitchen_climate"]["battery"]
+        return [auto([], conditions=[{"condition": "numeric_state", "entity_id": temp, "above": battery}])]
+    ids, s, e, _ = setup(tmp_path, autos)
+    temp, hum = ids["kitchen_climate"]["temperature"], ids["kitchen_climate"]["battery"]
+    (c,) = e.automations[0].conditions
+    e._state[temp], e._state[hum] = "21.0", "40"
+    assert not e._holds(c, {})
+    e._state[hum] = "20"
+    assert e._holds(c, {})
+    e._state[hum] = "unknown"
+    assert not e._holds(c, {})
+
+
+def test_a_climate_entity_is_its_hvac_mode_with_setpoint_current_temperature_and_action_attributes(tmp_path):
+    ids, s, e, _ = setup(tmp_path, [], text_home=sited_home)
+    climate = next(x for x in ids["bedroom_thermostat"].values() if x.startswith("climate."))
+    attrs = e._attrs[climate]
+    assert e._state[climate] == "heat" and attrs["temperature"] == 25
+    assert {"current_temperature", "hvac_modes", "min_temp", "max_temp"} <= set(attrs)
+    assert "heat" in attrs["hvac_modes"]
+
+
+def test_sun_sun_has_home_assistants_elevation_azimuth_and_next_event_attributes(tmp_path):
+    import datetime as dt
+
+    from astral import Observer
+    from astral.sun import elevation, sunset
+    _, s, e, _ = setup(tmp_path, [], text_home=sited_home)
+    site = e.site
+    obs = Observer(site.lat, site.lon, site.elevation_m)
+    attrs = e._attrs["sun.sun"]
+    assert attrs["next_setting"] == sunset(obs, site.date, tzinfo=dt.UTC).isoformat()
+    assert attrs["elevation"] == round(elevation(obs, site.utc(7.5 * H)), 2) and attrs["rising"] is True
+    updates = []
+    apply = e._apply
+
+    def spy(changes):
+        updates.extend((s.clock.now(), c[4]["elevation"]) for c in changes if c[0] == "sun.sun" and c[3].get(
+            "elevation") != c[4].get("elevation"))
+        apply(changes)
+    e._apply = spy
+    s.clock.advance(3 * H)  # 07:30 to 10:30: the sun is above 10 degrees from about 08:15 (the day phase)
+    late = [(t, el) for t, el in updates if t > 1.5 * H]
+    assert {b[0] - a[0] for a, b in zip(late, late[1:])} == {240.0}  # every 4 minutes
+    assert all(el == round(elevation(obs, site.utc(t + 7.5 * H)), 2) for t, el in updates)
+
+
+def test_a_numeric_state_on_the_suns_elevation_fires_in_the_evening(tmp_path):
+    def autos(ids):
+        lamp, _ = lamp_motion(ids)
+        return [auto([{"action": "light.turn_on", "target": {"entity_id": lamp}}],
+                     [{"trigger": "numeric_state", "entity_id": "sun.sun", "attribute": "elevation", "below": 5}])]
+    from vesper.env.sun import sun_events
+    _, s, e, calls = setup(tmp_path, autos, text_home=sited_home)
+    times = []
+    s.automation_command = lambda *args: times.append(s.clock.now())
+    s.clock.advance(20 * H)
+    sunset = sun_events(e.site, 0)["sunset"]
+    assert len(times) == 1 and sunset - 1.2 * H < times[0] + 7.5 * H < sunset  # 5 degrees: about 40 minutes before
+
+
+def test_sun_sun_turns_below_horizon_a_second_after_sunset_as_home_assistant_reschedules_it(tmp_path):
+    from vesper.env.sun import sun_events
+    _, s, e, _ = setup(tmp_path, [], text_home=sited_home)
+    sunset = sun_events(e.site, 0)["sunset"] - 7.5 * H  # from the session's start
+    s.clock.advance(sunset + 0.5)
+    assert e._state["sun.sun"] == "above_horizon"
+    s.clock.advance(1)
+    assert e._state["sun.sun"] == "below_horizon"
+
+
+def test_a_trvs_hvac_action_follows_its_running_state_through_the_discovery_template(tmp_path):
+    from tests.lab.test_automations_climate import CATALOG, TRV, thermostat_lab
+    if not CATALOG.is_dir():
+        pytest.skip("catalog/vds is not in this checkout")
+    climate, s = thermostat_lab(tmp_path, TRV)
+    e = Engine(s, automations=[])
+    e.start()
+    twin = e.entities[climate].twin_id
+    for running, action in (("heat", "heating"), ("idle", "idle")):
+        e._on_report(type("R", (), {"twin_id": twin, "feature": "running_state", "value": running,
+                                     "observed_t": 0})())
+        assert e._attrs[climate]["hvac_action"] == action
