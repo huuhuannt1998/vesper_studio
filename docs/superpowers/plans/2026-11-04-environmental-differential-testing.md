@@ -288,7 +288,7 @@ envelope violations, never as the authors' defects, unless the PI asks for that 
 
 ### Task 10: The paper
 
-**Files:** `paper-latex/sections/*.tex` (local only, never pushed), `~/Research/AutoResearchClaw/runs/vesper-environment/`
+**Files:** the manuscript (kept outside the repository, never pushed); the framing from a peer-review pass
 
 - [ ] **Step 1:** Rewrite abstract, introduction (problem, insight, mechanism, RQs), design (the EDT section with the
   formal model of the spec §2), evaluation (RQ1-RQ4 from Tasks 7-9, the environment validation, the thermal ladder,

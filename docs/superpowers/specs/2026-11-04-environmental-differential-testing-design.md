@@ -1,8 +1,7 @@
 # Environmental differential testing of home automations (design, 2026-11-04)
 
 Status: draft for the PI's approval. Decision: RKA dec_01M6KJJEPH70NH4GCX15M5SJ1Z (PI chose this as the paper's
-core mechanism, IoT-J). Framing source: AutoResearchClaw runs `runs/vesper-environment` (summary in
-`~/vesper-lab/requirements/ARC-FRAMING-2026-11-04.md`).
+core mechanism, IoT-J). Framing source: a peer-review pass.
 
 ## 1. Why
 
@@ -15,7 +14,7 @@ testing with generated event sequences in one environment. None asks *for which 
 automation do something else*, and none can answer it, because it needs the same automation run with real products
 in many real environments.
 
-Of 45,208 automations in 1,186 public Home Assistant repositories, 5,102 (11.3 %, in 629 repositories) trigger on or
+Of 45,208 automations in 1,186 public Home Assistant repositories (1,123 of them with automations), 5,102 (11.3 %, in 629 repositories) trigger on or
 check the environment: the sun 3,029, temperature 1,362, illuminance 418, humidity 322, weather 314 (counted
 2026-11-04 over the corpus used by the earlier rule-prevalence study).
 
