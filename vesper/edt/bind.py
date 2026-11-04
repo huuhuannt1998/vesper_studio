@@ -416,6 +416,207 @@ def _rewrite(node, roles: dict, variant: int, key: str | None = None):
     return node
 
 
+# ---- gate-open helpers (docs/experiments/edt-protocol.md, addendum 2) ------------------------------------------------
+
+GATE_DOMAINS = {"input_boolean", "input_select", "input_number", "group", "person", "device_tracker", "zone", "timer"}
+LOGIC = ("or", "not")
+
+
+def _ids_in(text: str, key: str | None) -> list[str]:
+    """The entity ids a string names, as the binder reads them: a template's quoted or attribute-access ids, else a
+    plain id or comma list (lowercased); a service name names none."""
+    if key in ("action", "service"):
+        return []
+    if "{{" in text or "{%" in text:
+        return [m.group(2) for m in QUOTED.finditer(text)] + [f"{a}.{b}" for a, b in STATES.findall(text)]
+    parts = [p.strip().lower() for p in text.split(",")]
+    return parts if all(ENTITY.match(p) for p in parts) else []
+
+
+def _helpers(node, key: str | None = None, logic: bool = False, template: bool = False):
+    """(entity id, key it sits under, inside or/not, inside a template) for every helper or presence entity in node."""
+    if isinstance(node, dict):
+        inside = logic or node.get("condition") in LOGIC or any(k in node for k in LOGIC)
+        for k, v in node.items():
+            yield from _helpers(v, k, inside, template)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _helpers(v, key, logic, template)
+    elif isinstance(node, str):
+        templated = "{{" in node or "{%" in node
+        for eid in _ids_in(node, key):
+            if eid.partition(".")[0] in GATE_DOMAINS:
+                yield eid, key, logic, templated
+
+
+def _number(value) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return value
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _record_gate(c: dict, reqs: dict) -> Unbindable | None:
+    """Merge one helper condition's requirement into `reqs`: (entity, attribute) -> {"states", "lo", "hi"}."""
+    eids = _ids_in(c["entity_id"], "entity_id") if isinstance(c["entity_id"], str) else \
+        [e.strip().lower() for e in c["entity_id"]]
+    domain = eids[0].partition(".")[0]
+    attr = c.get("attribute")
+    if c["condition"] == "state":
+        if c.get("match") == "any" and len(eids) > 1:
+            return Unbindable(f"{domain} inside or/not")
+        states = c.get("state")
+        states = states if isinstance(states, list) else [states]
+        if not all(isinstance(s, str) for s in states):
+            return Unbindable("a helper state given as unquoted on/off (Home Assistant refuses it)")
+        for eid in eids:
+            r = reqs.setdefault((eid, attr), {"states": None, "lo": None, "hi": None})
+            r["states"] = set(states) if r["states"] is None else r["states"] & set(states)
+        return None
+    if "value_template" in c:
+        return Unbindable(f"{domain} in a template or an action")
+    bounds = {}
+    for side in ("above", "below"):
+        if c.get(side) is not None:
+            bounds[side] = _number(c[side])
+            if bounds[side] is None:
+                return Unbindable(f"{domain} compared against an entity or a template")
+    for eid in eids:
+        r = reqs.setdefault((eid, attr), {"states": None, "lo": None, "hi": None})
+        if "above" in bounds:
+            r["lo"] = bounds["above"] if r["lo"] is None else max(r["lo"], bounds["above"])
+        if "below" in bounds:
+            r["hi"] = bounds["below"] if r["hi"] is None else min(r["hi"], bounds["below"])
+    return None
+
+
+def _strip_gates(conds, reqs: dict):
+    """The conditions without their helper gates (top level and inside `and`), recording each gate in `reqs`; an
+    Unbindable when a gate cannot be held open."""
+    items = conds if isinstance(conds, list) else [conds]
+    out = []
+    for c in items:
+        if isinstance(c, list):  # a nested list: an implicit `and`
+            sub = _strip_gates(c, reqs)
+            if isinstance(sub, Unbindable):
+                return sub
+            if sub:
+                out.append(sub)
+            continue
+        if not isinstance(c, dict):
+            out.append(c)
+            continue
+        found = list(_helpers(c))
+        if found and c.get("enabled") is False:  # Home Assistant ignores a disabled condition
+            continue
+        if c.get("condition") == "and" or ("and" in c and "condition" not in c):
+            k = "conditions" if c.get("condition") == "and" else "and"
+            sub = _strip_gates(c.get(k) or [], reqs)
+            if isinstance(sub, Unbindable):
+                return sub
+            if sub:
+                out.append({**c, k: sub})
+            continue
+        if c.get("condition") in ("state", "numeric_state") and isinstance(c.get("entity_id"), str | list) and found \
+                and not any(lg or tp or key != "entity_id" for _, key, lg, tp in found):
+            eids = _ids_in(c["entity_id"], "entity_id") if isinstance(c["entity_id"], str) else \
+                [str(e).strip().lower() for e in c["entity_id"]]
+            if any(e.partition(".")[0] not in GATE_DOMAINS for e in eids):
+                return Unbindable(f"{found[0][0].partition('.')[0]} and a device in one condition")
+            failed = _record_gate(c, reqs)
+            if failed:
+                return failed
+            continue
+        out.append(c)
+    return out
+
+
+def _assumptions(reqs: dict) -> list[str] | Unbindable:
+    out = []
+    for (eid, attr), r in sorted(reqs.items(), key=lambda kv: (kv[0][0], kv[0][1] or "")):
+        name = f"{eid}[{attr}]" if attr else eid
+        states, lo, hi = r["states"], r["lo"], r["hi"]
+        if lo is not None and hi is not None and lo >= hi:
+            return Unbindable(f"conflicting conditions on one helper (for {eid})")
+        if states is not None and (lo is not None or hi is not None):
+            states = {s for s in states if (n := _number(s)) is not None and (lo is None or n > lo)
+                      and (hi is None or n < hi)}
+        if states is not None:
+            if not states:
+                return Unbindable(f"conflicting conditions on one helper (for {eid})")
+            out.append(f"{name} == {next(iter(states))}" if len(states) == 1 else
+                       f"{name} in [{', '.join(sorted(states))}]")
+        elif lo is not None and hi is not None:
+            out.append(f"{name} in ({lo}, {hi})")
+        elif lo is not None:
+            out.append(f"{name} > {lo}")
+        elif hi is not None:
+            out.append(f"{name} < {hi}")
+    return out
+
+
+def _helper_refusal(raw: dict) -> Unbindable | None:
+    """Why a helper left after the gates are removed makes the automation unbindable, by where it is."""
+    def first(node):
+        return next(iter(_helpers(node)), None)
+
+    for k in ("trigger", "triggers"):
+        for eid, key, _, _ in _helpers(raw.get(k)):
+            domain = eid.partition(".")[0]
+            if key in ("above", "below"):
+                return Unbindable(f"{domain} as a numeric threshold")
+            return Unbindable(f"{domain} in a trigger (helpers and presence change only with residents)")
+    for k in ("condition", "conditions"):
+        for c in _listed(raw.get(k)):
+            found = first(c)
+            if found is None:
+                continue
+            eid, key, logic, templated = found
+            domain = eid.partition(".")[0]
+            if key in ("above", "below"):
+                return Unbindable(f"{domain} as a numeric threshold")
+            if logic:
+                return Unbindable(f"{domain} inside or/not")
+            kind = c.get("condition") if isinstance(c, dict) else None
+            if templated or kind in (None, "template"):
+                return Unbindable(f"{domain} in a template or an action")
+            return Unbindable(f"{domain} in a {kind} condition")
+    rest = {k: v for k, v in raw.items() if k not in ("trigger", "triggers", "condition", "conditions")}
+    found = first(rest)
+    if found:
+        return Unbindable(f"{found[0].partition('.')[0]} in a template or an action")
+    return None
+
+
+def bind_with_assumptions(raw: dict, roles: dict, variant: int) -> tuple[dict, list[str]] | Unbindable:
+    """`raw` bound as `bind` does, with its helper gates held open: (the bound automation, the assumptions, i.e. the
+    state each removed gate requires); or why it cannot be bound. The engine refuses unknown top-level keys, so the
+    assumptions come beside the bound automation, not in it."""
+    raw = copy.deepcopy(raw)
+    reqs: dict = {}
+    for k in ("condition", "conditions"):
+        if k in raw and raw[k] is not None:
+            stripped = _strip_gates(raw[k], reqs)
+            if isinstance(stripped, Unbindable):
+                return stripped
+            if stripped != _listed(raw[k]):  # a gate was removed (else the conditions stay as written)
+                raw[k] = stripped
+    assumptions = _assumptions(reqs)
+    if isinstance(assumptions, Unbindable):
+        return assumptions
+    refusal = _helper_refusal(raw)
+    if refusal:
+        return refusal
+    bound = _rewrite(raw, roles, variant)
+    return bound if isinstance(bound, Unbindable) else (bound, assumptions)
+
+
 def bind(raw: dict, roles: dict, variant: int) -> dict | Unbindable:
-    """`raw` with every entity id rewritten onto the home's devices (the input is not changed), or why it cannot be."""
-    return _rewrite(copy.deepcopy(raw), roles, variant)
+    """`raw` with every entity id rewritten onto the home's devices (the input is not changed), or why it cannot be;
+    helper gates are held open (`bind_with_assumptions` also says what each one assumes)."""
+    r = bind_with_assumptions(raw, roles, variant)
+    return r if isinstance(r, Unbindable) else r[0]

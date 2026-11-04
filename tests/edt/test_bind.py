@@ -402,7 +402,7 @@ def test_an_entity_in_above_or_below_is_bound_like_any_other(edt):
 def test_a_quoted_id_of_an_unmodelled_domain_in_a_template_is_unbindable(edt, template):
     _, roles, _, _ = edt
     r = bind(one("sun.sun", value_template=template), roles, 0)
-    assert isinstance(r, Unbindable) and template.split("'")[1] in r.reason
+    assert isinstance(r, Unbindable) and template.split("'")[1].partition(".")[0] in r.reason
 
 
 def test_sun_and_service_names_in_templates_are_left_alone(edt):
@@ -504,3 +504,108 @@ def test_a_mixed_case_entity_id_is_lowercased_as_home_assistant_does(edt):
 def test_an_unresolved_tag_under_entity_id_has_its_own_reason(edt, value, reason):
     _, roles, _, _ = edt
     assert bind(one(value), roles, 0) == Unbindable(reason)
+
+
+# --- gate-open helpers (protocol addendum 2) ------------------------------------------------------------------------
+
+LUX = {"condition": "numeric_state", "entity_id": "sensor.kitchen_illuminance", "below": 50}
+LAMP = [{"action": "light.turn_on", "target": {"entity_id": "light.kitchen"}}]
+
+
+def gated(*conditions, triggers=None, actions=None, key="conditions"):
+    return {"alias": "g", "triggers": triggers or [{"trigger": "time", "at": "19:00:00"}],
+            key: list(conditions), "actions": actions or LAMP}
+
+
+def state(entity_id, value, **rest):
+    return {"condition": "state", "entity_id": entity_id, "state": value, **rest}
+
+
+def numeric(entity_id, **rest):
+    return {"condition": "numeric_state", "entity_id": entity_id, **rest}
+
+
+def test_a_helper_gate_is_removed_and_recorded_as_an_assumption(edt):
+    _, roles, _, home = edt
+    from vesper.edt.bind import bind_with_assumptions
+    from vesper.lab.automations import Engine
+    from vesper.lab.session import Session
+    from vesper.twins.clock import LogicalClock
+    raw = gated(state("input_boolean.away_mode", "off"), LUX)
+    bound, assumptions = bind_with_assumptions(raw, roles, 0)
+    assert assumptions == ["input_boolean.away_mode == off"]
+    assert bound["conditions"] == [{**LUX, "entity_id": roles[("illuminance", "kitchen", 0)]}]
+    assert bind(raw, roles, 0) == bound and "assumptions" not in bound  # the engine refuses unknown top-level keys
+    engine = Engine(Session(home, clock=LogicalClock()), permissive=True, automations=[bound])
+    assert engine.refused == [] and len(engine.automations) == 1
+    assert bind_with_assumptions(gated(LUX), roles, 0)[1] == []
+
+
+@pytest.mark.parametrize("conditions,expected", [
+    ([state("group.family", "home")], ["group.family == home"]),
+    ([state("person.me", ["home", "work"])], ["person.me in [home, work]"]),
+    ([state("person.me", "gps", attribute="source")], ["person.me[source] == gps"]),
+    ([numeric("input_number.t", above=18, below=22)], ["input_number.t in (18, 22)"]),
+    ([numeric("input_number.t", above=18)], ["input_number.t > 18"]),
+    ([numeric("input_number.t", below=22.5)], ["input_number.t < 22.5"]),
+    ([state("input_boolean.a, input_select.b", "on")], ["input_boolean.a == on", "input_select.b == on"]),
+    ([{"condition": "and", "conditions": [state("zone.home", "1"), LUX]}], ["zone.home == 1"]),
+    ([{"and": [state("timer.t", "idle"), LUX]}], ["timer.t == idle"]),
+    ([[state("device_tracker.phone", "home"), LUX]], ["device_tracker.phone == home"]),
+    ([state("input_select.mode", ["home", "guest"]), state("input_select.mode", "home")],
+     ["input_select.mode == home"]),
+    ([numeric("input_number.t", above=18), numeric("input_number.t", below=22)], ["input_number.t in (18, 22)"]),
+    ([state("input_boolean.a", "on", enabled=False)], []),
+    ([state("input_boolean.a", "on", **{"for": "00:05:00"})], ["input_boolean.a == on"]),
+])
+def test_gate_shapes_and_their_assumptions(edt, conditions, expected):
+    _, roles, _, _ = edt
+    from vesper.edt.bind import bind_with_assumptions
+    bound, assumptions = bind_with_assumptions(gated(*conditions), roles, 0)
+    assert assumptions == expected
+    assert "input_" not in str(bound) and "zone." not in str(bound) and "person." not in str(bound)
+
+
+def test_an_and_left_empty_disappears_and_a_single_condition_form_works(edt):
+    _, roles, _, _ = edt
+    from vesper.edt.bind import bind_with_assumptions
+    bound, a = bind_with_assumptions(gated({"condition": "and", "conditions": [state("input_boolean.a", "on")]}),
+                                     roles, 0)
+    assert bound["conditions"] == [] and a == ["input_boolean.a == on"]
+    raw = {"alias": "g", "trigger": {"platform": "sun", "event": "sunset"},
+           "condition": state("input_boolean.a", "on"), "action": LAMP}
+    bound, a = bind_with_assumptions(raw, roles, 0)
+    assert bound["condition"] == [] and a == ["input_boolean.a == on"]
+
+
+@pytest.mark.parametrize("raw,reason", [
+    (gated(LUX, triggers=[{"trigger": "state", "entity_id": "input_boolean.guest", "to": "on"}]),
+     "input_boolean in a trigger (helpers and presence change only with residents)"),
+    (gated(LUX, triggers=[{"platform": "zone", "entity_id": "person.me", "zone": "zone.home", "event": "enter"}]),
+     "person in a trigger (helpers and presence change only with residents)"),
+    (gated(numeric("sensor.kitchen_temperature", above="input_number.t")),
+     "input_number as a numeric threshold"),
+    (gated(triggers=[{"trigger": "numeric_state", "entity_id": "sensor.kitchen_temperature",
+                      "below": "input_number.t"}]), "input_number as a numeric threshold"),
+    (gated({"condition": "or", "conditions": [state("input_boolean.a", "on"), LUX]}), "input_boolean inside or/not"),
+    (gated({"not": [state("group.family", "home")]}), "group inside or/not"),
+    (gated(state("input_boolean.a, input_boolean.b", "on", match="any")), "input_boolean inside or/not"),
+    (gated(state("input_boolean.a", "on"), state("input_boolean.a", "off")),
+     "conflicting conditions on one helper (for input_boolean.a)"),
+    (gated(numeric("input_number.t", above=22), numeric("input_number.t", below=18)),
+     "conflicting conditions on one helper (for input_number.t)"),
+    (gated({"condition": "template", "value_template": "{{ is_state('input_boolean.a', 'on') }}"}),
+     "input_boolean in a template or an action"),
+    (gated(LUX, actions=[{"action": "input_boolean.turn_off", "target": {"entity_id": "input_boolean.a"}}]),
+     "input_boolean in a template or an action"),
+    (gated(LUX, actions=[{"action": "notify.me", "data": {"message": "{{ states('person.me') }}"}}]),
+     "person in a template or an action"),
+    (gated({"condition": "zone", "entity_id": "person.me", "zone": "zone.home"}), "person in a zone condition"),
+    (gated(state("input_boolean.a, light.kitchen", "on")), "input_boolean and a device in one condition"),
+    (gated(state("input_boolean.a", True)), "a helper state given as unquoted on/off (Home Assistant refuses it)"),
+    (gated(numeric("input_number.t", above="sensor.kitchen_temperature")),
+     "input_number compared against an entity or a template"),
+])
+def test_helpers_anywhere_but_a_gate_stay_unbindable(edt, raw, reason):
+    _, roles, _, _ = edt
+    assert bind(raw, roles, 0) == Unbindable(reason)
