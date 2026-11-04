@@ -440,17 +440,19 @@ def aggregate(rows: list[dict]) -> dict:
 
 def build_check(plan_px: dict, m_per_px: float, catalog: dict | None) -> dict:
     """What `vesper lab import` makes of a plan in pixels: scaled by its own scale (else by `m_per_px`, the true one,
-    as if the user had typed it), straightened, checked to be a house; then, with a catalog, built into a home in a
-    temporary folder and its layout checked. "stage" is where it stopped ("done" when the layout was checked)."""
+    as if the user had typed it), straightened (what it left out or narrowed in "warnings"), checked to be a house;
+    then, with a catalog, built into a home in a temporary folder and its layout checked. "stage" is where it stopped
+    ("done" when the layout was checked)."""
     from vesper.lab.generate import GenerateError, Request, generate_from_plan, starter
     from vesper.lab.plan import PlanError, check_house, rectify, scale_plan
     own = plan_px.get("scale") is not None or plan_px.get("units") == "m"
     out = {"scale_from": "the plan's own scale" if own else "the true scale", "stage": "scale", "check_house": False,
-           "problems": [], "layout_errors": None, "layout_warnings": None, "layout_failures": [], "devices": None}
+           "problems": [], "warnings": [], "layout_errors": None, "layout_warnings": None, "layout_failures": [],
+           "devices": None}
     try:
         scaled = scale_plan(plan_px if own else {**plan_px, "scale": {"m_per_px": m_per_px}})
         out["stage"] = "rectify"
-        plan = rectify(scaled)
+        plan = rectify(scaled, out["warnings"])
         out["stage"] = "check_house"
         out["problems"] = check_house(plan)
     except PlanError as e:

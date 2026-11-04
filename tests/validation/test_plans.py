@@ -238,10 +238,20 @@ def test_the_true_plan_scaled_by_its_own_scale_passes_check_house():
 
 
 def test_a_plan_that_cannot_be_straightened_does_not_pass_and_says_where_it_stopped():
-    out = plans.build_check(predicted(), 0.01, catalog=None)  # no scale: the true one is used, as if the user gave it
+    p = predicted()
+    p["doors"][0]["at"] = [200, 200]  # 2 m from the wall p1 and p2 share
+    out = plans.build_check(p, 0.01, catalog=None)  # no scale: the true one is used, as if the user gave it
     assert out["scale_from"] == "the true scale"
     assert out["check_house"] is False and out["stage"] == "rectify"
-    assert "do not touch" in out["problems"][0]
+    assert "from their shared wall" in out["problems"][0]
+
+
+def test_what_straightening_left_out_is_kept_with_the_import_s_outcome():
+    out = plans.build_check(predicted(), 0.01, catalog=None)
+    assert out["check_house"] is False and out["stage"] == "check_house"  # p1, p2 and p4: no way from the entrance
+    assert any("not reachable" in p for p in out["problems"])
+    assert out["warnings"] == ["door 1 between 'p1' and 'p4': the rooms do not touch (they have no wall in common): "
+                               "left out (no room needs it to be reached from the entrance)"]
 
 
 @pytest.mark.skipif(not Path("catalog/vds/zigbee.json").is_file(), reason="needs catalog/vds")
