@@ -184,49 +184,58 @@ same steps: for real plans the bottleneck is the import's straightening, not the
 ## After the robustness fixes (task A6, 2026-11-04)
 
 The import was made to leave out or narrow what a plan's walls cannot carry, with a warning, instead of refusing the
-plan (commits 5cd05d8 to f65b174; README "Importing a floor plan"): a window on no outside wall, or in an outdoor room,
-is left out; a door or window wider than its wall is narrowed to the wall less 10 cm (a door's wall must still be at
-least 60 cm); two doors meeting end to end on one wall keep 10 cm of wall between them (the cause of 2207's build
-failure: the kitchen's 2.17 m opening to the hall and 2.23 m opening to the living room met where the hall and the
-living room meet, one gap into three rooms); a door between rooms that do not touch is left out when no room needs
-it to be reached, else refused. A new outdoor room type `balcony` (balcony, terrace, patio, loggia) is built like the
-porch, and a window onto it is kept as a window of the room behind it. Nothing is invented.
+plan (commits 5cd05d8 to f65b174, then e37e1ca to 1c4e5e0; README "Importing a floor plan"):
+
+- a window on no outside wall, or in an outdoor room, is left out;
+- a door or window wider than its wall is narrowed to the wall less 10 cm (a door's wall must still be at least 60 cm);
+- two doors meeting end to end on one wall keep 10 cm of wall between them (the cause of 2207's build failure: the
+  kitchen's 2.17 m opening to the hall and 2.23 m opening to the living room met where the hall and the living room
+  meet, one gap into three rooms);
+- a door between rooms that do not touch is left out when no room needs it to be reached, else refused;
+- a new outdoor room type `balcony` (balcony, terrace, patio, loggia) is built like the porch, and a window onto it is
+  kept as a window of the room behind it;
+- small rooms are rooms: a WC typed bathroom may be 1 m², a closet or store (`other`) 0.5 m² (the upper bounds are
+  unchanged);
+- doors (and windows) are numbered from 1 in the order of the plan as read, in every message: the summary, the
+  warnings, a refusal and the lobby, even after a door is left out (so plan 6276's refused door, index 19 in the
+  JSON, is now "door 20").
+
+Nothing is invented. The prompt now also reads one storey (the floor with the main entrance) and types outdoor spaces
+`balcony`.
 
 Re-measured OFFLINE on the same 10 saved readings (no Claude call): `vesper validate plans --offline --n 10 --seed 0`.
-The reading metrics are those above, unchanged (room F1 0.70, types 81%, doors 48%, area error 16% / 6%). These
-readings were made with the old prompt, which asked for balconies as "other" (an indoor type), so a window onto a
-balcony is left out here with a warning rather than kept; the new prompt types them "balcony" and reads one storey
-(the floor with the main entrance), which only a new reading will show. The ground truth still types CubiCasa5K's
-Outdoor spaces "other", as the old prompt asked, so that these readings' type accuracy stays comparable; the 50-plan
-run with the new prompt should map Outdoor to "balcony".
+Room F1 (0.70), doors (48%) and area error (16% / 6%) are unchanged. **The ground truth now types CubiCasa5K's
+Outdoor spaces "balcony"** (the new prompt does), but these 10 readings were made with the old prompt, which asked
+for balconies as "other": on them type accuracy reads 71% (it was 81% with Outdoor mapped to "other"; the 10
+points are those balconies, not a worse reading), and a window onto a balcony read as "other" is left out with a
+warning rather than kept. Only new readings show the new prompt's balconies and its one-storey reading.
 
 | Share of the 10 plans | before (A5) | after (A6) |
 |---|---|---|
-| Read plan passes check_house (scale, rectify, check_house) | 2 / 10 | **5 / 10** |
-| Read plan built, layout check with 0 errors | 1 / 10 | **5 / 10** |
+| Read plan passes check_house (scale, rectify, check_house) | 2 / 10 | **6 / 10** |
+| Read plan built, layout check with 0 errors | 1 / 10 | **6 / 10** |
 | True plan passes check_house | 1 / 10 | **3 / 10** |
 | True plan built, layout check with 0 errors | 1 / 10 | **3 / 10** |
-| Warnings (what was left out or narrowed), read / true plans | - | 6 / 8 |
+| Warnings (what was left out or narrowed), read / true plans | - | 6 / 5 |
 
 | Plan | Read: before | Read: after (warnings) | True: before | True: after (warnings) |
 |---|---|---|---|---|
-| 6276 | rectify: door between rooms that do not touch | rectify: the same door (the bridge across the void between two storeys) is the only way to 11 rooms: refused | scale: a polygon crosses itself | the same |
-| 20188 | rectify: window onto the balcony | **built, 0 errors** (window onto the balcony left out; a 3.00 m window narrowed to 2.54 m) | rectify: window onto the balcony | **built, 0 errors** (1 window left out) |
-| 2090 | rectify: window onto the balcony | **built, 0 errors** (1 window left out) | rectify: window onto the balcony | **built, 0 errors** (1 window left out) |
-| 2207 | house; build refused (one gap into three rooms) | **built, 0 errors** (doors 6 and 7 narrowed to 2.12 and 2.18 m) | rectify: walls 0.69 and 0.84 m apart | the same |
+| 6276 | rectify: door between rooms that do not touch | rectify: door 20 (the bridge across the void between two storeys) is the only way to 11 rooms: refused | scale: a polygon crosses itself | the same |
+| 20188 | rectify: window onto the balcony | **built, 0 errors** (a window onto the balcony, read as "other", left out; a 3.00 m window narrowed to 2.54 m) | rectify: window onto the balcony | **built, 0 errors** (the window onto the balcony kept) |
+| 2090 | rectify: window onto the balcony | **built, 0 errors** (1 window left out) | rectify: window onto the balcony | **built, 0 errors** |
+| 2207 | house; build refused (one gap into three rooms) | **built, 0 errors** (doors 7 and 8 narrowed to 2.12 and 2.18 m) | rectify: walls 0.69 and 0.84 m apart | the same |
 | 1601 | rectify: walls 0.59 m apart | the same | rectify: walls 2.70 m apart | the same |
-| 1590 | rectify: window onto the balcony | check_house: a 1.3 m² WC typed bathroom (1 window left out) | rectify: a 0.72 m door on 0.28 m of shared wall | the same (a wall under 60 cm is still refused) |
+| 1590 | rectify: window onto the balcony | **built, 0 errors** (the 1.3 m² WC is a bathroom; 1 window left out) | rectify: a 0.72 m door on 0.28 m of shared wall | the same (a wall under 60 cm is still refused) |
 | 5023 | built, 0 errors (one storey of two read) | the same | scale: a polygon crosses itself | the same |
-| 13019 | rectify: a 0.60 m door on 0.56 m of shared wall | the same (a wall under 60 cm is still refused) | built, 0 errors | the same |
-| 2029 | rectify: a 1.39 m door on 0.80 m of shared wall | rectify: the door is on a diagonal wall the two rooms share, 0.92 m from their one straight stretch of shared wall | rectify: window onto the balcony | check_house: 5 rooms outside their type's area (WCs, closets, a 10.6 m² utility room) and 21 rooms not reached from the annotation's entrance (3 windows left out) |
-| 12030 | rectify: window onto the balcony | **built, 0 errors** (1 window left out) | rectify: a 0.93 m door on 0.78 m of shared wall | check_house: the open-plan living space split by the annotation leaves a 6.6 m² "living room" (door narrowed to 0.68 m, a window narrowed, 1 window left out) |
+| 13019 | rectify: a 0.60 m door on 0.56 m of shared wall | the same (a wall under 60 cm is still refused) | built, 0 errors | the same (2 windows the annotation gives the terrace left out) |
+| 2029 | rectify: a 1.39 m door on 0.80 m of shared wall | rectify: door 7 is on a diagonal wall the two rooms share, 0.92 m from their one straight stretch of shared wall | rectify: window onto the balcony | check_house: a 10.6 m² utility room (laundry: at most 9 m²) and 21 rooms not reached from the annotation's entrance |
+| 12030 | rectify: window onto the balcony | **built, 0 errors** (1 window left out) | rectify: a 0.93 m door on 0.78 m of shared wall | check_house: the open-plan living space split by the annotation leaves a 6.6 m² "living room" (door 3 narrowed to 0.68 m, a window narrowed, 1 window left out) |
 
-**What still refuses a read plan** (5 of 10, one each): a storey bridge in a two-storey image (6276; the new prompt
-reads one storey), walls more than 0.5 m apart (1601), a WC typed "bathroom" below the type's 2 m² (1590), a door on a
-shared wall shorter than 60 cm (13019), and a door on a diagonal shared wall (2029: `rectify` only recognises shared
-walls along the plan's two directions). Of these, the area range of small rooms (a WC, a closet: also 4 of the true
-2029's 5 area problems) and diagonal shared walls are the next ones to look at; walls far apart and two-storey images
-are refused by design.
+**Limits that stay** (4 read plans refused, one each): a storey bridge in a two-storey image (6276; the new prompt
+reads one storey), walls more than 0.5 m apart (1601: refused by design), a door on a shared wall shorter than 60 cm
+(13019; the true 1590 too: kept as the floor for a door), and a door on a diagonal shared wall (2029: `rectify` only
+recognises shared walls along the plan's two directions; a diagonal wall is left as drawn and a door on it is not
+placed).
 
 ## Estimate for 50 plans
 

@@ -703,7 +703,9 @@ what was read (the lobby lists them under Problems as warnings; they do not stop
 of its room, or in a balcony, is left out; a door or window wider than its wall is narrowed to the wall's length less
 10 cm (a door's wall must be at least 60 cm long); two doors meeting end to end on one wall are narrowed to leave 10 cm
 of wall between them; a door between rooms that do not touch is left out when every room can still be reached from the
-entrance without it, and refused when a room needs it.
+entrance without it, and refused when a room needs it. Doors are numbered from 1 in the order of the plan as read,
+everywhere (the summary, the warnings, a refusal, the lobby), even after one is left out. A small room is still a
+room: a WC typed bathroom may be 1 m², a closet or store (`other`) 0.5 m².
 
 ### Furniture
 
