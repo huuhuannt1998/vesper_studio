@@ -383,7 +383,8 @@ def _rooms_c_range(run: dict) -> str:
 def _validate_crosssite(args) -> int:
     """RQ3: the same home and automations across places, seasons and orientations."""
     from vesper.validation.crosssite import crosssite_report
-    report = crosssite_report(None, Path(args.work), args.catalog, fetch=not args.no_fetch)
+    report = crosssite_report(None, Path(args.work), args.catalog, fetch=not args.no_fetch,
+                              daylight_scale=args.daylight_scale)
     out = args.out or Path("results/environment") / f"crosssite-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
     path = _write_report(str(out), "crosssite", report, args)
     print(f"{'place':<22} {'date':<10} {'N':>4} {'hvac':<10} {'heat':>5} {'cool':>5} {'dark min':>8} {'dark at':>7} "
@@ -1788,6 +1789,8 @@ def main(argv: list[str] | None = None) -> int:
     xs.add_argument("--work", default=".vesper/crosssite", help="where the homes and their weather go")
     xs.add_argument("--catalog", default="catalog/vds")
     xs.add_argument("--no-fetch", action="store_true", help="do not fetch weather (clear sky, assumed temperature)")
+    xs.add_argument("--daylight-scale", type=float, default=1.0,
+                    help="scale every room's daylight (sensitivity; validation D measured 1/14.8 of the model)")
     xs.add_argument("--out")
     disc = checks.add_parser("discovery", help="Home Assistant's own schemas over every discovery message")
     disc.add_argument("--catalog", default="catalog/vds")

@@ -147,9 +147,20 @@ def base_home(work: Path, catalog_dir: str) -> Path:
 
 
 def crosssite_report(base: Path | None, work: Path, catalog_dir: str = "catalog/vds", fetch: bool = True,
-                     cities=CITIES, dates=DATES, norths=NORTHS, hvacs=tuple(HVACS)) -> dict:
+                     cities=CITIES, dates=DATES, norths=NORTHS, hvacs=tuple(HVACS),
+                     daylight_scale: float = 1.0) -> dict:
     """Every condition, and the home without a site. `base`: the home (default: base_home)."""
     base = base or base_home(work, catalog_dir)
+    from vesper.env import indoor
+    old_scale, indoor.DAYLIGHT_SCALE = indoor.DAYLIGHT_SCALE, daylight_scale
+    try:
+        report = _crosssite(base, work, catalog_dir, fetch, cities, dates, norths, hvacs)
+    finally:
+        indoor.DAYLIGHT_SCALE = old_scale
+    return {**report, "daylight_scale": daylight_scale}
+
+
+def _crosssite(base, work, catalog_dir, fetch, cities, dates, norths, hvacs) -> dict:
     from vesper.env import weather
     from vesper.env.outdoor import RUN_DAYS
     from vesper.env.site import parse_site

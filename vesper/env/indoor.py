@@ -26,6 +26,7 @@ T_GLASS = 0.68  # visible transmittance of clean-ish double glazing (assumed; BR
 SKY_ANGLE = 80.0  # visible sky angle, degrees (assumed: lightly obstructed; 90 is no obstruction)
 REFLECT = 0.5  # mean interior reflectance (assumed; BRE typical)
 SUN_SHARE = 0.5  # share of the sun through a window counted in the room's average illuminance (assumed)
+DAYLIGHT_SCALE = 1.0  # a sensitivity knob on all daylight (validation D measured 1/14.8 of the model; 1.0 as built)
 G_SOLAR = 0.6  # solar energy transmittance of the glazing (assumed)
 SOLAR_TO_AIR = 1.0  # share of the solar gain that warms the room's own air and mass; the rest the rest of the house
 SHADE_LIGHT, SHADE_SOLAR = 0.1, 0.4  # what a closed shade lets through of light and of solar heat (assumed)
@@ -156,7 +157,7 @@ class HomeEnvironment:
                 beam_normal = direct_h / max(math.sin(math.radians(s.elevation)), 0.05)
                 cos_i = math.cos(math.radians(s.elevation)) * math.cos(math.radians(off))
                 lux += SUN_SHARE * T_GLASS * glass * beam_normal * cos_i / r.floor_m2 * through
-        return lux
+        return DAYLIGHT_SCALE * lux
 
     def _solar_w(self, r: RoomModel, state: OutdoorState) -> float:
         """Solar heat through a room's windows, W."""
