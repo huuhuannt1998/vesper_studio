@@ -402,7 +402,7 @@ def test_a_result_never_records_an_absolute_path(tmp_path, catalog):
     cli.main(["validate", "rules", "--catalog", str(catalog), "--hours", "1", "--out", str(out)])
     assert json.loads(out.read_text())["run"]["parameters"]["catalog"] == "<catalog dir>"
     assert str(tmp_path) not in out.read_text()
-    args = SimpleNamespace(command="validate", action="x", work="/somewhere/private/xs", request="~/plan.yaml",
+    args = SimpleNamespace(command="validate", action="x", work="/somewhere/else/xs", request="~/plan.yaml",
                            catalog="catalog/vds", files=["/a/b.json", "c.json"], hours=1.0)
     params = cli._run_info(args)["parameters"]
     assert params["work"] in ("<work dir>", "<work file>", "<work>")
