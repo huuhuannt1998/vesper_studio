@@ -6,9 +6,9 @@ pre-recorded sensor traces. Here a sample of them runs CLOSED loop: one bound au
 home (a lamp raises the lux it reacts to) and what it did is judged by the oracle's own rules (`oracle.outcome`), so
 open and closed loop differ only in the loop.
 
-The engine is permissive, as in the screening: an action it cannot execute (`cover.*`, `climate.*`, `notify.*`) is
-recorded and sends nothing; lights, switches and locks are real. A closed-loop run therefore captures feedback through
-the home's own lamps, switches and locks, not through heating (the engine cannot command a thermostat).
+The engine is permissive, as in the screening: an action it cannot execute (`cover.*`, `notify.*`, a climate action the
+thermostat cannot take) is recorded and sends nothing; lights, switches, locks and climate actions on the home's
+thermostat are real, so a lamp raises the lux an automation reacts to and a setpoint changes the rooms' temperature.
 
 Sample (`pick`): a random sample of the flagged automations (non-empty `divergences`) and of the unflagged ones, each
 `sample` strong, from those that bound. A flagged one runs in the environments where its screening outcome class
@@ -19,20 +19,18 @@ Agreement (`disagreements`): the screening outcome and the closed-loop outcome a
 the clock; both absent also agrees).
 
 Temperature envelope (`envelope`): over the measured days, the lowest and highest temperature of each room a
-`climate.*` target of the automation sits in, and whether it went below 10 C or above 30 C. The target's room is the
-room of the device behind the entity (the hallway thermostat's room, whichever room its heat serves).
+`climate.*` target of the automation heats or cools, and whether it went below 10 C or above 30 C. A thermostat in a
+hallway serves every indoor room (the model's central heating), so for the EDT home's one hallway thermostat that is
+every room, reported per room.
 """
 from __future__ import annotations
 
 import dataclasses
 import random
-import shutil
 import tempfile
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-
-import yaml
 
 from vesper.edt.oracle import outcome as oracle_outcome
 from vesper.edt.types import Env, Firing, Outcome
@@ -41,8 +39,8 @@ DAY_S = 86400.0
 TOD_TOLERANCE_H = 1.0
 TOD_BUCKET_H = 3.0         # screening outcomes within a bucket are one class (the oracle's time-spread threshold)
 COLD_C, HOT_C = 10.0, 30.0
+COMMAND_PARTS_S = 1.0      # the rows of one command (state, brightness, ...) are written within this of its first
 RUNS_PER_UNFLAGGED = 2
-RUNG3_DAYLIGHT_SCALE = 1 / 14.8  # as vesper.edt.trace: what validation D measured against a real lux sensor
 FIELDS = ("fired", "flaps", "night_light", "night_cover")
 
 
@@ -120,74 +118,52 @@ def _climate_targets(node) -> set[str]:
 
 
 def controlled_rooms(bound: dict, home) -> list[str]:
-    """The rooms of the devices behind the climate entities the automation's actions target."""
+    """The rooms the automation's climate targets heat or cool: the room of each thermostat behind a `climate.*`
+    target, and, for a thermostat in a hallway (the model's central heating, vesper.lab.rules.CENTRAL_ROOMS), every
+    indoor room."""
     from vesper.lab.automations import entity_ids
+    from vesper.lab.rules import CENTRAL_ROOMS
     targets = _climate_targets(bound.get("actions", bound.get("action")))
     ids = entity_ids(home)
     room_of = {d.name: d.room for d in home.devices}
-    return sorted({room_of[name] for name, feats in ids.items() for e in feats.values()
-                   if e in targets and room_of.get(name)})
+    rooms: set[str] = set()
+    for name, feats in ids.items():
+        if room_of.get(name) and targets & set(feats.values()):
+            label = home.map.room(room_of[name]).label.lower()
+            central = any(w in label for w in CENTRAL_ROOMS)
+            rooms |= {r.id for r in home.map.rooms if not r.outdoor} if central else {room_of[name]}
+    return sorted(rooms)
 
 
 # -- one closed-loop run ---------------------------------------------------------------------------
-def _site(env: Env):
-    from vesper.env.site import parse_site
-    if env.city is None or env.date is None:
-        return None
-    return parse_site({"city": env.city, "date": env.date, "north_deg": env.north_deg or 0.0})
-
-
-def _copy_home(home_yaml: Path, out: Path, site, weather_cache: Path, bound: dict) -> Path:
-    """A copy of the EDT home for one run (as vesper.edt.trace makes it): the site (or none), midnight start, no
-    residents, and the one bound automation as the home's automations."""
-    shutil.copytree(home_yaml.parent, out, ignore=shutil.ignore_patterns("traces", "looks", "weather"))
-    data = yaml.safe_load((out / "home.yaml").read_text())
-    data["start_time"] = "00:00"
-    data.pop("residents", None)
-    data.pop("site", None)
-    if site is not None:
-        data["site"] = {k: v for k, v in site.as_dict().items() if k != "name"} | {"city": site.name}
-    data["automations"] = "automations.yaml"
-    (out / "automations.yaml").write_text(yaml.safe_dump([bound], sort_keys=False, allow_unicode=True))
-    (out / "home.yaml").write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True))
-    if site is not None and weather_cache.is_dir():
-        shutil.copytree(weather_cache, out / "weather", dirs_exist_ok=True)
-    return out / "home.yaml"
-
-
 def closed_loop(bound: dict, env: Env, home_yaml: Path, cache: Path, *, days: int = 3,
                 catalog_dir: str = "catalog/vds") -> dict:
-    """Live `bound` alone for `days` days from local midnight in `env`, its actions real. Returns {"outcome": Outcome,
-    "firings": [Firing], "refused": [...], "rooms": [room, ...] (where its climate targets sit), "temperatures":
-    {room: [(t, C), ...]} for those rooms}. The home is copied, never touched."""
-    from vesper.env import indoor
+    """Live `bound` alone for `days` days from local midnight in `env`, its actions real (lights, switches, locks and
+    climate; the rest recorded). Returns {"outcome": Outcome, "firings": [Firing], "refused": [...], "rooms": [room]
+    (those its climate targets heat or cool), "temperatures": {room: [(t, C), ...]} for those rooms}. The home is
+    copied, never touched."""
+    from vesper.edt.trace import copy_home, env_site, rung_scaling
     from vesper.lab.automations import Engine
     from vesper.lab.home import load_lab_home
     from vesper.lab.session import Session
     from vesper.twins.clock import LogicalClock
     from vesper.twins.home import load_catalog
-    site = _site(env)
-    old_scale = indoor.DAYLIGHT_SCALE
-    if env.rung == 3:
-        indoor.DAYLIGHT_SCALE = RUNG3_DAYLIGHT_SCALE
-    try:
-        with tempfile.TemporaryDirectory(prefix="edt-confirm-") as tmp:
-            run_yaml = _copy_home(Path(home_yaml), Path(tmp) / "home", site if env.rung >= 3 else None,
-                                  Path(cache) / "weather", bound)
-            home = load_lab_home(run_yaml, load_catalog(Path(catalog_dir)))
-            s = Session(home, clock=LogicalClock())
-            s.start(spawn_player=False, residents=False, automations=False)
-            s.automations = Engine(s, permissive=True)  # as the screening: record what it cannot execute
-            s.automations.start()
-            try:
-                s.clock.advance(days * DAY_S)
-            finally:
-                s.stop()
-            rooms = controlled_rooms(bound, home)
-    finally:
-        indoor.DAYLIGHT_SCALE = old_scale
-    firings = [Firing(t=r["t"], automation=r["automation"], service=r["service"], target=r["entity"])
-               for r in s.records if r.get("kind") == "automation"]
+    site = env_site(env)
+    with rung_scaling(env), tempfile.TemporaryDirectory(prefix="edt-confirm-") as tmp:
+        run_yaml = copy_home(Path(home_yaml), Path(tmp) / "home", site if env.rung >= 3 else None,
+                             Path(cache) / "weather", [bound])
+        home = load_lab_home(run_yaml, load_catalog(Path(catalog_dir)))
+        s = Session(home, clock=LogicalClock())
+        s.start(spawn_player=False, residents=False, automations=False)
+        s.automations = Engine(s, permissive=True)  # as the screening: record what it cannot execute
+        s.automations.start()
+        try:
+            s.clock.advance(days * DAY_S)
+        finally:
+            s.stop()
+        rooms = controlled_rooms(bound, home)
+    rows = [r for r in s.records if r.get("kind") == "automation"]
+    firings = firings_from(rows)
     temps: dict[str, list[tuple[float, float]]] = {room: [] for room in rooms}
     for r in s.records:
         if r.get("rule") == "environment":
@@ -195,7 +171,24 @@ def closed_loop(bound: dict, env: Env, home_yaml: Path, cache: Path, *, days: in
                 if room in r["rooms"]:
                     temps[room].append((r["t"], r["rooms"][room]["temperature"]))
     return {"outcome": oracle_outcome(firings, site, (1, days - 1)), "firings": firings,
-            "refused": s.automations.refused, "rooms": rooms, "temperatures": temps}
+            "refused": s.automations.refused, "rooms": rooms, "temperatures": temps, "rows": rows}
+
+
+def firings_from(rows: list[dict]) -> list[Firing]:
+    """The oracle's firings from a live session's `automation` rows. The session writes one row per part of a command
+    at delivery (a light turned on with a brightness is a `state` row, then a `brightness` row); the open-loop replay
+    counts one firing. Rows of the same automation, service and target within COMMAND_PARTS_S of a firing's first row
+    are its parts."""
+    out: list[Firing] = []
+    last: dict[tuple, Firing] = {}
+    for r in sorted((r for r in rows if r.get("kind") == "automation"), key=lambda r: r["t"]):
+        key = (r["automation"], r["service"], r["entity"])
+        prev = last.get(key)
+        if prev is not None and r["t"] - prev.t <= COMMAND_PARTS_S:
+            continue
+        last[key] = firing = Firing(t=r["t"], automation=r["automation"], service=r["service"], target=r["entity"])
+        out.append(firing)
+    return out
 
 
 def _job(args: dict) -> dict:

@@ -156,6 +156,108 @@ def test_actions_the_engine_cannot_run_are_recorded_and_climate_rooms_are_measur
     r = cf.closed_loop(auto, ENV_A, home_yaml, work / "cache", days=3)
     assert r["refused"] == [] and r["outcome"].fired is True
     assert {f.service for f in r["firings"]} == {"climate.set_temperature", "cover.open_cover"}
-    assert r["rooms"] == ["corridor"]  # the thermostat's room, whichever room the automation meant
+    # the hallway thermostat heats every room: the envelope covers them all, per room
+    assert r["rooms"] == sorted({rid for (_, rid, _) in roles})
     env = cf.envelope(r["temperatures"], r["rooms"])
     assert env["corridor"]["min_c"] < env["corridor"]["max_c"] and env["corridor"]["above_30"] is False
+    assert set(env) == set(r["rooms"]) and all(v is not None for v in env.values())
+
+
+def set_temperature(roles_or_id, value, at="08:00:00"):
+    climate = roles_or_id if isinstance(roles_or_id, str) else roles_or_id[("climate", "office", 0)]
+    return {"alias": f"set {value}", "triggers": [{"trigger": "time", "at": at}],
+            "actions": [{"action": "climate.set_temperature", "target": {"entity_id": climate},
+                         "data": {"temperature": value}}]}
+
+
+def test_a_climate_automation_changes_the_room_temperature_in_the_closed_loop(edt):
+    work, home_yaml, roles = edt
+    cold = Env(CITY, "2026-01-15", 0.0, 4)
+    base = cf.closed_loop(set_temperature(roles, 20), cold, home_yaml, work / "cache")
+    warm = cf.closed_loop(set_temperature(roles, 28), cold, home_yaml, work / "cache")
+    assert base["refused"] == warm["refused"] == []
+    b, w = cf.envelope(base["temperatures"], base["rooms"]), cf.envelope(warm["temperatures"], warm["rooms"])
+    assert set(b) == set(w) and "living" in w
+    for room in w:  # every room the hallway thermostat heats
+        assert w[room]["min_c"] > b[room]["max_c"] + 3, room
+    assert not any(v["below_10"] for v in b.values())
+
+
+@pytest.fixture(scope="module")
+def hot_home(edt):
+    """The EDT home with a thermostat that goes to 35 (the starter's stops at 30), and its climate entity."""
+    import shutil
+    from pathlib import Path
+
+    import yaml
+
+    from vesper.lab.automations import entity_ids
+    from vesper.lab.home import load_lab_home
+    from vesper.twins.home import load_catalog
+    work, home_yaml, _ = edt
+    out = work / "hot"
+    shutil.copytree(home_yaml.parent, out)
+    data = yaml.safe_load((out / "home.yaml").read_text())
+    for d in data["devices"]:
+        if d["name"] == "corridor_thermostat":
+            d["product"] = "zigbee:sonoff:trvzb"
+    (out / "home.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+    ids = entity_ids(load_lab_home(out / "home.yaml", load_catalog(Path(CAT))))
+    return out / "home.yaml", next(e for e in ids["corridor_thermostat"].values() if e.startswith("climate."))
+
+
+def test_a_setting_above_30_gives_an_above_30_envelope_violation(edt, hot_home):
+    work, _, _ = edt
+    home_yaml, climate = hot_home
+    cold = Env(CITY, "2026-01-15", 0.0, 4)
+    r = cf.closed_loop(set_temperature(climate, 35), cold, home_yaml, work / "cache")
+    env = cf.envelope(r["temperatures"], r["rooms"])
+    assert r["refused"] == [] and all(v["above_30"] for v in env.values())
+    assert not any(v["below_10"] for v in env.values())
+
+
+def test_a_setting_the_thermostat_refuses_leaves_the_rooms_near_their_baseline(edt):
+    work, home_yaml, roles = edt
+    cold = Env(CITY, "2026-01-15", 0.0, 4)
+    r = cf.closed_loop(set_temperature(roles, 35), cold, home_yaml, work / "cache")  # the starter stops at 30
+    env = cf.envelope(r["temperatures"], r["rooms"])
+    assert r["firings"] and not any(v["above_30"] for v in env.values())
+
+
+def test_the_report_counts_envelope_violations_per_run_and_room():
+    ok = {"min_c": 18.0, "max_c": 22.0, "below_10": False, "above_30": False}
+    hot = {"min_c": 29.0, "max_c": 36.0, "below_10": False, "above_30": True}
+    row = {"id": "a", "env_key": "k", "flagged": False, "open": {}, "closed": {}, "fields": [], "refused": [],
+           "firings": 1, "envelope": {"living": hot, "office": ok}}
+    r = cf._report([row, {**row, "env_key": "k2", "envelope": {"living": ok}}], seed=0, sample=1, days=3)
+    assert r["envelope"]["runs_with_climate_targets"] == 2 and r["envelope"]["above_30"] == 1
+    assert r["envelope"]["violations"] == [{"id": "a", "env_key": "k", "room": "living", **hot}]
+
+
+# -- a command's parts are one firing ------------------------------------------------------------
+def row(t, service="light.turn_on", entity="light.a", feature="state", automation="a1"):
+    return {"kind": "automation", "t": t, "automation": automation, "service": service, "entity": entity,
+            "feature": feature, "value": 1}
+
+
+def test_the_parts_of_one_command_are_one_firing():
+    rows = [row(100.0), row(100.0, feature="brightness"), row(500.0), row(500.02, feature="brightness")]
+    firings = cf.firings_from(rows)
+    assert [(f.t, f.service, f.target) for f in firings] == [(100.0, "light.turn_on", "light.a"),
+                                                             (500.0, "light.turn_on", "light.a")]
+
+
+def test_other_targets_services_and_automations_stay_separate_firings():
+    rows = [row(100.0), row(100.0, entity="light.b"), row(100.0, service="light.turn_off"),
+            row(100.0, automation="a2"), {"kind": "report", "t": 100.0}]
+    assert len(cf.firings_from(rows)) == 4
+
+
+def test_a_light_turned_on_with_brightness_twice_is_two_firings_closed_loop(edt):
+    work, home_yaml, roles = edt
+    lamp = roles[("light", "living", 0)]
+    auto = {"alias": "dim", "triggers": [{"trigger": "time", "at": ["08:00:00", "09:00:00"]}],
+            "actions": [{"action": "light.turn_on", "target": {"entity_id": lamp}, "data": {"brightness": 128}}]}
+    r = cf.closed_loop(auto, Env(CITY, "2026-01-15", 0.0, 4), home_yaml, work / "cache", days=1)
+    assert len(r["rows"]) == 4  # the session writes a row per part of the command (state, brightness)
+    assert [(f.service, f.target) for f in r["firings"]] == [("light.turn_on", lamp)] * 2
