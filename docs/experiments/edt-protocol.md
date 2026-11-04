@@ -282,6 +282,12 @@ helper both set and read stays unbindable, as in A2.2.
   room word binds to the living room's copies. Every ambient sensor name bound in the 10,000-automation sample is
   audited by hand (illuminance, temperature, humidity; room, role, verdict); the audit lives outside the repository
   (it names corpus entities) and only its counts are reported here.
+  Audit counts (2026-11-04): pass 1, 63 ambient sensor names bound, 11 mis-binds in 5 classes found and fixed
+  (heating setpoints, modes, LED strips, lamp brightness, room words in other languages and the entrance as the
+  hallway); pass 2, 54 names: 47 correct (9 of them room-less names bound to the living room by convention), 6
+  residual mis-binds and 1 uncertain, all names that carry no room or medium (only their automation's context places
+  them).
+
 
 
 
