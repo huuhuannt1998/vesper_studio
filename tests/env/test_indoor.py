@@ -138,3 +138,17 @@ def test_a_humidity_class_adds_moisture_in_cold_weather_and_none_in_warm(monkeyp
     monkeypatch.setattr(indoor, "HUMIDITY_CLASS", 3)
     b = wet.step(3600, {}, {}, {}, 0)["bedroom"]["humidity"]
     assert b > a
+
+
+def test_an_overcast_room_s_daylight_is_the_hand_computed_bre_average_daylight_factor():
+    """Revision R-A: a 4 x 4 m room, 2.5 m ceiling, one 1.2 x 1.2 m window. By hand, BRE ADF = T W theta /
+    (A (1 - R^2)) = 0.68 x 1.44 x 80 / (72 x 0.75) = 1.4507 % (A = 2 x 16 floor and ceiling + 16 x 2.5 walls,
+    window included); under a 10,000 lux overcast sky (no direct share) the room's average is 145.07 lux."""
+    from vesper.env.indoor import RoomModel
+    site = parse_site(SITE)
+    win = {"id": "w", "room": "r", "width": 1.2, "height": 1.2, "facing": 180}
+    room = RoomModel("r", 16.0, 16.0, 4 * 2.5 - 1.44, [win])
+    assert room.surface_m2 == pytest.approx(72.0)
+    e = HomeEnvironment(site, Outdoor(site), {"r": room})
+    lux = e.daylight("r", state(elev=30, az=180, lux=10_000, direct=0.0))
+    assert lux == pytest.approx(10_000 * 1.4507 / 100, rel=1e-4)
