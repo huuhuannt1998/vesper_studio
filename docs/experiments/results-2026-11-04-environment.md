@@ -38,3 +38,26 @@ A constant changed after these results is fitted on A and judged on B. Candidate
 above: heat exchange between a room and the rest of the house (the one-node model's isolation), ventilation that
 rises with the indoor temperature (windows opened in spring), and moisture from people and cooking. The daylight
 check needs a dataset whose sensors' placement is known.
+
+## The fit (addendum 1, 2026-11-04; `results/environment/fit-20261104T061342Z.json`)
+
+All 30 pairs of ACH {0.5-4} and SOLAR_TO_AIR {1.0-0.25} on dataset A: A's T error is smallest at the current
+constants (0.5, 1.0: median RMSE 2.08 °C) and grows monotonically toward more ventilation and less solar gain (to
+3.00 °C at 4.0, 0.25). By the addendum the model stays as it is; B's held-out T is the first run's 7.79 °C. A cannot
+constrain B's overheating: A's rooms are already simulated too cold (the heating stand-in), so every change that
+would cool B's sunny room makes A worse. Separating the two needs a dataset with a known heating schedule and room
+geometry; until then T's failure on B stands as a stated limitation (a sunny one-node room overheats).
+
+## The assumed curve beside the grounded model (RQ2, descriptive and post hoc; `environment-20261104T061511Z.json`)
+
+The curve a home without a site gets (21 °C ± 1.5, 45 %), against the same measured rooms:
+
+| | A temperature | B temperature | A humidity | B humidity |
+|---|---|---|---|---|
+| grounded (VESPER with a site) | RMSE 2.08 °C, r 0.55-0.71 | RMSE 7.79 °C, r 0.73-0.77 | RMSE 9.3 points | RMSE 16.2 points |
+| assumed curve | RMSE 2.45 °C, r -0.00-0.33 | RMSE 3.31 °C, r 0.24-0.26 | RMSE 6.6 points | RMSE 8.3 points |
+
+The grounded rooms follow the measured ones from hour to hour far better (correlation), and on A their level too;
+on B their level is off by the overheating above. For humidity a constant 45 % is closer than the grounded model on
+both homes: without moisture sources the grounded humidity follows the outdoor air too closely. RQ2 is answered as
+mixed: grounding wins on dynamics, loses on level where the one-node room is biased, and loses on humidity.
