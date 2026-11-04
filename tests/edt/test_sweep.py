@@ -284,3 +284,21 @@ def test_negative_control_excludes_templates_and_environment_reads_in_actions():
     assert not is_negative_control(templ, templ, roles)
     reads = {"triggers": trig, "actions": [{"action": "light.turn_on", "target": {"entity_id": "sensor.lux"}}]}
     assert not is_negative_control(reads, reads, {**roles, "sensor.lux": "illuminance"})
+
+
+GATED = {"alias": "dusk unless away", "trigger": [{"platform": "sun", "event": "sunset"}],
+         "condition": [{"condition": "state", "entity_id": "input_boolean.away_mode", "state": "off"}],
+         "action": [{"service": "light.turn_on", "entity_id": "light.kitchen"}]}
+
+
+def test_assumptions_are_stored_and_results_reported_also_over_the_assumption_free_subset(tmp_path):
+    _put(tmp_path / "corpus" / "raw", "dan~home##automations.yaml", [GATED, SUNSET])
+    r = sweep(tmp_path / "corpus", tmp_path / "work", ENVS[:2], rung=4, workers=1, fetch=False)
+    gated, plain = r["automations"][hid(GATED)], r["automations"][hid(SUNSET)]
+    assert gated["assumptions"] == ["input_boolean.away_mode == off"] and plain["assumptions"] == []
+    assert gated["bound"] is not None and "condition" in gated["bound"] and gated["outcomes"]
+    assert r["yield"] == {"parsed": 2, "bound": 2, "run": 2}
+    assert r["yield_assumption_free"] == {"parsed": 2, "bound": 1, "run": 1}
+    assert r["flagged_assumption_free"]["n"] == int(bool(plain["divergences"]))
+    assert r["flagged"]["n"] == sum(1 for a in (gated, plain) if a["divergences"])
+    assert set(r["flagged_assumption_free"]) == {"n", "by_kind"}

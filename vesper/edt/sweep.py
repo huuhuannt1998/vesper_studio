@@ -22,7 +22,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from vesper.edt.bind import ENTITY, Unbindable, bind
+from vesper.edt.bind import ENTITY, Unbindable, bind_with_assumptions
 from vesper.edt.corpus import env_kinds, iter_automations
 from vesper.edt.oracle import divergences, outcome
 from vesper.edt.types import Env, Outcome
@@ -198,8 +198,10 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
 
     Returns {"rung", "envs": [{city, date, north_deg, rung, key}], "automations": {id: {repo, hash, kinds, raw,
     bound, unbindable, outcomes: {env key: Outcome fields}, refused: {env key: reason}, approximations, divergences,
-    static, negative_control}}, "negative_control_rate", "negative_control": {n, flagged}, "yield": {parsed, bound,
-    run}, "flagged": {n, by_kind}, "static": {n, by_kind}, "unbindable_reasons", "refused_reasons", "protocol"}."""
+    static, negative_control, assumptions}}, "negative_control_rate", "negative_control": {n, flagged}, "yield":
+    {parsed, bound, run}, "yield_assumption_free", "flagged": {n, by_kind}, "flagged_assumption_free", "static": {n,
+    by_kind}, "unbindable_reasons", "refused_reasons", "protocol"}. `assumptions`: the helper gates the binder held
+    open (protocol addendum 2); the `_assumption_free` counts are over the automations with none."""
     from vesper.edt.home import build_edt_home
     from vesper.edt.trace import ENVIRONMENTS
     log = log or (lambda _msg: None)
@@ -218,18 +220,23 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
             break
         raw = a.raw
         try:
-            b = bind(raw, roles, 0) if isinstance(raw, dict) else Unbindable("not a mapping")
+            b = bind_with_assumptions(raw, roles, 0) if isinstance(raw, dict) else Unbindable("not a mapping")
         except Exception as e:  # noqa: BLE001 - a binder crash is reported as the automation's reason
             b = Unbindable(f"binder error: {type(e).__name__}")
+        assumptions: list[str] = []
+        if isinstance(b, tuple):
+            b, assumptions = b
         if not isinstance(b, (dict, Unbindable)):
             b = Unbindable("not a mapping")
         entry = {"repo": a.repo, "hash": a.hash, "kinds": sorted(env_kinds(raw)) if isinstance(raw, dict) else [],
                  "raw": _jsonable(raw), "bound": None, "unbindable": None, "outcomes": {}, "refused": {},
-                 "approximations": [], "divergences": [], "static": [], "negative_control": False}
+                 "approximations": [], "divergences": [], "static": [], "negative_control": False,
+                 "assumptions": []}
         if isinstance(b, Unbindable):
             entry["unbindable"] = b.reason
         else:
             entry["bound"] = _jsonable(b)
+            entry["assumptions"] = assumptions  # the helper gates held open (protocol A2), beside the bound automation
             entry["negative_control"] = is_negative_control(raw, b, entity_roles)
             bound_by_id[a.hash] = b
         autos[a.hash] = entry
@@ -292,9 +299,19 @@ def negative_control_summary(autos: dict) -> dict:
             "uninformative": bool(nc) and not fired}  # a control none of whose automations fires tests nothing
 
 
+def _yield(autos: list) -> dict:
+    return {"parsed": len(autos), "bound": sum(1 for a in autos if a["bound"] is not None),
+            "run": sum(1 for a in autos if a["outcomes"])}
+
+
+def _flagged(flagged: list) -> dict:
+    return {"n": len(flagged), "by_kind": dict(sorted(Counter(k for a in flagged for k in a["divergences"]).items()))}
+
+
 def _summarise(rung: int, envs: list[Env], autos: dict, failed_envs: dict[str, str]) -> dict:
     ran = [a for a in autos.values() if a["outcomes"]]
     flagged = [a for a in ran if a["divergences"]]
+    free = [a for a in autos.values() if not a.get("assumptions")]  # protocol A2: also over the assumption-free
     static = [a for a in ran if a["static"]]
     nc = negative_control_summary(autos)
     refused = Counter(reason_class(r) for a in autos.values() for r in set(a["refused"].values()))
@@ -306,10 +323,10 @@ def _summarise(rung: int, envs: list[Env], autos: dict, failed_envs: dict[str, s
         "negative_control": nc,
         "failed_envs": failed_envs,
         "partially_refused": sum(1 for a in ran if a["refused"]),
-        "yield": {"parsed": len(autos), "bound": sum(1 for a in autos.values() if a["bound"] is not None),
-                  "run": len(ran)},
-        "flagged": {"n": len(flagged), "by_kind": dict(sorted(Counter(k for a in flagged
-                                                                      for k in a["divergences"]).items()))},
+        "yield": _yield(list(autos.values())),
+        "yield_assumption_free": {**_yield(free), "parsed": len(autos)},
+        "flagged": _flagged(flagged),
+        "flagged_assumption_free": _flagged([a for a in flagged if not a.get("assumptions")]),
         "static": {"n": len(static), "by_kind": dict(sorted(Counter(k for a in static for k in a["static"]).items()))},
         "unbindable_reasons": dict(sorted(Counter(reason_class(a["unbindable"]) for a in autos.values()
                                                   if a["unbindable"]).items())),
