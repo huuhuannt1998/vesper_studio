@@ -109,6 +109,18 @@ def test_the_starter_devices_fill_the_roles_without_product_variants(edt):
     ("sensor.kitchen_temperature_battery", None),
     ("sensor.office_lux_linkquality", None),
     ("sensor.office_humidity_state", None),
+    ("binary_sensor.kitchen_motion_battery_low", None),
+    ("binary_sensor.kitchen_window_battery", None),
+    ("binary_sensor.kitchen_motion", ("motion", "kitchen")),
+    ("binary_sensor.backyard_motion", None),
+    ("light.courtyard", None),
+    ("light.patio", None),
+    ("light.driveway", None),
+    ("light.terrace", None),
+    ("light.deck", None),
+    ("light.carport", None),
+    ("light.shed", None),
+    ("switch.pool_pump", None),
     ("sensor.bedroom_2_temperature", ("temperature", "bedroom_2")),
     ("sensor.bedroom2_temp", ("temperature", "bedroom_2")),
     ("sensor.bedroom_temperature", ("temperature", "bedroom_1")),
@@ -248,3 +260,34 @@ def test_outdoor_entities_are_not_modelled(edt, entity_id):
     _, roles, _, _ = edt
     assert bind(one(entity_id), roles, 0) == Unbindable("outdoor entities are not modelled")
     assert infer_role(entity_id) is None
+
+
+def test_an_entity_id_in_variables_or_data_is_bound(edt):
+    _, roles, _, _ = edt
+    raw = {"alias": "v", "variables": {"lamp": "light.kitchen", "n": 3, "text": "hello.world"}, "triggers": [],
+           "actions": [{"action": "light.turn_on", "data": {"entity": "light.office", "brightness": 10}},
+                       {"action": "light.turn_on", "target": {"entity_id": "{{ lamp }}"}}]}
+    bound = bind(raw, roles, 0)
+    assert bound["variables"] == {"lamp": roles[("light", "kitchen", 0)], "n": 3, "text": "hello.world"}
+    assert bound["actions"][0]["data"]["entity"] == roles[("light", "office", 0)]
+    assert bound["actions"][0]["action"] == "light.turn_on" and bound["actions"][1]["action"] == "light.turn_on"
+
+
+def test_service_keys_and_sun_are_never_entities(edt):
+    _, roles, _, _ = edt
+    raw = {"alias": "s", "triggers": [], "actions": [{"service": "light.toggle"}, {"action": "script.turn_on"},
+                                                       {"action": "x", "data": {"body": "sun.sun"}}]}
+    assert bind(raw, roles, 0) == raw
+
+
+@pytest.mark.parametrize("value", ["person.me", "light.garden", "weather.home", "cover.kitchen_blind", "sensor.xyz_1"])
+def test_an_unbindable_entity_id_anywhere_makes_the_automation_unbindable(edt, value):
+    _, roles, _, _ = edt
+    raw = {"alias": "v", "variables": {"x": value}, "triggers": [], "actions": []}
+    assert isinstance(bind(raw, roles, 0), Unbindable)
+
+
+def test_a_blueprint_use_is_not_expanded(edt):
+    _, roles, _, _ = edt
+    raw = {"alias": "b", "use_blueprint": {"path": "motion_light.yaml", "input": {"motion_entity": "light.kitchen"}}}
+    assert bind(raw, roles, 0) == Unbindable("blueprints are not expanded")

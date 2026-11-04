@@ -40,7 +40,9 @@ ROOMS = (  # (name token prefix, room id): the first that matches; no match is t
     ("hall", "corridor"), ("corridor", "corridor"), ("office", "office"), ("study", "office"),
 )
 BEDROOM_2 = re.compile(r"(?<![a-z])(bed|bedroom)_?(2|two)(?![0-9a-z])|(?<![a-z])guest")
-OUTDOOR = ("outdoor", "outside", "garden", "garage", "porch", "yard", "balcony")  # name-token prefixes
+OUTDOOR = ("outdoor", "outside", "garden", "garage", "porch", "balcony", "patio", "driveway", "terrace", "deck",
+           "carport", "shed", "pool")  # name-token prefixes
+OUTDOOR_ANYWHERE = ("yard",)  # and inside a token (backyard, courtyard)
 ENTITY = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 QUOTED = re.compile(r"""(['"])([a-z_]+\.[a-z0-9_]+)\1""")  # an entity id inside a template string
 STATES = re.compile(r"\bstates\.([a-z_]+)\.([a-z0-9_]+)")  # `states.light.kitchen.state` in a template
@@ -63,7 +65,8 @@ class Unbindable:
 
 
 def _outdoor(tokens) -> bool:
-    return any(t.startswith(prefix) for t in tokens for prefix in OUTDOOR)
+    return any(t.startswith(prefix) for t in tokens for prefix in OUTDOOR) or any(
+        s in t for t in tokens for s in OUTDOOR_ANYWHERE)
 
 
 def infer_role(entity_id: str) -> tuple[str, str] | None:
@@ -76,7 +79,7 @@ def infer_role(entity_id: str) -> tuple[str, str] | None:
     for r in ROLE_PRIORITY:
         if domain not in DOMAINS[r]:
             continue
-        if r in VARIANT_ROLES and OTHER_MEASURE & set(tokens):  # `light_power` measures power, not light
+        if r in WORDS and OTHER_MEASURE & set(tokens):  # `light_power`, `motion_battery_low` are not the role
             continue
         if r not in WORDS or WORDS[r] & set(tokens):
             role = r
@@ -168,6 +171,8 @@ def _rewrite(node, roles: dict, variant: int, key: str | None = None):
         for k, v in node.items():
             if k in HANDLES:
                 return Unbindable("device_id/area_id not modelled")
+            if k == "use_blueprint":
+                return Unbindable("blueprints are not expanded")
             v = _rewrite(v, roles, variant, k)
             if isinstance(v, Unbindable):
                 return v
@@ -182,10 +187,14 @@ def _rewrite(node, roles: dict, variant: int, key: str | None = None):
             out.append(v)
         return out
     if isinstance(node, str):
+        if key in ("action", "service"):  # a service name, not an entity
+            return node
         if key in ("entity_id", "above", "below"):
             return _reference(node, roles, variant, strict=key == "entity_id")
         if "{{" in node or "{%" in node:
             return _template(node, roles, variant)
+        if ENTITY.match(node) and node.partition(".")[0] in BOUND_DOMAINS | UNMODELLED_DOMAINS:
+            return _in_template(node, roles, variant)  # an id anywhere else (variables, data): an entity reference
     return node
 
 
