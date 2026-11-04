@@ -16,7 +16,11 @@ as attribute access (`states.x.y.state`).
 Handles: an action's `area_id` target becomes the room's device of the action's domain (`light.turn_on` on the
 kitchen: the kitchen's light); a `device_id` beside an `entity_id` is dropped (the entity says what is meant); a device
 trigger, condition or action (`domain` + `type`) becomes the state, numeric_state or service step Home Assistant's
-device automation stands for, on its entity, or on the role its type names (an opaque registry id: the living room's).
+device automation stands for, on its entity, or on the role its type names (an opaque registry id names no room: an
+actuator's or motion/door step takes the living room's, a sensor's is refused).
+
+Precision over yield (protocol A2.5): semi-outdoor sensors, forecasts, statistics and non-ambient temperatures, a
+temperature threshold outside -30..45, and two distinct names bound onto one home entity are refused.
 """
 from __future__ import annotations
 
@@ -46,17 +50,29 @@ WORDS = {  # the name tokens that say a sensor's role (an actuator's domain says
 ROLE_WORDS = set().union(*WORDS.values())
 OTHER_MEASURE = {"power", "energy", "current", "voltage", "watt", "watts", "kwh", "battery", "signal", "linkquality",
                  "rssi", "status", "state", "dew", "dewpoint", "absolute", "soil", "moisture", "target", "setpoint",
-                 "forecast", "feels", "apparent"}  # a sensor with one of these measures something the home has no
-# role for (`current` before a role word is the adjective: current_temperature)
+                 "forecast", "feels", "apparent",
+                 # forecasts, statistics, derived values
+                 "high", "low", "max", "min", "lowest", "highest", "mean", "average", "avg", "daily", "overnight",
+                 "today", "tomorrow", "realfeel", "feel", "chill", "windchill", "trend",
+                 # non-ambient temperatures
+                 "tool", "nozzle", "hotend", "printer", "octoprint", "cpu", "gpu", "disk", "nvme", "water", "aquarium",
+                 "pool", "fridge", "freezer", "boiler", "pipe"}  # a sensor with one of these measures something the
+# home has no role for (`current` before a role word is the adjective: current_temperature)
+OTHER_MEASURE_TOKEN = re.compile(r"^(\d+[dh]|tool\d+)$")  # a forecast's horizon (0d, 1d, 12h), a printer's tool0
 ROOMS = (  # (name token prefix, room id): the first that matches; no match is the living room
     ("living", "living"), ("lounge", "living"), ("kitchen", "kitchen"), ("bedroom", "bedroom_1"), ("bath", "bathroom"),
     ("hall", "corridor"), ("corridor", "corridor"), ("office", "office"), ("study", "office"),
 )
 OUTDOOR_ROOM = "porch"  # the home's outdoor room (vesper.edt.home.OUTDOOR_ROOM)
 BEDROOM_2 = re.compile(r"(?<![a-z])(bed|bedroom)_?(2|two)(?![0-9a-z])|(?<![a-z])guest")
-OUTDOOR = ("outdoor", "outside", "garden", "garage", "porch", "balcony", "patio", "driveway", "terrace", "deck",
-           "carport", "shed", "pool", "veranda", "lawn", "aussen", "buiten", "exterior", "exterieur", "garten",
+OUTDOOR = ("outdoor", "outside", "garden", "garage", "porch", "balcony", "patio", "driveway", "terrace", "carport",
+           "shed", "pool", "veranda", "greenhouse", "lawn", "aussen", "buiten", "exterior", "exterieur", "garten",
            "jardin", "terrass", "balkon")  # name-token prefixes
+OUTDOOR_TOKENS = {"deck"}  # whole tokens only (German Decke, Deckenlampe: a ceiling)
+SEMI_OUTDOOR = ("garage", "shed", "pool", "carport", "veranda", "greenhouse")  # name-token prefixes: their sensors
+# do not read the outdoor air or light (refused); their actuators bind to the porch's
+SENSOR_ROLES = ("illuminance", "temperature", "humidity", "motion", "door")
+AMBIENT_C = (-30, 45)  # a temperature threshold outside this looks Fahrenheit or non-ambient
 OUTDOOR_ANYWHERE = ("yard",)  # and inside a token (backyard, courtyard)
 WEATHER_SERVICES = ("weather", "openweathermap", "owm", "darksky", "pirateweather", "accuweather", "buienradar",
                     "wetter", "meteo", "weatherbit", "climacell", "wunderground")  # name-token prefixes: outdoors
@@ -124,8 +140,15 @@ class Unbindable:
 
 
 def _outdoor(tokens) -> bool:
-    return any(t.startswith(prefix) for t in tokens for prefix in OUTDOOR) or any(
-        s in t for t in tokens for s in OUTDOOR_ANYWHERE) or _weather_service(tokens)
+    return any(t.startswith(prefix) for t in tokens for prefix in OUTDOOR) or bool(OUTDOOR_TOKENS & set(tokens)) or \
+        any(s in t for t in tokens for s in OUTDOOR_ANYWHERE) or _weather_service(tokens)
+
+
+def _semi_outdoor(entity_id: str) -> bool:
+    """A sensor of a garage, shed, pool, carport, veranda or greenhouse (protocol A2.5)."""
+    domain, _, name = entity_id.partition(".")
+    return domain in ("sensor", "binary_sensor") and any(
+        t.startswith(p) for t in name.split("_") for p in SEMI_OUTDOOR)
 
 
 def _weather_service(tokens) -> bool:
@@ -135,7 +158,7 @@ def _weather_service(tokens) -> bool:
 
 
 def _other_measure(tokens) -> bool:
-    other = OTHER_MEASURE & set(tokens)
+    other = (OTHER_MEASURE & set(tokens)) | {t for t in tokens if OTHER_MEASURE_TOKEN.match(t)}
     if "current" in other and all(i + 1 < len(tokens) and tokens[i + 1] in ROLE_WORDS
                                   for i, t in enumerate(tokens) if t == "current"):
         other.discard("current")
@@ -183,12 +206,19 @@ def _no_role(entity_id: str) -> Unbindable:
     return Unbindable(f"{entity_id}: its name names no role the standard home has")
 
 
-def _lookup(role: str, room: str, roles: dict, variant: int, what: str) -> str | Unbindable:
+_SOURCES: dict[str, list[str]] | None = None  # during a bind: home entity -> the automation's names bound onto it
+
+
+def _lookup(role: str, room: str, roles: dict, variant: int, what: str, source: str | None = None) -> str | Unbindable:
     if role in VARIANT_ROLES and variant and (role, room, variant) not in roles:
         return Unbindable(f"no variant {variant} for {role} (the home has one product per sensor role)")
     bound = roles.get((role, room, variant if role in VARIANT_ROLES else 0))
     if bound is None:
         return Unbindable(f"the standard home has no {role} in the {room} (for {what})")
+    if _SOURCES is not None:
+        names = _SOURCES.setdefault(bound, [])
+        if (source or what) not in names:
+            names.append(source or what)
     return bound
 
 
@@ -200,6 +230,8 @@ def _roles_for(entity_id: str, roles: dict, variant: int) -> str | Unbindable:
         return Unbindable("weather entities are not modelled")
     if domain not in BOUND_DOMAINS:
         return Unbindable(f"{entity_id}: {domain} entities are not modelled")
+    if _semi_outdoor(entity_id):
+        return Unbindable(f"semi-outdoor spaces are not modelled (for {entity_id})")
     found = infer_role(entity_id)
     if found is None:
         return _no_role(entity_id)
@@ -320,18 +352,22 @@ def _target(node: dict, roles: dict, variant: int) -> dict | Unbindable | None:
 
 def _device_entity(node: dict, domain: str, role: str | None, roles: dict, variant: int, what: str):
     """The home entity a device step acts on: its entity id's binding, else the role its type names (in the room its
-    entity id's name says; an opaque registry id: the living room). None: neither says a role."""
+    entity id's name says). An opaque registry id names no room: an actuator's or a motion/door step binds in the
+    living room, a sensor's is refused. None: neither says a role."""
     eid = node.get("entity_id")
     if isinstance(eid, str) and ENTITY.match(eid):
-        if infer_role(eid) is not None or role is None or eid.partition(".")[0] not in BOUND_DOMAINS:
+        if infer_role(eid) is not None or role is None or eid.partition(".")[0] not in BOUND_DOMAINS \
+                or _semi_outdoor(eid):
             return _roles_for(eid, roles, variant)
         tokens = eid.partition(".")[2].split("_")
         if _other_measure(tokens):
             return _roles_for(eid, roles, variant)
-        return _lookup(role, _room(tokens), roles, variant, what)
+        return _lookup(role, _room(tokens), roles, variant, what, eid)
     if role is None:
         return None
-    return _lookup(role, "living", roles, variant, what)
+    if role in VARIANT_ROLES:
+        return Unbindable("device steps on a registry id name no room")
+    return _lookup(role, "living", roles, variant, what, f"registry id {eid}")
 
 
 def _device_step(node: dict, roles: dict, variant: int) -> dict | Unbindable:
@@ -354,6 +390,11 @@ def _device_step(node: dict, roles: dict, variant: int) -> dict | Unbindable:
         return Unbindable(f"{domain} device {kind}s are not modelled (for {typ})")
     if isinstance(entity, Unbindable):
         return entity
+    step = _translated(node, kind, domain, spec, entity)
+    return _ambient(step, roles) or step
+
+
+def _translated(node: dict, kind: str, domain: str, spec: tuple, entity: str) -> dict:
     kept = {k: v for k, v in node.items() if k in STEP_KEYS}
     if kind == "action":
         data = {k: v for k, v in node.items() if k not in DEVICE_STEP_KEYS | STEP_KEYS}
@@ -363,7 +404,7 @@ def _device_step(node: dict, roles: dict, variant: int) -> dict | Unbindable:
     if kind == "trigger":
         key = "platform" if "platform" in node else "trigger"
         head = {key: "numeric_state" if value == NUMERIC else "state", "entity_id": entity}
-        return {**head, **({"to": value} if value not in (None, NUMERIC) else {}), **kept}
+        return {**head, **({"to": value} if value != NUMERIC else {}), **kept}  # changed_states: to null
     head = {"condition": "numeric_state" if value == NUMERIC else "state", "entity_id": entity}
     return {**head, **({"state": value} if value != NUMERIC else {}), **kept}
 
@@ -400,6 +441,22 @@ def _set_slots(node: dict) -> dict[str, list[str]]:
             if ids:
                 out[slot] = ids
     return out
+
+
+def _ambient(step: dict, roles: dict) -> Unbindable | None:
+    """A numeric_state step on a temperature whose threshold lies outside AMBIENT_C (Fahrenheit, or no room air)."""
+    kind = step.get("trigger") or step.get("platform") or step.get("condition")
+    if kind != "numeric_state" or "attribute" in step or "value_template" in step:
+        return None
+    temps = {v for (role, _, _), v in roles.items() if role == "temperature"}
+    eids = [p.strip() for e in _listed(step.get("entity_id")) if isinstance(e, str) for p in e.split(",")]
+    if not temps & set(eids):
+        return None
+    for side in ("above", "below"):
+        n = _number(step.get(side))
+        if n is not None and not AMBIENT_C[0] <= n <= AMBIENT_C[1]:
+            return Unbindable("threshold looks Fahrenheit or non-ambient")
+    return None
 
 
 def _rewrite(node, roles: dict, variant: int, key: str | None = None):
@@ -447,7 +504,7 @@ def _rewrite(node, roles: dict, variant: int, key: str | None = None):
             out[k] = v
         if target is not None:
             out["target"] = target
-        return out
+        return _ambient(out, roles) or out
     if isinstance(node, list):
         out = []
         for v in node:
@@ -518,6 +575,9 @@ def _record_gate(c: dict, reqs: dict) -> Unbindable | None:
         [e.strip().lower() for e in c["entity_id"]]
     domain = eids[0].partition(".")[0]
     attr = c.get("attribute")
+    if any(e.partition(".")[0] == "group" for e in eids) and (c["condition"] != "state" or not set(
+            _listed(c.get("state"))) <= {"home", "not_home"}):
+        return Unbindable("device groups are not modelled")  # a presence group requires home / not_home
     if c["condition"] == "state":
         if c.get("match") == "any" and len(eids) > 1:
             return Unbindable(f"{domain} inside or/not")
@@ -531,6 +591,8 @@ def _record_gate(c: dict, reqs: dict) -> Unbindable | None:
         return None
     if "value_template" in c:
         return Unbindable(f"{domain} in a template or an action")
+    if c.get("above") is None and c.get("below") is None:
+        return Unbindable("a helper numeric_state gate with neither above nor below")
     bounds = {}
     for side in ("above", "below"):
         if c.get(side) is not None:
@@ -636,7 +698,8 @@ def _helper_refusal(raw: dict) -> Unbindable | None:
             kind = c.get("condition") if isinstance(c, dict) else None
             if templated or kind in (None, "template"):
                 return Unbindable(f"{domain} in a template or an action")
-            return Unbindable(f"{domain} in a {kind} condition")
+            return Unbindable(f"{domain} inside an `and` condition" if kind == "and" else
+                              f"{domain} in a {kind} condition")
     rest = {k: v for k, v in raw.items() if k not in ("trigger", "triggers", "condition", "conditions")}
     found = first(rest)
     if found:
@@ -687,8 +750,19 @@ def bind_with_assumptions(raw: dict, roles: dict, variant: int) -> tuple[dict, l
     refusal = _helper_refusal(read)
     if refusal:
         return refusal
-    bound = _rewrite(raw, roles, variant)
-    return bound if isinstance(bound, Unbindable) else (bound, assumptions)
+    global _SOURCES
+    _SOURCES = {}
+    try:
+        bound = _rewrite(raw, roles, variant)
+        sources = _SOURCES
+    finally:
+        _SOURCES = None
+    if isinstance(bound, Unbindable):
+        return bound
+    collapsed = next((names for names in sources.values() if len(names) > 1), None)
+    if collapsed:
+        return Unbindable(f"distinct entities collapse onto one device (for {collapsed[0]}, {collapsed[1]})")
+    return bound, assumptions
 
 
 def bind(raw: dict, roles: dict, variant: int) -> dict | Unbindable:

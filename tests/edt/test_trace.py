@@ -264,3 +264,25 @@ def test_every_environment_s_measured_days_share_their_weekdays():
     days = {dt.date.fromisoformat(e.date).weekday() for e in ENVIRONMENTS}
     assert days == {2}  # protocol A3.1: every start date a Wednesday, so measured days 1-2 are Thursday and Friday
     assert sorted({e.date for e in ENVIRONMENTS}) == ["2026-01-14", "2026-04-15", "2026-07-15", "2026-10-14"]
+
+
+def test_the_porch_temperature_and_humidity_are_the_outdoor_air_within_rounding(home, tmp_path):
+    """Each porch report equals the outdoor model's air at the ambient tick it was taken on (rules round the
+    temperature to 0.1 C and the humidity to 1 %; the sensor reports a tick's value at most one tick late)."""
+    from vesper.edt.trace import env_site
+    from vesper.env.outdoor import Outdoor
+    from vesper.lab.rules import AMBIENT_EVERY_S
+    env = Env(PHOENIX, "2026-07-15", 0.0, 4)
+    _, reports = read(record_trace(home, env, tmp_path, hours=14, fetch=False))
+    outdoor = Outdoor.for_run(env_site(env), tmp_path / "weather")
+    tol = {"temperature": 0.051, "humidity": 0.51}
+    seen = {k: 0 for k in tol}
+    for r in reports:
+        if "@porch_" not in r["twin_id"] or r["feature"] not in tol:
+            continue
+        k = int(r["t"] // AMBIENT_EVERY_S)
+        air = [outdoor.at(j * AMBIENT_EVERY_S) for j in (k - 1, k) if j >= 0]
+        values = [a.temperature_c if r["feature"] == "temperature" else a.humidity_pct for a in air]
+        assert min(abs(r["value"] - v) for v in values) <= tol[r["feature"]], (r, values)
+        seen[r["feature"]] += 1
+    assert all(n > 0 for n in seen.values()), seen

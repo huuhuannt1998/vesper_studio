@@ -180,6 +180,27 @@ def test_a_room_without_a_motion_sensor_uses_its_illuminance_sensors_occupancy(e
     ("sensor.time", None),
     ("sensor.sun_next_rising", None),
     ("sensor.sun_room_temperature", ("temperature", "living")),
+    ("light.deckenlampe_keller", ("light", "living")),
+    ("light.og_flur_decke", ("light", "living")),
+    ("light.deck", ("light", "porch")),
+    ("sensor.dark_sky_daily_high_temperature_0d", None),
+    ("sensor.dark_sky_overnight_low_temperature_0d", None),
+    ("sensor.weather_temperature_max", None),
+    ("sensor.owm_temperature_tomorrow", None),
+    ("sensor.weatherbit_temperature_low_1d", None),
+    ("sensor.buienradar_temperature_1d", None),
+    ("sensor.accuweather_realfeel_temperature", None),
+    ("sensor.outdoor_wind_chill_temperature", None),
+    ("sensor.temp_outside_lowest_temperature", None),
+    ("sensor.kitchen_temperature_trend", None),
+    ("sensor.printer_nozzle_temperature", None),
+    ("sensor.octoprint_tool0_temperature", None),
+    ("sensor.cpu_temperature", None),
+    ("sensor.nvme_temperature", None),
+    ("sensor.aquarium_temperature", None),
+    ("sensor.fridge_temperature", None),
+    ("sensor.boiler_temperature", None),
+    ("sensor.hot_water_temperature", None),
     ("sensor.bedroom_2_temperature", ("temperature", "bedroom_2")),
     ("sensor.bedroom2_temp", ("temperature", "bedroom_2")),
     ("sensor.bedroom_temperature", ("temperature", "bedroom_1")),
@@ -335,11 +356,11 @@ def test_device_triggers_conditions_and_actions_bind_through_their_entity_or_rol
          "id": "clear"},
         {"platform": "device", "device_id": DEV, "domain": "sensor", "entity_id": "sensor.anna_temperature",
          "type": "temperature", "below": 23, "for": {"minutes": 2}},
-        {"trigger": "device", "device_id": DEV, "domain": "sensor", "entity_id": REG, "type": "illuminance",
-         "above": 300}],
+        {"trigger": "device", "device_id": DEV, "domain": "sensor", "entity_id": "sensor.office_lux",
+         "type": "illuminance", "above": 300}],
         "conditions": [{"condition": "device", "device_id": DEV, "domain": "light", "entity_id": REG, "type": "is_on"},
-                       {"condition": "device", "device_id": DEV, "domain": "sensor", "entity_id": REG,
-                        "type": "is_humidity", "below": 60}],
+                       {"condition": "device", "device_id": DEV, "domain": "sensor",
+                        "entity_id": "sensor.kitchen_humidity", "type": "is_humidity", "below": 60}],
         "actions": [{"device_id": DEV, "domain": "light", "entity_id": "light.kitchen_ceiling", "type": "turn_on",
                      "brightness_pct": 40},
                     {"device_id": DEV, "domain": "switch", "entity_id": REG, "type": "toggle"},
@@ -350,10 +371,10 @@ def test_device_triggers_conditions_and_actions_bind_through_their_entity_or_rol
         {"trigger": "state", "entity_id": roles[("motion", "living", 0)], "to": "off", "id": "clear"},
         {"platform": "numeric_state", "entity_id": roles[("temperature", "living", 0)], "below": 23,
          "for": {"minutes": 2}},
-        {"trigger": "numeric_state", "entity_id": roles[("illuminance", "living", 0)], "above": 300}]
+        {"trigger": "numeric_state", "entity_id": roles[("illuminance", "office", 0)], "above": 300}]
     assert b["conditions"] == [
         {"condition": "state", "entity_id": roles[("light", "living", 0)], "state": "on"},
-        {"condition": "numeric_state", "entity_id": roles[("humidity", "living", 0)], "below": 60}]
+        {"condition": "numeric_state", "entity_id": roles[("humidity", "kitchen", 0)], "below": 60}]
     assert b["actions"] == [
         {"action": "light.turn_on", "target": {"entity_id": roles[("light", "kitchen", 0)]},
          "data": {"brightness_pct": 40}},
@@ -413,7 +434,7 @@ def test_sun_and_service_names_in_templates_are_left_alone(edt):
 
 @pytest.mark.parametrize("entity_id,role", [
     ("sensor.outdoor_temperature", "temperature"), ("sensor.outside_humidity", "humidity"), ("light.garden", "light"),
-    ("binary_sensor.garage_door", "door"), ("sensor.porch_lux", "illuminance"), ("binary_sensor.yard_motion", "motion"),
+    ("binary_sensor.patio_door", "door"), ("sensor.porch_lux", "illuminance"), ("binary_sensor.yard_motion", "motion"),
     ("light.balcony", "light"), ("switch.garden_lights", "switch"), ("lock.patio_door", "lock")])
 def test_outdoor_entities_bind_to_the_porch(edt, entity_id, role):
     _, roles, _, _ = edt
@@ -658,3 +679,105 @@ def test_a_helper_only_set_by_an_action_passes_through_and_the_engine_records_it
 def test_a_helper_set_and_read_or_set_otherwise_stays_unbindable(edt, raw, reason):
     _, roles, _, _ = edt
     assert bind(raw, roles, 0) == Unbindable(reason)
+
+
+
+# --- review fixes: precision over yield ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("step", [
+    {"trigger": "device", "device_id": DEV, "domain": "sensor", "entity_id": REG, "type": "illuminance", "above": 300},
+    {"trigger": "device", "device_id": DEV, "domain": "sensor", "entity_id": REG, "type": "humidity", "below": 30},
+    {"platform": "device", "device_id": DEV, "domain": "sensor", "entity_id": REG, "type": "temperature", "above": 2},
+])
+def test_a_sensor_device_step_on_a_registry_id_names_no_room(edt, step):
+    _, roles, _, _ = edt
+    assert bind({"alias": "d", "triggers": [step], "actions": LAMP}, roles, 0) == Unbindable(
+        "device steps on a registry id name no room")
+    cond = {"condition": "device", "device_id": DEV, "domain": "sensor", "entity_id": REG, "type": "is_humidity",
+            "below": 60}
+    assert bind(gated(cond), roles, 0) == Unbindable("device steps on a registry id name no room")
+
+
+def test_an_actuator_or_motion_device_step_on_a_registry_id_keeps_the_living_room(edt):
+    _, roles, _, _ = edt
+    raw = {"alias": "m", "triggers": [{"trigger": "device", "device_id": DEV, "domain": "binary_sensor",
+                                       "entity_id": REG, "type": "motion"}],
+           "actions": [{"device_id": DEV, "domain": "light", "entity_id": REG, "type": "turn_on"}]}
+    b = bind(raw, roles, 0)
+    assert b["triggers"][0]["entity_id"] == roles[("motion", "living", 0)]
+    assert b["actions"][0]["target"]["entity_id"] == roles[("light", "living", 0)]
+
+
+def test_changed_states_is_a_state_trigger_on_any_change(edt):
+    _, roles, _, home = edt
+    from vesper.lab.automations import Engine
+    from vesper.lab.session import Session
+    from vesper.twins.clock import LogicalClock
+    raw = {"alias": "c", "triggers": [{"trigger": "device", "device_id": DEV, "domain": "light",
+                                       "entity_id": "light.office", "type": "changed_states"}], "actions": LAMP}
+    b = bind(raw, roles, 0)
+    assert b["triggers"] == [{"trigger": "state", "entity_id": roles[("light", "office", 0)], "to": None}]
+    engine = Engine(Session(home, clock=LogicalClock()), permissive=True, automations=[b])
+    assert engine.refused == []
+
+
+@pytest.mark.parametrize("entity_id", ["sensor.pool_temperature", "sensor.garage_illuminance",
+                                       "sensor.proxmox_garage_average_temperature", "binary_sensor.garage_door",
+                                       "binary_sensor.shed_motion", "sensor.greenhouse_humidity",
+                                       "sensor.carport_lux", "sensor.veranda_temperature"])
+def test_a_sensor_of_a_semi_outdoor_space_is_refused(edt, entity_id):
+    _, roles, _, _ = edt
+    assert bind(one(entity_id), roles, 0) == Unbindable(f"semi-outdoor spaces are not modelled (for {entity_id})")
+
+
+@pytest.mark.parametrize("entity_id,role", [("light.garage", "light"), ("switch.pool_pump", "switch"),
+                                            ("light.greenhouse", "light")])
+def test_an_actuator_of_a_semi_outdoor_space_keeps_the_porch(edt, entity_id, role):
+    _, roles, _, _ = edt
+    assert bind(one(entity_id), roles, 0)["triggers"][0]["entity_id"] == roles[(role, "porch", 0)]
+
+
+@pytest.mark.parametrize("threshold", [{"above": 75}, {"below": -40}, {"above": 18, "below": 50}])
+def test_a_temperature_threshold_out_of_the_ambient_range_is_refused(edt, threshold):
+    _, roles, _, _ = edt
+    trigger = {"trigger": "numeric_state", "entity_id": "sensor.kitchen_temperature", **threshold}
+    raw = {"alias": "t", "triggers": [trigger], "actions": LAMP}
+    assert bind(raw, roles, 0) == Unbindable("threshold looks Fahrenheit or non-ambient")
+    assert isinstance(bind(gated(numeric("sensor.kitchen_temperature", **threshold)), roles, 0), Unbindable)
+    ok = {"alias": "t", "triggers": [{**trigger, "above": 25, "below": 45}], "actions": LAMP}
+    assert isinstance(bind(ok, roles, 0), dict)
+    lux = {"alias": "l", "triggers": [{"trigger": "numeric_state", "entity_id": "sensor.kitchen_lux", "above": 300}],
+           "actions": LAMP}
+    assert isinstance(bind(lux, roles, 0), dict)  # only temperatures
+
+
+@pytest.mark.parametrize("ids", [("light.kitchen_ceiling", "light.kitchen_spots"),
+                                 ("binary_sensor.front_door", "binary_sensor.back_door"),
+                                 ("climate.living_room", "climate.bedroom")])
+def test_distinct_entities_that_collapse_onto_one_device_are_refused(edt, ids):
+    _, roles, _, _ = edt
+    raw = {"alias": "c", "triggers": [{"trigger": "state", "entity_id": ids[0]}],
+           "actions": [{"action": "notify.me", "data": {"message": f"{{{{ states('{ids[1]}') }}}}"}}]}
+    r = bind(raw, roles, 0)
+    assert r == Unbindable(f"distinct entities collapse onto one device (for {ids[0]}, {ids[1]})")
+    from vesper.edt.sweep import reason_class
+    assert reason_class(r.reason) == "distinct entities collapse onto one device"
+    same = {"alias": "s", "triggers": [{"trigger": "state", "entity_id": ids[0]}],
+            "actions": [{"action": "notify.me", "data": {"message": f"{{{{ states('{ids[0]}') }}}}"}}]}
+    assert isinstance(bind(same, roles, 0), dict)  # one entity named twice is fine
+    area = act(action="light.turn_on", target={"area_id": "kitchen", "entity_id": "light.kitchen"})
+    reason = "distinct entities collapse onto one device (for light.kitchen, area kitchen)"
+    assert bind(area, roles, 0) == Unbindable(reason)
+
+
+@pytest.mark.parametrize("cond,reason", [
+    (state("group.all_lights", "on"), "device groups are not modelled"),
+    (numeric("group.temps", above=3), "device groups are not modelled"),
+    (numeric("input_number.t"), "a helper numeric_state gate with neither above nor below"),
+    ({"condition": "and", "conditions": [{"condition": "zone", "entity_id": "person.me", "zone": "zone.home"}]},
+     "person inside an `and` condition"),
+])
+def test_review_gate_refusals(edt, cond, reason):
+    _, roles, _, _ = edt
+    assert bind(gated(cond), roles, 0) == Unbindable(reason)
+    assert isinstance(bind(gated(state("group.family", "not_home")), roles, 0), dict)
