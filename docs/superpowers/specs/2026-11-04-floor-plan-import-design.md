@@ -51,3 +51,26 @@ scaling, and the share of imports that pass the layout check with no error. Repo
 `vesper/lab/plan.py` (the `vesper-plan/1` schema, validation, rectification, scaling), `vesper/lab/plan_read.py`
 (the Claude call), `vesper/lab/generate.py` (a map from a plan beside `floor_plan`), `vesper/cli.py`
 (`vesper lab import`), the lobby's import panel (`vesper/lab/ui/compose.*`), tests under `tests/lab/`.
+
+## Part B: a scanned room or a downloaded 3D model (PI, 2026-11-04: "users can scan the room using policam app in
+phone or import 3d model on the internet")
+
+    vesper lab import scan.glb homes/mine          # also .gltf, .obj, .usdz (Polycam, Apple RoomPlan, the web)
+
+- **Structured scans first.** Polycam's Room mode and other Apple RoomPlan exports name their parts (walls, doors,
+  windows, openings, floors, and objects such as bed, sofa, table, refrigerator, oven): VESPER reads the walls,
+  doors and windows straight into a `vesper-plan/1` (in metres, no scale needed) and the named objects as furniture.
+- **Any other mesh** (a photogrammetry scan, a model from the web): the floor plan is the mesh cut horizontally at
+  1.0 m (walls) and at the lowest wide surface (floor); rooms are the enclosed regions of the cut; openings in the
+  walls at door height are doors, at sill height windows. Scale: a scan is in metres; a web model is checked against
+  plausible ceiling height and door width and rescaled, or refused with the reason.
+- **The model is the 3D view.** As with a Blender build, the imported mesh becomes the home's `scene.glb`, the
+  walkable floor comes from it (`vesper lab renav`), and the layout checker reads its objects (`glb_pieces`); devices
+  and the environment are added as for any home. Built-in furniture is added only to rooms the model leaves empty.
+- **Formats:** GLB/glTF natively; OBJ and USDZ converted to GLB first (by Blender, headless, already a VESPER
+  dependency for the furnishing path, or `usd-core` for USDZ); a model's licence is the user's to respect, and VESPER
+  never redistributes it (imported models stay in the home's folder, git-ignored like HSSD-derived homes).
+- **Evaluation:** a few RoomPlan/Polycam sample scans and web models: rooms, doors and windows found against what the
+  model shows, and the share passing the layout check.
+
+Order: part A (images) first, then part B; part B reuses part A's `vesper-plan/1`, rectification and checks.
