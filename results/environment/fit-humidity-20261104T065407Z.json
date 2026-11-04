@@ -1,0 +1,240 @@
+{
+  "adopt": true,
+  "baseline_B": {
+    "H": {
+      "median_rmse_pp": 16.204,
+      "pass": false
+    },
+    "class": 0,
+    "rooms": [
+      {
+        "humidity": {
+          "bias": -12.863,
+          "n": 1036,
+          "r": 0.6894,
+          "rmse": 14.021,
+          "within_2": 0.0097
+        },
+        "room": "dining room"
+      },
+      {
+        "humidity": {
+          "bias": -14.961,
+          "n": 1036,
+          "r": 0.6809,
+          "rmse": 16.204,
+          "within_2": 0.0048
+        },
+        "room": "room"
+      }
+    ]
+  },
+  "chosen": 1,
+  "chosen_on_A": {
+    "H": {
+      "median_rmse_pp": 8.2,
+      "pass": true
+    },
+    "class": 1,
+    "rooms": [
+      {
+        "humidity": {
+          "bias": 1.136,
+          "n": 3289,
+          "r": 0.6982,
+          "rmse": 5.844,
+          "within_2": 0.2974
+        },
+        "room": "kitchen"
+      },
+      {
+        "humidity": {
+          "bias": 5.17,
+          "n": 3289,
+          "r": 0.6863,
+          "rmse": 8.2,
+          "within_2": 0.2028
+        },
+        "room": "living room"
+      },
+      {
+        "humidity": {
+          "bias": 1.669,
+          "n": 3289,
+          "r": 0.5398,
+          "rmse": 6.702,
+          "within_2": 0.2381
+        },
+        "room": "laundry room"
+      },
+      {
+        "humidity": {
+          "bias": 5.142,
+          "n": 3289,
+          "r": 0.7095,
+          "rmse": 7.877,
+          "within_2": 0.1806
+        },
+        "room": "office"
+      },
+      {
+        "humidity": {
+          "bias": -4.597,
+          "n": 3289,
+          "r": 0.1853,
+          "rmse": 11.845,
+          "within_2": 0.1912
+        },
+        "room": "bathroom"
+      },
+      {
+        "humidity": {
+          "bias": 10.311,
+          "n": 3289,
+          "r": 0.7098,
+          "rmse": 11.943,
+          "within_2": 0.0608
+        },
+        "room": "ironing room"
+      },
+      {
+        "humidity": {
+          "bias": -0.897,
+          "n": 3289,
+          "r": 0.6517,
+          "rmse": 6.042,
+          "within_2": 0.2673
+        },
+        "room": "teenager room"
+      },
+      {
+        "humidity": {
+          "bias": 5.736,
+          "n": 3289,
+          "r": 0.6088,
+          "rmse": 9.01,
+          "within_2": 0.1712
+        },
+        "room": "parents' room"
+      }
+    ]
+  },
+  "current": 0,
+  "grid_on_A": [
+    {
+      "H": {
+        "median_rmse_pp": 9.313,
+        "pass": true
+      },
+      "class": 0
+    },
+    {
+      "H": {
+        "median_rmse_pp": 8.2,
+        "pass": true
+      },
+      "class": 1
+    },
+    {
+      "H": {
+        "median_rmse_pp": 14.244,
+        "pass": false
+      },
+      "class": 2
+    },
+    {
+      "H": {
+        "median_rmse_pp": 21.976,
+        "pass": false
+      },
+      "class": 3
+    },
+    {
+      "H": {
+        "median_rmse_pp": 30.041,
+        "pass": false
+      },
+      "class": 4
+    },
+    {
+      "H": {
+        "median_rmse_pp": 37.11,
+        "pass": false
+      },
+      "class": 5
+    }
+  ],
+  "held_out_B": {
+    "H": {
+      "median_rmse_pp": 14.915,
+      "pass": false
+    },
+    "class": 1,
+    "rooms": [
+      {
+        "humidity": {
+          "bias": -11.681,
+          "n": 1036,
+          "r": 0.7303,
+          "rmse": 12.82,
+          "within_2": 0.0319
+        },
+        "room": "dining room"
+      },
+      {
+        "humidity": {
+          "bias": -13.78,
+          "n": 1036,
+          "r": 0.7382,
+          "rmse": 14.915,
+          "within_2": 0.0087
+        },
+        "room": "room"
+      }
+    ]
+  },
+  "protocol": "docs/experiments/environment-validation.md, addendum 2",
+  "run": {
+    "catalog_code_sha256": "139b8ebe38b83db10b2233221c249c5e98358e0e3edc6e402bf6fb327429c2e4",
+    "catalog_inputs": {
+      "dcl": {
+        "manifest_sha256": "d69e4b734bd541894c45789f44c6dfb589944aa1b9e9d1cc119b8fafb499f77b",
+        "version": "height-324961"
+      },
+      "ha": {
+        "manifest_sha256": "6917c7888197cc38aec661c2da0d14317c8e3ab1cbc4bfeb7772b7ac032e19f2",
+        "version": "2026.10.2"
+      },
+      "matter_zap": {
+        "manifest_sha256": "e608206f3ad32b1d1cfb4ba7231e4a690a0075bbcfe1cb9dcbedebf15ba2cf31",
+        "version": "v1.6.1.0"
+      },
+      "tasmota": {
+        "manifest_sha256": "f80efec1ca20e85eb2a6d2285f533b66717aa560d74ae2b38daf7b89356e86ce",
+        "version": "30d9c9b16014817641f83a0cf8f2f266a0dbaef2"
+      },
+      "zigbee": {
+        "manifest_sha256": "89edf8fad5a7f13adabc4cc8caf8d10fdf85379d95a49ca2eb6d6e5377166c67",
+        "version": "26.123.0"
+      },
+      "zwave": {
+        "manifest_sha256": "0889173c4fc30ba289600959b8907fdb7f34435f811ea7ebef4962a993eabeb6",
+        "version": "15.31.2"
+      }
+    },
+    "command": "validate environment",
+    "finished_utc": "2026-11-04T06:54:07Z",
+    "git_commit": "288862c56625d96140acacd72b5cf327a2dd7a85",
+    "git_dirty": false,
+    "parameters": {
+      "appliances": ".vesper/datasets/uci-appliances",
+      "catalog": "catalog/vds",
+      "fit": false,
+      "fit_humidity": true,
+      "sml2010": ".vesper/datasets/uci-sml2010",
+      "weather_cache": ".vesper/datasets/era5"
+    },
+    "vesper_version": "0.2.0.dev0"
+  },
+  "unchanged": false
+}

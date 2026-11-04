@@ -125,7 +125,9 @@ def test_heat_passes_through_an_interior_wall_from_the_warm_room_to_the_cool_one
 def test_a_humidity_class_adds_moisture_in_cold_weather_and_none_in_warm(monkeypatch):
     """EN ISO 13788's internal humidity classes: 270 Pa per class at or below 0 degrees outside, none at 20."""
     from vesper.env import indoor
-    assert indoor.HUMIDITY_CLASS == 0 and indoor.moisture_excess_kpa(-5.0) == 0.0  # the first run's model
+    assert indoor.HUMIDITY_CLASS == 1  # fitted on dataset A, held out on B (addendum 2)
+    monkeypatch.setattr(indoor, "HUMIDITY_CLASS", 0)
+    assert indoor.moisture_excess_kpa(-5.0) == 0.0  # the first run's model
     monkeypatch.setattr(indoor, "HUMIDITY_CLASS", 3)
     assert indoor.moisture_excess_kpa(-5.0) == pytest.approx(0.81)
     assert indoor.moisture_excess_kpa(10.0) == pytest.approx(0.405)

@@ -36,7 +36,9 @@ HEAT_W_PER_M2 = 100.0  # a room's heating at full output (assumed)
 COOL_W_PER_M2 = 80.0  # what a room's cooling removes at full output (assumed; ~ 80 W/m², a split unit's sizing)
 PERSON_W, PERSON_VAPOUR_KPA = 80.0, 0.15  # what a person adds: sensible heat, and to the room's vapour (assumed)
 START_C = 20.5  # every room's temperature when a run begins (assumed)
-HUMIDITY_CLASS = 0  # EN ISO 13788 internal humidity class 1-5 (0: no moisture beyond the outdoor air and people)
+# EN ISO 13788 internal humidity class 1-5 (0: no moisture beyond the outdoor air and people). 1: fitted on dataset A
+# and held out on B (addendum 2, results/environment/fit-humidity-20261104T065407Z.json); it was 0 before 2026-11-04
+HUMIDITY_CLASS = 1
 CLASS_PA = 270.0  # the vapour-pressure excess per class at an outdoor temperature at or below 0 °C (EN ISO 13788)
 U_INTERIOR = 2.0  # W/m²K, an interior partition with its doorway (assumed; plasterboard or block, 1.5-2.5)
 NEIGHBOUR_GAP_M = 0.35  # rooms whose facing edges are at most this apart share a wall (a wall's thickness)
