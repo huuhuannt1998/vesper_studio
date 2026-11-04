@@ -94,7 +94,7 @@ def test_lamp_on_below_50_lx_fires_at_the_traces_crossings(edt, trace4):
     out = replay(edt[0], trace4, {"lamp": lamp(roles)})
     expected = below_crossings(reports_of(trace4, lux_twin(roles)), 50)
     assert len(expected) >= 2  # an evening on day 1 and on day 2
-    assert [f.t for f in out["lamp"]] == expected
+    assert [f.t for f in out["lamp"]] == pytest.approx(expected, abs=0.1)  # a report is heard REPORT_DELAY_S late
     assert all(f == Firing(f.t, "lamp", "light.turn_on", roles[("light", "kitchen", 0)]) for f in out["lamp"])
 
 
@@ -125,7 +125,7 @@ def test_reports_are_a_step_function_held_until_the_next(edt, trace4):
     want = []
     for day in (1, 2):
         at = day * DAY + 12 * 3600
-        held = [r["value"] for r in reports if r["observed_t"] <= at]
+        held = [r["value"] for r in reports if r["observed_t"] < at]
         if held and held[-1] > 5:
             want.append(at)
     assert want  # the noon sun lights the kitchen
@@ -179,7 +179,8 @@ def test_the_headers_initial_state_seeds_the_entities_before_the_first_report(ed
     first = {"t": DAY + 100.0, "twin_id": twin, "feature": feature, "value": 20.0, "observed_t": DAY + 100.0}
     autos = {"lamp": lamp(roles)}
     bright = synthetic(tmp_path, trace4, {"initial_state": {twin: {feature: 300.0}}}, [first])
-    assert [f.t for f in replay(edt[0], bright, autos)["lamp"]] == [DAY + 100.0]  # 300 lx -> 20 lx: a crossing
+    # 300 lx -> 20 lx: a crossing
+    assert [f.t for f in replay(edt[0], bright, autos)["lamp"]] == pytest.approx([DAY + 100.0], abs=0.1)
     dark = synthetic(tmp_path, trace4, {"initial_state": {twin: {feature: 5.0}}}, [first])
     assert replay(edt[0], dark, autos) == {"lamp": []}  # already below 50 lx: nothing to cross
     header, _ = read(trace4)
@@ -187,7 +188,7 @@ def test_the_headers_initial_state_seeds_the_entities_before_the_first_report(ed
     absent = tmp_path / "absent.jsonl.gz"
     with gzip.open(absent, "wt") as f:
         f.write(json.dumps(header) + "\n" + json.dumps(first) + "\n")
-    assert [f.t for f in replay(edt[0], absent, autos)["lamp"]] == [DAY + 100.0]
+    assert [f.t for f in replay(edt[0], absent, autos)["lamp"]] == pytest.approx([DAY + 100.0], abs=0.1)
 
 
 def test_actuator_reports_are_never_fed_to_the_engine(edt, trace4, tmp_path):
@@ -263,3 +264,110 @@ def test_a_real_traces_initial_state_seeds_the_replay(edt, trace4, tmp_path):
         for r in reports:
             f.write(json.dumps(r) + "\n")
     assert replay_detailed(edt[0], path, {"warm": warm}).start_states[entity] == "unknown"
+
+
+def tie(tmp_path, source, before, after):
+    """A trace where the kitchen's light level goes from `before` to `after` at 18:45:00 on days 1 and 2, the instant
+    of a `time` trigger."""
+    twin, feature = lux_twin({})
+    rows = []
+    for day in (1, 2):
+        at = day * DAY + 18 * 3600 + 45 * 60
+        rows += [{"t": at - 600.0, "twin_id": twin, "feature": feature, "value": before, "observed_t": at - 600.0},
+                 {"t": at, "twin_id": twin, "feature": feature, "value": after, "observed_t": at}]
+    return synthetic(tmp_path, source, {"initial_state": {twin: {feature: before}}}, rows)
+
+
+def at_1845_if_dark(roles):
+    return bind({"alias": "dim", "triggers": [{"trigger": "time", "at": "18:45:00"}],
+                 "conditions": [{"condition": "numeric_state", "entity_id": "sensor.kitchen_illuminance",
+                                 "below": 50}],
+                 "actions": [{"action": "notify.x"}]}, roles, 0)
+
+
+def test_a_report_at_the_instant_of_a_timer_arrives_after_it_as_over_the_links(edt, trace4, tmp_path):
+    """Live, the hub hears a report a few milliseconds after the twin emits it, so a `time` trigger in the same second
+    still sees the old value: 51 -> 49 at 18:45:00 does not light the condition, 49 -> 51 does."""
+    _, roles = edt
+    brightening = replay(edt[0], tie(tmp_path, trace4, 51.0, 49.0), {"dim": at_1845_if_dark(roles)})["dim"]
+    assert brightening == []
+    mirror = replay(edt[0], tie(tmp_path, trace4, 49.0, 51.0), {"dim": at_1845_if_dark(roles)})["dim"]
+    assert [f.t for f in mirror] == [DAY + 18 * 3600 + 45 * 60, 2 * DAY + 18 * 3600 + 45 * 60]
+
+
+def test_keys_that_are_falsy_work(edt, trace4):
+    _, roles = edt
+    got = replay(edt[0], trace4, {"": lamp(roles), 0: lamp(roles, below=40)})
+    assert list(got) == ["", 0] and got[""] and got[0]
+    assert {f.automation for f in got[""]} == {""} and {f.automation for f in got[0]} == {0}
+
+
+def test_a_refusal_is_mapped_back_by_position_not_by_label(edt, trace4):
+    _, roles = edt
+    bad = {"alias": "bad", "triggers": [{"trigger": "template", "value_template": "{{ true }}"}], "actions": []}
+    got = replay_detailed(edt[0], trace4, {"automation 2": lamp(roles), "automation 1": bad})
+    assert list(got.refused) == ["automation 1"] and got.firings["automation 1"] == []
+    assert got.firings["automation 2"]
+
+
+def test_the_catalog_is_cached_by_its_resolved_path(edt, trace4):
+    from vesper.edt import replay as module
+    module._catalog.cache_clear()
+    module._home.cache_clear()
+    _, roles = edt
+    replay(edt[0], trace4, {"lamp": lamp(roles)}, catalog_dir="catalog/vds")
+    replay(edt[0], trace4, {"lamp": lamp(roles)}, catalog_dir=str(Path("catalog/vds").resolve()))
+    assert module._catalog.cache_info().currsize == 1
+
+
+def live_firings(home_yaml, work, autos):
+    """What a live permissive session (the link layer in the loop, the home's own physics) fires in days 1 and 2."""
+    from vesper.edt.trace import _copy_home, _site
+    from vesper.lab.automations import Engine
+    from vesper.lab.home import load_lab_home
+    from vesper.lab.session import Session
+    from vesper.twins.clock import LogicalClock
+    from vesper.twins.home import load_catalog
+    site = _site(Env(PHOENIX, "2026-07-15", 0.0, 4))
+    home = load_lab_home(_copy_home(home_yaml, work / "live", site, work / "no-weather"),
+                         load_catalog(Path("catalog/vds")))
+    s = Session(home, clock=LogicalClock())
+    s.start(spawn_player=False, residents=False, automations=False)
+    s.automations = Engine(s, permissive=True, automations=[{**v, "alias": k} for k, v in autos.items()])
+    s.automations.start()
+    s.clock.advance(3 * DAY)
+    s.stop()
+    out, seen = {k: [] for k in autos}, set()
+    for r in s.records:  # a light's command is one record per part (state, brightness): one firing
+        key = (r.get("t"), r.get("automation"), r.get("service"), r.get("entity"))
+        if r.get("kind") == "automation" and DAY <= r["t"] < 3 * DAY and key not in seen:
+            seen.add(key)
+            out[r["automation"]].append((r["t"], r["service"]))
+    return out
+
+
+def test_replay_equals_a_live_permissive_session(edt, trace4, tmp_path):
+    _, roles = edt
+    note = [{"action": "notify.n"}]
+    raw = {
+        "numfor": {"triggers": [{"trigger": "numeric_state", "entity_id": "sensor.kitchen_illuminance",
+                                 "below": 50, "for": "00:30:00"}], "actions": note},
+        "stateto": {"triggers": [{"trigger": "state", "entity_id": "sensor.kitchen_illuminance", "to": "0"}],
+                    "actions": note},
+        "tick": {"triggers": [{"trigger": "time", "at": ["06:30:00", "12:00:00", "18:45:00"]}],
+                 "conditions": [{"condition": "numeric_state", "entity_id": "sensor.kitchen_illuminance",
+                                 "above": 5}], "actions": note},
+        "dusk": {"triggers": [{"trigger": "sun", "event": "sunset", "offset": "-00:30:00"}], "actions": note},
+        # an executable action; on a timer, because a lamp lit live would change the lux the replay holds fixed
+        "lamp": {"triggers": [{"trigger": "time", "at": "07:00"}],
+                 "actions": [{"action": "light.turn_on", "data": {"brightness_pct": 40},
+                              "target": {"entity_id": "light.office"}}]},
+    }
+    autos = {k: bind({"alias": k, **v}, roles, 0) for k, v in raw.items()}
+    assert all(isinstance(a, dict) for a in autos.values())
+    live = live_firings(edt[0], tmp_path, autos)
+    got = replay(edt[0], trace4, autos)
+    for k in autos:
+        assert live[k], k  # each kind really fires in these days
+        assert [f.service for f in got[k]] == [s for _, s in live[k]], k
+        assert [f.t for f in got[k]] == pytest.approx([t for t, _ in live[k]], abs=0.1), k

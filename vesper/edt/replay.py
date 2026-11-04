@@ -6,8 +6,9 @@ clock pass. Open loop: the sensors' reports are the trace's, whatever the automa
 (`Firing`), never executed, so no actuator ever changes.
 
 How the trace is read:
-- Sensors report on change, so a trace is a step function: each report is delivered at its `observed_t` on a logical
-  clock and the entity holds its value until the next report. Only reports of sensor entities are delivered
+- Sensors report on change, so a trace is a step function: each report is delivered at its `observed_t` (plus
+  REPORT_DELAY_S, standing in for the link latency) on a logical clock and the entity holds its value until the
+  next report. Only reports of sensor entities are delivered
   (`sensor`, `binary_sensor`, `event`): an actuator's report (a light, a lock, a thermostat) is the closed loop's.
 - The entities start in the header's `initial_state` (state after the home started, before any report). A trace
   without it: an entity has no state until its first report.
@@ -28,6 +29,10 @@ from vesper.edt.types import Firing
 
 DAY_S = 86400
 SENSOR_PLATFORMS = ("sensor", "binary_sensor", "event")  # the entities whose reports are replayed
+# Live, the hub hears a report a few milliseconds (5-40) after the twin emits it, across the link layer. A trace has
+# no link layer, so each report is delivered REPORT_DELAY_S after its `observed_t`: a timer (a `time` trigger, a sun
+# event) in the same second runs first and sees the old value, as live.
+REPORT_DELAY_S = 0.05
 
 
 @dataclass
@@ -90,6 +95,8 @@ class TraceSession:
 
 @functools.lru_cache(maxsize=4)
 def _catalog(catalog_dir: str) -> dict:
+    """The catalog at an absolute `catalog_dir` (callers resolve it: a relative path names different catalogs from
+    different working directories)."""
     from vesper.twins.home import load_catalog
     return load_catalog(Path(catalog_dir))
 
@@ -106,8 +113,8 @@ def _home(path: str, mtime_ns: int, catalog_dir: str):
 
 
 def read_trace(trace: Path) -> tuple[dict, list[dict]]:
-    """(header, reports) of a trace file, the reports in the order they reach the platform (`observed_t`; reports at
-    one instant keep their recorded order)."""
+    """(header, reports) of a trace file, the reports sorted by `observed_t` (when the platform sees them, before
+    REPORT_DELAY_S; reports at one instant keep their recorded order)."""
     with gzip.open(trace, "rt") as f:
         header = json.loads(next(f))
         reports = [json.loads(line) for line in f]
@@ -125,32 +132,36 @@ def replay_detailed(home_yaml: Path, trace: Path, automations: dict[str, dict], 
     from vesper.twins.clock import LogicalClock
     from vesper.twins.runtime import Event
     home_yaml = Path(home_yaml)
-    base, twins = _home(str(home_yaml.resolve()), home_yaml.stat().st_mtime_ns, catalog_dir)
+    base, twins = _home(str(home_yaml.resolve()), home_yaml.stat().st_mtime_ns, str(Path(catalog_dir).resolve()))
     header, reports = read_trace(Path(trace))
     end = RUN_DAYS * DAY_S if until is None else until
     # The trace's own site and midnight start, whatever the home had; no file of automations.
     home = dataclasses.replace(base, site=parse_site(header.get("site")), start_time=0.0, automations=None)
     clock = LogicalClock()
     session = TraceSession(home, twins, header.get("initial_state") or {}, clock)
-    labelled, given = [], list(automations.items())
-    for key, raw in given:
-        labelled.append({**raw, "alias": key} if isinstance(raw, dict) else raw)
+    # The engine labels an automation by its alias; a key may be falsy or look like another's label, so each is
+    # labelled by position, and what the engine says about it is mapped back by position.
+    labelled, given, key_of = [], list(automations.items()), {}
+    for k, (key, raw) in enumerate(given):
+        label = f"edt:{k}" if isinstance(raw, dict) else f"automation {k + 1}"  # what the engine will call it
+        key_of[label] = key
+        labelled.append({**raw, "alias": label} if isinstance(raw, dict) else raw)
     engine = Engine(session, permissive=True, automations=labelled)
     fed = {(e.twin_id, e.feature) for e in engine.entities.values() if e.platform in SENSOR_PLATFORMS}
     for r in reports:
         if (r["twin_id"], r["feature"]) in fed and r["observed_t"] <= end:
             event = Event(r["twin_id"], r["feature"], r["value"], r["t"], r["observed_t"], "trace")
-            clock.call_at(r["observed_t"], lambda event=event: session.deliver(event))
+            clock.call_at(r["observed_t"] + REPORT_DELAY_S, lambda event=event: session.deliver(event))
     engine.start()
     start_states = dict(engine._state)  # noqa: SLF001 - the engine keeps no public view of its entity states
     clock.advance_to(end)
     out: dict[str, list[Firing]] = {key: [] for key, _ in given}
     for f in session.firings:
         if DAY_S <= f.t < end:
-            out[f.automation].append(f)
-    by_position = {f"automation {k + 1}": key for k, (key, _) in enumerate(given)}
-    refused = {by_position.get(x["automation"], x["automation"]): x["reason"] for x in engine.refused}
-    approximations = {a.name: a.approximations for a in engine.automations if a.approximations}
+            key = key_of[f.automation]
+            out[key].append(dataclasses.replace(f, automation=key))
+    refused = {key_of[x["automation"]]: x["reason"] for x in engine.refused if x["automation"] in key_of}
+    approximations = {key_of[a.name]: a.approximations for a in engine.automations if a.approximations}
     return Replay(out, refused, approximations, start_states)
 
 
