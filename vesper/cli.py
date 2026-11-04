@@ -373,6 +373,38 @@ def _validate_sun(args) -> int:
     return 0
 
 
+def _validate_environment(args) -> int:
+    """Phase 6: W, T, H and D of docs/experiments/environment-validation.md."""
+    try:
+        from vesper.validation.environment import environment_report
+    except ImportError:
+        print("FAILED environment: needs the validation extra (uv pip install -e '.[validation]')", file=sys.stderr)
+        return 1
+    have = {k: v if v and Path(v).is_dir() else None for k, v in (("a", args.appliances), ("b", args.sml2010))}
+    if not any(have.values()):
+        print("FAILED environment: neither dataset is there (see docs/experiments/environment-validation.md)",
+              file=sys.stderr)
+        return 1
+    report = environment_report(have["a"], have["b"], Path(args.weather_cache), args.catalog)
+    out = args.out or Path("results/environment") / f"environment-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+    path = _write_report(str(out), "environment", report, args)
+    for key in ("A", "B"):
+        if key in report:
+            r = report[key]
+            w = r["W"]["lag_0"]
+            print(f"{key} ({r['site']}, {r['hours']} h): W {'PASS' if r['W']['pass'] else 'FAIL'} (ERA5 bias "
+                  f"{w['bias']:+.2f} C, RMSE {w['rmse']:.2f} C, r {w['r']:.3f}, best lag {r['W']['best_lag_h']} h); "
+                  f"T {'PASS' if r['T']['pass'] else 'FAIL'} (median RMSE {r['T']['median_rmse_c']:.2f} C, "
+                  f"{r['T']['median_within_2c']:.0%} within 2 C); H {'PASS' if r['H']['pass'] else 'FAIL'} "
+                  f"(median RMSE {r['H']['median_rmse_pp']:.1f} points)")
+    if "D" in report:
+        d = report["D"]
+        print(f"D: {'PASS' if d['pass'] else 'FAIL'} (measured daylight factor {d['measured_median_pct']:.3f} %, "
+              f"VESPER's median {d['vesper_median_pct']:.2f} %)")
+    print(f"report {path}")
+    return 0
+
+
 def _validate_discovery(args) -> int:
     from vesper.twins.home import load_catalog
     from vesper.validation import ha_schema
@@ -1659,6 +1691,14 @@ def main(argv: list[str] | None = None) -> int:
                                             "(needs the validation extra: pvlib)")
     sun_cmd.add_argument("--step", type=int, default=10, help="minutes between compared positions (default 10)")
     sun_cmd.add_argument("--out")
+    envv = checks.add_parser("environment", help="the indoor model and the weather against measured homes "
+                                                 "(docs/experiments/environment-validation.md)")
+    envv.add_argument("--appliances", default=".vesper/datasets/uci-appliances",
+                      help="UCI Appliances energy prediction (energydata_complete.csv)")
+    envv.add_argument("--sml2010", default=".vesper/datasets/uci-sml2010", help="UCI SML2010 (NEW-DATA-*.T15.txt)")
+    envv.add_argument("--weather-cache", default=".vesper/datasets/era5", help="where ERA5's days are cached")
+    envv.add_argument("--catalog", default="catalog/vds")
+    envv.add_argument("--out")
     disc = checks.add_parser("discovery", help="Home Assistant's own schemas over every discovery message")
     disc.add_argument("--catalog", default="catalog/vds")
     disc.add_argument("--root", default=".vesper")
@@ -2141,6 +2181,8 @@ def _dispatch(args) -> int:
         return _validate_discovery(args)
     if args.action == "sun":
         return _validate_sun(args)
+    if args.action == "environment":
+        return _validate_environment(args)
     if args.action == "rules":
         return _validate_rules(args)
     if args.action == "latency":
