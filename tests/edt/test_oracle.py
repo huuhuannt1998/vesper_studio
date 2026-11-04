@@ -51,6 +51,12 @@ def test_flapping_is_per_automation():
     assert outcome(mixed, STOCKHOLM).flaps is False
 
 
+def test_seven_firings_at_one_instant_on_seven_targets_do_not_flap():
+    """One trigger firing, seven actions: one firing time, not seven."""
+    seven = [f(DAY + 10 * H, "light.turn_on", f"light.{i}") for i in range(7)]
+    assert outcome(seven, STOCKHOLM).flaps is False
+
+
 def test_light_on_at_2200_and_never_off_is_night_light():
     assert outcome([f(DAY + 22 * H)], STOCKHOLM).night_light is True
 
@@ -75,25 +81,81 @@ def test_light_on_in_the_morning_off_by_evening_is_not_night_light():
 
 
 def test_cover_opened_after_sunset_and_not_closed_is_night_cover():
-    s = DAY + sun_events(STOCKHOLM, 1)["sunset"]
+    s = sun_events(STOCKHOLM, 1)["sunset"]  # absolute seconds on the run clock (day 1)
     assert outcome([f(s + 600, "cover.open_cover", "cover.w")], STOCKHOLM).night_cover is True
 
 
 def test_cover_closed_before_midnight_is_not_night_cover():
-    s = DAY + sun_events(STOCKHOLM, 1)["sunset"]
+    s = sun_events(STOCKHOLM, 1)["sunset"]  # absolute seconds on the run clock (day 1)
     firings = [f(s + 600, "cover.open_cover", "cover.w"), f(s + 3 * H, "cover.close_cover", "cover.w")]
     assert outcome(firings, STOCKHOLM).night_cover is False
 
 
 def test_cover_closed_after_midnight_is_night_cover():
-    s = DAY + sun_events(STOCKHOLM, 1)["sunset"]
+    s = sun_events(STOCKHOLM, 1)["sunset"]  # absolute seconds on the run clock (day 1)
     firings = [f(s + 600, "cover.open_cover", "cover.w"), f(2 * DAY + 0.5 * H, "cover.close_cover", "cover.w")]
     assert outcome(firings, STOCKHOLM).night_cover is True
 
 
 def test_cover_opened_before_sunset_is_not_night_cover():
-    s = DAY + sun_events(STOCKHOLM, 1)["sunset"]
+    s = sun_events(STOCKHOLM, 1)["sunset"]  # absolute seconds on the run clock (day 1)
     assert outcome([f(s - 600, "cover.open_cover", "cover.w")], STOCKHOLM).night_cover is False
+
+
+def test_cover_toggled_after_sunset_is_night_cover():
+    s = sun_events(STOCKHOLM, 1)["sunset"]
+    assert DAY < s < 2 * DAY
+    assert outcome([f(s + 600, "cover.toggle", "cover.w")], STOCKHOLM).night_cover is True
+
+
+def test_cover_toggled_open_then_toggled_closed_is_not_night_cover():
+    s = sun_events(STOCKHOLM, 1)["sunset"]
+    firings = [f(s + 600, "cover.toggle", "cover.w"), f(s + 2 * H, "cover.toggle", "cover.w")]
+    assert outcome(firings, STOCKHOLM).night_cover is False
+
+
+def test_cover_toggle_state_comes_from_earlier_firings():
+    """Opened by day 0's firing, the day-1 toggle closes it: nothing becomes open after sunset."""
+    s = sun_events(STOCKHOLM, 1)["sunset"]
+    assert outcome([f(8 * H, "cover.open_cover", "cover.w"), f(s + 600, "cover.toggle", "cover.w")],
+                   STOCKHOLM).night_cover is False
+
+
+def test_cover_opened_before_sunrise_and_left_open_is_night_cover():
+    sunrise = sun_events(STOCKHOLM, 1)["sunrise"]
+    assert outcome([f(sunrise - 1800, "cover.open_cover", "cover.w")], STOCKHOLM).night_cover is True
+    both = [f(sunrise - 1800, "cover.open_cover", "cover.w"), f(sunrise + 3600, "cover.close_cover", "cover.w")]
+    assert outcome(both, STOCKHOLM).night_cover is False
+
+
+def test_light_toggled_on_at_2200_and_nothing_else_is_night_light():
+    assert outcome([f(DAY + 22 * H, "light.toggle")], STOCKHOLM).night_light is True
+
+
+def test_light_toggled_on_then_off_at_2300_is_not_night_light():
+    firings = [f(DAY + 22 * H, "light.toggle"), f(DAY + 23 * H, "light.toggle")]
+    assert outcome(firings, STOCKHOLM).night_light is False
+
+
+def test_light_toggle_is_resolved_per_target():
+    firings = [f(DAY + 22 * H, "light.toggle", "light.a"), f(DAY + 23 * H, "light.toggle", "light.b")]
+    assert outcome(firings, STOCKHOLM).night_light is True
+
+
+def test_light_toggled_off_by_a_turn_on_state_is_not_flagged():
+    """On in the warm-up day, toggled off in the measured window: nothing becomes on."""
+    firings = [f(8 * H, "light.turn_on"), f(DAY + 8 * H, "light.toggle")]
+    assert outcome(firings, STOCKHOLM).night_light is False
+
+
+def test_lamp_turned_on_too_late_to_be_judged_is_not_flagged():
+    """Its 01:00 deadline falls after the run's end (day 3 midnight): censored, not a finding."""
+    assert outcome([f(2 * DAY + 23 * H + 3000)], STOCKHOLM).night_light is False
+    assert outcome([f(2 * DAY + 23 * H + 3000, "light.toggle")], STOCKHOLM).night_light is False
+
+
+def test_lamp_on_the_second_to_last_evening_is_still_judged():
+    assert outcome([f(DAY + 23 * H + 3000)], STOCKHOLM).night_light is True
 
 
 def test_sunset_trigger_with_no_sunset_does_not_raise():
@@ -131,6 +193,13 @@ def test_fires_nowhere_is_no_divergence():
 def test_time_spread_over_three_hours_only():
     assert divergences({E1: _o(tod=8.0), E2: _o(tod=11.5)}) == {"time_spread"}
     assert divergences({E1: _o(tod=8.0), E2: _o(tod=11.0)}) == set()
+
+
+def test_time_spread_is_circular():
+    assert divergences({E1: _o(tod=23.5), E2: _o(tod=0.5)}) == set()
+    assert divergences({E1: _o(tod=23.5), E2: _o(tod=3.0)}) == {"time_spread"}  # 3.5 h around midnight
+    assert divergences({E1: _o(tod=23.0), E2: _o(tod=0.5), E3: _o(tod=2.0)}) == set()  # widest pair is 3 h
+    assert divergences({E1: _o(tod=22.5), E2: _o(tod=0.5), E3: _o(tod=2.0)}) == {"time_spread"}  # 3.5 h
 
 
 def test_time_spread_ignores_envs_where_it_does_not_fire():

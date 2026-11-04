@@ -4,14 +4,16 @@ Thresholds (fixed by the experiment design):
 - measured window: days 1-2 of a three-day run (day 0 is warm-up); a firing's `t` counts seconds from the site's
   first-day local midnight, so its local time of day is (t % 86400) / 3600;
 - flapping: more than 6 firings of one automation inside one hour;
-- time divergence: the first firing's local time of day differs by more than 3 h between environments that fire;
-- night is 00:00-05:00 local; "lamp left on all night" is a light the automation turned on and nothing turned off
-  (same entity, light.turn_off) before the next 01:00; "cover open at night" is a cover the automation opened after
-  that day's sunset and did not close (cover.close_cover, same entity) before that day's midnight.
+- time divergence: the first firing's local time of day differs by more than 3 h (the short way round the
+  clock) between two environments that fire;
+- night is 00:00-05:00 local; "lamp left on all night" is a light that becomes on in the measured window and is not
+  off by the next 01:00; "cover open at night" is a cover that becomes open after that day's sunset (or before its
+  sunrise) and is not closed by that day's midnight.
 
-A turn-off or close is looked up among all the firings given, not only the measured ones, so an off that falls just
-past the measured window still counts; the run itself ends at day 3, so nothing is seen beyond it. A day on which
-the sun does not set has no "after sunset", so no night-cover finding.
+Lights and covers are resolved per target, in time order, from every firing given (warm-up included), starting off
+and closed: turn_on/open sets on/open, turn_off/close sets off/closed, toggle flips. A lamp whose 01:00 deadline
+falls after the run's end (the end of the last measured day) cannot be judged and is not flagged. A day on which
+the sun does not set (or rise) has no "after sunset" (or "before sunrise"), so no finding on that side.
 """
 from __future__ import annotations
 
@@ -34,39 +36,62 @@ def _next_deadline(t: float) -> float:
 
 
 def _flaps(firings: list[Firing]) -> bool:
-    by_auto: dict[str, list[float]] = {}
+    """Seven or more distinct firing times of one automation inside one hour (one trigger can run several actions
+    at one instant; those are one firing time)."""
+    by_auto: dict[str, set[float]] = {}
     for fr in firings:
-        by_auto.setdefault(fr.automation, []).append(fr.t)
-    for times in by_auto.values():
-        times.sort()
-        n = FLAP_COUNT + 1
+        by_auto.setdefault(fr.automation, set()).add(fr.t)
+    n = FLAP_COUNT + 1
+    for instants in by_auto.values():
+        times = sorted(instants)
         if any(times[i + n - 1] - times[i] <= FLAP_WINDOW_S for i in range(len(times) - n + 1)):
             return True
     return False
 
 
-def _night_light(measured: list[Firing], every: list[Firing]) -> bool:
-    for on in measured:
-        if on.service != "light.turn_on":
+def _state_after(firings: list[Firing], on: str, off: str, toggle: str) -> dict[str, list[tuple[float, bool]]]:
+    """Per target, in time order, the state (True = on/open) after each of its firings; every target starts off."""
+    out: dict[str, list[tuple[float, bool]]] = {}
+    state: dict[str, bool] = {}
+    for fr in sorted(firings, key=lambda fr: fr.t):
+        if fr.service == on:
+            new = True
+        elif fr.service == off:
+            new = False
+        elif fr.service == toggle:
+            new = not state.get(fr.target, False)
+        else:
             continue
-        deadline = _next_deadline(on.t)
-        if not any(o.service == "light.turn_off" and o.target == on.target and on.t < o.t <= deadline for o in every):
-            return True
+        state[fr.target] = new
+        out.setdefault(fr.target, []).append((fr.t, new))
+    return out
+
+
+def _night_light(firings: list[Firing], lo: float, hi: float) -> bool:
+    for steps in _state_after(firings, "light.turn_on", "light.turn_off", "light.toggle").values():
+        for t, is_on in steps:
+            if not is_on or not lo <= t < hi:
+                continue
+            deadline = _next_deadline(t)
+            if deadline > hi:  # the run ends before the lamp could be judged
+                continue
+            if not any(not s and t < u <= deadline for u, s in steps):
+                return True
     return False
 
 
-def _night_cover(measured: list[Firing], every: list[Firing], site) -> bool:
-    for op in measured:
-        if op.service != "cover.open_cover":
-            continue
-        day = int(op.t // DAY_S)
-        sunset = sun_events(site, day)["sunset"]
-        midnight = (day + 1) * DAY_S
-        if sunset is None or not sunset <= op.t < midnight:
-            continue
-        if not any(c.service == "cover.close_cover" and c.target == op.target and op.t < c.t < midnight
-                   for c in every):
-            return True
+def _night_cover(firings: list[Firing], lo: float, hi: float, site) -> bool:
+    for steps in _state_after(firings, "cover.open_cover", "cover.close_cover", "cover.toggle").values():
+        for t, is_open in steps:
+            if not is_open or not lo <= t < hi:
+                continue
+            day = int(t // DAY_S)
+            events = sun_events(site, day)
+            sunset, sunrise = events["sunset"], events["sunrise"]
+            at_night = (sunset is not None and t >= sunset) or (sunrise is not None and t < sunrise)
+            midnight = (day + 1) * DAY_S
+            if at_night and midnight <= hi and not any(not s and t < u < midnight for u, s in steps):
+                return True
     return False
 
 
@@ -77,7 +102,13 @@ def outcome(firings: list[Firing], site, measured_days: tuple[int, int] = (1, 2)
     if not measured:
         return Outcome(False, None, False, False, False)
     return Outcome(fired=True, first_tod_h=(measured[0].t % DAY_S) / HOUR_S, flaps=_flaps(measured),
-                   night_light=_night_light(measured, firings), night_cover=_night_cover(measured, firings, site))
+                   night_light=_night_light(firings, lo, hi), night_cover=_night_cover(firings, lo, hi, site))
+
+
+def _circular_gap(a: float, b: float) -> float:
+    """Hours between two times of day, the short way round the clock."""
+    d = abs(a - b) % 24.0
+    return min(d, 24.0 - d)
 
 
 def divergences(by_env: dict[Env, Outcome]) -> set[str]:
@@ -88,7 +119,7 @@ def divergences(by_env: dict[Env, Outcome]) -> set[str]:
     if fired and len(fired) < len(outcomes):
         out.add("fires_somewhere_only")
     tods = [o.first_tod_h for o in fired if o.first_tod_h is not None]
-    if tods and max(tods) - min(tods) > TIME_SPREAD_H:
+    if any(_circular_gap(a, b) > TIME_SPREAD_H for i, a in enumerate(tods) for b in tods[i + 1:]):
         out.add("time_spread")
     for kind in ("flaps", "night_light", "night_cover"):
         if any(getattr(o, kind) for o in outcomes):
