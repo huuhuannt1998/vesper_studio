@@ -45,7 +45,7 @@ def test_the_ground_truth_is_every_floors_spaces_in_image_pixels_with_their_mapp
     load_plan(plan)  # a valid vesper-plan/1
     assert plan["units"] == "px"
     assert [(r["name"], r["type"]) for r in plan["rooms"]] == [
-        ("LivingRoom", "living"), ("Entry Lobby", "hall"), ("Closet WalkIn", "other"), ("Outdoor", "other"),
+        ("LivingRoom", "living"), ("Entry Lobby", "hall"), ("Closet WalkIn", "other"), ("Outdoor", "balcony"),
         ("Bedroom", "bedroom")]
     assert plan["rooms"][0]["polygon"] == rect(100, 0, 600, 400)  # the floor's transform applied, the repeat dropped
     assert gt["classes"] == ["LivingRoom", "Entry", "Closet", "Outdoor", "Bedroom"]
@@ -250,7 +250,7 @@ def test_what_straightening_left_out_is_kept_with_the_import_s_outcome():
     out = plans.build_check(predicted(), 0.01, catalog=None)
     assert out["check_house"] is False and out["stage"] == "check_house"  # p1, p2 and p4: no way from the entrance
     assert any("not reachable" in p for p in out["problems"])
-    assert out["warnings"] == ["door 1 between 'p1' and 'p4': the rooms do not touch (they have no wall in common): "
+    assert out["warnings"] == ["door 2 between 'p1' and 'p4': the rooms do not touch (they have no wall in common): "
                                "left out (no room needs it to be reached from the entrance)"]
 
 

@@ -57,8 +57,9 @@ OPEN_MIN_M = 0.6  # an open boundary at least this long joins the two spaces (an
 OPEN_WIDTH_M = 0.9  # an opening's width in the true plan: this, or 0.8 x the boundary when that is shorter
 
 # CubiCasa5K's room class (the first word after "Space", as its own loader reads it) -> VESPER's room type. Its own
-# grouping is kept where VESPER has the type (a sauna is a bath, an entry or draught lobby an entry hall). Every
-# class not listed (outdoor spaces such as balconies, closets, storage, garages, "Undefined", ...) is "other".
+# grouping is kept where VESPER has the type (a sauna is a bath, an entry or draught lobby an entry hall, an outdoor
+# space such as a balcony or terrace a balcony). Every class not listed (closets, storage, garages, "Undefined",
+# ...) is "other".
 CLASS_TYPES = {
     "LivingRoom": "living", "Lounge": "living",
     "Kitchen": "kitchen",
@@ -69,6 +70,7 @@ CLASS_TYPES = {
     "Utility": "laundry",
     "Entry": "hall", "DraughtLobby": "hall", "Hall": "hall",
     "HallWay": "corridor",
+    "Outdoor": "balcony",
 }
 PASSAGES = {"hall", "corridor"}  # one type for the lenient type accuracy
 
