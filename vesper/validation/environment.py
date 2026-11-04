@@ -290,6 +290,10 @@ def indoor_check(df, site, cache, *, t_out: str, rh_out: str, rooms: dict[str, s
               "W_humidity": _agreement(era["relative_humidity_2m"], out_rh)}
     start = df.index[0].to_pydatetime()
     shared = _MeasuredOutdoor(site, start, out_t, out_rh, era["shortwave_radiation"], era["cloud_cover"])
+    from vesper.lab.rules import ambient_at
+    local = [t.tz_convert(site.zone) for t in df.index]
+    curve = [ambient_at(x.hour * 3600 + x.minute * 60, 0) for x in local]
+    assumed = {k: [c[k] for c in curve] for k in ("temperature", "humidity")}
     rows = []
     for col, label in rooms.items():
         measured = _values(df[col])
@@ -302,6 +306,10 @@ def indoor_check(df, site, cache, *, t_out: str, rh_out: str, rooms: dict[str, s
                "swing_simulated_c": _daily_swing(df.index, sim_t, site.zone)}
         if col in rh_of:
             row["humidity"] = _agreement(sim_h, _values(df[rh_of[col]]))
+        # RQ2's baseline (descriptive, post hoc): the assumed curve VESPER used before a home had a site
+        row["assumed_temperature"] = _agreement(assumed["temperature"], measured)
+        if col in rh_of:
+            row["assumed_humidity"] = _agreement(assumed["humidity"], _values(df[rh_of[col]]))
         rows.append(row)
     report["rooms"] = rows
     rmse = sorted(r["temperature"]["rmse"] for r in rows)
@@ -312,6 +320,10 @@ def indoor_check(df, site, cache, *, t_out: str, rh_out: str, rooms: dict[str, s
     h = sorted(r["humidity"]["rmse"] for r in rows if "humidity" in r)
     report["H"] = {"median_rmse_pp": h[len(h) // 2] if h else None}
     report["H"]["pass"] = bool(h) and report["H"]["median_rmse_pp"] <= CRITERIA["H"]["rmse_pp"]
+    at = sorted(r["assumed_temperature"]["rmse"] for r in rows)
+    ah = sorted(r["assumed_humidity"]["rmse"] for r in rows if "assumed_humidity" in r)
+    report["assumed_curve"] = {"median_rmse_c": at[len(at) // 2], "median_rmse_pp": ah[len(ah) // 2] if ah else None,
+                               "note": "descriptive, post hoc: the curve a home without a site gets (rules.ambient_at)"}
     return report
 
 
