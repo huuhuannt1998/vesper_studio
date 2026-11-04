@@ -10,6 +10,17 @@ Code: `vesper/edt/` (corpus, home, bind, trace, replay, oracle, sweep, cover). C
     vesper edt run   --corpus DIR --work DIR --out FILE [--workers N] [--rung R] [--limit N]
     vesper edt cover --sweep FILE --out FILE
 
+Note (2026-11-04, after the runs; commands only, nothing above changes): the full command list.
+
+    vesper edt census  --corpus DIR --out FILE
+    vesper edt run     --corpus DIR --work DIR --out FILE [--workers N] [--rung R] [--limit N]
+    vesper edt cover   --sweep FILE --out FILE
+    vesper edt ladder  --sweep FILE [--sweep FILE ...] --out FILE
+    vesper edt confirm --sweep FILE --work DIR --out FILE [--sample 200] [--seed 0] [--workers 2] [--cache DIR]
+
+`vesper edt confirm` is the closed-loop confirmation (`vesper.edt.confirm.confirm`); at dc119cd it was called from a
+script with the same arguments.
+
 The corpus is a directory of public Home Assistant configurations given on the command line only; it is read, never
 written, and neither its location nor its origin is recorded in any committed file or result.
 

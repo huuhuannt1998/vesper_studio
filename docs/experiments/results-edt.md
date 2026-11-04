@@ -9,7 +9,9 @@ design and its research questions are `docs/superpowers/specs/2026-11-04-environ
 ## What was run
 
 - **Code**: commit `dc119cd` (branch `plan-w4b`), `vesper edt run` / `cover` / `ladder` and the closed-loop
-  confirmation (`vesper.edt.confirm`), 6 worker processes, one laptop.
+  confirmation (`vesper.edt.confirm.confirm` called from a script, the same call as `vesper edt confirm --sweep
+  sweep-rung4.json --work DIR --out FILE --sample 200 --seed 0 --workers 2 --cache DIR`), 6 worker processes, one
+  laptop.
 - **Corpus**: 45,208 automations from 1,186 public Home Assistant repositories (1,123 of them with automations); de-duplicated by canonical hash
   (protocol section 1), **43,280 automations**, the unit of every count below. 4,984 of them read the environment as
   written (sun, temperature, illuminance, humidity or weather: "environment-coupled"); the census is
