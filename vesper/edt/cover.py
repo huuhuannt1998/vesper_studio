@@ -21,13 +21,16 @@ import random
 from collections import Counter
 
 from vesper.edt.oracle import TIME_SPREAD_H, divergences
+from vesper.edt.trace import DATES as _TRACE_DATES
 from vesper.edt.types import Env, Outcome
 
 TARGET = 0.8
 TARGET_SIZE = 5
 MAX_SHARE = 0.5          # non-degeneracy: no single environment covers more than this share
 RANDOM_DRAWS, RANDOM_SEED, RANDOM_SIZE = 100, 0, 5
-GRID_DATES, GRID_NORTH = ("2026-01-15", "2026-07-15"), 0.0  # the cross-site experiment's hand-picked grid
+
+GRID_DATES = (_TRACE_DATES[0], _TRACE_DATES[2])  # the hand-picked grid: January and July of the sweep's dates (A3.1)
+GRID_NORTH = 0.0
 AXES = ("north_deg", "date", "city")  # a minimal witness prefers the smallest change, in this order
 ENVELOPE = ("flaps", "night_light", "night_cover")
 

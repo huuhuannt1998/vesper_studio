@@ -126,9 +126,9 @@ def _entry(repo, outcomes, divergences):
 def test_cover_report_has_the_cover_the_held_out_coverage_baselines_and_witnesses():
     import dataclasses
     from vesper.validation.crosssite import CITIES
-    envs = [Env(c, d, n) for c in CITIES for d in ("2026-01-15", "2026-07-15") for n in (0.0, 180.0)]
+    envs = [Env(c, d, n) for c in CITIES for d in ("2026-01-14", "2026-07-15") for n in (0.0, 180.0)]  # A3.1 dates
     train, held = _repo_in(0), _repo_in(1)
-    sto_jan = Env(STO, "2026-01-15", 0.0)
+    sto_jan = Env(STO, "2026-01-14", 0.0)
     autos = {}
     for i, repo in enumerate([train, train, held, held]):
         outs = {e: at(17.0) for e in envs}
