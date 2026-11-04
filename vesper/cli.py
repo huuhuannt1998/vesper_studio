@@ -1061,9 +1061,12 @@ def _lab_import(args, catalog) -> int:
             if is_image:
                 print(plan_read.summary(loaded), flush=True)  # in pixels: the scale is what is missing
             raise
-        plan = rectify(scaled)
+        warnings: list[str] = []  # what the walls could not carry: left out or narrowed, never invented
+        plan = rectify(scaled, warnings)
         if is_image:
             print(plan_read.summary(plan), flush=True)
+        for w in warnings:
+            print(f"warning: {w}", flush=True)
         problems = check_house(plan)
         if problems:
             print(f"FAILED: {src.name} is not a house VESPER can build ({len(problems)} problem"

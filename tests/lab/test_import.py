@@ -578,3 +578,97 @@ def test_an_hssd_house_s_map_original_is_not_a_bare_plan_every_pair_needs_a_walk
     original = out / "map.original.json"  # VESPER's own bare map says so, whatever the scene
     original.write_text(json.dumps({**json.loads(original.read_text()), "bare": True}))
     assert cli.main(["lab", "layout", str(home), "--catalog", str(cat)]) == 0
+
+
+# --- real plans (task A6): a balcony, and two doors meeting end to end (CubiCasa5K plan 2207) ----------------------
+
+def balcony_plan() -> dict:
+    """A living room with the front door, a bedroom beside it, and a balcony north of the living room drawn 15 cm
+    away (the thin wall between them as a gap); a door and a window from the living room onto the balcony."""
+    return {"format": "vesper-plan/1", "units": "m", "scale": None,
+            "rooms": [{"id": "lr", "name": "Living room", "type": "living", "polygon": rect(0, 0, 5, 4)},
+                      {"id": "bd", "name": "Bedroom", "type": "bedroom", "polygon": rect(5, 0, 8.5, 4)},
+                      {"id": "bal", "name": "Balcony", "type": "balcony", "polygon": rect(0, 4.15, 5, 5.5)}],
+            "doors": [{"at": [0, 2], "width": 0.9, "rooms": ["outside", "lr"]},
+                      {"at": [5, 2], "width": 0.9, "rooms": ["lr", "bd"]},
+                      {"at": [1, 4.1], "width": 0.9, "rooms": ["lr", "bal"]}],
+            "windows": [{"at": [3.2, 4.1], "width": 1.6, "room": "lr"},
+                        {"at": [8.5, 2], "width": 1.2, "room": "bd"}],
+            "entrance": 0}
+
+
+def test_a_balcony_is_built_as_an_outdoor_room_like_a_porch(tmp_path, capsys):
+    import yaml
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "bal"
+    warnings = []
+    generate_from_plan(rectify(balcony_plan(), warnings), Request(tmp_path, [], 0, []), load_catalog(cat), out,
+                       source="bal.json")
+    assert warnings == []
+    home = load_lab_home(out / "home.yaml", load_catalog(cat))
+    assert [r.id for r in home.map.rooms] == ["living", "bedroom", "porch", "balcony"]  # the porch first outdoors
+    balcony = home.map.room("balcony")
+    assert balcony.outdoor and balcony.label == "balcony/terrace"
+    assert sorted(d.id for d in home.map.doorways) == ["balcony-living", "bedroom-living", "living-porch"]
+    living = [w for w in load_windows(out) if w["room"] == "living"]
+    assert [(w["source"], w["x"], w["z"]) for w in living] == [("plan", 3.2, 4.075)]  # onto the balcony
+    assert not [w for w in load_windows(out) if w["room"] == "balcony"]
+    devices = yaml.safe_load((out / "home.yaml").read_text())["devices"]
+    assert not [d for d in devices if (d.get("at") or {}).get("room") == "balcony"]  # no indoor device outdoors
+    assert not [i for i in json.loads((out / "furniture.json").read_text())["items"] if i["room"] == "balcony"]
+    assert "# Imported from bal.json (floor-plan import): 2 rooms" in (out / "home.yaml").read_text()
+    assert cli.main(["lab", "layout", str(out / "home.yaml"), "--catalog", str(cat)]) == 0
+    assert "0 error(s)" in capsys.readouterr().out
+
+
+def test_a_resident_leaves_by_the_front_door_onto_the_porch_not_the_balcony(tmp_path):
+    from types import SimpleNamespace
+
+    from vesper.lab.resident import Resident
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "bal"
+    generate_from_plan(rectify(balcony_plan()), Request(tmp_path, [], 0, []), load_catalog(cat), out)
+    home = load_lab_home(out / "home.yaml", load_catalog(cat))
+    resident = Resident.__new__(Resident)
+    resident.home = home
+    resident.world = SimpleNamespace(doors={"balcony-living": False, "bedroom-living": False, "living-porch": False})
+    assert resident._front_door() == "living-porch" and resident._outdoors() == "porch"
+
+
+def t_junction(dx=0.0) -> dict:
+    """A kitchen along the top; under it a hall (x 0 to 2) and a living room (x 2 to 5); a door from the kitchen
+    into each, the two meeting end to end where the hall's and the living room's wall comes up, as CubiCasa5K plan
+    2207 was read (kitchen to hall 2.17 m and kitchen to living room 2.23 m, on 2.18 m and 2.29 m of wall)."""
+    return {"format": "vesper-plan/1", "units": "m", "scale": None,
+            "rooms": [{"id": "k", "name": "", "type": "kitchen", "polygon": rect(dx, 0, 5 + dx, 2.5)},
+                      {"id": "h", "name": "", "type": "hall", "polygon": rect(dx, 2.5, 2 + dx, 4.5)},
+                      {"id": "lr", "name": "", "type": "living", "polygon": rect(2 + dx, 2.5, 5 + dx, 7)}],
+            "doors": [{"at": [1.0 + dx, 2.5], "width": 1.99, "rooms": ["k", "h"]},
+                      {"at": [3.5 + dx, 2.5], "width": 2.99, "rooms": ["k", "lr"]},
+                      {"at": [5 + dx, 5], "width": 0.9, "rooms": ["lr", "outside"]}],
+            "windows": [], "entrance": 2}
+
+
+@pytest.mark.parametrize("dx", [0.0, 0.013, 0.037, 0.05, 0.071, 0.099])
+def test_two_doors_meeting_end_to_end_open_two_doorways_not_one_into_three_rooms(dx):
+    m = floor_plan_from(rectify(t_junction(dx)), "imported/t")
+    assert sorted(d.id for d in m.doorways) == ["h-k", "k-lr", "lr-porch"]
+
+
+def test_the_t_junction_plan_is_built_and_passes_the_layout_check(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "t"
+    generate_from_plan(rectify(t_junction()), Request(tmp_path, [], 0, []), load_catalog(cat), out)
+    assert cli.main(["lab", "layout", str(out / "home.yaml"), "--catalog", str(cat)]) == 0
+    assert "0 error(s)" in capsys.readouterr().out
+
+
+def test_the_import_prints_what_it_left_out_or_narrowed_and_builds_the_home(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    plan = three_rooms()
+    plan["windows"].append({"at": [5, 1.0], "width": 1.0, "room": "k"})  # on the wall it shares with the living room
+    out = tmp_path / "mine"
+    assert cli.main(["lab", "import", str(write(tmp_path, plan)), str(out), "--catalog", str(cat)]) == 0
+    text = capsys.readouterr().out
+    assert "warning: window 2 of 'k' is not on an outside wall: left out" in text
+    assert (out / "home.yaml").is_file()

@@ -528,10 +528,14 @@ class Resident:
                      and is_locked(self.rules.twin(n)) is not None), None)
 
     def _front_door(self) -> str | None:
-        return next((d for d in self.world.doors if self.home.map.doorway(d).outdoor), None)
+        """The door to the outside: the one onto the porch when there is one (not a balcony's)."""
+        outdoor = [d for d in self.world.doors if self.home.map.doorway(d).outdoor]
+        return next((d for d in outdoor if "porch" in self.home.map.doorway(d).rooms), outdoor[0] if outdoor else None)
 
     def _outdoors(self) -> str | None:
-        return next((r.id for r in self.home.map.rooms if r.outdoor), None)
+        """Where a resident goes out to: the porch when there is one (not a balcony)."""
+        outdoor = [r.id for r in self.home.map.rooms if r.outdoor]
+        return "porch" if "porch" in outdoor else next(iter(outdoor), None)
 
     def _indoor_rooms(self) -> list[str]:
         return [r.id for r in self.home.map.rooms if not r.outdoor] or [self.home.map.rooms[0].id]

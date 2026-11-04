@@ -129,8 +129,10 @@ def _fill(grid: Grid, x0: float, z0: float, x1: float, z1: float) -> None:
 
 # -- a home from a floor plan (floor-plan import, task A2) ------------------------------------------------------
 # A plan's room types (vesper.lab.plan.ROOM_TYPES): the label each gets on the map (what the furnisher reads, so an
-# "other" room gets no furniture of a kind) and the stem of its id (what the device placer reads)
-PLAN_LABELS = {**LABELS, "corridor": "hallway", "hall": "hall", "other": "other"}
+# "other" room gets no furniture of a kind) and the stem of its id (what the device placer reads). A balcony (also a
+# terrace, patio or loggia: vesper.lab.plan.OUTDOOR_TYPES) is an outdoor room, as a porch: no ceiling, no furniture,
+# the outdoor air and light for a device on it.
+PLAN_LABELS = {**LABELS, "corridor": "hallway", "hall": "hall", "balcony": "balcony/terrace", "other": "other"}
 PLAN_STEMS = {"other": "room", "corridor": "hallway"}  # a hallway gets a light; `at: hall` finds it
 PORCH_LABEL = "porch/terrace/deck/driveway"
 PORCH_TRIES = ((2.0, 3.0), (2.0, 2.0), (1.5, 2.0), (1.0, 1.5))  # (depth, width): the first that fits outside
@@ -165,7 +167,9 @@ def floor_plan_from(plan_m: dict, scene: str) -> WorldMap:
     outline taken in by half a wall (WALL), as a generated room's is, so a wall between two rooms is solid floor-less
     cells; each door opens the wall across its width; an outside door gets an outdoor room before it (the entrance's
     `porch`, PORCH deep and wide when it fits, any other `porch_2`, ...; doors close together on one wall share one,
-    `_porch_for`). Rooms may be any simple polygon."""
+    `_porch_for`); a balcony is an outdoor room. The map lists the indoor rooms, then the porches, then the
+    balconies (the porch is the home's first outdoor room: where a resident goes out). Rooms may be any simple
+    polygon."""
     from vesper.lab.plan import PlanError, load_plan
     try:
         load_plan(plan_m)
@@ -173,13 +177,15 @@ def floor_plan_from(plan_m: dict, scene: str) -> WorldMap:
         raise GenerateError(str(e)) from None
     if plan_m["units"] != "m":
         raise GenerateError("the plan is in pixels: scale it to metres first (vesper.lab.plan.scale_plan)")
+    from vesper.lab.plan import OUTDOOR_TYPES
     outlines = {r["id"]: _outline(r["polygon"]) for r in plan_m["rooms"]}
     rooms = []
     for r in plan_m["rooms"]:
         inner = _inset(outlines[r["id"]], WALL)
         if inner is None:
             raise GenerateError(f"room {r['id']!r}: a part of it is narrower than its walls ({2 * WALL:.1f} m)")
-        rooms.append(Room(r["id"], PLAN_LABELS[r["type"]], tuple((round(x, 3), round(z, 3)) for x, z in inner)))
+        rooms.append(Room(r["id"], PLAN_LABELS[r["type"]], tuple((round(x, 3), round(z, 3)) for x, z in inner),
+                          outdoor=r["type"] in OUTDOOR_TYPES))
     doors = plan_m.get("doors") or []
     entrance = plan_m.get("entrance")
     order = ([entrance] if entrance is not None else []) + [k for k in range(len(doors)) if k != entrance]
@@ -198,7 +204,8 @@ def floor_plan_from(plan_m: dict, scene: str) -> WorldMap:
             porch = _porch_for(k, d, sides[0], along, (-inward[0], -inward[1]), outlines, porches, taken)
             pair.add(porch["id"])
         joins[k] = pair
-    every = [*rooms, *(Room(p["id"], PORCH_LABEL, p["polygon"], outdoor=True) for p in porches)]
+    every = [*(r for r in rooms if not r.outdoor), *(Room(p["id"], PORCH_LABEL, p["polygon"], outdoor=True)
+                                                      for p in porches), *(r for r in rooms if r.outdoor)]
     polys = [*outlines.values(), *(p["polygon"] for p in porches)]
     xs, zs = [x for poly in polys for x, _ in poly], [z for poly in polys for _, z in poly]
     ox, oz = (round(math.floor((v - MARGIN) / CELL + _TOL) * CELL, 6) for v in (min(xs), min(zs)))
