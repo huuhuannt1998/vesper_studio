@@ -75,9 +75,22 @@ def _git(*cmd: str) -> str | None:
     return r.stdout.strip() if r.returncode in (0, 1) else None
 
 
+def _recorded(key: str, value):
+    """A parameter as a result records it: an absolute (or home-relative) path becomes a placeholder naming the
+    parameter, so a committed result never carries a machine's directories or a user name."""
+    if isinstance(value, (list, tuple)):
+        return [_recorded(key, v) for v in value]
+    if isinstance(value, os.PathLike):
+        value = os.fspath(value)
+    if isinstance(value, str) and (os.path.isabs(value) or value.startswith("~")):
+        p = Path(value).expanduser()
+        return f"<{key} dir>" if p.is_dir() else f"<{key} file>" if p.is_file() else f"<{key}>"
+    return value
+
+
 def _run_info(args) -> dict:
     """How a result was produced: the parameters, the code version and the catalog it read."""
-    parameters = {k: v for k, v in vars(args).items() if k not in ("out", "command", "action")}
+    parameters = {k: _recorded(k, v) for k, v in vars(args).items() if k not in ("out", "command", "action")}
     catalog = Path(getattr(args, "catalog", "") or "catalog/vds") / "build_report.json"
     built = json.loads(catalog.read_text()) if catalog.is_file() else {}
     inputs = built.get("inputs", {}) if catalog.is_file() else None

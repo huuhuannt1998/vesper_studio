@@ -397,6 +397,20 @@ def test_every_result_records_how_it_was_produced(tmp_path, catalog):
     assert run["catalog_inputs"]["zigbee"]["version"] == "26.123.0" and "git_dirty" in run
 
 
+def test_a_result_never_records_an_absolute_path(tmp_path, catalog):
+    out = tmp_path / "rules.json"
+    cli.main(["validate", "rules", "--catalog", str(catalog), "--hours", "1", "--out", str(out)])
+    assert json.loads(out.read_text())["run"]["parameters"]["catalog"] == "<catalog dir>"
+    assert str(tmp_path) not in out.read_text()
+    args = SimpleNamespace(command="validate", action="x", work="/somewhere/private/xs", request="~/plan.yaml",
+                           catalog="catalog/vds", files=["/a/b.json", "c.json"], hours=1.0)
+    params = cli._run_info(args)["parameters"]
+    assert params["work"] in ("<work dir>", "<work file>", "<work>")
+    assert params["request"] == "<request>"
+    assert params["catalog"] == "catalog/vds" and params["hours"] == 1.0
+    assert params["files"] == ["<files>", "c.json"]
+
+
 def test_report_command_writes_markdown_and_json(tmp_path, catalog, capsys):
     (catalog / "coverage.json").write_text(json.dumps({"zigbee": {"L0": 1, "L1": 1, "L2": 0, "L3": 0, "L4": 0}}))
     out = tmp_path / "report"
@@ -433,7 +447,7 @@ def test_realdata_replays_a_dataset_and_records_where_it_came_from(monkeypatch, 
     data = json.loads(out.read_text())
     assert code == 0 and data["passed"] and data["judged"] == 1
     assert data["dataset_commit"] is None and data["dataset_dirty"] is None  # not a checkout of its own
-    assert data["run"]["parameters"]["dataset"] == str(root)
+    assert data["run"]["parameters"]["dataset"] == "<dataset dir>"  # never the machine's path
     assert "1/1 judged streams reproduced" in capsys.readouterr().out
 
 
