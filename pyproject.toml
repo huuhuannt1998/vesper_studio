@@ -23,6 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["jinja2>=3.1", "pytest>=8", "ruff>=0.5"]
+validation = ["pvlib>=0.11,<0.14"]  # `vesper validate sun`: NREL's Solar Position Algorithm as the reference
 
 [project.scripts]
 vesper = "vesper.cli:main"

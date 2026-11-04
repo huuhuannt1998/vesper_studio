@@ -354,6 +354,25 @@ def _validate_latency(args) -> int:
     return 0 if report["passed"] else 1
 
 
+def _validate_sun(args) -> int:
+    """Phase 6 of the environment design: VESPER's sun (astral) against NREL SPA over every named city."""
+    try:
+        from vesper.validation.environment import sun_report
+        report = sun_report(step_min=args.step)
+    except ImportError:
+        print("FAILED sun: pvlib is not installed (uv pip install -e '.[validation]')", file=sys.stderr)
+        return 1
+    out = args.out or Path("results/environment") / f"sun-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+    path = _write_report(str(out), "sun", report, args)
+    p, r, s, d = (report["position_deg"]["above_5"], report["sunrise_s"], report["sunset_s"],
+                  report["elevation_dip_s"])
+    print(f"sun: position within {p['max_abs']:.4f} deg of {report['reference']} (mean {p['mean_abs']:.4f}, "
+          f"{p['n']} positions above 5 deg); sunrise within {r['max_abs']:.0f} s, sunset within {s['max_abs']:.0f} s "
+          f"(level horizon); the site's height moves them {d['mean_abs']:.0f} s on average, up to {d['max_abs']:.0f} s "
+          f"(as Home Assistant's sun); report {path}")
+    return 0
+
+
 def _validate_discovery(args) -> int:
     from vesper.twins.home import load_catalog
     from vesper.validation import ha_schema
@@ -1636,6 +1655,10 @@ def main(argv: list[str] | None = None) -> int:
     real.add_argument("--catalog", default="catalog/vds")
     real.add_argument("--tshark", default="tshark")
     real.add_argument("--out")
+    sun_cmd = checks.add_parser("sun", help="the environment's sun against NREL's Solar Position Algorithm "
+                                            "(needs the validation extra: pvlib)")
+    sun_cmd.add_argument("--step", type=int, default=10, help="minutes between compared positions (default 10)")
+    sun_cmd.add_argument("--out")
     disc = checks.add_parser("discovery", help="Home Assistant's own schemas over every discovery message")
     disc.add_argument("--catalog", default="catalog/vds")
     disc.add_argument("--root", default=".vesper")
@@ -2116,6 +2139,8 @@ def _dispatch(args) -> int:
         return _lab(args)
     if args.action == "discovery":
         return _validate_discovery(args)
+    if args.action == "sun":
+        return _validate_sun(args)
     if args.action == "rules":
         return _validate_rules(args)
     if args.action == "latency":
