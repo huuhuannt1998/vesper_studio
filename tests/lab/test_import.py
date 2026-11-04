@@ -680,5 +680,5 @@ def test_the_import_prints_what_it_left_out_or_narrowed_and_builds_the_home(tmp_
     out = tmp_path / "mine"
     assert cli.main(["lab", "import", str(write(tmp_path, plan)), str(out), "--catalog", str(cat)]) == 0
     text = capsys.readouterr().out
-    assert "warning: window 2 of 'k' is not on an outside wall: left out" in text
+    assert "warning: window 3 of 'k' is not on an outside wall: left out" in text
     assert (out / "home.yaml").is_file()

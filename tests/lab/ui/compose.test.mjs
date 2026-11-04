@@ -282,7 +282,7 @@ test("leaving out the room the entrance opens into says so, and another outside 
 });
 
 test("what was left out or narrowed is listed under Problems as warnings that do not block, after the problems", () => {
-  const left = "window 2 of 'k' is not on an outside wall: left out";
+  const left = "window 3 of 'k' is not on an outside wall: left out";
   assert.deepEqual(problemItems([], [], [left]),
                    [{ text: "None: VESPER can build this house.", kind: "ok" },
                     { text: `Warning: ${left}`, kind: "warn" }]);

@@ -352,7 +352,7 @@ def test_a_window_moves_onto_the_outside_wall_of_its_room():
     far = copy.deepcopy(p)
     far["windows"][0]["at"] = [2.5, 2]  # no outside wall within 50 cm: left out (task A6), with a warning
     warnings = []
-    assert rectify(far, warnings)["windows"] == [] and warnings == ["window 0 of 'living' is not on an outside wall: "
+    assert rectify(far, warnings)["windows"] == [] and warnings == ["window 1 of 'living' is not on an outside wall: "
                                                                      "left out"]
 
 
@@ -594,7 +594,7 @@ def test_any_field_of_the_wrong_type_is_a_plan_error_never_a_crash():
                     pass
     plan = house()
     plan["windows"] = [{"at": [1, 0], "width": 1, "room": ["living"]}]
-    with pytest.raises(PlanError, match="window 0"):
+    with pytest.raises(PlanError, match="window 1"):
         load_plan(plan)
 
 
@@ -857,7 +857,7 @@ def test_a_window_on_no_outside_wall_is_left_out_with_a_warning_not_refused():
     warnings = []
     out = rectify(p, warnings)
     assert out["windows"] == [{"at": [2.5, 0], "width": 1.2, "room": "living"}]
-    assert warnings == ["window 1 of 'living' is not on an outside wall: left out"]
+    assert warnings == ["window 2 of 'living' is not on an outside wall: left out"]
     middle = copy.deepcopy(p)
     middle["windows"] = [{"at": [2.5, 2], "width": 1.2, "room": "living"}]  # in the middle of the room
     assert rectify(middle)["windows"] == []  # no list given: no warning kept, the window still left out
@@ -869,7 +869,7 @@ def test_a_window_of_a_balcony_is_left_out_with_a_warning():
     warnings = []
     out = rectify(p, warnings)
     assert [w["room"] for w in out["windows"]] == ["living"]
-    assert warnings == ["window 1 of 'bal' is in an outdoor room: left out"]
+    assert warnings == ["window 2 of 'bal' is in an outdoor room: left out"]
 
 
 def test_a_door_wider_than_its_shared_wall_is_narrowed_to_fit_with_a_warning():
@@ -893,13 +893,13 @@ def test_a_window_wider_than_its_wall_is_narrowed_and_one_on_a_tiny_stretch_left
     p = metres([room("living", "living", rect(0, 0, 5, 4))], windows=[{"at": [2.5, 0], "width": 6, "room": "living"}])
     warnings = []
     assert rectify(p, warnings)["windows"] == [{"at": [2.5, 0], "width": pytest.approx(4.9), "room": "living"}]
-    assert warnings == ["window 0 of 'living' (6.00 m) is wider than its wall (5.00 m): narrowed to 4.90 m"]
+    assert warnings == ["window 1 of 'living' (6.00 m) is wider than its wall (5.00 m): narrowed to 4.90 m"]
     tiny = metres([room("living", "living", rect(0, 0, 5, 4)), room("k", "kitchen", rect(0, 4, 4.5, 7)),
                    room("b", "bedroom", rect(5, 0, 8, 7))],  # the outside wall by the window: 0.5 m of it
                   windows=[{"at": [4.75, 4], "width": 1.0, "room": "living"}])
     warnings = []
     assert rectify(tiny, warnings)["windows"] == []
-    assert warnings == ["window 0 of 'living' is not on an outside wall: left out"]
+    assert warnings == ["window 1 of 'living' is not on an outside wall: left out"]
 
 
 def test_a_door_between_rooms_that_do_not_touch_is_left_out_when_the_house_stays_connected():

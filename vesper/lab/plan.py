@@ -240,14 +240,14 @@ def load_plan(raw: dict, numbers: list[int] | None = None) -> dict:
         windows = []
     for k, w in enumerate(windows):
         if not isinstance(w, dict) or set(w) != _WINDOW_KEYS:
-            errs.append(f"window {k}: must be an object with exactly {', '.join(sorted(_WINDOW_KEYS))}")
+            errs.append(f"window {k + 1}: must be an object with exactly {', '.join(sorted(_WINDOW_KEYS))}")
             continue
         if not _is_point(w["at"]):
-            errs.append(f"window {k}: at must be an [x, y] point")
+            errs.append(f"window {k + 1}: at must be an [x, y] point")
         if not _num(w["width"]) or w["width"] <= 0:
-            errs.append(f"window {k}: width must be a number above 0")
+            errs.append(f"window {k + 1}: width must be a number above 0")
         if not isinstance(w["room"], str) or w["room"] not in ids:
-            errs.append(f"window {k}: room {w['room']!r} is not in the plan")
+            errs.append(f"window {k + 1}: room {w['room']!r} is not in the plan")
 
     if not errs and (bad := _numbers_problem(numbers, doors)) is not None:
         errs.append(bad)
@@ -1007,7 +1007,7 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
     kept = []
     for k, w in enumerate(windows):
         r = ids.index(w["room"])
-        what = f"window {k} of {w['room']!r}"
+        what = f"window {k + 1} of {w['room']!r}"  # counted from 1, as doors are
         if r in outdoor:
             say(f"{what} is in an outdoor room: left out")
             continue

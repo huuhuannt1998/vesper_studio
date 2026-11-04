@@ -579,7 +579,7 @@ def test_the_check_lists_what_was_left_out_as_warnings_that_do_not_block_generat
     plan["windows"].append({"at": [500, 100], "width": 100, "room": "k"})  # on the wall the kitchen shares
     got = json.loads(call(s, "/api/import/check", {"plan": plan, "scale": "living width 5 m"})[1])
     assert got["problems"] == []
-    assert got["warnings"] == ["window 2 of 'k' is not on an outside wall: left out"]
+    assert got["warnings"] == ["window 3 of 'k' is not on an outside wall: left out"]
     assert json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "living width 5 m"})[1])[
         "warnings"] == []
     nope = json.loads(call(s, "/api/import/check", {"plan": plan, "scale": "garage width 3 m"})[1])
