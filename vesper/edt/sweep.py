@@ -28,6 +28,7 @@ from vesper.edt.oracle import divergences, outcome
 from vesper.edt.types import Env, Outcome
 
 BATCH = 500  # automations per engine
+REPLAY_TIMEOUT_S = 120.0  # wall-clock time one batch's replay may take (a hung automation is refused)
 ENVELOPE = ("flaps", "night_light", "night_cover")
 NC_TRIGGERS = {"state", "time", "time_pattern"}
 NC_CONDITIONS = {"state", "time"}
@@ -115,15 +116,23 @@ def _site_of(trace: Path):
         return parse_site(json.loads(f.readline()).get("site"))
 
 
+class ReplayTimeout(Exception):
+    """A batch's replay ran past REPLAY_TIMEOUT_S."""
+
+
 def _replay(trace: Path, ids: list[str], out: dict) -> None:
-    """Replay `ids` in one engine; if the engine fails, halve the batch until the failing automation is alone, and
-    record its error (`out["errors"]`)."""
-    from vesper.edt.replay import replay_detailed
+    """Replay `ids` in one engine; if the engine fails, or runs past REPLAY_TIMEOUT_S of wall-clock time, halve the
+    batch until the failing automation is alone, and record its error (`out["errors"]`; "replay timeout")."""
+    from vesper.edt import replay as replay_module
+    from vesper.lab.ha_template import budget
     try:
-        r = replay_detailed(_W["home_yaml"], trace, {i: _W["bound"][i] for i in ids}, catalog_dir=_W["catalog_dir"])
+        with budget(_W.get("timeout", REPLAY_TIMEOUT_S), "the replay", ReplayTimeout):
+            r = replay_module.replay_detailed(_W["home_yaml"], trace, {i: _W["bound"][i] for i in ids},
+                                              catalog_dir=_W["catalog_dir"])
     except Exception as e:  # noqa: BLE001 - one bad automation must not sink its batch
         if len(ids) == 1:
-            out["errors"][ids[0]] = f"replay error: {type(e).__name__}: {str(e)[:200]}"
+            out["errors"][ids[0]] = "replay timeout" if isinstance(e, ReplayTimeout) else \
+                f"replay error: {type(e).__name__}: {str(e)[:200]}"
             return
         mid = len(ids) // 2
         _replay(trace, ids[:mid], out)

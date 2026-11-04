@@ -700,3 +700,101 @@ def test_a_repeat_count_may_be_a_template_rendered_when_the_repeat_starts(tmp_pa
     _, s, e, calls = setup(tmp_path, autos)
     s.clock.advance(1.5 * H)
     assert services(calls) == ["light.toggle", "light.toggle"]
+
+
+# ---- untrusted templates are bounded (each payload must end fast, refused at load or failing at run) ---------------
+
+HOSTILE = [
+    "{{ range(10**12) | count }}",
+    "{{ range(10**9) | list | length }}",
+    "{{ 'a' * 10**11 }}",
+    "{{ ('a' * 60000) * 60000 }}",
+    "{{ 9 ** (9 ** 9) }}",
+    "{{ 10 ** 100000 }}",
+    "{{ '%999999999d' % 1 }}",
+    "{{ '%*d' % (999999999, 1) }}",
+    "{{ '{:999999999}'.format(1) }}",
+    "{{ '1'.zfill(999999999) }}",
+    "{{ 'x' | center(999999999) }}",
+    "{{ 'x\nx' | indent(999999999) }}",
+    "{{ '%999999999d' | format(1) }}",
+    "{{ ('a' * 60000) | replace('a', 'a' * 60000) }}",
+    "{{ ('a' * 60000).replace('a', 'a' * 60000) }}",
+    "{{ range(100000) | join('x' * 60000) }}",
+    "{{ ('x' * 60000).join(range(100000) | map('string')) }}",
+    "{{ [['a'] * 60000] * 60000 | sum(start=[]) | length }}",
+    "{% set ns = namespace(s='ab') %}{% for i in range(60) %}{% set ns.s = ns.s ~ ns.s %}{% endfor %}{{ ns.s }}",
+    "{% for i in range(100000) %}{% for j in range(100000) %}{% endfor %}{% endfor %}",
+    "{% for i in range(100000) %}0123456789{% endfor %}",
+    "{{ ('a' * 30 ~ 'b') | regex_match('(a+)+$') }}",
+    "{{ 'x' | attr('__class__') }}",
+    "{{ ''.__class__.__mro__ }}",
+]
+
+
+def hostile_templates():
+    """A Templates over a home-less engine stub, as the reviewer's probes build it."""
+    import types
+
+    from vesper.lab.ha_template import Templates
+
+    class Clock:
+        def now(self):
+            return 100.0
+    engine = types.SimpleNamespace(_state={"light.a": "on"}, _attrs={"light.a": {}}, _changed={}, site=None,
+                                   session=types.SimpleNamespace(clock=Clock()), _midnight=0.0)
+    return Templates(engine)
+
+
+@pytest.mark.parametrize("source", HOSTILE)
+def test_a_hostile_template_is_refused_or_fails_within_its_budget(source):
+    import time
+
+    from vesper.lab.ha_template import TemplateFailed, TemplateRefused
+    templates = hostile_templates()
+    t0 = time.monotonic()
+    try:
+        compiled = templates.compile(source, set(), {"light.a"}, "t")
+        with pytest.raises(TemplateFailed):
+            templates.render(compiled, {})
+    except TemplateRefused:
+        pass
+    assert time.monotonic() - t0 < 2.0
+
+
+def test_ordinary_templates_still_render_within_the_bounds():
+    templates = hostile_templates()
+    for source, out in (("{{ 'ab' * 3 }}", "ababab"), ("{{ 2 ** 10 }}", "1024"), ("{{ '%5.1f' % 3.14159 }}", "3.1"),
+                        ("{{ '{:.2f}'.format(2.5) }}", "2.50"), ("{{ range(5) | join(',') }}", "0,1,2,3,4"),
+                        ("{% for i in range(3) %}{{ loop.index }}{% endfor %}", "123"),
+                        ("{{ 'on' | regex_match('^(on|off)$') }}", "True"), ("{{ [1, 2] | sum }}", "3")):
+        assert templates.render(templates.compile(source, set(), set(), "t"), {})[0] == out
+
+
+def test_an_old_jinja2_refuses_every_template(monkeypatch):
+    import jinja2
+
+    from vesper.lab.ha_template import TemplateRefused
+    monkeypatch.setattr(jinja2, "__version__", "3.1.5")
+    templates = hostile_templates()
+    with pytest.raises(TemplateRefused, match="jinja2 3.1.5 is older than 3.1.6"):
+        templates.compile("{{ 1 }}", set(), set(), "t")
+
+
+def test_the_budget_restores_an_outer_alarm():
+    import signal
+    import time
+
+    from vesper.lab.ha_template import budget
+    fired = []
+    old = signal.signal(signal.SIGALRM, lambda *a: fired.append(time.monotonic()))
+    try:
+        signal.setitimer(signal.ITIMER_REAL, 0.3)
+        with budget(0.1, "x"):
+            pass
+        assert signal.getitimer(signal.ITIMER_REAL)[0] > 0.1  # the outer alarm still pending
+        time.sleep(0.4)
+        assert fired
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old)

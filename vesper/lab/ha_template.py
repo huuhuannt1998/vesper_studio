@@ -13,6 +13,11 @@ is refused whole:
   is then false, a template trigger does not fire), `is_number`, `iif`, `min`, `max`, `regex_*`, `contains`,
   the math functions (`sin` ... `sqrt`, `log`, `pi`, `e`);
 - Jinja's own safe filters and tests (`default`, `lower`, `selectattr`, `map`, `join`, ... `defined`, `in`, ...).
+Public templates are not trusted, so beyond Home Assistant's sandbox every template is bounded: jinja2 >= 3.1.6
+(else every template is refused), Jinja's safe_range, no constant folding at load, `*`, `**`, `%`, `+`, replace,
+join, sum, format, center, indent and zfill checked before they make a large value, a namespace value bounded, the
+output at most 64 KB, and half a second of wall-clock time per compile and per render (`budget`), which also
+interrupts a catastrophic regular expression; `attr` is not offered.
 A render records what it read (entities, domains, all states, the time), as Home Assistant's RenderInfo does, so a
 template trigger re-renders when one of them changes (all states at most once a minute, a domain once a second, the
 time at the start of each minute).
@@ -21,16 +26,29 @@ from __future__ import annotations
 
 import datetime as dt
 import math
+import operator
 import re
+import signal
+import threading
+import time
 from ast import literal_eval
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 _IS_NUMERIC = re.compile(r"^[+-]?(?!0\d)\d*(?:\.\d*)?$")
 STATE_FUNCTIONS = ("states", "is_state", "state_attr", "is_state_attr", "has_value")  # first argument: an entity
 TIME_NAMES = ("now", "utcnow", "today_at", "as_local", "timestamp_local", "timestamp_custom")
+# Bounds on untrusted templates (Home Assistant's own sandbox has none of these; a public automation is not trusted):
+JINJA_MIN = (3, 1, 6)  # the sandbox fixes below this version
+BUDGET_S = 0.5  # wall-clock per compile and per render
+MAX_OUTPUT = 65536  # characters a render may produce
+MAX_SIZE = 65536  # characters or items one operation (*, %, +, replace, join, ...) may produce
+MAX_WIDTH = 1000  # a format width or padding
+MAX_BITS = 4096  # an integer a * or ** may produce
+MAX_REGEX_INPUT = 10000  # characters a regex filter looks at
 # Jinja's own filters and tests that are safe and behave the same in Home Assistant
-JINJA_FILTERS = {"abs", "attr", "batch", "capitalize", "center", "count", "d", "default", "dictsort", "e", "escape",
+JINJA_FILTERS = {"abs", "batch", "capitalize", "center", "count", "d", "default", "dictsort", "e", "escape",
                  "first", "format", "groupby", "indent", "items", "join", "last", "length", "list", "lower", "map",
                  "reject", "rejectattr", "replace", "reverse", "safe", "select", "selectattr", "slice", "sort",
                  "string", "sum", "title", "trim", "truncate", "unique", "upper", "wordcount", "tojson", "dict"}
@@ -53,6 +71,148 @@ class TemplateFailed(Exception):
 
 
 _SENTINEL = object()
+
+
+class TemplateTimeout(Exception):
+    """A compile or render that ran past its wall-clock budget."""
+
+
+@contextmanager
+def budget(seconds: float, what: str, error: type[Exception] = TemplateTimeout):
+    """Raise `error` in the block after `seconds` of wall-clock time (SIGALRM, in the main thread only); an alarm
+    already set (a sweep batch's) is restored afterwards, less the time spent."""
+    if threading.current_thread() is not threading.main_thread() or not hasattr(signal, "setitimer"):
+        yield
+        return
+
+    def on_alarm(signum, frame):
+        raise error(f"{what} took longer than {seconds:g} s")
+    start = time.monotonic()
+    previous = signal.signal(signal.SIGALRM, on_alarm)
+    outer, interval = signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+        if outer:
+            signal.setitimer(signal.ITIMER_REAL, max(outer - (time.monotonic() - start), 1e-6), interval)
+
+
+def _too_big(what: str):
+    raise TemplateFailed(f"{what} would be larger than the engine allows")
+
+
+def _size(value) -> int:
+    return len(value) if isinstance(value, str | list | tuple) else 0
+
+
+def _check_widths(fmt: str, what: str) -> None:
+    """A %-format or str.format string whose width or precision is too large, or given by an argument."""
+    for m in re.finditer(r"%[-#0 +]*(\*|\d+)?(?:\.(\*|\d+))?", fmt):
+        if "*" in (m.group(1) or "", m.group(2) or "") or any(int(g) > MAX_WIDTH for g in m.groups() if g):
+            _too_big(what)
+    for spec in re.findall(r"\{[^{}]*:([^{}]*)\}", fmt) + re.findall(r"\{[^{}]*:[^}]*\{", fmt):
+        if "{" in spec or any(int(n) > MAX_WIDTH for n in re.findall(r"\d+", spec)):
+            _too_big(what)
+
+
+def _binop(op: str, left, right):
+    """`*`, `**`, `%` and `+` with their results bounded."""
+    if op == "*":
+        for seq, n in ((left, right), (right, left)):
+            if _size(seq) or isinstance(seq, str | list | tuple):
+                if isinstance(n, int) and _size(seq) * max(n, 0) > MAX_SIZE:
+                    _too_big("a repetition")
+        if isinstance(left, int) and isinstance(right, int) and left.bit_length() + right.bit_length() > MAX_BITS:
+            _too_big("a product")
+        return operator.mul(left, right)
+    if op == "**":
+        if isinstance(left, int) and isinstance(right, int) and right > 0 and abs(left) > 1 and \
+                (right > MAX_BITS or left.bit_length() * right > MAX_BITS):
+            _too_big("a power")
+        return operator.pow(left, right)
+    if op == "%":
+        if isinstance(left, str):
+            _check_widths(left, "a formatted string")
+            out = operator.mod(left, right)
+            if len(out) > MAX_SIZE:
+                _too_big("a formatted string")
+            return out
+        return operator.mod(left, right)
+    if op == "+":
+        if _size(left) + _size(right) > MAX_SIZE:
+            _too_big("a concatenation")
+        return operator.add(left, right)
+    raise TemplateFailed(f"operator {op} is not supported")
+
+
+def _bounded_filters(filters: dict) -> dict:
+    """Jinja's filters that can make a very large value in one call, with their sizes checked first."""
+    jinja_replace, jinja_join, jinja_sum = filters["replace"], filters["join"], filters["sum"]
+    jinja_center, jinja_indent, jinja_format = filters["center"], filters["indent"], filters["format"]
+
+    def replace(eval_ctx, s, old, new, count=None):
+        _check_replace(str(s), str(old), str(new))
+        return jinja_replace(eval_ctx, s, old, new, count)
+
+    def join(eval_ctx, value, d="", attribute=None):
+        items = list(value)
+        if len(str(d)) * len(items) > MAX_SIZE:
+            _too_big("a join")
+        return jinja_join(eval_ctx, items, d, attribute)
+
+    def total(environment, iterable, attribute=None, start=0):
+        items = list(iterable)
+        if sum(_size(x) for x in items) + _size(start) > MAX_SIZE:
+            _too_big("a sum")
+        return jinja_sum(environment, items, attribute, start)
+
+    def center(value, width=80):
+        if int(width) > MAX_WIDTH:
+            _too_big("a centred string")
+        return jinja_center(value, width)
+
+    def indent(s, width=4, first=False, blank=False):
+        if isinstance(width, str) and len(width) * (str(s).count("\n") + 1) > MAX_SIZE or \
+                isinstance(width, int) and width > MAX_WIDTH:
+            _too_big("an indented string")
+        return jinja_indent(s, width, first, blank)
+
+    def fmt(value, *args, **kwargs):
+        _check_widths(str(value), "a formatted string")
+        return jinja_format(value, *args, **kwargs)
+
+    for new, old in ((replace, jinja_replace), (join, jinja_join), (total, jinja_sum)):
+        for marker in ("jinja_pass_arg",):
+            if hasattr(old, marker):
+                setattr(new, marker, getattr(old, marker))
+    return {"replace": replace, "join": join, "sum": total, "center": center, "indent": indent, "format": fmt}
+
+
+def _check_replace(s: str, old: str, new: str) -> None:
+    if old and len(s) + s.count(old) * max(len(new) - len(old), 0) > MAX_SIZE or not old and len(new) * len(s) > \
+            MAX_SIZE:
+        _too_big("a replacement")
+
+
+def _check_call(obj, args) -> tuple:
+    """A string method that can make a very large value: its arguments checked first."""
+    owner, name = getattr(obj, "__self__", None), getattr(obj, "__name__", "")
+    if not isinstance(owner, str):
+        return args
+    if name == "format":
+        _check_widths(owner, "a formatted string")
+    elif name == "zfill" and args and isinstance(args[0], int) and args[0] > MAX_WIDTH:
+        _too_big("a padded string")
+    elif name == "replace" and len(args) >= 2:
+        _check_replace(owner, str(args[0]), str(args[1]))
+    elif name == "join" and args:
+        items = list(args[0])
+        if len(owner) * len(items) + sum(_size(x) for x in items) > MAX_SIZE:
+            _too_big("a join")
+        return (items, *args[1:])
+    return args
 
 
 def is_template(value) -> bool:
@@ -252,24 +412,46 @@ class Templates:
     """Compiles and renders templates over one engine."""
 
     def __init__(self, engine):
-        from jinja2.sandbox import ImmutableSandboxedEnvironment
+        import jinja2
+        from jinja2.sandbox import ImmutableSandboxedEnvironment, safe_range
+        from jinja2.utils import Namespace
 
         templates = self
+        version = tuple(int(x) for x in re.findall(r"\d+", jinja2.__version__)[:3])
+        self.refusal = None if version >= JINJA_MIN else (
+            f"jinja2 {jinja2.__version__} is older than {'.'.join(map(str, JINJA_MIN))} (its sandbox has known "
+            "escapes)")
 
         class Environment(ImmutableSandboxedEnvironment):
+            intercepted_binops = frozenset(("*", "**", "%", "+"))
+
             def is_safe_attribute(self, obj, attr, value):
                 if isinstance(obj, TemplateState | FixedState | DomainStates | AllStates):
                     return not attr.startswith("_")
                 return super().is_safe_attribute(obj, attr, value)
 
+            def call_binop(self, context, operator, left, right):
+                return _binop(operator, left, right)
+
+            def call(__self, __context, __obj, *args, **kwargs):  # noqa: N805 - Jinja's own signature
+                args = _check_call(__obj, args)
+                return super().call(__context, __obj, *args, **kwargs)
+
+        class BoundedNamespace(Namespace):
+            """A namespace whose attributes cannot grow past the size bound (a doubling loop)."""
+
+            def __setitem__(self, name, value):
+                if _size(value) > MAX_SIZE:
+                    _too_big("a namespace value")
+                super().__setitem__(name, value)
+
         self.engine = engine
         self.view = View(engine)
-        self.env = Environment()
+        self.env = Environment(optimized=False)  # no constant folding at load: 'a' * 10**11 is a render's
         self.env.globals.clear()
-        self.env.globals.update(range=range, dict=dict)
-        from jinja2.utils import Namespace
-        self.env.globals["namespace"] = Namespace
+        self.env.globals.update(range=safe_range, dict=dict, namespace=BoundedNamespace)
         self.env.filters = {k: v for k, v in self.env.filters.items() if k in JINJA_FILTERS}
+        self.env.filters.update(_bounded_filters(self.env.filters))
         self.env.tests = {k: v for k, v in self.env.tests.items() if k in JINJA_TESTS}
         g, f, tst = self.env.globals, self.env.filters, self.env.tests
         v = self.view
@@ -366,12 +548,25 @@ class Templates:
         """A compiled template, after checking it uses only the subset; `names` are the variables it may read
         (trigger, wait, repeat and the automation's variables); a literal entity id it reads must be in
         `entity_ids`, else `TemplateRefused` names it."""
+        if self.refusal:
+            raise TemplateRefused(f"{where}: templates are not supported ({self.refusal})")
+        try:
+            with budget(BUDGET_S, "the template's compile"):
+                return self._compile(source, names, entity_ids, where)
+        except TemplateTimeout as e:
+            raise TemplateRefused(f"{where}: {e}") from None
+
+    def _compile(self, source: str, names: set[str], entity_ids: set[str], where: str):
         from jinja2 import TemplateSyntaxError, nodes
+        if len(source) > MAX_SIZE:
+            raise TemplateRefused(f"{where}: the template is longer than {MAX_SIZE} characters")
         try:
             tree = self.env.parse(source)
         except TemplateSyntaxError as e:
             raise TemplateRefused(f"{where}: template syntax error: {e.message}") from None
         local = {n.name for n in tree.find_all(nodes.Name) if n.ctx in ("store", "param")}
+        if any(True for _ in tree.find_all(nodes.For)):
+            local.add("loop")  # a for loop's own variable
         for node in tree.find_all((nodes.Extends, nodes.Include, nodes.Import, nodes.FromImport, nodes.Macro,
                                    nodes.CallBlock, nodes.FilterBlock, nodes.ScopedEvalContextModifier)):
             raise TemplateRefused(f"{where}: template statement {type(node).__name__.lower()!r} is not supported")
@@ -413,12 +608,15 @@ class Templates:
         from jinja2 import TemplateError
         self.view.info = RenderInfo()
         try:
-            text = template.render(**variables)
+            with budget(BUDGET_S, "the template's render"):
+                text = template.render(**variables)
         except TemplateFailed:
             raise
-        except (TemplateError, TypeError, ValueError, AttributeError, KeyError, IndexError, ZeroDivisionError,
-                OverflowError, re.error) as e:
+        except (TemplateError, TemplateTimeout, TypeError, ValueError, AttributeError, KeyError, IndexError,
+                ZeroDivisionError, OverflowError, MemoryError, RecursionError, re.error) as e:
             raise TemplateFailed(f"{type(e).__name__}: {e}") from None
+        if len(text) > MAX_OUTPUT:
+            raise TemplateFailed(f"the rendered template is longer than {MAX_OUTPUT} characters")
         return text.strip(), self.view.info
 
 
@@ -561,17 +759,29 @@ def _flags(ignorecase):
     return re.IGNORECASE if ignorecase else 0
 
 
+def _subject(value, find) -> str:
+    """The text a regex filter looks at, bounded; the pattern is run under the render's budget (a catastrophic
+    pattern is interrupted there)."""
+    text = value if isinstance(value, str) else str(value)
+    if len(text) > MAX_REGEX_INPUT or len(str(find)) > MAX_WIDTH:
+        _too_big("a regular expression's input")
+    return text
+
+
 def _regex_match(value, find="", ignorecase=False) -> bool:
-    return bool(re.match(find, value if isinstance(value, str) else str(value), _flags(ignorecase)))
+    return bool(re.match(find, _subject(value, find), _flags(ignorecase)))
 
 
 def _regex_search(value, find="", ignorecase=False) -> bool:
-    return bool(re.search(find, value if isinstance(value, str) else str(value), _flags(ignorecase)))
+    return bool(re.search(find, _subject(value, find), _flags(ignorecase)))
 
 
 def _regex_replace(value="", find="", replace="", ignorecase=False) -> str:
-    return re.sub(find, replace, value if isinstance(value, str) else str(value), flags=_flags(ignorecase))
+    out = re.sub(find, replace, _subject(value, find), flags=_flags(ignorecase))
+    if len(out) > MAX_SIZE:
+        _too_big("a replacement")
+    return out
 
 
 def _regex_findall(value, find="", ignorecase=False) -> list:
-    return re.findall(find, value if isinstance(value, str) else str(value), _flags(ignorecase))
+    return re.findall(find, _subject(value, find), _flags(ignorecase))

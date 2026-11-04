@@ -11,6 +11,7 @@ license = {text = "MIT"}
 requires-python = ">=3.11"
 dependencies = [
   "astral>=2.2,<3",  # the sun, as Home Assistant computes it (astral 2.2)
+  "jinja2>=3.1.6",  # the automation engine's Home Assistant templates, in its sandbox (fixed escapes below 3.1.6)
   "httpx>=0.27",
   "json5>=0.9",
   "jsonschema>=4.23",
@@ -22,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["jinja2>=3.1", "pytest>=8", "ruff>=0.5"]
+dev = ["pytest>=8", "ruff>=0.5"]
 validation = ["pvlib>=0.11,<0.14"]  # `vesper validate sun`: NREL's Solar Position Algorithm as the reference
 
 [project.scripts]

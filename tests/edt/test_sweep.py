@@ -302,3 +302,24 @@ def test_assumptions_are_stored_and_results_reported_also_over_the_assumption_fr
     assert r["flagged_assumption_free"]["n"] == int(bool(plain["divergences"]))
     assert r["flagged"]["n"] == sum(1 for a in (gated, plain) if a["divergences"])
     assert set(r["flagged_assumption_free"]) == {"n", "by_kind"}
+
+
+def test_a_batch_that_hangs_is_bisected_and_the_hung_automation_refused_as_a_replay_timeout(monkeypatch):
+    import time
+
+    from vesper.edt import replay as replay_module
+    from vesper.edt import sweep as sweep_module
+    from vesper.edt.replay import Replay
+
+    def fake(home, trace, autos, catalog_dir):
+        if "hang" in autos:
+            time.sleep(5)
+        return Replay({k: [] for k in autos})
+    monkeypatch.setattr(replay_module, "replay_detailed", fake)
+    monkeypatch.setattr(sweep_module, "_W", {"home_yaml": None, "catalog_dir": None, "timeout": 0.2,
+                                             "bound": {k: {} for k in ("a", "b", "hang", "c")}})
+    out = {"firings": {}, "refused": {}, "approximations": {}, "errors": {}}
+    t0 = time.monotonic()
+    sweep_module._replay(None, ["a", "b", "hang", "c"], out)
+    assert time.monotonic() - t0 < 2
+    assert out["errors"] == {"hang": "replay timeout"} and set(out["firings"]) == {"a", "b", "c"}
