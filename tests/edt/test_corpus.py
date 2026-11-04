@@ -146,6 +146,28 @@ def test_census_counts_environment_coupled(tmp_path):
     assert str(tmp_path) not in json.dumps(c)
 
 
+def test_a_recursive_alias_fails_its_file_not_the_census(tmp_path):
+    raw = tmp_path / "raw"
+    _put(raw, "alice~home##a_good.yaml", LEGACY)
+    _put(raw, "alice~home##b_loop.yaml", "- &a {trigger: [{platform: sun}], action: [*a]}\n")
+    _put(raw, "alice~home##c_good.yaml", MODERN)
+    found = list(iter_automations(raw))
+    assert [a.file for a in found] == ["alice~home##a_good.yaml", "alice~home##c_good.yaml"]
+    c = census(raw)
+    assert c["files"] == {"total": 3, "parsed": 2, "failed": 1}
+    assert c["automations"] == {"raw": 2, "deduplicated": 2}
+
+
+def test_repo_counts_are_split_and_a_duplicated_repo_does_not_inflate_the_deduplicated_count(tmp_path):
+    raw = tmp_path / "raw"
+    _put(raw, "alice~home##a.yaml", LEGACY)
+    _put(raw, "bob~copy##a.yaml", LEGACY)           # all of bob's automations are copies of alice's
+    _put(raw, "carol~own##a.yaml", MODERN)
+    c = census(raw)
+    assert c["repos_with_automations"] == {"raw": 3, "deduplicated": 2}
+    assert c["repos_with_environment_coupled"] == {"raw": 3, "deduplicated": 2}
+
+
 def test_cli_census_writes_a_report_without_the_corpus_path(tmp_path):
     from vesper import cli
     raw = tmp_path / "corpus" / "raw"

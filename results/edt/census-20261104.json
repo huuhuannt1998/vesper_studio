@@ -29,6 +29,12 @@
     "total": 15027
   },
   "hash": "sha256 of the canonical JSON of the automation without id and alias",
-  "repos_with_automations": 1123,
-  "repos_with_environment_coupled": 637
+  "repos_with_automations": {
+    "deduplicated": 1088,
+    "raw": 1123
+  },
+  "repos_with_environment_coupled": {
+    "deduplicated": 634,
+    "raw": 637
+  }
 }

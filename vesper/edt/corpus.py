@@ -153,19 +153,17 @@ def _scan(raw_dir: Path, stats: Counter | None = None) -> Iterator[CorpusAutomat
             continue
         if stats is not None:
             stats["total"] += 1
-        try:
-            docs = load_docs(_read(path))
-        except Exception:  # noqa: BLE001 - any loader failure is a parse failure; the file contributes nothing
+        repo = name.split("##", 1)[0].replace("~", "/", 1)
+        try:  # the whole file is one unit: a load, discovery or hash failure (a recursive alias) fails it
+            found = [CorpusAutomation(repo, name, tuple(npath), obj, automation_hash(obj))
+                     for doc in load_docs(_read(path)) for kind, obj, npath in discover(doc) if kind == "automation"]
+        except Exception:  # noqa: BLE001 - any failure is a parse failure; the file contributes nothing
             if stats is not None:
                 stats["failed"] += 1
             continue
         if stats is not None:
             stats["parsed"] += 1
-        repo = name.split("##", 1)[0].replace("~", "/", 1)
-        for doc in docs:
-            for kind, obj, npath in discover(doc):
-                if kind == "automation":
-                    yield CorpusAutomation(repo, name, tuple(npath), obj, automation_hash(obj))
+        yield from found
 
 
 def iter_automations(raw_dir: Path) -> Iterator[CorpusAutomation]:
@@ -294,7 +292,9 @@ def census(raw_dir: Path) -> dict:
     kinds_raw: Counter = Counter()
     kinds_dedup: Counter = Counter()
     repos_raw: set[str] = set()
-    repos_coupled: set[str] = set()
+    repos_coupled_raw: set[str] = set()
+    repos_dedup: set[str] = set()          # a de-duplicated automation belongs to its first occurrence's repo
+    repos_coupled_dedup: set[str] = set()
     for a in _scan(Path(raw_dir), stats):
         kinds = env_kinds(a.raw)
         raw_n += 1
@@ -302,17 +302,20 @@ def census(raw_dir: Path) -> dict:
         coupled_raw += bool(kinds)
         kinds_raw.update(kinds)
         if kinds:
-            repos_coupled.add(a.repo)
+            repos_coupled_raw.add(a.repo)
         if a.hash in seen:
             continue
         seen.add(a.hash)
         dedup_n += 1
+        repos_dedup.add(a.repo)
         coupled_dedup += bool(kinds)
         kinds_dedup.update(kinds)
+        if kinds:
+            repos_coupled_dedup.add(a.repo)
     return {
         "files": {"total": stats["total"], "parsed": stats["parsed"], "failed": stats["failed"]},
-        "repos_with_automations": len(repos_raw),
-        "repos_with_environment_coupled": len(repos_coupled),
+        "repos_with_automations": {"raw": len(repos_raw), "deduplicated": len(repos_dedup)},
+        "repos_with_environment_coupled": {"raw": len(repos_coupled_raw), "deduplicated": len(repos_coupled_dedup)},
         "automations": {"raw": raw_n, "deduplicated": dedup_n},
         "environment_coupled": {"raw": coupled_raw, "deduplicated": coupled_dedup},
         "by_kind": {"raw": {k: kinds_raw[k] for k in ENV_KINDS if kinds_raw[k]},
