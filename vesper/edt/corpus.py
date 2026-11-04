@@ -21,9 +21,56 @@ import yaml
 ENV_KINDS = ("sun", "illuminance", "temperature", "humidity", "weather")
 
 
+MAX_FILE_BYTES = 2 * 1024 * 1024   # a corpus file larger than this is refused before it is parsed
+# Per document, aliases counted as they would expand. The corpus's most aliased document expands 1,109 of them
+# (a 1,000 cap would refuse it and change the census); the 509-byte bomb passes 10,000 at its fourth level.
+MAX_ALIAS_EXPANSIONS = 10_000
+
+
+class CorpusRefusal(ValueError):
+    """A corpus file refused before or while it is composed; `reason` is what the census records."""
+
+    def __init__(self, reason: str, message: str):
+        super().__init__(message)
+        self.reason = reason
+
+
 class HALoader(yaml.SafeLoader):
     """SafeLoader that tolerates Home Assistant's tags: a scalar tag becomes the string "!tag value"; a sequence or a
-    mapping tag becomes a plain list or dict; an unknown tag becomes "!unknown_tag"."""
+    mapping tag becomes a plain list or dict; an unknown tag becomes "!unknown_tag".
+
+    The corpus is untrusted, and an alias stays a shared reference until something walks it (canonicalisation,
+    json.dumps, binding, the engine): a 509-byte file of 7 levels of 10 aliases expands to 10^7 nodes. So aliases are
+    counted as they would expand while each document is composed (an alias adds one plus the aliases inside the node
+    it names) and a document above MAX_ALIAS_EXPANSIONS is refused ("alias_limit"). An alias naming a node that is
+    still being composed, one that would contain itself, is refused too ("recursive_alias")."""
+
+    def compose_document(self):
+        self._expansions = 0
+        self._inside: dict[int, int] = {}   # id(node) -> aliases expanded inside it
+        self._closed: set[int] = set()      # nodes composed to their end
+        try:
+            return super().compose_document()
+        finally:
+            self._inside, self._closed = {}, set()
+
+    def compose_node(self, parent, index):
+        if self.check_event(yaml.AliasEvent):
+            anchor = self.peek_event().anchor
+            node = self.anchors.get(anchor)
+            if node is not None:  # an undefined alias is left to the composer's own error
+                if id(node) not in self._closed:
+                    raise CorpusRefusal("recursive_alias", "the alias *%s names a node that contains it" % anchor)
+                self._expansions += 1 + self._inside.get(id(node), 0)
+                if self._expansions > MAX_ALIAS_EXPANSIONS:
+                    raise CorpusRefusal("alias_limit", "more than %d aliases once expanded" % MAX_ALIAS_EXPANSIONS)
+            return super().compose_node(parent, index)
+        start = self._expansions
+        node = super().compose_node(parent, index)
+        self._closed.add(id(node))
+        if self._expansions > start:
+            self._inside[id(node)] = self._expansions - start
+        return node
 
 
 def _custom_tag(loader, suffix, node):
@@ -146,7 +193,8 @@ def _read(path: Path) -> str:
 
 
 def _scan(raw_dir: Path, stats: Counter | None = None) -> Iterator[CorpusAutomation]:
-    """Every automation, in sorted file order, duplicates included. `stats` counts files read and failed."""
+    """Every automation, in sorted file order, duplicates included. `stats` counts files read and failed, and each
+    failure's reason under "reason:<reason>" (too_large, alias_limit, recursive_alias or parse_error)."""
     for name in sorted(os.listdir(raw_dir)):
         path = raw_dir / name
         if not path.is_file():
@@ -154,12 +202,15 @@ def _scan(raw_dir: Path, stats: Counter | None = None) -> Iterator[CorpusAutomat
         if stats is not None:
             stats["total"] += 1
         repo = name.split("##", 1)[0].replace("~", "/", 1)
-        try:  # the whole file is one unit: a load, discovery or hash failure (a recursive alias) fails it
+        try:  # the whole file is one unit: a size, load, discovery or hash failure fails it
+            if path.stat().st_size > MAX_FILE_BYTES:
+                raise CorpusRefusal("too_large", "over %d bytes" % MAX_FILE_BYTES)
             found = [CorpusAutomation(repo, name, tuple(npath), obj, automation_hash(obj))
                      for doc in load_docs(_read(path)) for kind, obj, npath in discover(doc) if kind == "automation"]
-        except Exception:  # noqa: BLE001 - any failure is a parse failure; the file contributes nothing
+        except Exception as e:  # noqa: BLE001 - any failure is a parse failure; the file contributes nothing
             if stats is not None:
                 stats["failed"] += 1
+                stats["reason:" + (e.reason if isinstance(e, CorpusRefusal) else "parse_error")] += 1
             continue
         if stats is not None:
             stats["parsed"] += 1
@@ -318,6 +369,7 @@ def census(raw_dir: Path) -> dict:
             repos_coupled_dedup.add(a.repo)
     return {
         "files": {"total": stats["total"], "parsed": stats["parsed"], "failed": stats["failed"]},
+        "failed_reasons": {k.split(":", 1)[1]: n for k, n in sorted(stats.items()) if k.startswith("reason:")},
         "repos_with_automations": {"raw": len(repos_raw), "deduplicated": len(repos_dedup)},
         "repos_with_environment_coupled": {"raw": len(repos_coupled_raw), "deduplicated": len(repos_coupled_dedup)},
         "automations": {"raw": raw_n, "deduplicated": dedup_n},

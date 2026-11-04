@@ -177,3 +177,81 @@ def test_cli_census_writes_a_report_without_the_corpus_path(tmp_path):
     report = json.loads(out.read_text())
     assert report["automations"] == {"raw": 1, "deduplicated": 1}
     assert str(tmp_path) not in out.read_text()
+
+
+def _laughs(levels: int = 7, width: int = 10) -> str:
+    """The billion laughs: each level is `width` aliases of the level below; an automation's action is the last."""
+    lines = ['a0: &a0 "lol"']
+    for i in range(1, levels + 1):
+        lines.append("a%d: &a%d [%s]" % (i, i, ", ".join("*a%d" % (i - 1) for _ in range(width))))
+    lines.append("automation:\n  - trigger: [{platform: sun}]\n    action: [*a%d]" % levels)
+    return "\n".join(lines) + "\n"
+
+
+def test_an_alias_bomb_is_refused_fast_and_counted_as_failed_with_its_reason(tmp_path):
+    import resource
+    import time
+    raw = tmp_path / "raw"
+    _put(raw, "alice~home##a_good.yaml", LEGACY)
+    (raw / "alice~home##b_bomb.yaml").write_text(_laughs())
+    assert len((raw / "alice~home##b_bomb.yaml").read_bytes()) < 600
+    before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    t0 = time.perf_counter()
+    found = list(iter_automations(raw))
+    c = census(raw)
+    assert time.perf_counter() - t0 < 1.0
+    grown = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - before
+    assert grown < 200 * 1024 * 1024  # bytes on macOS, KiB on Linux: either way far below an expansion's 3.2 GB
+    assert [a.file for a in found] == ["alice~home##a_good.yaml"]
+    assert c["files"] == {"total": 2, "parsed": 1, "failed": 1}
+    assert c["failed_reasons"] == {"alias_limit": 1}
+
+
+def test_ordinary_anchors_still_load(tmp_path):
+    raw = tmp_path / "raw"
+    _put(raw, "alice~home##a.yaml", """\
+        - alias: one
+          trigger: &dusk [{platform: sun, event: sunset}]
+          action: &on {service: light.turn_on, entity_id: light.hall}
+        - alias: two
+          trigger: *dusk
+          condition: [{condition: state, entity_id: binary_sensor.door, state: "on"}]
+          action: *on
+        - alias: three
+          trigger: *dusk
+          action: [*on, {delay: 5}]
+    """)
+    found = list(iter_automations(raw))
+    assert len(found) == 3
+    assert found[1].raw["trigger"] == [{"platform": "sun", "event": "sunset"}]
+    c = census(raw)
+    assert c["files"] == {"total": 1, "parsed": 1, "failed": 0}
+    assert c["failed_reasons"] == {}
+
+
+def test_a_document_with_many_plain_aliases_still_loads(tmp_path):
+    # the corpus's most aliased document expands 1,109 aliases; one well above that, without nesting, still loads
+    raw = tmp_path / "raw"
+    rules = "".join("- alias: r%d\n  trigger: *dusk\n  action: *on\n" % i for i in range(1, 800))
+    (raw).mkdir()
+    (raw / "alice~home##a.yaml").write_text(
+        "- alias: r0\n  trigger: &dusk [{platform: sun, event: sunset}]\n  action: &on {service: light.turn_on}\n"
+        + rules)
+    assert len(list(iter_automations(raw))) == 1  # 800 copies of one rule de-duplicate to one
+    assert census(raw)["automations"] == {"raw": 800, "deduplicated": 1}
+
+
+def test_a_file_over_2_mb_is_refused_before_parsing(tmp_path):
+    raw = tmp_path / "raw"
+    _put(raw, "alice~home##a_good.yaml", LEGACY)
+    (raw / "alice~home##b_big.yaml").write_text(textwrap.dedent(LEGACY) + "# " + "x" * (2 * 1024 * 1024) + "\n")
+    assert [a.file for a in iter_automations(raw)] == ["alice~home##a_good.yaml"]
+    c = census(raw)
+    assert c["files"] == {"total": 2, "parsed": 1, "failed": 1}
+    assert c["failed_reasons"] == {"too_large": 1}
+
+
+def test_a_recursive_alias_is_refused_with_its_reason(tmp_path):
+    raw = tmp_path / "raw"
+    _put(raw, "alice~home##b_loop.yaml", "- &a {trigger: [{platform: sun}], action: [*a]}\n")
+    assert census(raw)["failed_reasons"] == {"recursive_alias": 1}
