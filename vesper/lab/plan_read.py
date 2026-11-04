@@ -14,7 +14,6 @@ from pathlib import Path
 
 from vesper.lab.plan import ROOM_TYPES, PlanError, load_plan
 
-DEFAULT_MODEL = "sonnet"  # reading a plan needs sight, not long thinking: the cheaper model is faster and costs less
 TIMEOUT_S = 600  # one reading of a large image can take a few minutes
 
 PROMPT = f"""You are reading a floor-plan image for VESPER, a smart-home simulator. The image is the file given below
@@ -142,13 +141,14 @@ def summary(plan_m: dict) -> str:
     return "\n".join(lines)
 
 
-def read_plan_image(path: Path, runner=None, model: str | None = DEFAULT_MODEL) -> dict:
+def read_plan_image(path: Path, runner=None, model: str | None = None) -> dict:
     """A validated `vesper-plan/1` (in pixels) read from the floor-plan image or PDF at `path`.
 
-    `model` is passed as `--model` (an alias such as "sonnet" or "opus", or a full model name; None: Claude Code's
-    own default). `runner(args) -> str` runs the `claude` argument list and returns its stdout; the default runs the
-    CLI. Raises a PlanError when the CLI is missing, fails or reports an error, or when two answers in a row are not
-    a valid plan (the message carries Claude's last text)."""
+    `model` is passed as `--model` (an alias such as "sonnet" or "opus", or a full model name); None, the default,
+    passes none, so the user's own Claude Code model reads the plan (the most exact; "sonnet" is faster and cheaper
+    but read doors less exactly in the one comparison made). `runner(args) -> str` runs the `claude` argument list
+    and returns its stdout; the default runs the CLI. Raises a PlanError when the CLI is missing, fails or reports an
+    error, or when two answers in a row are not a valid plan (the message carries Claude's last text)."""
     path = Path(path)
     if not path.is_file():
         raise PlanError(f"{path}: no such file")

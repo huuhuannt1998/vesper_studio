@@ -69,12 +69,12 @@ def test_the_arguments_carry_the_image_path_the_json_format_and_only_the_read_to
     assert "--dangerously-skip-permissions" not in args
 
 
-def test_the_model_defaults_to_sonnet_and_can_be_chosen(image):
+def test_no_model_flag_by_default_and_one_when_chosen(image):
     fake = Fake(envelope(json.dumps(px_plan())), envelope(json.dumps(px_plan())))
     read_plan_image(image, runner=fake)
-    read_plan_image(image, runner=fake, model="opus")
-    assert fake.calls[0][fake.calls[0].index("--model") + 1] == "sonnet"
-    assert fake.calls[1][fake.calls[1].index("--model") + 1] == "opus"
+    read_plan_image(image, runner=fake, model="sonnet")
+    assert "--model" not in fake.calls[0]  # the user's own Claude Code default model
+    assert fake.calls[1][fake.calls[1].index("--model") + 1] == "sonnet"
 
 
 def test_a_retry_keeps_the_model(image):
@@ -195,7 +195,7 @@ def fake_claude(monkeypatch, *answers):
     fake = Fake(*answers)
     fake.models = []
 
-    def reader(path, runner=None, model="sonnet"):
+    def reader(path, runner=None, model=None):
         fake.models.append(model)
         return read_plan_image(path, runner=fake, model=model)
     monkeypatch.setattr(plan_read, "read_plan_image", reader)
@@ -273,8 +273,8 @@ def test_the_cli_passes_the_model_to_the_reader(tmp_path, monkeypatch, image):
     cat, _ = setup(tmp_path)
     fake = fake_claude(monkeypatch, envelope(json.dumps(px_plan())), envelope(json.dumps(px_plan())))
     assert cli.main(["lab", "import", str(image), str(tmp_path / "a"), "--catalog", str(cat)]) == 0
-    assert cli.main(["lab", "import", str(image), str(tmp_path / "b"), "--model", "opus", "--catalog", str(cat)]) == 0
-    assert fake.models == ["sonnet", "opus"]
+    assert cli.main(["lab", "import", str(image), str(tmp_path / "b"), "--model", "sonnet", "--catalog", str(cat)]) == 0
+    assert fake.models == [None, "sonnet"]
 
 
 def test_an_image_import_prints_what_was_read_before_building(tmp_path, monkeypatch, capsys, image):

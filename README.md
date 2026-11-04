@@ -681,8 +681,8 @@ can build (a room too small or large for its type, a room with no way in) is ref
 home is written. The image goes to Anthropic through your Claude Code session (your own login); a hand-written
 vesper-plan/1 file needs no network. Reading an image needs the `claude` command installed and signed in; it takes a
 minute or two, and VESPER prints what it read (each room's type and area, the doors, which door is the entrance) before
-building, so you can check it against your picture. `--model opus` reads with a larger model (slower and dearer); the
-default is `sonnet`.
+building, so you can check it against your picture. By default Claude Code's own model reads it; `--model sonnet` is
+faster and cheaper but reads doors less exactly.
 
 A picture has no scale unless it prints one. If the plan has none, VESPER does not guess: give a room's size with
 `--scale "kitchen width 3.2 m"` or the home's floor area with `--area 62`, or it stops with "no scale: give --scale or

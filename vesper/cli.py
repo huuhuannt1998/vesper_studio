@@ -2053,8 +2053,9 @@ def main(argv: list[str] | None = None) -> int:
     lab_import.add_argument("dir", help="the new home's directory")
     lab_import.add_argument("--scale", help="a plan in pixels: a room's dimension, such as 'kitchen width 3.2 m'")
     lab_import.add_argument("--area", type=float, help="a plan in pixels: the home's floor area (m²)")
-    lab_import.add_argument("--model", default="sonnet", help="an image plan: the Claude model that reads it (an alias "
-                                                              "such as sonnet or opus, or a full name)")
+    lab_import.add_argument("--model", default=None, help="an image plan: the Claude model that reads it (default: "
+                                                          "Claude Code's own; sonnet is faster and cheaper but reads "
+                                                          "doors less exactly)")
     lab_import.add_argument("--request", help="a vesper-request/1 file: the devices, seed, furnishing and site (the "
                                               "rooms are the plan's)")
     lab_import.add_argument("--catalog", default="catalog/vds")
