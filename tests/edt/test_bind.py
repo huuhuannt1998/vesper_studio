@@ -291,3 +291,14 @@ def test_a_blueprint_use_is_not_expanded(edt):
     _, roles, _, _ = edt
     raw = {"alias": "b", "use_blueprint": {"path": "motion_light.yaml", "input": {"motion_entity": "light.kitchen"}}}
     assert bind(raw, roles, 0) == Unbindable("blueprints are not expanded")
+
+
+@pytest.mark.parametrize("domain", ["alert", "proximity", "air_quality", "geo_location", "plant", "conversation",
+                                    "persistent_notification", "assist_satellite", "image_processing", "stt"])
+def test_an_unmodelled_domain_is_refused_in_variables_and_templates(domain, edt):
+    roles = edt[1]
+    for raw in ({"triggers": [{"trigger": "time", "at": "07:00"}], "variables": {"x": f"{domain}.front"},
+                 "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.kitchen"}}]},
+                {"triggers": [{"trigger": "template", "value_template": f"{{{{ is_state('{domain}.front', 'on') }}}}"}],
+                 "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.kitchen"}}]}):
+        assert isinstance(bind(raw, roles, 0), Unbindable), (domain, raw)

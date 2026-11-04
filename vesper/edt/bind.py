@@ -52,6 +52,9 @@ UNMODELLED_DOMAINS = {  # domains of entities the standard home does not have (a
     "device_tracker", "zone", "scene", "script", "automation", "alarm_control_panel", "media_player", "fan", "vacuum",
     "camera", "timer", "counter", "calendar", "water_heater", "humidifier", "number", "select", "button", "update",
     "remote", "siren", "valve", "lawn_mower", "event", "text", "schedule", "todo", "tts", "notify", "image",
+    "alert", "proximity", "air_quality", "geo_location", "plant", "conversation", "persistent_notification",
+    "assist_satellite", "image_processing", "stt", "wake_word", "ai_task", "date", "time", "datetime",
+    "mailbox", "logbook", "system_log", "recorder", "zwave_js", "zha", "mqtt",
 }
 SERVICES = {"turn_on", "turn_off", "toggle", "lock", "unlock", "open", "close", "open_cover", "close_cover",
             "set_temperature", "set_hvac_mode", "set_humidity"}  # a quoted `light.turn_on` is a service, not an entity
