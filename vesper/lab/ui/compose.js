@@ -202,7 +202,8 @@ export function problemRooms(problems, ids) {
 // room as read, its name at its middle, a mark per door (the entrance its own), and, once there is a scale, each
 // room as VESPER will build it (walls straightened), put back on the image. With no image (a plan file, a PDF),
 // the view frames the plan.
-export function overlayShapes(plan, { size = null, problems = [], straight = null, transform = null, left = [] } = {}) {
+export function overlayShapes(plan, { size = null, problems = [], straight = null, transform = null, left = [],
+                                      doorNumbers = null } = {}) {
   const bad = problemRooms(problems, plan.rooms.map((r) => r.id));
   let view;
   if (size) view = [0, 0, size.w, size.h];
@@ -222,9 +223,11 @@ export function overlayShapes(plan, { size = null, problems = [], straight = nul
     straight: straight && transform ? straight.map((r) => ({ id: r.id, points: r.polygon.map((p) => toImage(p, transform)) }))
       : [],
     left: left.map((r) => ({ id: r.id, points: r.polygon.map((p) => [p[0], p[1]]) })), // rooms left out, as read
-    // a door is a mark of one size (a wide garage door must not hide the room it opens), its rooms in its title
+    // a door is a mark of one size (a wide garage door must not hide the room it opens), its rooms in its title,
+    // numbered from 1 as the reading numbers it (doorNumbers: each door's place there), as every message does
     doors: (plan.doors || []).map((d, k) => ({ at: d.at, r: font * 0.5, entrance: k === plan.entrance,
-      title: `${k === plan.entrance ? "Entrance: " : "Door: "}${d.rooms.map((s) => names[s] || s).join(" – ")}` })),
+      title: `Door ${(doorNumbers ? doorNumbers[k] : k) + 1}: ${d.rooms.map((s) => names[s] || s).join(" – ")}` +
+             (k === plan.entrance ? " (the entrance)" : "") })),
   };
 }
 
@@ -313,7 +316,8 @@ if (typeof document !== "undefined") {
                   rows: structuredClone(STARTER), site: { city: "", date: today, north: 0 },
                   // the imported plan: the job reading it, the plan as edited, the scale text and what the check said
                   plan: { job: null, state: "none", kind: null, plan: null, scale: "", source: "", problems: [],
-                          warnings: [], summary: "", transform: null, straight: null, size: null, image: null, saved: null,
+                          warnings: [], floors: null, summary: "", transform: null, straight: null, size: null,
+                          image: null, saved: null,
                           // the reading (kept as read) and what the user changed: names and types, rooms left out,
                           // the entrance chosen (undefined: the reading's); `plan` and `notes` follow from them
                           read: null, edits: {}, left: [], entrance: undefined, notes: [] } };
@@ -506,8 +510,8 @@ if (typeof document !== "undefined") {
   }
 
   function clearShown() {
-    Object.assign(imp, { job: null, read: null, plan: null, notes: [], problems: [], warnings: [], straight: null,
-                         transform: null, image: null, size: null, saved: null });
+    Object.assign(imp, { job: null, read: null, plan: null, notes: [], problems: [], warnings: [], floors: null,
+                         straight: null, transform: null, image: null, size: null, saved: null });
     $("import-read").hidden = true;
     $("import-overlay").replaceChildren();
     showImport(model.rooms.mode === "plan");
@@ -565,7 +569,8 @@ if (typeof document !== "undefined") {
     imp.state = job.state;
     if (job.state !== "done") { progress(importNote(job), "bad"); return; }
     Object.assign(imp, { read: job.plan, edits: {}, left: [], entrance: undefined, problems: job.problems,
-                         warnings: job.warnings || [], summary: job.summary || "", transform: job.transform,
+                         warnings: job.warnings || [], floors: job.floors_drawn ?? null,
+                         summary: job.summary || "", transform: job.transform,
                          straight: job.rooms,
                          saved: job.saved || null, scale: "", size: null,
                          image: job.kind === "png" || job.kind === "jpg" ? `/api/import/${job.job}/image` : null });
@@ -669,6 +674,7 @@ if (typeof document !== "undefined") {
     if (imp.image && !imp.size) return; // drawn once the image has its size
     const shapes = overlayShapes(imp.plan, { size: imp.image ? imp.size : null, problems: imp.problems,
                                              straight: imp.straight, transform: imp.transform,
+                                             doorNumbers: imp.doorNumbers,
                                              left: imp.read.rooms.filter((r) => imp.left.includes(r.id)) });
     drawOverlay(svg, shapes, svgMake, { image: imp.image, selected: selectedRoom, onRoom: (id) => {
       select(id);
@@ -703,7 +709,7 @@ if (typeof document !== "undefined") {
       const mine = ++checkSeq;
       try {
         const got = await api("/api/import/check", { plan: imp.plan, scale: imp.scale,
-                                                     door_numbers: imp.doorNumbers });
+                                                     door_numbers: imp.doorNumbers, floors_drawn: imp.floors });
         if (mine !== checkSeq) return;
         Object.assign(imp, { problems: got.problems, warnings: got.warnings || [], summary: got.summary,
                              transform: got.transform, straight: got.rooms });

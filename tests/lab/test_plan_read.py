@@ -163,6 +163,45 @@ def test_the_prompt_reads_one_storey_the_one_with_the_main_entrance():
     assert "if several floors are drawn, read only the floor that has the main entrance" in flat
 
 
+def test_the_prompt_asks_how_many_floors_are_drawn_beside_the_plan():
+    flat = " ".join(PROMPT.split())
+    assert '{"floors_drawn": N, "plan": <the floor plan>}' in flat and "ONLY the JSON" in flat
+
+
+def test_an_answer_with_the_floors_drawn_is_unwrapped_and_the_count_kept(image):
+    meta = {}
+    fake = Fake(envelope(json.dumps({"floors_drawn": 2, "plan": px_plan()})))
+    assert read_plan_image(image, runner=fake, meta=meta) == px_plan()
+    assert meta == {"floors_drawn": 2}
+    meta = {}
+    assert read_plan_image(image, runner=Fake(envelope(json.dumps(px_plan()))), meta=meta) == px_plan()  # a bare plan
+    assert meta == {"floors_drawn": None}
+    for odd in ("two", 0, True, 1e9):  # not a count: the plan is kept, the count is not
+        meta = {}
+        answer = json.dumps({"floors_drawn": odd, "plan": px_plan()})
+        assert read_plan_image(image, runner=Fake(envelope(answer)), meta=meta) == px_plan() and meta == {
+            "floors_drawn": None}
+    assert read_plan_image(image, runner=Fake(envelope(json.dumps({"floors_drawn": 1, "plan": px_plan()})))) == \
+        px_plan()  # no meta asked for
+
+
+def test_a_wrapped_plan_that_is_not_valid_is_retried_with_the_plan_s_errors(image):
+    bad = px_plan()
+    bad["doors"][2]["rooms"] = ["lr", "garage"]
+    fake = Fake(envelope(json.dumps({"floors_drawn": 1, "plan": bad})), envelope(json.dumps(px_plan())))
+    meta = {}
+    read_plan_image(image, runner=fake, meta=meta)
+    assert "door 3: room 'garage' is not in the plan" in fake.calls[1][2] and meta == {"floors_drawn": None}
+
+
+def test_the_summary_says_which_storey_was_read_when_several_are_drawn():
+    from vesper.lab.plan import scale_plan
+    plan = scale_plan(px_plan())
+    line = "storey: the floor with the main entrance (1 of 3 drawn)"
+    assert line in plan_read.summary(plan, floors_drawn=3)
+    assert "storey" not in plan_read.summary(plan, floors_drawn=1) and "storey" not in plan_read.summary(plan)
+
+
 def test_the_prompt_types_outdoor_spaces_as_balconies_and_their_windows_light_the_room():
     flat = " ".join(PROMPT.split())
     assert '"balcony" for an outdoor space of the home (a balcony, terrace, patio or loggia)' in flat
@@ -344,9 +383,9 @@ def fake_claude(monkeypatch, *answers):
     fake = Fake(*answers)
     fake.models = []
 
-    def reader(path, runner=None, model=None, timeout=900):
+    def reader(path, runner=None, model=None, timeout=900, meta=None):
         fake.models.append(model)
-        return read_plan_image(path, runner=fake, model=model, timeout=timeout)
+        return read_plan_image(path, runner=fake, model=model, timeout=timeout, meta=meta)
     monkeypatch.setattr(plan_read, "read_plan_image", reader)
     return fake
 
@@ -427,6 +466,16 @@ def test_the_cli_passes_the_model_to_the_reader(tmp_path, monkeypatch, image):
     assert fake.models == [None, "sonnet"]
 
 
+def test_an_image_import_says_which_storey_was_read_when_several_are_drawn(tmp_path, monkeypatch, capsys, image):
+    cat, _ = setup(tmp_path)
+    fake_claude(monkeypatch, envelope(json.dumps({"floors_drawn": 2, "plan": px_plan()})))
+    assert cli.main(["lab", "import", str(image), str(tmp_path / "mine"), "--catalog", str(cat)]) == 0
+    out = capsys.readouterr().out
+    assert "storey: the floor with the main entrance (1 of 2 drawn)" in out
+    saved = json.loads((tmp_path / "mine.plan.json").read_text())
+    assert saved == px_plan()  # the saved reading is a vesper-plan/1, unwrapped
+
+
 def test_an_image_import_prints_what_was_read_before_building(tmp_path, monkeypatch, capsys, image):
     cat, _ = setup(tmp_path)
     fake_claude(monkeypatch, envelope(json.dumps(px_plan())))
@@ -467,7 +516,7 @@ def test_the_summary_and_the_warnings_name_each_door_as_the_plan_read_it_from_1(
     fake_claude(monkeypatch, envelope(json.dumps(with_a_loose_door())))
     assert cli.main(["lab", "import", str(image), str(tmp_path / "mine"), "--catalog", str(cat)]) == 0
     out = capsys.readouterr().out
-    assert "warning: door 2 between 'c' and 'b': the rooms do not touch" in out
+    assert "warning: door 2 between 'Closet' and 'Bedroom': the rooms do not touch" in out
     summary = out[out.index("Claude read"):out.index("warning:")]
     assert "door 2:" not in summary  # left out
     for line in ("door 1: outside - Living room", "door 3: Living room - Kitchen", "door 4: Living room - Bedroom",

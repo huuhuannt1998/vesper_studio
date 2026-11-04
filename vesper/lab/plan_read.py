@@ -61,8 +61,10 @@ How to fill it:
   in METRES: convert feet and inches (1 ft = 0.3048 m). Prefer the longest dimension line, measuring between the
   points it spans. If the plan states none of these, answer "scale": null and do NOT guess one.
 
-Answer with ONLY the JSON object: no explanation before or after it, no comments. If the image is not a floor plan
-(a photograph, a drawing of something else, a plan too unclear to read), answer only {{"error": "<why>"}}.
+Answer with ONLY the JSON object {{"floors_drawn": N, "plan": <the floor plan>}}: N is how many floors (storeys)
+the image draws (1 for most plans), "plan" the floor plan above, of the one floor read. No explanation before or
+after it, no comments. If the image is not a floor plan (a photograph, a drawing of something else, a plan too
+unclear to read), answer only {{"error": "<why>"}}.
 """
 
 
@@ -141,19 +143,32 @@ def _json_in(text: str) -> object:
     raise ValueError("the answer holds no JSON object")
 
 
-def _check(text: str) -> tuple[dict | None, str, str | None]:
-    """(the plan, "", None) for a valid answer, else (None, what is wrong with it, Claude's stated reason when it
-    answered {"error": ...})."""
+MAX_FLOORS = 50  # a floors_drawn above this is no count of storeys
+
+
+def _floors(value) -> int | None:
+    """The number of floors an answer says the image draws, or None when it is no count."""
+    ok = isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= MAX_FLOORS
+    return value if ok else None
+
+
+def _check(text: str) -> tuple[dict | None, str, str | None, int | None]:
+    """(the plan, "", None, floors drawn) for a valid answer, else (None, what is wrong with it, Claude's stated reason
+    when it answered {"error": ...}, None). The answer is {"floors_drawn": N, "plan": plan} (the prompt's) or a bare
+    plan (an older reading's); a floors_drawn that is no count is dropped, never the plan."""
     try:
         raw = _json_in(text)
     except ValueError:
-        return None, "the answer holds no JSON object (answer with only the JSON)", None
-    if isinstance(raw, dict) and "error" in raw and "rooms" not in raw:
-        return None, f"you said this is not a readable floor plan: {raw['error']}", str(raw["error"])
+        return None, "the answer holds no JSON object (answer with only the JSON)", None, None
+    if isinstance(raw, dict) and "error" in raw and "rooms" not in raw and "plan" not in raw:
+        return None, f"you said this is not a readable floor plan: {raw['error']}", str(raw["error"]), None
+    floors = None
+    if isinstance(raw, dict) and "plan" in raw and "rooms" not in raw:
+        floors, raw = _floors(raw.get("floors_drawn")), raw["plan"]
     try:
-        return load_plan(raw), "", None
+        return load_plan(raw), "", None, floors
     except PlanError as e:
-        return None, str(e), None
+        return None, str(e), None, None
 
 
 def _label(name: str) -> str:
@@ -176,11 +191,12 @@ def _picture_kind(path: Path) -> str:
     raise PlanError(f"{_label(path.name)}: not a PNG, JPEG or PDF file")
 
 
-def summary(plan_m: dict, numbers: list[int] | None = None) -> str:
+def summary(plan_m: dict, numbers: list[int] | None = None, floors_drawn: int | None = None) -> str:
     """What was read, for the user to check against the image: each room's name, type and area, the doors, and the
     entrance. `plan_m` is a plan in metres (scaled); a plan still in pixels (no scale yet) is shown in pixels. Doors are
     named as `vesper.lab.plan.door_name` names them: from 1, in the plan as read (`numbers`: each door's place there,
-    when doors were left out since)."""
+    when doors were left out since). With `floors_drawn` above 1 (the reading's count), a line says which storey
+    was read: the one with the main entrance."""
     from vesper.lab.geometry import polygon_area
     px = plan_m.get("units") == "px"
     area = (lambda a: f"{a:.0f} px²") if px else (lambda a: f"{a:.1f} m²")
@@ -191,6 +207,8 @@ def summary(plan_m: dict, numbers: list[int] | None = None) -> str:
     head = f"Claude read {len(rooms)} room{'s' if len(rooms) != 1 else ''} and {len(doors)} door" \
            f"{'s' if len(doors) != 1 else ''}"
     lines = [head + ("; scale missing, so areas are in pixels:" if px else "; check them against your image:")]
+    if floors_drawn is not None and floors_drawn > 1:
+        lines.append(f"  storey: the floor with the main entrance (1 of {floors_drawn} drawn)")
     lines += [f"  {names[r['id']]} ({r['type']}): {area(polygon_area([tuple(p) for p in r['polygon']]))}"
               for r in rooms]
     lines += [f"  {door_name(k, numbers)}: {names[d['rooms'][0]]} - {names[d['rooms'][1]]} ({width(d['width'])})"
@@ -205,7 +223,7 @@ def summary(plan_m: dict, numbers: list[int] | None = None) -> str:
 
 
 def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: float = TIMEOUT_S,
-                    stop=None) -> dict:
+                    stop=None, meta: dict | None = None) -> dict:
     """A validated `vesper-plan/1` (in pixels) read from the floor-plan image or PDF at `path`.
 
     The file must be a PNG, JPEG or PDF by its first bytes. A copy of it goes into a fresh temporary directory as
@@ -217,7 +235,8 @@ def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: 
     runs the CLI. Raises a PlanError when the file is no picture, the CLI is missing, fails or reports an error, or
     when two answers in a row are not a valid plan (the message carries Claude's last text or stated reason).
     `stop` (a threading.Event, the lobby's Stop reading): once set, no further answer is asked for and the default
-    runner kills the CLI at once; ReadingStopped is raised."""
+    runner kills the CLI at once; ReadingStopped is raised. `meta` (a dict, when given) gets "floors_drawn": how many
+    floors Claude says the image draws (None when the answer gave no count); the plan returned is one floor."""
     path = Path(path)
     if not path.is_file():
         raise PlanError(f"{_label(str(path))}: no such file")
@@ -242,8 +261,10 @@ def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: 
                            "(\"door N\" is the N-th entry of \"doors\", counting from 1.)\n\n"
                            "Look at the image again and answer with the corrected JSON only.\n")
             text = _answer_text(run(["claude", "-p", prompt, *base], cwd=str(tmp), timeout=timeout))
-            plan, problem, said = _check(text)
+            plan, problem, said, floors = _check(text)
             if plan is not None:
+                if meta is not None:
+                    meta["floors_drawn"] = floors
                 return plan
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

@@ -165,8 +165,16 @@ test("the overlay draws one outline per room in the image's own pixels, each nam
   const doors = made.filter((n) => n.tag === "circle");
   assert.equal(doors.length, 3);
   assert.equal(doors.filter((n) => n.attrs.class.includes("entrance")).length, 1);
-  assert.equal(doors[0].children[0].textContent, "Entrance: outside – Living room");
+  assert.deepEqual(doors.map((n) => n.children[0].textContent),
+                   ["Door 1: outside – Living room (the entrance)", "Door 2: Living room – Kitchen",
+                    "Door 3: Living room – <img src=x onerror=alert(1)>"]);
   assert.equal(new Set(doors.map((n) => n.attrs.r)).size, 1); // one size of mark, whatever the door's width
+});
+
+test("a door's title numbers it as the reading does, from 1, after a room is left out", () => {
+  const { plan, doorNumbers } = editedPlan(READ, { left: ["c"] });
+  const titles = overlayShapes(plan, { doorNumbers }).doors.map((d) => d.title.split(":")[0]);
+  assert.deepEqual(titles, ["Door 1", "Door 2", "Door 3", "Door 5"]); // door 4 went with the closet
 });
 
 test("without an image the overlay frames the plan itself, and a room with a problem is marked", () => {

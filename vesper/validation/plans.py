@@ -617,9 +617,9 @@ def _read(image: Path, folder: Path, runner, model: str | None, timeout: float) 
         calls.append({"seconds": time.monotonic() - t0, **_envelope_facts(out)})
         return out
     started, t0 = datetime.now(UTC), time.monotonic()
-    plan, error = None, None
+    plan, error, said = None, None, {}
     try:
-        plan = plan_read.read_plan_image(image, runner=run, model=model, timeout=timeout)
+        plan = plan_read.read_plan_image(image, runner=run, model=model, timeout=timeout, meta=said)
     except PlanError as e:
         error = str(e)
     seconds = time.monotonic() - t0
@@ -631,7 +631,8 @@ def _read(image: Path, folder: Path, runner, model: str | None, timeout: float) 
             "model_arg": model, "models": sorted({m for c in calls for m in c.get("models", [])}),
             "calls": len(calls), "seconds": seconds, "cost_usd": sum(c.get("cost_usd", 0.0) for c in calls),
             "duration_ms": sum(c.get("duration_ms", 0) for c in calls), "per_call": calls,
-            "read_at": started.isoformat(timespec="seconds"), "ok": plan is not None}
+            "read_at": started.isoformat(timespec="seconds"), "ok": plan is not None,
+            "floors_drawn": said.get("floors_drawn")}
     (folder / "meta.json").write_text(json.dumps(meta, indent=1) + "\n")
     return plan, error
 

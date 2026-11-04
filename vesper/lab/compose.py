@@ -149,7 +149,8 @@ def _page_words(problem: str) -> str:
     return problem.replace("give --scale or --area, not both", "give a room's size or the area, not both")
 
 
-def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None = None) -> dict:
+def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None = None,
+                 floors_drawn: int | None = None) -> dict:
     """What the page shows for a plan as read (or as the user edited it) and the user's scale: {problems (every
     reason VESPER would not build it, empty when it would), warnings (what straightening left out or narrowed
     because the walls cannot carry it: built without it, never blocking), summary (plan_read.summary: each room,
@@ -157,7 +158,8 @@ def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None
     goes back to the image by turning it -angle_deg about centre and dividing by m_per_px), rooms (the rooms as
     VESPER would build them, in metres; None when it cannot straighten the plan)}. `numbers` (the page's
     door_numbers) is each door's place in the plan as read, so that every message names a door as the reading does
-    (vesper.lab.plan.door_name), whatever rooms the user left out."""
+    (vesper.lab.plan.door_name), whatever rooms the user left out; `floors_drawn` (the reading's count of floors
+    drawn, sent back by the page) puts which storey was read in the summary."""
     from vesper.lab.geometry import polygon_area
     from vesper.lab.plan import PlanError, check_house, load_plan, plan_transform, rectify, scale_plan
     from vesper.lab.plan_read import summary
@@ -167,7 +169,8 @@ def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None
     except PlanError as e:
         out["problems"] = [str(e)]
         return out
-    out["summary"] = summary(plan, numbers)
+    floors = floors_drawn if isinstance(floors_drawn, int) and not isinstance(floors_drawn, bool) else None
+    out["summary"] = summary(plan, numbers, floors)
     numbers = list(range(len(plan.get("doors") or []))) if numbers is None else list(numbers)
     try:
         room_size, area = scale_args(scale)
@@ -178,7 +181,7 @@ def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None
         warnings: list[str] = []
         straight = rectify(scaled, warnings, numbers)
         out["warnings"] = warnings
-        out["summary"] = summary(straight, numbers)
+        out["summary"] = summary(straight, numbers, floors)
         out["rooms"] = [{"id": r["id"], "polygon": r["polygon"]} for r in straight["rooms"]]
         out["problems"] = check_house(straight, numbers)
     except PlanError as e:
@@ -437,10 +440,12 @@ class ComposeServer:
             if read is None:
                 from vesper.lab.plan_read import read_plan_image
 
-                def read(p, stop):
-                    return read_plan_image(p, stop=stop)
-            plan = read(path, job["stop"])  # (path, stop): `stop` set ends the reading (vesper.lab.plan_read)
-            result = {"plan": plan, **import_check(plan)}
+                def read(p, stop, meta):
+                    return read_plan_image(p, stop=stop, meta=meta)
+            meta: dict = {}  # (path, stop, meta): `stop` set ends the reading; meta gets floors_drawn
+            plan = read(path, job["stop"], meta)
+            floors = meta.get("floors_drawn")
+            result = {"plan": plan, "floors_drawn": floors, **import_check(plan, floors_drawn=floors)}
             saved = None if job["stop"].is_set() else self._save_reading(job["job"], plan)
             end = {**result, **({"saved": saved} if saved else {}), "state": "done"}
         except PlanError as e:
@@ -757,7 +762,8 @@ class ComposeServer:
                     if self.path == "/api/import/check":
                         if not isinstance(body, dict) or not isinstance(body.get("plan"), dict):
                             raise ComposeError("a check is {plan, scale}: the plan as edited and the scale text")
-                        return self._json(200, import_check(body["plan"], body.get("scale"), body.get("door_numbers")))
+                        return self._json(200, import_check(body["plan"], body.get("scale"), body.get("door_numbers"),
+                                                            body.get("floors_drawn")))
                 except ComposeError as e:
                     return self._json(400, {"error": str(e)})
                 except Exception as e:  # noqa: BLE001 - said to the page, never a dropped connection

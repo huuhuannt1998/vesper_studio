@@ -1019,6 +1019,7 @@ def _lab_import(args, catalog) -> int:
             return 1
     saved = None
     raw = None
+    meta: dict = {}  # what the reading says beside the plan: how many floors the image draws
 
     def retry_hint():  # a paid reading is kept: how to go on without Claude
         mine = shlex.quote(str(saved)), shlex.quote(str(out))
@@ -1035,7 +1036,7 @@ def _lab_import(args, catalog) -> int:
             from vesper.lab import plan_read
             print(f"reading {src.name} with Claude (this takes several minutes and uses your Claude Code quota)...",
                   flush=True)
-            raw = plan_read.read_plan_image(src, model=args.model, timeout=args.timeout)
+            raw = plan_read.read_plan_image(src, model=args.model, timeout=args.timeout, meta=meta)
             text = json.dumps(raw, indent=1)
             try:
                 with open(save, "x") as f:  # exclusive: never over a file that is there
@@ -1059,13 +1060,13 @@ def _lab_import(args, catalog) -> int:
             scaled = scale_plan(loaded, args.scale, args.area)
         except PlanError:
             if is_image:
-                print(plan_read.summary(loaded), flush=True)  # in pixels: the scale is what is missing
+                print(plan_read.summary(loaded, floors_drawn=meta.get("floors_drawn")), flush=True)  # in pixels
             raise
         warnings: list[str] = []  # what the walls could not carry: left out or narrowed, never invented
         numbers = list(range(len(loaded.get("doors") or [])))  # each kept door's place in the plan as read
         plan = rectify(scaled, warnings, numbers)
         if is_image:
-            print(plan_read.summary(plan, numbers), flush=True)
+            print(plan_read.summary(plan, numbers, meta.get("floors_drawn")), flush=True)
         for w in warnings:
             print(f"warning: {w}", flush=True)
         problems = check_house(plan, numbers)

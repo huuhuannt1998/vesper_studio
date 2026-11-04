@@ -438,11 +438,12 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 64  # what the magic-byte check reads; the 
 class FakeReader:
     """read_plan_image's stand-in: it returns `plan` once `go` is set (a reading takes minutes), or raises."""
 
-    def __init__(self, plan=None, error=None):
+    def __init__(self, plan=None, error=None, floors_drawn=None):
         import threading
         self.plan, self.error, self.calls, self.go = plan, error, [], threading.Event()
+        self.floors_drawn = floors_drawn
 
-    def __call__(self, path, stop):
+    def __call__(self, path, stop, meta):
         import time
         from pathlib import Path
 
@@ -456,6 +457,7 @@ class FakeReader:
             time.sleep(0.01)
         if self.error:
             raise self.error
+        meta["floors_drawn"] = self.floors_drawn
         return self.plan
 
 
@@ -503,6 +505,26 @@ def test_an_imported_image_is_read_in_the_background_and_its_plan_and_problems_c
     status, image = call(s, f"/api/import/{started['job']}/image")
     assert status == 200 and image == PNG
     assert json.loads(open(done["saved"]).read()) == px_plan()  # the paid reading is kept
+
+
+def test_a_reading_of_one_of_several_floors_says_which_storey_and_the_check_keeps_saying_it(server):
+    s, _ = server
+    s._reader = reader = FakeReader(px_plan(), floors_drawn=2)
+    status, body = post_bytes(s, "/api/import", PNG, "image/png", origin=s.url.rstrip("/"))
+    reader.go.set()
+    done = wait_for(s, json.loads(body)["job"])
+    line = "storey: the floor with the main entrance (1 of 2 drawn)"
+    assert done["floors_drawn"] == 2 and line in done["summary"]
+    got = json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "living width 5 m",
+                                                   "floors_drawn": 2})[1])
+    assert line in got["summary"]
+    got = json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "living width 5 m"})[1])
+    assert "storey" not in got["summary"]
+    s._reader = reader = FakeReader(px_plan())  # one floor (or no count): no storey line
+    status, body = post_bytes(s, "/api/import", PNG, "image/png", origin=s.url.rstrip("/"))
+    reader.go.set()
+    done = wait_for(s, json.loads(body)["job"])
+    assert done["floors_drawn"] is None and "storey" not in done["summary"]
 
 
 def test_a_reading_that_fails_says_claude_s_reason_and_a_second_reading_waits_for_the_first(server):
@@ -579,7 +601,8 @@ def test_the_check_lists_what_was_left_out_as_warnings_that_do_not_block_generat
     plan["windows"].append({"at": [500, 100], "width": 100, "room": "k"})  # on the wall the kitchen shares
     got = json.loads(call(s, "/api/import/check", {"plan": plan, "scale": "living width 5 m"})[1])
     assert got["problems"] == []
-    assert got["warnings"] == ["window 3 of 'k' is not on an outside wall: left out"]
+    assert got["warnings"] == ["window 3 of 'Kitchen' is not on an outside wall: left out; the room gets a rule "
+                               "window"]
     assert json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "living width 5 m"})[1])[
         "warnings"] == []
     nope = json.loads(call(s, "/api/import/check", {"plan": plan, "scale": "garage width 3 m"})[1])
@@ -745,8 +768,8 @@ def test_the_check_and_generate_name_doors_as_the_reading_did_after_a_room_is_le
     got = json.loads(call(s, "/api/import/check", {"plan": edited, "scale": "living width 5 m",
                                                    "door_numbers": [0, 1, 2, 4]})[1])
     assert got["problems"] == []
-    assert got["warnings"] == ["door 5 between 'k' and 'outside' (4.00 m) is wider than its outside wall (3.00 m): "
-                               "narrowed to 2.90 m"]
+    assert got["warnings"] == ["door 5 between 'Kitchen' and 'outside' (4.00 m) is wider than its outside wall "
+                               "(3.00 m): narrowed to 2.90 m"]
     assert "door 5: Kitchen - outside" in got["summary"] and "door 4:" not in got["summary"]
     bad = json.loads(call(s, "/api/import/check", {"plan": edited, "scale": "living width 5 m",
                                                    "door_numbers": [0, 1, 2]})[1])
