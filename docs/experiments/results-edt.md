@@ -357,3 +357,154 @@ first), not a property of Minneapolis.
 - **Ledger correction.** The run ledger's closed-loop line gives the below-10 C breaches as "Minneapolis 72,
   Stockholm 36 runs"; those are room-run cells. The runs are 14 and 6 (20 in all), from 7 automations in one
   repository.
+
+## Revision analyses (post hoc, on cached results)
+
+**Everything in this section is post hoc**: computed after the results above, for the review, from the same cached
+results of commit `dc119cd` (sweeps at rungs 4-1, ladder, closed-loop run, the traces' cached weather); no sweep was
+re-run. Script: `scripts/edt_analysis/revision_analyses.py`; every number is in `results/edt/analysis-dc119cd.json`
+(aggregates only). Intervals: "repo-bootstrap" resamples whole repositories (1,000 resamples, seed 0, percentile 95 %
+interval); "Wilson" treats units as independent.
+
+**1. The time_spread threshold.** Recomputing the oracle's divergences with only the 3 h threshold changed:
+
+| Threshold h | 0.5 | 1 | 2 | **3** | 4 | 6 |
+|---|---|---|---|---|---|---|
+| Flagged (any kind) | 807 | 807 | 802 | **799** | 794 | 529 |
+| time_spread | 735 | 733 | 725 | **716** | 706 | 427 |
+| time_spread only | 605 | 605 | 600 | **597** | 592 | 327 |
+| Not environment-coupled flagged | 19 | 19 | 19 | **19** | 19 | 16 |
+
+The count is flat from 1 h to 4 h (807 to 794); only at 6 h does it fall (529): the largest first-firing gap lies
+between 4 and 6 h for 279 time_spread automations, 265 of which have no other kind. Leave-one-out at 3 h, over the
+716 time_spread automations, dropping the environment whose removal shrinks the circular range of first-firing times
+most: **693 (96.8 %) are still time_spread** (701 still flagged). The two orientations of a city and date give the
+same sun times, so dropping one environment is a weak test; dropping the most extreme (city, date) leaves 675
+(94.3 %), dropping the most extreme whole city leaves 431 (60.2 %): 40 % of the time_spread findings rest on one city
+being in the set (Stockholm for 255 of the 285, Singapore for 24).
+
+**2. Repository-clustered uncertainty and concentration.**
+
+| Rate | Value | Repo-bootstrap 95 % | Wilson 95 % (independent) | Repositories |
+|---|---|---|---|---|
+| Flagged / run (799 / 5,934) | 13.5 % | [12.1, 15.2] | [12.6, 14.4] | 722 |
+| Environment-coupled flagged / run (780 / 1,213) | 64.3 % | [59.8, 69.0] | [61.6, 67.0] | 369 |
+| sun (609 / 895) | 68.0 % | [63.4, 73.2] | [64.9, 71.0] | 312 |
+| temperature (130 / 214) | 60.7 % | [48.9, 71.1] | [54.1, 67.1] | 90 |
+| humidity (37 / 63) | 58.7 % | [44.6, 72.1] | [46.4, 70.0] | 38 |
+| illuminance (15 / 67) | 22.4 % | [8.2, 37.4] | [14.1, 33.7] | 42 |
+| weather (8 / 9) | 88.9 % | [40.0, 100] | [56.5, 98.0] | 4 |
+
+Distinct repositories behind the flags: time_spread 294, fires_somewhere_only 97, night_light 20, flaps 9; by what
+the automation reads: sun 264, temperature 55, humidity 28, illuminance 8, weather 3, not environment-coupled 15. Flags
+per repository (303 repositories with a flag): median 2, maximum 17 (2.1 % of the 799), top-10 repositories 15.3 %,
+Gini 0.40 (0.75 over the 722 repositories with a run automation, zeros included). The largest pattern (sun only,
+time_spread only, 567 automations) comes from 254 repositories (maximum 15, top-10 share 15.7 %); its 283
+sunrise/sunset triggers with a non-zero offset come from 141 repositories (maximum 13, top-10 share 26.5 %), the 227
+without an offset from 136, and 57 that read the sun through a condition or template from 41. The weather rate rests
+on 4 repositories and the illuminance rate on 8 flagged repositories: their intervals are wide.
+
+**3. Arithmetic reconciliation.**
+
+- *Rung subsets.* The rung-2 flagged set (615) is a subset of rung 4's (799): 615 in both, 0 at rung 2 only, 184 at
+  rung 4 only. Rung 3 (798) is a subset too (one rung-4 flag lost); rung 1 flags nothing.
+- *184 versus 181.* They count different things. **181** flagged automations read a sensed quantity (temperature,
+  humidity, illuminance or weather; 171 without the sun, 10 with it). **184** is the number of rung-4 flags rung 2
+  loses: all 171 sensed-only ones, 7 of the 10 that read a sensed quantity and the sun, and 6 of the 19 that are not
+  environment-coupled. The 799 split as sun only 599, sensed only 171, sensed and sun 10, not coupled 19; the 190
+  flagged automations that do not read the sun are 171 + 19. Rung 2's 615 are 599 sun-only + 3 sensed-and-sun + 13
+  not coupled ("602 sun rules" = 599 + 3).
+- *Repository counts.* 1,186 is the collection's repository count (not recomputable from the sweep, which only holds
+  repositories that contribute an automation); 1,123 repositories have an automation before de-duplication, **1,088**
+  after it (each de-duplicated automation keeps one repository); **821** have a bound automation (the ladder's
+  repository folds); **722** have a run automation (the denominator in RQ2's "303 of the 722"); **303** have a flagged
+  one; 369 have a run environment-coupled automation (634 have an environment-coupled one, de-duplicated).
+- *Ladder recall at precision 0.55.* The registered criterion is held-out recall >= 0.80 with the threshold set per
+  fold for precision 0.55; pooled over the five held-out folds it gives 740 true positives of 1,145 predicted
+  positive: recall 0.926 (740 / 799), realised precision 0.646. The realised precision is above 0.55 because each
+  fold's threshold is set for at least 0.55.
+- *Per-quantity runs, 1,248 versus 1,213.* 895 + 214 + 67 + 63 + 9 = 1,248 counts an automation once per quantity it
+  reads; 35 run environment-coupled automations read two (illuminance + sun 20, temperature + weather 7, humidity +
+  temperature 4, humidity + weather 2, sun + temperature 2), and 1,248 - 35 = 1,213 distinct. The same holds for the
+  flagged per-kind counts (609 + 130 + 37 + 15 + 8 = 799 multi-counted; 780 distinct environment-coupled).
+- *Table I's assumption-free rows over the full parsed population* (the published environment-coupled row divides by
+  4,719 = 4,984 - 265, which shrinks the denominator to the automations without an assumption):
+
+| Subset, assumption-free | Parsed | Bound | Run | Flagged |
+|---|---|---|---|---|
+| All | 43,280 | 8,486 (19.6 %) | 5,067 (59.7 % of bound) | 650 (12.8 % of run) |
+| Environment-coupled | 4,984 | 1,102 (**22.1 %**, not 23.4 %) | 977 (88.7 %) | 633 (64.8 %) |
+| Not environment-coupled | 38,296 | 7,384 (19.3 %) | 4,090 (55.4 %) | 17 (0.4 %) |
+
+**4. Static classifications on random halves.** On 20 random halves of 24 environments (seed 0), all **353** static
+automations stay static in every half: an envelope kind that holds in all 48 environments holds in any subset, so
+this direction cannot fail. The non-monotone direction is the converse: of the 40 automations flagged for an envelope
+kind (night_light 30, flaps 10), 0-6 per half (mean 1.9) hold it in every environment of the half and would be
+static there, not flagged.
+
+**5. Pair-based (set-based) cover.** A set S covers an automation iff some pair of environments in S shows one of its
+divergences (equivalently, its divergences restricted to S are non-empty; the script checks the two agree). Greedy on
+the training half (429 flagged), starting from the best of the 1,128 pairs, reported on the held-out half (370):
+
+| Size | Greedy set (added in order) | Train | Held-out | Random sets, held-out mean [5th, 95th pct] (100 draws, seed 0) |
+|---|---|---|---|---|
+| 2 | Minneapolis 01-14 n0, Stockholm 07-15 n180 | 90.2 % | **88.9 %** | 15.9 % [6.8, 51.1] |
+| 3 | + Sydney 04-15 n180 | 95.1 % | 93.0 % | 32.2 % [11.1, 88.6] |
+| 4 | + Singapore 10-14 n0 | 97.9 % | 97.3 % | 44.1 % [14.3, 91.6] |
+| 6 | + Seattle 10-14 n180, Seattle 01-14 n0 | 99.1 % | 98.1 % | 58.1 % [18.7, 93.5] |
+
+A midwinter and a midsummer high-latitude environment together reveal the divergences of 89 % of the held-out
+flagged automations, against 16 % for a random pair; the gap stays large up to six environments.
+
+**6. Oracle blind spots.** Of the 433 environment-coupled automations that run but are not flagged (1,213 - 780):
+**391 fire in no environment** (90.3 %), 30 fire everywhere with exactly the same first time, and 12 fire everywhere
+with first times that differ by up to 3 h (4 up to 1 h, 5 by 1-2 h, 3 by 2-3 h); 10 of the 433 carry a static
+envelope kind. Not in the cache: firing counts per environment (the sweep keeps per environment only whether it
+fired, the first firing's time of day and the three envelope booleans), so automations that fire a different number
+of times (below the flap threshold), or at different later times after an identical first one, cannot be counted
+without replaying them.
+
+**7. The self-state subset.** Syntactically (the bound automation's conditions name an entity its actions target,
+e.g. "turn the lamp on if it is off"; service names excluded, template references included): **631 of the 5,934 run
+automations (10.6 %) and 35 of the 799 flagged (4.4 %)**; a further 616 run (58 flagged) name an action target only in
+a trigger (e.g. "off ten minutes after it turned on"). Of the 14 automations whose closed-loop runs disagree, **10**
+are condition-type self-state (none trigger-only; 4 neither). In the closed loop, runs of condition-type self-state
+automations agree in 63 of 227 (27.8 %), trigger-only ones in 207 of 207, all others in 3,132 of 3,174 (98.7 %).
+
+**8. The closed loop's two arms.**
+
+| Arm | Runs agree | Wilson 95 % (runs) | Repo-bootstrap 95 % (runs) | Automations agreeing everywhere (Wilson 95 %) | Repositories |
+|---|---|---|---|---|---|
+| Flagged | 3,008 / 3,208 = 93.8 % | [92.9, 94.6] | [89.0, 97.6] | 189 / 200 [90.4, 96.9] | 137 |
+| Unflagged | 394 / 400 = 98.5 % | [96.8, 99.3] | [96.5, 100] | 197 / 200 [95.7, 99.5] | 143 |
+| All | 3,402 / 3,608 = 94.3 % | [93.5, 95.0] | [90.0, 97.8] | 386 / 400 [94.2, 97.9] | 236 |
+
+The run-level Wilson intervals are too narrow: runs of one automation are not independent (each disagreeing
+automation disagrees in at least 90 % of its runs). The repository-clustered intervals are the honest ones.
+
+**9. The below-10 C breaches (data).** The 20 breaching runs come from 7 automations (A1-A7) of one repository. Their
+commanded setpoints are 18 and 7 C (A1-A3, A5, A6) or 18.5 and 7 C (A4, A7); the outdoor-temperature thresholds they
+guard on are 12 C (A1) or 10 C (the others). A1, A2 and A5 breach in Minneapolis and Stockholm (4 runs each), A3, A4,
+A6 and A7 in Minneapolis only (2 runs each).
+
+| City (2026-01-14, both orientations) | Breaching runs / closed-loop runs of the 7 there | Room-cells | Outdoor mean (min), days 1-2 | Room minimum per run | Baseline coldest room |
+|---|---|---|---|---|---|
+| Minneapolis | 14 / 14 | 72 | -6.9 C (-14.7) | 5.3-9.4 C | 15.6-17.5 C |
+| Stockholm | 6 / 14 | 36 | 1.8 C (0.5) | 8.0-9.5 C | 18.5 C |
+
+Per run, the coldest breached room is 5.3-9.5 C (median 8.5) and the largest drop below the baseline 7.7-13.2 K. The
+same 7 automations ran closed loop in nine other city-dates without a breach, among them Seattle in January (14 runs,
+outdoor mean 7.5 C), Minneapolis in October (14 runs, 8.5 C) and April (12 runs, 14.2 C) and Stockholm in April and
+October (8.8 and 10.8 C): the 7 C setback takes the rooms below 10 C only with a sub-zero or near-zero outdoor day.
+Outdoor values: recorded weather (Open-Meteo ERA5) read from the traces' cache, every 10 minutes over the measured
+days.
+
+**Against the paper and the sections above.** (a) The post hoc set-based greedy above (Phoenix January, then
+Stockholm July: 84.6 % / 87.8 %) is beaten by starting from the best pair (Minneapolis January with Stockholm July:
+90.2 % / 88.9 %); its first step was a forced tie, and "two environments" understates what two can do. (b) The
+assumption-free environment-coupled bind share is 22.1 % of 4,984, not 23.4 % of 4,719. (c) "Loses almost all the
+sensor-driven ones" is exact for the 171 that read no sun (all lost); 184 is the number lost at rung 2, not a count of
+sensor-driven flags. (d) Run-level closed-loop agreement intervals must be clustered: flagged 93.8 % [89.0, 97.6]
+by repository. (e) The open-loop over-report of self-disabling automations is bounded: 35 flagged automations (4.4 %)
+have the condition-type self-state shape. (f) Of the time_spread findings, 40 % depend on a single city being in the
+set (leave-one-city-out; Stockholm alone for 255).
