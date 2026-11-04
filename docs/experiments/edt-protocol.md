@@ -204,3 +204,20 @@ The ladder's statistical choices (`vesper/edt/ladder.py`):
 recorded) is an environment-level failure, recorded once under `failed_envs` with its reason, not as a refusal of
 each automation. An automation refused in some environments and run in others is counted in `partially_refused`; its
 divergences are over the environments where it ran.
+
+## Addendum 3 (2026-11-04, before the first full run)
+
+Found in a 10,000-automation smoke run once the engine supported `weekday` conditions and triggers: the plan's four
+dates (2026-01-15 Thursday, 04-15 Wednesday, 07-15 Wednesday, 10-15 Thursday) put the measured days on different
+weekdays, so an automation gated on weekdays diverged between environments for a calendar reason, not an
+environmental one (10 of 11 negative-control flags in that smoke run).
+
+**A3.1 Dates.** The four dates become **2026-01-14, 2026-04-15, 2026-07-15, 2026-10-14**, all Wednesdays, so every
+environment's measured days (1 and 2) are Thursday and Friday in local time. The seasons they sample are unchanged to
+within a day. The six cities and the two orientations are unchanged. This replaces the plan's Global Constraints'
+dates for the sweep and every rung; the cross-site validation (`vesper validate crosssite`) keeps its own dates.
+
+**A3.2 Negative control reads nothing of the environment anywhere.** An automation is in the negative control only if,
+besides section 5's rule, no template appears anywhere in it (triggers, conditions or actions) and every entity its
+actions name has a motion, door, light, switch or lock role (an action whose data reads an illuminance template was
+the eleventh smoke flag).
