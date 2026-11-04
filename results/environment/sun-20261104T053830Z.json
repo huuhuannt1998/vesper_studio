@@ -1,0 +1,473 @@
+{
+  "azimuth_deg": {
+    "above_0": {
+      "max_abs": 0.114746,
+      "mean_abs": 0.002542,
+      "n": 2618,
+      "p95_abs": 0.005432
+    },
+    "above_5": {
+      "max_abs": 0.114746,
+      "mean_abs": 0.002618,
+      "n": 2375,
+      "p95_abs": 0.005593
+    }
+  },
+  "days": [
+    "2026-03-20",
+    "2026-06-21",
+    "2026-09-22",
+    "2026-12-21"
+  ],
+  "elevation_deg": {
+    "above_0": {
+      "max_abs": 0.008557,
+      "mean_abs": 0.002045,
+      "n": 2618,
+      "p95_abs": 0.004656
+    },
+    "above_5": {
+      "max_abs": 0.005869,
+      "mean_abs": 0.001835,
+      "n": 2375,
+      "p95_abs": 0.004039
+    }
+  },
+  "elevation_dip_s": {
+    "max_abs": 174.451435,
+    "mean_abs": 106.12997,
+    "n": 72,
+    "p95_abs": 169.570184
+  },
+  "position_deg": {
+    "above_0": {
+      "max_abs": 0.008691,
+      "mean_abs": 0.003026,
+      "n": 2618,
+      "p95_abs": 0.004958
+    },
+    "above_5": {
+      "max_abs": 0.006086,
+      "mean_abs": 0.002859,
+      "n": 2375,
+      "p95_abs": 0.004598
+    }
+  },
+  "reference": "NREL SPA (Reda & Andreas 2004) via pvlib 0.13.1 spa_python",
+  "run": {
+    "catalog_code_sha256": "139b8ebe38b83db10b2233221c249c5e98358e0e3edc6e402bf6fb327429c2e4",
+    "catalog_inputs": {
+      "dcl": {
+        "manifest_sha256": "d69e4b734bd541894c45789f44c6dfb589944aa1b9e9d1cc119b8fafb499f77b",
+        "version": "height-324961"
+      },
+      "ha": {
+        "manifest_sha256": "6917c7888197cc38aec661c2da0d14317c8e3ab1cbc4bfeb7772b7ac032e19f2",
+        "version": "2026.10.2"
+      },
+      "matter_zap": {
+        "manifest_sha256": "e608206f3ad32b1d1cfb4ba7231e4a690a0075bbcfe1cb9dcbedebf15ba2cf31",
+        "version": "v1.6.1.0"
+      },
+      "tasmota": {
+        "manifest_sha256": "f80efec1ca20e85eb2a6d2285f533b66717aa560d74ae2b38daf7b89356e86ce",
+        "version": "30d9c9b16014817641f83a0cf8f2f266a0dbaef2"
+      },
+      "zigbee": {
+        "manifest_sha256": "89edf8fad5a7f13adabc4cc8caf8d10fdf85379d95a49ca2eb6d6e5377166c67",
+        "version": "26.123.0"
+      },
+      "zwave": {
+        "manifest_sha256": "0889173c4fc30ba289600959b8907fdb7f34435f811ea7ebef4962a993eabeb6",
+        "version": "15.31.2"
+      }
+    },
+    "command": "validate sun",
+    "finished_utc": "2026-11-04T05:38:30Z",
+    "git_commit": "eaa356ced1a9e3347624cb41c28125bb2d668ed4",
+    "git_dirty": true,
+    "parameters": {
+      "step": 10
+    },
+    "vesper_version": "0.2.0.dev0"
+  },
+  "samples": {
+    "above_0": 2618,
+    "above_5": 2375
+  },
+  "sites": [
+    {
+      "day": "2026-03-20",
+      "elevation_m": 229.0,
+      "max_abs_elevation_above_5": 0.004039,
+      "site": "Charlotte, NC, USA",
+      "sunrise_dip_s": -118.2,
+      "sunrise_error_s": 11.4,
+      "sunset_dip_s": 118.5,
+      "sunset_error_s": -12.3
+    },
+    {
+      "day": "2026-06-21",
+      "elevation_m": 229.0,
+      "max_abs_elevation_above_5": 0.002951,
+      "site": "Charlotte, NC, USA",
+      "sunrise_dip_s": -136.7,
+      "sunrise_error_s": 14.6,
+      "sunset_dip_s": 136.7,
+      "sunset_error_s": -13.8
+    },
+    {
+      "day": "2026-09-22",
+      "elevation_m": 229.0,
+      "max_abs_elevation_above_5": 0.005869,
+      "site": "Charlotte, NC, USA",
+      "sunrise_dip_s": -118.5,
+      "sunrise_error_s": 13.1,
+      "sunset_dip_s": 118.2,
+      "sunset_error_s": -10.9
+    },
+    {
+      "day": "2026-12-21",
+      "elevation_m": 229.0,
+      "max_abs_elevation_above_5": 0.003843,
+      "site": "Charlotte, NC, USA",
+      "sunrise_dip_s": -134.6,
+      "sunrise_error_s": 14.9,
+      "sunset_dip_s": 134.6,
+      "sunset_error_s": -13.4
+    },
+    {
+      "day": "2026-03-20",
+      "elevation_m": 331.0,
+      "max_abs_elevation_above_5": 0.003727,
+      "site": "Phoenix, AZ, USA",
+      "sunrise_dip_s": -129.4,
+      "sunrise_error_s": 11.2,
+      "sunset_dip_s": 129.7,
+      "sunset_error_s": -12.1
+    },
+    {
+      "day": "2026-06-21",
+      "elevation_m": 331.0,
+      "max_abs_elevation_above_5": 0.002952,
+      "site": "Phoenix, AZ, USA",
+      "sunrise_dip_s": -148.6,
+      "sunrise_error_s": 14.2,
+      "sunset_dip_s": 148.6,
+      "sunset_error_s": -13.4
+    },
+    {
+      "day": "2026-09-22",
+      "elevation_m": 331.0,
+      "max_abs_elevation_above_5": 0.005621,
+      "site": "Phoenix, AZ, USA",
+      "sunrise_dip_s": -129.7,
+      "sunrise_error_s": 12.8,
+      "sunset_dip_s": 129.4,
+      "sunset_error_s": -10.7
+    },
+    {
+      "day": "2026-12-21",
+      "elevation_m": 331.0,
+      "max_abs_elevation_above_5": 0.003852,
+      "site": "Phoenix, AZ, USA",
+      "sunrise_dip_s": -146.5,
+      "sunrise_error_s": 14.5,
+      "sunset_dip_s": 146.5,
+      "sunset_error_s": -13.0
+    },
+    {
+      "day": "2026-03-20",
+      "elevation_m": 56.0,
+      "max_abs_elevation_above_5": 0.004128,
+      "site": "Seattle, WA, USA",
+      "sunrise_dip_s": -99.9,
+      "sunrise_error_s": 13.4,
+      "sunset_dip_s": 100.1,
+      "sunset_error_s": -15.1
+    },
+    {
+      "day": "2026-06-21",
+      "elevation_m": 56.0,
+      "max_abs_elevation_above_5": 0.002636,
+      "site": "Seattle, WA, USA",
+      "sunrise_dip_s": -125.9,
+      "sunrise_error_s": 19.1,
+      "sunset_dip_s": 125.9,
+      "sunset_error_s": -18.3
+    },
+    {
+      "day": "2026-09-22",
+      "elevation_m": 56.0,
+      "max_abs_elevation_above_5": 0.005131,
+      "site": "Seattle, WA, USA",
+      "sunrise_dip_s": -100.1,
+      "sunrise_error_s": 15.7,
+      "sunset_dip_s": 99.9,
+      "sunset_error_s": -13.3
+    },
+    {
+      "day": "2026-12-21",
+      "elevation_m": 56.0,
+      "max_abs_elevation_above_5": 0.002669,
+      "site": "Seattle, WA, USA",
+      "sunrise_dip_s": -121.9,
+      "sunrise_error_s": 19.2,
+      "sunset_dip_s": 121.9,
+      "sunset_error_s": -17.7
+    },
+    {
+      "day": "2026-03-20",
+      "elevation_m": 15.0,
+      "max_abs_elevation_above_5": 0.00378,
+      "site": "Valencia, Spain",
+      "sunrise_dip_s": -45.0,
+      "sunrise_error_s": 12.0,
+      "sunset_dip_s": 45.1,
+      "sunset_error_s": -13.0
+    },
+    {
+      "day": "2026-06-21",
+      "elevation_m": 15.0,
+      "max_abs_elevation_above_5": 0.002864,
+      "site": "Valencia, Spain",
+      "sunrise_dip_s": -53.0,
+      "sunrise_error_s": 15.8,
+      "sunset_dip_s": 53.0,
+      "sunset_error_s": -14.9
+    },
+    {
+      "day": "2026-09-22",
+      "elevation_m": 15.0,
+      "max_abs_elevation_above_5": 0.005196,
+      "site": "Valencia, Spain",
+      "sunrise_dip_s": -45.1,
+      "sunrise_error_s": 13.8,
+      "sunset_dip_s": 45.0,
+      "sunset_error_s": -11.6
+    },
+    {
+      "day": "2026-12-21",
+      "elevation_m": 15.0,
+      "max_abs_elevation_above_5": 0.003098,
+      "site": "Valencia, Spain",
+      "sunrise_dip_s": -52.1,
+      "sunrise_error_s": 16.0,
+      "sunset_dip_s": 52.1,
+      "sunset_error_s": -14.5
+    },
+    {
+      "day": "2026-03-20",
+      "elevation_m": 60.0,
+      "max_abs_elevation_above_5": 0.004163,
+      "site": "Chi\u00e8vres, Belgium",
+      "sunrise_dip_s": -109.8,
+      "sunrise_error_s": 14.3,
+      "sunset_dip_s": 110.0,
+      "sunset_error_s": -15.9
+    },
+    {
+      "day": "2026-06-21",
+      "elevation_m": 60.0,
+      "max_abs_elevation_above_5": 0.002801,
+      "site": "Chi\u00e8vres, Belgium",
+      "sunrise_dip_s": -144.1,
+      "sunrise_error_s": 21.1,
+      "sunset_dip_s": 144.1,
+      "sunset_error_s": -20.2
+    },
+    {
+      "day": "2026-09-22",
+      "elevation_m": 60.0,
+      "max_abs_elevation_above_5": 0.005286,
+      "site": "Chi\u00e8vres, Belgium",
+      "sunrise_dip_s": -110.1,
+      "sunrise_error_s": 16.7,
+      "sunset_dip_s": 109.8,
+      "sunset_error_s": -14.0
+    },
+    {
+      "day": "2026-12-21",
+      "elevation_m": 60.0,
+      "max_abs_elevation_above_5": 0.003119,
+      "site": "Chi\u00e8vres, Belgium",
+      "sunrise_dip_s": -138.3,
+      "sunrise_error_s": 21.0,
+      "sunset_dip_s": 138.3,
+      "sunset_error_s": -19.5
+    },
+    {
+      "day": "2026-03-20",
+      "elevation_m": 264.0,
+      "max_abs_elevation_above_5": 0.003783,
+      "site": "Minneapolis, MN, USA",
+      "sunrise_dip_s": -141.8,
+      "sunrise_error_s": 12.9,
+      "sunset_dip_s": 142.3,
+      "sunset_error_s": -14.3
+    },
+    {
+      "day": "2026-06-21",
+      "elevation_m": 264.0,
+      "max_abs_elevation_above_5": 0.002728,
+      "site": "Minneapolis, MN, USA",
+      "sunrise_dip_s": -174.5,
+      "sunrise_error_s": 17.8,
+      "sunset_dip_s": 174.4,
+      "sunset_error_s": -17.0
+    },
+    {
+      "day": "2026-09-22",
+      "elevation_m": 264.0,
+      "max_abs_elevation_above_5": 0.004755,
+      "site": "Minneapolis, MN, USA",
+      "sunrise_dip_s": -142.3,
+      "sunrise_error_s": 15.0,
+      "sunset_dip_s": 141.8,
+      "sunset_error_s": -12.7
+    },
+    {
+      "day": "2026-12-21",
+      "elevation_m": 264.0,
+      "max_abs_elevation_above_5": 0.003161,
+      "site": "Minneapolis, MN, USA",
+      "sunrise_dip_s": -169.6,
+      "sunrise_error_s": 18.0,
+      "sunset_dip_s": 169.6,
+      "sunset_error_s": -16.4
+    },
+    {
+      "day": "2026-03-20",
+      "elevation_m": 28.0,
+      "max_abs_elevation_above_5": 0.004439,
+      "site": "Stockholm, Sweden",
+      "sunrise_dip_s": -93.1,
+      "sunrise_error_s": 17.5,
+      "sunset_dip_s": 93.4,
+      "sunset_error_s": -20.0
+    },
+    {
+      "day": "2026-06-21",
+      "elevation_m": 28.0,
+      "max_abs_elevation_above_5": 0.003074,
+      "site": "Stockholm, Sweden",
+      "sunrise_dip_s": -157.6,
+      "sunrise_error_s": 33.5,
+      "sunset_dip_s": 157.6,
+      "sunset_error_s": -32.6
+    },
+    {
+      "day": "2026-09-22",
+      "elevation_m": 28.0,
+      "max_abs_elevation_above_5": 0.005082,
+      "site": "Stockholm, Sweden",
+      "sunrise_dip_s": -93.4,
+      "sunrise_error_s": 20.8,
+      "sunset_dip_s": 93.2,
+      "sunset_error_s": -17.5
+    },
+    {
+      "day": "2026-12-21",
+      "elevation_m": 28.0,
+      "max_abs_elevation_above_5": 0.001914,
+      "site": "Stockholm, Sweden",
+      "sunrise_dip_s": -141.9,
+      "sunrise_error_s": 31.3,
+      "sunset_dip_s": 141.9,
+      "sunset_error_s": -29.8
+    },
+    {
+      "day": "2026-03-20",
+      "elevation_m": 15.0,
+      "max_abs_elevation_above_5": 0.002304,
+      "site": "Singapore",
+      "sunrise_dip_s": -34.8,
+      "sunrise_error_s": 9.8,
+      "sunset_dip_s": 34.8,
+      "sunset_error_s": -10.1
+    },
+    {
+      "day": "2026-06-21",
+      "elevation_m": 15.0,
+      "max_abs_elevation_above_5": 0.003152,
+      "site": "Singapore",
+      "sunrise_dip_s": -37.9,
+      "sunrise_error_s": 11.4,
+      "sunset_dip_s": 37.9,
+      "sunset_error_s": -10.6
+    },
+    {
+      "day": "2026-09-22",
+      "elevation_m": 15.0,
+      "max_abs_elevation_above_5": 0.005446,
+      "site": "Singapore",
+      "sunrise_dip_s": -34.8,
+      "sunrise_error_s": 10.8,
+      "sunset_dip_s": 34.8,
+      "sunset_error_s": -9.1
+    },
+    {
+      "day": "2026-12-21",
+      "elevation_m": 15.0,
+      "max_abs_elevation_above_5": 0.004292,
+      "site": "Singapore",
+      "sunrise_dip_s": -37.9,
+      "sunrise_error_s": 11.8,
+      "sunset_dip_s": 37.9,
+      "sunset_error_s": -10.2
+    },
+    {
+      "day": "2026-03-20",
+      "elevation_m": 58.0,
+      "max_abs_elevation_above_5": 0.001841,
+      "site": "Sydney, Australia",
+      "sunrise_dip_s": -82.7,
+      "sunrise_error_s": 12.5,
+      "sunset_dip_s": 82.6,
+      "sunset_error_s": -12.3
+    },
+    {
+      "day": "2026-06-21",
+      "elevation_m": 58.0,
+      "max_abs_elevation_above_5": 0.002655,
+      "site": "Sydney, Australia",
+      "sunrise_dip_s": -93.5,
+      "sunrise_error_s": 14.3,
+      "sunset_dip_s": 93.5,
+      "sunset_error_s": -13.3
+    },
+    {
+      "day": "2026-09-22",
+      "elevation_m": 58.0,
+      "max_abs_elevation_above_5": 0.003585,
+      "site": "Sydney, Australia",
+      "sunrise_dip_s": -82.6,
+      "sunrise_error_s": 12.9,
+      "sunset_dip_s": 82.7,
+      "sunset_error_s": -11.5
+    },
+    {
+      "day": "2026-12-21",
+      "elevation_m": 58.0,
+      "max_abs_elevation_above_5": 0.004476,
+      "site": "Sydney, Australia",
+      "sunrise_dip_s": -94.8,
+      "sunrise_error_s": 14.6,
+      "sunset_dip_s": 94.8,
+      "sunset_error_s": -13.1
+    }
+  ],
+  "step_min": 10,
+  "sunrise_s": {
+    "max_abs": 33.5045,
+    "mean_abs": 15.827149,
+    "n": 36,
+    "p95_abs": 31.290003
+  },
+  "sunset_s": {
+    "max_abs": 32.588331,
+    "mean_abs": 14.940863,
+    "n": 36,
+    "p95_abs": 29.750807
+  }
+}
