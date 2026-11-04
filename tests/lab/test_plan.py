@@ -1,6 +1,7 @@
 """The floor-plan file (`vesper-plan/1`): validation, scaling, rectification and the house checks (floor-plan import,
 task A1). Pure geometry: no image, no Claude, no files."""
 import copy
+import json
 import math
 import random
 
@@ -244,7 +245,7 @@ def test_two_rooms_overlapping_by_20_cm_the_smaller_keeps_the_strip():
 
 def test_an_overlap_that_would_split_or_hollow_a_room_is_refused():
     inside = metres([room("living", "living", rect(0, 0, 8, 6)), room("bathroom", "bathroom", rect(2, 2, 4, 4))])
-    with pytest.raises(PlanError, match=r"room 'bathroom' lies inside 'living' by 2.0 m: redraw"):
+    with pytest.raises(PlanError, match=r"room 'bathroom' lies inside 'living' by 2.00 m: redraw"):
         rectify(inside)
     split = metres([room("living", "living", rect(0, 0, 8, 6)), room("corridor", "corridor", rect(3, -1, 4, 7))])
     with pytest.raises(PlanError, match=r"'corridor'.*'living'"):
@@ -549,7 +550,7 @@ def test_check_house_finds_an_overlap_of_rooms_that_are_not_rectilinear():
     assert not any("overlap" in s for s in check_house(p))
 
 
-JUNK = [None, 3, -1.5, "x", "", [], {}, [1], [[1, 2]], True, {"a": 1}, float("nan")]
+JUNK = [10**400, 1e308, None, 3, -1.5, "x", "", [], {}, [1], [[1, 2]], True, {"a": 1}, float("nan")]
 
 
 def paths(node, prefix=()):
@@ -612,7 +613,7 @@ def test_a_door_or_window_wider_than_its_wall_is_refused():
 
 def test_a_room_drawn_inside_another_is_refused_with_how_far_in_it_is():
     p = metres([room("living", "living", rect(0, 0, 8, 6)), room("kitchen", "kitchen", rect(2, 1.5, 5, 4.5))])
-    with pytest.raises(PlanError, match=r"room 'kitchen' lies inside 'living' by 3.0 m: redraw them as separate rooms"):
+    with pytest.raises(PlanError, match=r"room 'kitchen' lies inside 'living' by 3.00 m: redraw them as separate"):
         rectify(p)
 
 
@@ -631,3 +632,128 @@ def test_plan_transform_is_the_turn_rectify_applies():
         for a, b in zip(before["polygon"], after["polygon"], strict=True):
             assert turn(a) == pytest.approx(tuple(b), abs=1e-6)
     assert turn(p["doors"][0]["at"]) == pytest.approx(tuple(out["doors"][0]["at"]), abs=1e-6)
+
+
+# Plans a reviewer's fuzz found refused as 'rooms do not touch': walls joined first used up the 25 cm span that
+# a door-joined pair of walls (a few mm apart) needed.
+DOOR_PAIRS_REFUSED = [
+    json.loads(
+        '{"format":"vesper-plan/1","units":"m","scale":null,"rooms":[{"id":"r00","name":"r00","type":"oth'
+        'er","polygon":[[0.0084,0.0018],[3.4247,0.4125],[2.9969,3.869],[-0.417,3.4561]]},{"id":"r01","nam'
+        'e":"r01","type":"other","polygon":[[-0.4133,3.4297],[3.0073,3.8114],[2.5793,7.1184],[-0.8204,6.6'
+        '66]]},{"id":"r10","name":"r10","type":"other","polygon":[[3.291,0.4368],[6.3556,0.8236],[5.9354,'
+        '4.2213],[2.9089,3.8813]]},{"id":"r11","name":"r11","type":"other","polygon":[[3.1538,3.9237],[5.'
+        '9152,4.2628],[5.4973,7.4498],[2.7478,7.0981]]}],"doors":[{"at":[1.2709,3.6532],"width":0.8,"room'
+        's":["r00","r01"]},{"at":[3.1894,2.1471],"width":0.8,"rooms":["r00","r10"]},{"at":[2.7707,5.4832]'
+        ',"width":0.8,"rooms":["r01","r11"]},{"at":[4.4423,4.0512],"width":0.8,"rooms":["r10","r11"]},{"a'
+        't":[-0.2158,1.7197],"width":0.9,"rooms":["r00","outside"]}],"windows":[],"entrance":4}'),
+    json.loads(
+        '{"format":"vesper-plan/1","units":"m","scale":null,"rooms":[{"id":"r00","name":"r00","type":"oth'
+        'er","polygon":[[0.0223,-0.003],[4.7957,-0.5801],[5.3116,3.8127],[0.5239,4.4085]]},{"id":"r01","n'
+        'ame":"r01","type":"other","polygon":[[0.5544,4.2093],[5.3031,3.6155],[5.7537,7.5026],[0.9914,8.0'
+        '607]]},{"id":"r10","name":"r10","type":"other","polygon":[[4.6128,-0.5682],[8.158,-1.0444],[8.68'
+        '63,3.4276],[5.1664,3.8414]]},{"id":"r11","name":"r11","type":"other","polygon":[[5.304,3.8043],['
+        '8.7045,3.3828],[9.1619,7.054],[5.751,7.4694]]},{"id":"r20","name":"r20","type":"other","polygon"'
+        ':[[8.0232,-1.0197],[11.634,-1.424],[12.1942,2.9862],[8.5285,3.416]]},{"id":"r21","name":"r21","t'
+        'ype":"other","polygon":[[8.6505,3.2843],[12.202,2.8338],[12.6852,6.658],[9.1323,7.0812]]},{"id":'
+        '"r30","name":"r30","type":"other","polygon":[[11.5282,-1.459],[14.7327,-1.8261],[15.2811,2.5652]'
+        ',[12.0835,2.9767]]},{"id":"r31","name":"r31","type":"other","polygon":[[12.0869,2.793],[15.2331,'
+        '2.4229],[15.6938,6.2592],[12.5644,6.646]]}],"doors":[{"at":[2.9356,4.1175],"width":0.8,"rooms":['
+        '"r00","r01"]},{"at":[5.0467,1.6132],"width":0.8,"rooms":["r00","r10"]},{"at":[5.5502,5.6571],"wi'
+        'dth":0.8,"rooms":["r01","r11"]},{"at":[7.012,3.61],"width":0.8,"rooms":["r10","r11"]},{"at":[8.4'
+        '277,1.1922],"width":0.8,"rooms":["r10","r20"]},{"at":[8.9312,5.2361],"width":0.8,"rooms":["r11",'
+        '"r21"]},{"at":[10.4574,3.181],"width":0.8,"rooms":["r20","r21"]},{"at":[11.9374,0.7553],"width":'
+        '0.8,"rooms":["r20","r30"]},{"at":[12.4409,4.7992],"width":0.8,"rooms":["r21","r31"]},{"at":[13.7'
+        '372,2.7727],"width":0.8,"rooms":["r30","r31"]},{"at":[0.2748,2.2073],"width":0.9,"rooms":["r00",'
+        '"outside"]}],"windows":[],"entrance":10}'),
+]
+
+
+@pytest.mark.parametrize("plan", DOOR_PAIRS_REFUSED, ids=["mixed", "overlap"])
+def test_a_door_joined_pair_of_walls_closes_even_when_a_cluster_has_used_up_the_usual_span(plan):
+    out = rectify(plan)
+    assert rectify(out) == out
+    assert check_house(out) == []
+
+
+def thick_house(rng, wall, tilt_deg, jitter=0.02):
+    """A 3 x 2 grid whose interior walls are `wall` thick (the rooms' outlines stop short of the grid lines), a door
+    in every wall, one to the outside, jittered and tilted."""
+    cols = [0, *sorted(rng.sample([3, 4, 5, 6, 7], 2)), 10]
+    rows = [0, 4, 8]
+    h = wall / 2
+    rooms, doors = [], []
+    for i in range(3):
+        for j in range(2):
+            rooms.append(room(f"r{i}{j}", "other", rect(cols[i] + (h if i else 0), rows[j] + (h if j else 0),
+                                                       cols[i + 1] - (h if i < 2 else 0),
+                                                       rows[j + 1] - (h if j < 1 else 0))))
+    for i in range(3):
+        doors.append({"at": [(cols[i] + cols[i + 1]) / 2, 4], "width": 0.8, "rooms": [f"r{i}0", f"r{i}1"]})
+    for i in range(2):
+        for j in range(2):
+            doors.append({"at": [cols[i + 1], rows[j] + 2], "width": 0.8, "rooms": [f"r{i}{j}", f"r{i + 1}{j}"]})
+    doors.append({"at": [0, 2], "width": 0.9, "rooms": ["r00", "outside"]})
+    p = tilted(metres(rooms, doors=doors, entrance=len(doors) - 1), rng.uniform(-tilt_deg, tilt_deg))
+    for r in p["rooms"]:
+        r["polygon"] = [[x + rng.uniform(-jitter, jitter), z + rng.uniform(-jitter, jitter)] for x, z in r["polygon"]]
+    return p
+
+
+@pytest.mark.parametrize("wall, tilt", [(0.3, 0), (0.3, 5), (0.45, 5)])
+def test_houses_with_thick_walls_and_doors_everywhere_rectify_to_a_fixed_point(wall, tilt):
+    rng = random.Random(f"vesper-plan-thick-{wall}-{tilt}")
+    for n in range(30):
+        p = thick_house(rng, wall, tilt)
+        out = rectify(p)
+        assert rectify(out) == out, n
+        assert check_house(out) == [], n
+
+
+def overlap_strip(depth, long=6.0, l_shaped=False):
+    """Living room 8 x 8 and a room whose outline reaches `depth` into it along one wall (or along two, as an L)."""
+    other = [[8 - depth, 0], [8 + 3, 0], [8 + 3, long], [8 - depth, long]]
+    if l_shaped:
+        other = [[8 - depth, 0], [11, 0], [11, long], [2, long], [2, long - depth], [8 - depth, long - depth]]
+    return metres([room("living", "living", rect(0, 0, 8, 8)), room("study", "other", other)])
+
+
+@pytest.mark.parametrize("depth", [0.2, 0.45])
+def test_a_thin_strip_of_overlap_is_trimmed(depth):
+    out = rectify(overlap_strip(depth))
+    assert polygon_area([tuple(q) for q in by_id(out, "living")["polygon"]]) == pytest.approx(64 - depth * 6)
+
+
+def test_an_l_shaped_strip_of_overlap_is_trimmed():
+    out = rectify(overlap_strip(0.2, l_shaped=True))
+    assert polygon_area([tuple(q) for q in by_id(out, "living")["polygon"]]) < 64
+
+
+@pytest.mark.parametrize("w, h, depth", [(0.55, 6, "0.55"), (0.9, 0.9, "0.90"), (0.8, 1.2, "0.80"), (0.7, 1.5, "0.70"),
+                                         (0.6, 3, "0.60")])
+def test_a_thicker_overlap_than_half_a_metre_is_refused_with_its_depth(w, h, depth):
+    p = metres([room("living", "living", rect(0, 0, 8, 8)), room("study", "other", rect(8 - w, 1, 8 - w + 3, 1 + h))])
+    with pytest.raises(PlanError, match=rf"'study'.*'living' by {depth} m: redraw them as separate rooms"):
+        rectify(p)
+
+
+@pytest.mark.parametrize("bad", [10**400, -(10**400), 1e308, 1e12], ids=["huge-int", "huge-negative", "1e308", "1e12"])
+def test_numbers_beyond_any_plan_are_a_plan_error_not_an_overflow(bad):
+    p = house()
+    p["rooms"][0]["polygon"][1] = [bad, 0]
+    with pytest.raises(PlanError, match="living"):
+        load_plan(p)
+    q = house()
+    q["doors"][0]["width"] = bad
+    with pytest.raises(PlanError, match="door 0"):
+        load_plan(q)
+    s = two_rooms(scale={"m_per_px": bad})
+    with pytest.raises(PlanError, match="scale"):
+        scale_plan(s)
+    with pytest.raises(PlanError, match="area"):
+        scale_plan(two_rooms(), area_m2=bad)
+
+
+def test_a_scale_that_makes_the_plan_absurdly_large_is_refused():
+    with pytest.raises(PlanError, match="scale"):
+        scale_plan(two_rooms(scale={"m_per_px": 1e8}))
