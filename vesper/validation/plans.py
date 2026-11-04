@@ -145,7 +145,9 @@ def _opening(poly) -> tuple[list[float], float, tuple[float, float], float]:
 
 
 def parse_cubicasa_svg(text: str) -> dict:
-    """The ground truth of a CubiCasa5K `model.svg`: its first floor as a `vesper-plan/1` in image pixels, and
+    """The ground truth of a CubiCasa5K `model.svg`: every floor it draws (a two-storey home's floors stand side by
+    side in the one image, `F1_scaled.png`, so both are what the image shows) as one `vesper-plan/1` in image
+    pixels, and "floors", how many; and
 
     - "m_per_px": the scale, from the rooms' dimension labels (the median over the rooms that have one), else 1 cm a
       unit ("scale_source" says which);
@@ -156,8 +158,9 @@ def parse_cubicasa_svg(text: str) -> dict:
     same room or nothing on both sides is in "door_points" only. A window lights the room on its inner side. The
     entrance is a door to the outside, a hall's first."""
     root = ET.fromstring(text)
-    floor, base = _first_floor(root, np.eye(3))
-    if floor is None:
+    floors: list = []
+    _floors(root, np.eye(3), floors)
+    if not floors:
         raise ValueError("model.svg: no floor plan (no group of class Floorplan)")
     spaces, doors, windows = [], [], []
 
@@ -172,8 +175,9 @@ def parse_cubicasa_svg(text: str) -> dict:
             return
         for c in el:
             walk(c, m)
-    for c in floor:
-        walk(c, base)
+    for floor, base in floors:
+        for c in floor:
+            walk(c, base)
 
     rooms, classes, ratios = [], [], []
     for k, (el, _m, poly) in enumerate(spaces):
@@ -242,7 +246,7 @@ def parse_cubicasa_svg(text: str) -> dict:
             "doors": plan_doors, "windows": plan_windows, "entrance": entrance}
     return {"plan": plan, "m_per_px": m_per_px,
             "scale_source": "labels" if ratios else "assumed 1 cm a unit", "classes": classes,
-            "door_points": door_points, "openings": openings}
+            "door_points": door_points, "openings": openings, "floors": len(floors)}
 
 
 def _touching(p, q, min_len: float) -> tuple[list[float], float] | None:
@@ -272,15 +276,14 @@ def _touching(p, q, min_len: float) -> tuple[list[float], float] | None:
     return best
 
 
-def _first_floor(el, m):
+def _floors(el, m, out: list) -> None:
+    """Every group of class Floorplan under el, with the transform down to it, in document order."""
     m = m @ _matrix(el.get("transform"))
     if _cls(el).split()[:1] == ["Floorplan"]:
-        return el, m
+        out.append((el, m))
+        return
     for c in el:
-        found, fm = _first_floor(c, m)
-        if found is not None:
-            return found, fm
-    return None, m
+        _floors(c, m, out)
 
 
 # --- the metrics --------------------------------------------------------------------------------------------------
@@ -670,6 +673,7 @@ def evaluate(dataset: Path, n: int, seed: int, runner=None, model: str | None = 
         meta = json.loads((folder / "meta.json").read_text()) if (folder / "meta.json").is_file() else {}
         row = {"id": pid, "image_px": _png_size(image), "truth_rooms": len(truth["plan"]["rooms"]),
                "truth_scale_source": truth["scale_source"], "truth_m_per_px": truth["m_per_px"],
+               "truth_floors": truth["floors"], "truth_openings": truth["openings"],
                "seconds": meta.get("seconds"), "cost_usd": meta.get("cost_usd"), "calls": meta.get("calls"),
                "models": meta.get("models"), "error": error, "score": score(plan, truth, res=res),
                "build": build_check(plan, truth["m_per_px"], catalog) if plan is not None else None,

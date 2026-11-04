@@ -10,8 +10,8 @@ import pytest
 from vesper.lab.plan import load_plan
 from vesper.validation import plans
 
-# A model.svg in CubiCasa5K's shape: 1 unit = 1 cm, a floor transform, two floors (only the first is read), spaces
-# with their class, a dimension label, doors and windows as rectangles in the walls.
+# A model.svg in CubiCasa5K's shape: 1 unit = 1 cm, a floor transform, two floors drawn side by side in the one image
+# (both are read), spaces with their class, a dimension label, doors and windows as rectangles in the walls.
 SVG = """<?xml version="1.0"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="700">
 <g id="Model" class="Model v1-1"><g class="Floor">
@@ -30,7 +30,8 @@ SVG = """<?xml version="1.0"?>
   <g class="Window Regular"><polygon points="340,395 460,395 460,405 340,405"/></g>
   <g class="Wall"><polygon points="0,0 1,0 1,1"/></g>
  </g>
- <g id="Floor-2" class="Floorplan Floor-2"><g class="Space Bedroom"><polygon points="0,0 9,0 9,9 0,9"/></g></g>
+ <g id="Floor-2" class="Floorplan Floor-2">
+  <g class="Space Bedroom"><polygon points="1000,0 1300,0 1300,300 1000,300"/></g></g>
 </g></g></svg>"""
 
 
@@ -38,15 +39,17 @@ def rect(x0, y0, x1, y1):
     return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
 
 
-def test_the_ground_truth_is_the_first_floors_spaces_in_image_pixels_with_their_mapped_types():
+def test_the_ground_truth_is_every_floors_spaces_in_image_pixels_with_their_mapped_types():
     gt = plans.parse_cubicasa_svg(SVG)
     plan = gt["plan"]
     load_plan(plan)  # a valid vesper-plan/1
     assert plan["units"] == "px"
     assert [(r["name"], r["type"]) for r in plan["rooms"]] == [
-        ("LivingRoom", "living"), ("Entry Lobby", "hall"), ("Closet WalkIn", "other"), ("Outdoor", "other")]
+        ("LivingRoom", "living"), ("Entry Lobby", "hall"), ("Closet WalkIn", "other"), ("Outdoor", "other"),
+        ("Bedroom", "bedroom")]
     assert plan["rooms"][0]["polygon"] == rect(100, 0, 600, 400)  # the floor's transform applied, the repeat dropped
-    assert gt["classes"] == ["LivingRoom", "Entry", "Closet", "Outdoor"]
+    assert gt["classes"] == ["LivingRoom", "Entry", "Closet", "Outdoor", "Bedroom"]
+    assert plan["rooms"][4]["polygon"] == rect(1000, 0, 1300, 300) and gt["floors"] == 2
 
 
 def test_the_scale_comes_from_the_dimension_labels_else_a_centimetre_a_unit():
