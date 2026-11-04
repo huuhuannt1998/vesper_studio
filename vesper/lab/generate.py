@@ -134,6 +134,7 @@ PLAN_LABELS = {**LABELS, "corridor": "hallway", "hall": "hall", "other": "other"
 PLAN_STEMS = {"other": "room", "corridor": "hallway"}  # a hallway gets a light; `at: hall` finds it
 PORCH_LABEL = "porch/terrace/deck/driveway"
 PORCH_TRIES = ((2.0, 3.0), (2.0, 2.0), (1.5, 2.0), (1.0, 1.5))  # (depth, width): the first that fits outside
+PORCH_LEAST = (0.9, 0.6)  # a porch in a recess is at least this wide (and the door's width) and deep (m)
 MARGIN = 0.3  # the map's floor grid reaches this far past the plan, so every outer wall has cells
 _TOL = 1e-6
 
@@ -298,17 +299,20 @@ def _porch_for(k: int, d: dict, room: str, along, out, outlines: dict, porches: 
             return p
     others = [(f"room {rid!r}", ring) for rid, ring in outlines.items()]
     others += [(f"the porch of door {p['door']}", p["polygon"]) for p in porches]
+
+    def new(width: float, depth: float) -> dict:
+        porch = {"id": _unique("porch", taken), "polygon": _strip(at, along, out, -width / 2, width / 2, depth),
+                 "door": k, "origin": at, "along": along, "out": out, "lo": -width / 2, "hi": width / 2,
+                 "depth": depth}
+        taken.add(porch["id"])
+        porches.append(porch)
+        return porch
     first = None
     for depth, width in PORCH_TRIES:
         width = max(width, w + 0.4)
-        poly = _strip(at, along, out, -width / 2, width / 2, depth)
-        blockers = _blockers(poly, others)
+        blockers = _blockers(_strip(at, along, out, -width / 2, width / 2, depth), others)
         if not blockers:
-            porch = {"id": _unique("porch", taken), "polygon": poly, "door": k, "origin": at, "along": along,
-                     "out": out, "lo": -width / 2, "hi": width / 2, "depth": depth}
-            taken.add(porch["id"])
-            porches.append(porch)
-            return porch
+            return new(width, depth)
         first = first or blockers
     if all(b.startswith("the porch") for b in first):
         for p in sorted(porches, key=lambda p: math.dist(p["origin"], at)):
@@ -324,6 +328,16 @@ def _porch_for(k: int, d: dict, room: str, along, out, outlines: dict, porches: 
                 if not _blockers(poly, [o for o in others if o[1] is not p["polygon"]]):
                     p.update(polygon=poly, lo=lo, hi=hi)
                     return p
+    # a recessed door: the porch shrinks to fit, the deepest that does, at its widest, down to PORCH_LEAST
+    least_w = max(PORCH_LEAST[0], w)
+    for depth in (round(PORCH_TRIES[0][0] - 0.1 * n, 3) for n in range(100)):
+        if depth - WALL < PORCH_LEAST[1] - _TOL:
+            break
+        for width in (round(PORCH_TRIES[-1][1] - 0.05 * n, 3) for n in range(100)):
+            if width < least_w - _TOL:
+                break
+            if not _blockers(_strip(at, along, out, -width / 2, width / 2, depth), others):
+                return new(width, depth)
     names = ", ".join(first)
     raise GenerateError(f"door {k} (from {room!r} to the outside): {names} {'stand' if len(first) > 1 else 'stands'} "
                         "where its porch would be; check the plan")
@@ -336,8 +350,8 @@ def _strip(origin, along, out, lo: float, hi: float, depth: float) -> tuple:
 
 
 def _blockers(poly, others) -> list[str]:
-    """The names of the others (name, polygon) that share floor with the polygon or come within WALL of it (sampled
-    every 5 cm, just inside it)."""
+    """The names of the others (name, polygon) that share floor with the polygon (sampled every 5 cm, just inside
+    it) or come within WALL of it (its samples, and its outline against theirs, to the millimetre)."""
     xs, zs = [x for x, _ in poly], [z for _, z in poly]
     step = 0.05
     nx, nz = int((max(xs) - min(xs)) / step), int((max(zs) - min(zs)) / step)
@@ -351,7 +365,9 @@ def _blockers(poly, others) -> list[str]:
             continue
         edges = _edges(list(o))
         if any(point_in_polygon(c, poly) for c in o) or any(
-                point_in_polygon(p, o) or min(_gap(e, p) for e in edges) < WALL for p in samples):
+                point_in_polygon(p, o) or min(_gap(e, p) for e in edges) < WALL for p in samples) or any(
+                _gap(e, c) < WALL - 1e-3 for e in edges for c in poly) or any(
+                _gap(e, c) < WALL - 1e-3 for e in _edges(list(poly)) for c in o):
             out.append(name)
     return out
 

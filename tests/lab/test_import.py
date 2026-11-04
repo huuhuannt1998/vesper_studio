@@ -1,6 +1,7 @@
 """`vesper lab import` (floor-plan import, task A2): a home built from a `vesper-plan/1` file, the same pipeline as
 `vesper lab generate` after the map: rooms, walkable floor and doorways from the plan's polygons, a porch at the
 entrance, the plan's windows (and rule windows where a room has none), devices, furniture and the layout check."""
+import copy
 import json
 from collections import deque
 
@@ -443,3 +444,37 @@ def test_a_passage_the_plan_draws_narrower_than_a_walkway_is_the_plan_s_not_the_
     assert "warn  walkway: hall: no 0.9 m path to bedroom_3-hall even with no furniture" in text
     # the hall is furnished all the same: what the furniture may not do is close a walkway the plan has
     assert "hall" in {i["room"] for i in json.loads((out / "furniture.json").read_text())["items"]}
+
+
+# The reviewer's recessed entrance: the front door at the back of a 1.2 m recess between two bedrooms
+RECESS = {"format": "vesper-plan/1", "units": "m", "scale": None,
+          "rooms": [{"id": "lr", "name": "Living", "type": "living", "polygon": rect(0, 0, 6, 5)},
+                    {"id": "b1", "name": "Bed 1", "type": "bedroom", "polygon": rect(0, 5, 2.4, 9)},
+                    {"id": "b2", "name": "Bed 2", "type": "bedroom", "polygon": rect(3.6, 5, 6, 9)}],
+          "doors": [{"at": [3, 5], "width": 0.9, "rooms": ["outside", "lr"]},
+                    {"at": [1.2, 5], "width": 0.9, "rooms": ["lr", "b1"]},
+                    {"at": [4.8, 5], "width": 0.9, "rooms": ["lr", "b2"]}],
+          "windows": [], "entrance": 0}
+
+
+def test_a_recessed_entrance_gets_a_porch_that_fits_inside_the_recess(tmp_path, capsys):
+    m = floor_plan_from(rectify(RECESS), "imported/recess")
+    xs, zs = [x for x, _ in m.room("porch").polygon], [z for _, z in m.room("porch").polygon]
+    assert 2.4 + 0.1 <= min(xs) and max(xs) <= 3.6 - 0.1 and max(xs) - min(xs) >= 0.9  # half a wall off each bedroom
+    assert min(zs) == pytest.approx(5.1) and max(zs) - min(zs) >= 0.6
+    assert "lr-porch" in {d.id for d in m.doorways}
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "recess"
+    assert cli.main(["lab", "import", str(write(tmp_path, RECESS, "recess.json")), str(out),
+                     "--catalog", str(cat)]) == 0
+    capsys.readouterr()
+    assert cli.main(["lab", "layout", str(out / "home.yaml"), "--catalog", str(cat)]) == 0
+    assert "0 error(s)" in capsys.readouterr().out
+
+
+def test_a_recess_narrower_than_a_porch_s_least_width_is_refused_naming_the_rooms():
+    plan = copy.deepcopy(RECESS)
+    plan["rooms"][1]["polygon"] = rect(0, 5, 2.55, 9)
+    plan["rooms"][2]["polygon"] = rect(3.45, 5, 6, 9)  # 0.9 m between the bedrooms: 0.7 m once each keeps 0.1 m
+    with pytest.raises(GenerateError, match="room 'b1', room 'b2' stand where its porch would be"):
+        floor_plan_from(plan, "imported/recess")
