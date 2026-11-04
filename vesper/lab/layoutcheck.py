@@ -212,11 +212,11 @@ def _floor(home, solid) -> tuple:
 
 def _walkways(home, solid) -> list[dict]:
     """Each room's doorways joined through floor at least WALKWAY_M wide (cells at least half of it from any
-    blocked cell)."""
+    blocked cell). A home with its plan without furniture (map.original.json: generated or imported) is also
+    measured bare: a doorway the plan itself leaves without such a path (a passage drawn narrower) is a warning,
+    the plan's; only one the furniture cuts off is an error."""
     g, free = _floor(home, solid)
-    r = max(1, math.ceil(WALKWAY_M / 2 / g.cell))  # a (2r - 1)-cell square free about a cell: WALKWAY_M wide
-    roomy = {c for c in free if all((c[0] + di, c[1] + dj) in free for di in range(-r + 1, r)
-                                    for dj in range(-r + 1, r))}
+    bare = _floor(home, [])[1] if (Path(home.path).parent / "map.original.json").is_file() else None
     out = []
     for room in home.map.rooms:
         if room.outdoor:
@@ -224,17 +224,29 @@ def _walkways(home, solid) -> list[dict]:
         dws = [d for d in home.map.doorways if room.id in d.rooms]
         if len(dws) < 2:
             continue
-        x0, z0, x1, z1 = room_box(room)
-        inside = {c for c in roomy if x0 - 0.3 <= g.center(*c)[0] <= x1 + 0.3 and
-                  z0 - 0.3 <= g.center(*c)[1] <= z1 + 0.3}
-        starts = [{c for c in inside if distance(g.center(*c), d.center) <= WALKWAY_M} for d in dws]
-        seen = _flood(starts[0], inside)
-        cut = [d.id for d, s in zip(dws[1:], starts[1:]) if not (s & seen)]
-        out.append(_finding("walkway", not cut, f"{room.id}: " + (f"no {WALKWAY_M} m path to {', '.join(cut)}"
-                                                                    if cut else f"its doorways joined by a "
-                                                                                f"{WALKWAY_M} m path"),
-                            where=room.id))
+        cut = _cut(g, free, room, dws)
+        plan_cut = _cut(g, bare, room, dws) if bare is not None else []
+        furniture_cut = [d for d in cut if d not in plan_cut]
+        if furniture_cut or not plan_cut:
+            out.append(_finding("walkway", not furniture_cut, f"{room.id}: " + (
+                f"no {WALKWAY_M} m path to {', '.join(furniture_cut)}" if furniture_cut
+                else f"its doorways joined by a {WALKWAY_M} m path"), where=room.id))
+        if plan_cut:
+            out.append(_finding("walkway", False, f"{room.id}: no {WALKWAY_M} m path to {', '.join(plan_cut)} even "
+                                f"with no furniture: the plan's room is narrower there", severity="warning",
+                                where=room.id))
     return out
+
+
+def _cut(g, free: set, room, dws) -> list[str]:
+    """The room's doorways after its first that `free` floor does not join to the first by a WALKWAY_M path."""
+    r = max(1, math.ceil(WALKWAY_M / 2 / g.cell))  # a (2r - 1)-cell square free about a cell: WALKWAY_M wide
+    x0, z0, x1, z1 = room_box(room)
+    inside = {c for c in free if x0 - 0.3 <= g.center(*c)[0] <= x1 + 0.3 and z0 - 0.3 <= g.center(*c)[1] <= z1 + 0.3
+              and all((c[0] + di, c[1] + dj) in free for di in range(-r + 1, r) for dj in range(-r + 1, r))}
+    starts = [{c for c in inside if distance(g.center(*c), d.center) <= WALKWAY_M} for d in dws]
+    seen = _flood(starts[0], inside)
+    return [d.id for d, s in zip(dws[1:], starts[1:]) if not (s & seen)]
 
 
 def _flood(start, area) -> set:

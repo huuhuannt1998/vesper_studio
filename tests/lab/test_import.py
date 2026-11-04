@@ -407,3 +407,39 @@ def test_a_failure_after_writing_began_leaves_no_home(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError):
         generate_from_plan(rectify(three_rooms()), Request(tmp_path, [], 0, []), load_catalog(cat), tmp_path / "x")
     assert not (tmp_path / "x").exists()
+
+
+# A plan Claude read from a floor-plan image (task A3's live try), in pixels with a scale bar: the hall's arm to
+# bedroom R2 is 120 px (0.91 m) between wall centre lines, 0.71 m inside its walls
+PLAN2 = {"format": "vesper-plan/1", "units": "px", "scale": {"length_m": 10.668, "from": [100, 70], "to": [1500, 70]},
+         "rooms": [{"id": "r1", "name": "PARKING", "type": "other", "polygon": rect(100, 100, 460, 680)},
+                   {"id": "r2", "name": "Store", "type": "other", "polygon": rect(100, 680, 460, 920)},
+                   {"id": "r3", "name": "KIT", "type": "kitchen", "polygon": rect(100, 920, 380, 1300)},
+                   {"id": "r4", "name": "HALL", "type": "hall",
+                    "polygon": [[460, 100], [1100, 100], [1100, 1300], [980, 1300], [980, 920], [460, 920]]},
+                   {"id": "r5", "name": "R3", "type": "bedroom", "polygon": rect(380, 920, 980, 1300)},
+                   {"id": "r6", "name": "R1", "type": "bedroom", "polygon": rect(1100, 100, 1500, 500)},
+                   {"id": "r7", "name": "B", "type": "bathroom", "polygon": rect(1100, 500, 1500, 720)},
+                   {"id": "r8", "name": "R2", "type": "bedroom", "polygon": rect(1100, 720, 1500, 1300)}],
+         "doors": [{"at": [300, 680], "width": 120, "rooms": ["r1", "r2"]},
+                   {"at": [460, 780], "width": 120, "rooms": ["r2", "r4"]},
+                   {"at": [220, 920], "width": 120, "rooms": ["r2", "r3"]},
+                   {"at": [720, 920], "width": 160, "rooms": ["r4", "r5"]},
+                   {"at": [1100, 300], "width": 120, "rooms": ["r4", "r6"]},
+                   {"at": [1100, 610], "width": 120, "rooms": ["r4", "r7"]},
+                   {"at": [1100, 1110], "width": 120, "rooms": ["r4", "r8"]},
+                   {"at": [740, 100], "width": 140, "rooms": ["r4", "outside"]}],
+         "windows": [], "entrance": 7}
+
+
+def test_a_passage_the_plan_draws_narrower_than_a_walkway_is_the_plan_s_not_the_furniture_s(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "plan2"
+    assert cli.main(["lab", "import", str(write(tmp_path, PLAN2, "plan2.json")), str(out), "--catalog", str(cat)]) == 0
+    capsys.readouterr()
+    assert cli.main(["lab", "layout", str(out / "home.yaml"), "--catalog", str(cat)]) == 0
+    text = capsys.readouterr().out
+    assert "0 error(s)" in text
+    assert "warn  walkway: hall: no 0.9 m path to bedroom_3-hall even with no furniture" in text
+    # the hall is furnished all the same: what the furniture may not do is close a walkway the plan has
+    assert "hall" in {i["room"] for i in json.loads((out / "furniture.json").read_text())["items"]}

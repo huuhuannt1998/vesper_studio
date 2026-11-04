@@ -340,11 +340,20 @@ def _still_reachable(r, taken) -> bool:
 
 
 def _walkway(r, taken) -> bool:
-    """With `taken` off the floor, a room with two or more doorways keeps them joined by floor WALKWAY_M wide, as
-    the layout check measures it (vesper.lab.layoutcheck: cells with a (2k - 1)-cell square of floor about them,
-    within the room's box and 0.3 m round it)."""
+    """With `taken` off the floor, a room with two or more doorways keeps joined by floor WALKWAY_M wide every
+    doorway the bare room joins so to its first, as the layout check measures it (vesper.lab.layoutcheck). A
+    doorway the plan itself leaves without such a path (a passage drawn narrower) does not stop the room being
+    furnished: the furniture only may not close a walkway the plan has."""
     if len(r.doorways) < 2:
         return True
+    if not hasattr(r, "walk_base"):
+        r.walk_base = _joined(r, set())
+    return r.walk_base <= _joined(r, taken)
+
+
+def _joined(r, taken) -> set[int]:
+    """The room's doorways (by index) that floor WALKWAY_M wide, with `taken` off it, joins to its first: cells with
+    a (2k - 1)-cell square of floor about them, within the room's box and 0.3 m round it."""
     g = r.map.grid
     k = max(1, math.ceil(WALKWAY_M / 2 / g.cell))
     box = (r.x0 - 0.3, r.z0 - 0.3, r.x1 + 0.3, r.z1 + 0.3)
@@ -361,4 +370,4 @@ def _walkway(r, taken) -> bool:
         seen.add(c)
         i, j = c
         todo.extend(((i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)))
-    return all(s & seen for s in starts[1:])
+    return {k for k, s in enumerate(starts) if k and s & seen}
