@@ -358,7 +358,8 @@ def main() -> None:
     summary = {
         "commit": c,
         "protocol": "docs/experiments/edt-protocol.md (sections 1-7, addenda 1-3)",
-        "corpus": "45,208 automations from 1,186 public Home Assistant repositories; counts are over automations "
+        "corpus": "45,208 automations from 1,186 public Home Assistant repositories (1,123 of them with automations); "
+                  "counts are over automations "
                   "de-duplicated by canonical hash (results/edt/census-20261104.json)",
         "environments": {"n": len(envs4), "cities": sorted({e["city"] for e in envs4}),
                          "dates": sorted({e["date"] for e in envs4}),

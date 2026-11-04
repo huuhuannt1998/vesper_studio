@@ -143,7 +143,7 @@
   "seed": 0
  },
  "commit": "dc119cd",
- "corpus": "45,208 automations from 1,186 public Home Assistant repositories; counts are over automations de-duplicated by canonical hash (results/edt/census-20261104.json)",
+ "corpus": "45,208 automations from 1,186 public Home Assistant repositories (1,123 of them with automations); counts are over automations de-duplicated by canonical hash (results/edt/census-20261104.json)",
  "cover": {
   "baselines": {
    "random_5": {
