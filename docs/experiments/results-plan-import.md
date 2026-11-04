@@ -198,10 +198,19 @@ plan (commits 5cd05d8 to f65b174, then e37e1ca to 1c4e5e0; README "Importing a f
   unchanged);
 - doors (and windows) are numbered from 1 in the order of the plan as read, in every message: the summary, the
   warnings, a refusal and the lobby, even after a door is left out (so plan 6276's refused door, index 19 in the
-  JSON, is now "door 20").
+  JSON, is now "door 20"); a warning names rooms by their names ('MH'; 'MH' (r4) when two share a name);
+- a window left out of a room of a kind that has windows says "left out; the room gets a rule window" when the room
+  is left with none and has an outside wall for one;
+- an entrance that opens into a balcony is a problem ("the entrance opens into the balcony 'X': choose the door from
+  it into the home"), not a porch built beyond the balcony with the house door unlocked; a room's light switch and
+  wall devices go by the front door or an inner door, never a balcony's (generated homes are byte-identical);
+- with no entrance, a door between rooms that do not touch is kept as read: check_house says the entrance is
+  missing, and the door is decided once there is one.
 
-Nothing is invented. The prompt now also reads one storey (the floor with the main entrance) and types outdoor spaces
-`balcony`.
+Nothing is invented. The prompt now also reads one storey, the floor with the main entrance, and answers
+{"floors_drawn": N, "plan": ...}: the summary (CLI and lobby) then says "storey: the floor with the main entrance (1
+of N drawn)" when N > 1. The plan saved is the vesper-plan/1 alone; a bare plan (an older reading, a hand-written
+file) is still read. Outdoor spaces are typed `balcony`.
 
 Re-measured OFFLINE on the same 10 saved readings (no Claude call): `vesper validate plans --offline --n 10 --seed 0`.
 Room F1 (0.70), doors (48%) and area error (16% / 6%) are unchanged. **The ground truth now types CubiCasa5K's
@@ -236,6 +245,16 @@ reads one storey), walls more than 0.5 m apart (1601: refused by design), a door
 (13019; the true 1590 too: kept as the floor for a door), and a door on a diagonal shared wall (2029: `rectify` only
 recognises shared walls along the plan's two directions; a diagonal wall is left as drawn and a door on it is not
 placed).
+
+**Known limits of the import** (not met in these 10 plans):
+
+- *Window numbers after Leave out in the lobby.* Doors keep the reading's numbers when a room is left out (the page
+  sends them); windows are numbered within the plan as sent, so after a room is left out a window's number can
+  differ from the reading's. No view of the lobby lists windows.
+- *An outside door on a balcony's wall is not re-pointed.* A door read as "to the outside" that stands on a wall the
+  room shares with a balcony is placed on the room's nearest truly outside wall (or refused when none is within
+  0.5 m); it is not turned into a door onto the balcony, and its porch may then be blocked by the balcony.
+- *A balcony with no door* is a room nothing leads to: refused by check_house like any other.
 
 ## Estimate for 50 plans
 

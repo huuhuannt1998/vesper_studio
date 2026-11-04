@@ -696,7 +696,9 @@ more than about 25 cm is refused ("the rooms do not touch"); redraw it straight.
 **One storey.** A home is one floor. When a picture draws several floors (side by side, or one per page), Claude reads
 only the floor with the main entrance; the other floors are not built. A balcony, terrace, patio or loggia is the room
 type `balcony`: an outdoor room built like the porch (no ceiling, no furniture, the outdoor air and light for a device
-on it), and a window onto it is a window of the room behind it.
+on it), and a window onto it is a window of the room behind it. The entrance cannot open into a balcony:
+choose the door from the balcony into the home. When the picture draws several floors, the summary says
+"storey: the floor with the main entrance (1 of N drawn)".
 
 **What the walls cannot carry is left out or narrowed, never invented**, and each is printed as a `warning:` line after
 what was read (the lobby lists them under Problems as warnings; they do not stop Generate): a window on no outside wall
