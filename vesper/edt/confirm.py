@@ -21,7 +21,9 @@ the clock; both absent also agrees).
 Temperature envelope (`envelope`): over the measured days, the lowest and highest temperature of each room a
 `climate.*` target of the automation heats or cools, and whether it went below 10 C or above 30 C. A thermostat in a
 hallway serves every indoor room (the model's central heating), so for the EDT home's one hallway thermostat that is
-every room, reported per room.
+every room, reported per room. The envelope is causal: the same home and environment is also run with no automation
+(`baseline_temperatures`, once per environment), and a room counts as a violation only if it breaches with the
+automation and not in the baseline; each room reports both min/max and the delta, and the report carries CAVEAT.
 """
 from __future__ import annotations
 
@@ -41,6 +43,8 @@ TOD_BUCKET_H = 3.0         # screening outcomes within a bucket are one class (t
 COLD_C, HOT_C = 10.0, 30.0
 COMMAND_PARTS_S = 1.0      # the rows of one command (state, brightness, ...) are written within this of its first
 RUNS_PER_UNFLAGGED = 2
+CAVEAT = ("indoor temperature carries the thermal model's validation error (sunny rooms overheat; "
+          "see results-2026-11-04-environment.md)")
 FIELDS = ("fired", "flaps", "night_light", "night_cover")
 
 
@@ -89,15 +93,36 @@ def pick(sweep_result: dict, sample: int, rng: random.Random) -> list[dict]:
 
 # -- the temperature envelope ------------------------------------------------------------------
 def envelope(temps: dict[str, list[tuple[float, float]]], rooms: list[str],
-             measured_days: tuple[int, int] = (1, 2)) -> dict:
+             measured_days: tuple[int, int] = (1, 2), baseline: dict[str, list[tuple[float, float]]] | None = None
+             ) -> dict:
     """Per room: lowest and highest temperature over the measured days, and whether it left [10, 30] C; None where
-    the room has no reading (a home with no site has no temperatures)."""
+    the room has no reading (a home with no site has no temperatures).
+
+    With `baseline` (the same home and environment with no automation, `baseline_temperatures`) the envelope is
+    causal: `below_10` / `above_30` are true only where the room breaches with the automation and not in the
+    baseline; `breached_*` is the breach with the automation whatever the baseline did. The room also reports the
+    baseline's min and max (None when the baseline has no reading) and the deltas (automation minus baseline)."""
     lo, hi = measured_days[0] * DAY_S, (measured_days[1] + 1) * DAY_S
+
+    def window(source, room):
+        return [c for t, c in source.get(room, ()) if lo <= t < hi]
     out: dict = {}
     for room in rooms:
-        v = [c for t, c in temps.get(room, ()) if lo <= t < hi]
-        out[room] = None if not v else {"min_c": min(v), "max_c": max(v), "below_10": min(v) < COLD_C,
-                                        "above_30": max(v) > HOT_C}
+        v = window(temps, room)
+        if not v:
+            out[room] = None
+            continue
+        row = {"min_c": min(v), "max_c": max(v), "below_10": min(v) < COLD_C, "above_30": max(v) > HOT_C}
+        if baseline is not None:
+            b = window(baseline, room)
+            b_min, b_max = (min(b), max(b)) if b else (None, None)
+            row |= {"baseline_min_c": b_min, "baseline_max_c": b_max,
+                    "delta_min_c": None if b_min is None else round(min(v) - b_min, 2),
+                    "delta_max_c": None if b_max is None else round(max(v) - b_max, 2),
+                    "breached_below_10": row["below_10"], "breached_above_30": row["above_30"],
+                    "below_10": row["below_10"] and not (b_min is not None and b_min < COLD_C),
+                    "above_30": row["above_30"] and not (b_max is not None and b_max > HOT_C)}
+        out[room] = row
     return out
 
 
@@ -136,12 +161,12 @@ def controlled_rooms(bound: dict, home) -> list[str]:
 
 
 # -- one closed-loop run ---------------------------------------------------------------------------
-def closed_loop(bound: dict, env: Env, home_yaml: Path, cache: Path, *, days: int = 3,
+def closed_loop(bound: dict | None, env: Env, home_yaml: Path, cache: Path, *, days: int = 3,
                 catalog_dir: str = "catalog/vds") -> dict:
     """Live `bound` alone for `days` days from local midnight in `env`, its actions real (lights, switches, locks and
     climate; the rest recorded). Returns {"outcome": Outcome, "firings": [Firing], "refused": [...], "rooms": [room]
     (those its climate targets heat or cool), "temperatures": {room: [(t, C), ...]} for those rooms}. The home is
-    copied, never touched."""
+    copied, never touched. `bound` None: the home with no automation (the baseline), "rooms" every indoor room."""
     from vesper.edt.trace import copy_home, env_site, rung_scaling
     from vesper.lab.automations import Engine
     from vesper.lab.home import load_lab_home
@@ -151,7 +176,7 @@ def closed_loop(bound: dict, env: Env, home_yaml: Path, cache: Path, *, days: in
     site = env_site(env)
     with rung_scaling(env), tempfile.TemporaryDirectory(prefix="edt-confirm-") as tmp:
         run_yaml = copy_home(Path(home_yaml), Path(tmp) / "home", site if env.rung >= 3 else None,
-                             Path(cache) / "weather", [bound])
+                             Path(cache) / "weather", [bound] if bound else None)
         home = load_lab_home(run_yaml, load_catalog(Path(catalog_dir)))
         s = Session(home, clock=LogicalClock())
         s.start(spawn_player=False, residents=False, automations=False)
@@ -161,7 +186,7 @@ def closed_loop(bound: dict, env: Env, home_yaml: Path, cache: Path, *, days: in
             s.clock.advance(days * DAY_S)
         finally:
             s.stop()
-        rooms = controlled_rooms(bound, home)
+        rooms = controlled_rooms(bound, home) if bound else [r.id for r in home.map.rooms if not r.outdoor]
     rows = [r for r in s.records if r.get("kind") == "automation"]
     firings = firings_from(rows)
     temps: dict[str, list[tuple[float, float]]] = {room: [] for room in rooms}
@@ -172,6 +197,20 @@ def closed_loop(bound: dict, env: Env, home_yaml: Path, cache: Path, *, days: in
                     temps[room].append((r["t"], r["rooms"][room]["temperature"]))
     return {"outcome": oracle_outcome(firings, site, (1, days - 1)), "firings": firings,
             "refused": s.automations.refused, "rooms": rooms, "temperatures": temps, "rows": rows}
+
+
+_BASELINES: dict[tuple, dict] = {}
+
+
+def baseline_temperatures(env: Env, home_yaml: Path, cache: Path, days: int = 3,
+                          catalog_dir: str = "catalog/vds") -> dict[str, list[tuple[float, float]]]:
+    """Every indoor room's temperature over the run with no automation, in `env` (run once per home, environment and
+    length, then remembered)."""
+    key = (str(home_yaml), str(cache), env, days, catalog_dir)
+    if key not in _BASELINES:
+        _BASELINES[key] = closed_loop(None, env, Path(home_yaml), Path(cache), days=days,
+                                      catalog_dir=catalog_dir)["temperatures"]
+    return _BASELINES[key]
 
 
 def firings_from(rows: list[dict]) -> list[Firing]:
@@ -195,11 +234,15 @@ def _job(args: dict) -> dict:
     env = Env(**args["env"])
     r = closed_loop(args["bound"], env, Path(args["home_yaml"]), Path(args["cache"]), days=args["days"],
                     catalog_dir=args["catalog_dir"])
+    base = None
+    if r["rooms"]:  # it controls a thermostat: judge the temperatures against the home without it
+        base = args.get("baseline") or baseline_temperatures(env, Path(args["home_yaml"]), Path(args["cache"]),
+                                                             args["days"], args["catalog_dir"])
     closed = dataclasses.asdict(r["outcome"])
     return {"id": args["id"], "env_key": args["env_key"], "flagged": args["flagged"], "open": args["open"],
             "closed": closed, "fields": disagreements(args["open"], r["outcome"]), "refused": r["refused"],
             "firings": len(r["firings"]),
-            "envelope": envelope(r["temperatures"], r["rooms"], (1, args["days"] - 1))}
+            "envelope": envelope(r["temperatures"], r["rooms"], (1, args["days"] - 1), baseline=base)}
 
 
 # -- the report ------------------------------------------------------------------------------
@@ -222,8 +265,12 @@ def confirm(sweep_result: dict, work: Path, sample: int = 200, seed: int = 0, *,
     jobs = []
     for r in runs:
         a = sweep_result["automations"][r["id"]]
+        base = None
+        if _climate_targets(a["bound"].get("actions", a["bound"].get("action"))):  # once per environment, shared
+            base = baseline_temperatures(Env(**envs[r["env_key"]]), home_yaml, cache, days, catalog_dir)
         jobs.append({**r, "bound": a["bound"], "open": a["outcomes"][r["env_key"]], "env": envs[r["env_key"]],
-                     "home_yaml": str(home_yaml), "cache": str(cache), "days": days, "catalog_dir": catalog_dir})
+                     "home_yaml": str(home_yaml), "cache": str(cache), "days": days, "catalog_dir": catalog_dir,
+                     "baseline": base})
     if workers > 1 and len(jobs) > 1:
         with ProcessPoolExecutor(max_workers=workers) as pool:
             results = list(pool.map(_job, jobs))
@@ -247,9 +294,12 @@ def _report(results: list[dict], seed: int, sample: int, days: int) -> dict:
         "disagreement_fields": dict(Counter(f for r in results for f in r["fields"])),
         "disagreements": [r for r in results if r["fields"]],
         "refused": [r for r in results if r["refused"]],
-        "envelope": {"runs_with_climate_targets": len({(r["id"], r["env_key"]) for r, _, _ in cells}),
+        "caveat": CAVEAT,
+        "envelope": {"caveat": CAVEAT, "runs_with_climate_targets": len({(r["id"], r["env_key"]) for r, _, _ in cells}),
                      "below_10": sum(1 for _, _, v in cells if v["below_10"]),
                      "above_30": sum(1 for _, _, v in cells if v["above_30"]),
+                     "breached_below_10": sum(1 for _, _, v in cells if v.get("breached_below_10", v["below_10"])),
+                     "breached_above_30": sum(1 for _, _, v in cells if v.get("breached_above_30", v["above_30"])),
                      "violations": [{"id": r["id"], "env_key": r["env_key"], "room": room, **v}
                                     for r, room, v in cells if v["below_10"] or v["above_30"]]},
         "results": results,

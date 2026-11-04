@@ -96,6 +96,29 @@ def test_envelope_counts_only_the_measured_days_and_the_controlled_rooms():
     assert r == {"corridor": {"min_c": 9.5, "max_c": 31.0, "below_10": True, "above_30": True}}
 
 
+def test_envelope_with_a_baseline_counts_only_the_breaches_the_automation_caused():
+    day = 86400.0
+    temps = {"hot_anyway": [(day + 60, 33.0), (day + 120, 35.0)], "caused": [(day + 60, 31.0), (day + 120, 32.0)],
+             "cold_anyway": [(day + 60, 4.0)], "cold_caused": [(day + 60, 8.0)], "fine": [(day + 60, 20.0)]}
+    base = {"hot_anyway": [(day + 60, 31.0), (day + 120, 34.0)], "caused": [(day + 60, 22.0), (day + 120, 24.0)],
+            "cold_anyway": [(day + 60, 3.0)], "cold_caused": [(day + 60, 15.0)], "fine": [(day + 60, 18.0)]}
+    r = cf.envelope(temps, list(temps), baseline=base)
+    assert r["hot_anyway"] == {"min_c": 33.0, "max_c": 35.0, "baseline_min_c": 31.0, "baseline_max_c": 34.0,
+                               "delta_min_c": 2.0, "delta_max_c": 1.0, "below_10": False, "above_30": False,
+                               "breached_below_10": False, "breached_above_30": True}
+    assert r["caused"]["above_30"] is True and r["caused"]["breached_above_30"] is True
+    assert r["caused"]["delta_max_c"] == 8.0
+    assert r["cold_anyway"]["below_10"] is False and r["cold_anyway"]["breached_below_10"] is True
+    assert r["cold_caused"]["below_10"] is True
+    assert r["fine"]["below_10"] is r["fine"]["above_30"] is False
+
+
+def test_a_baseline_with_no_reading_for_a_room_makes_every_breach_the_automations():
+    day = 86400.0
+    r = cf.envelope({"a": [(day + 1, 35.0)]}, ["a"], baseline={})
+    assert r["a"]["above_30"] is True and r["a"]["baseline_max_c"] is None and r["a"]["delta_max_c"] is None
+
+
 def test_envelope_without_readings_is_none():
     assert cf.envelope({}, ["corridor"]) == {"corridor": None}
 
@@ -211,8 +234,10 @@ def test_a_setting_above_30_gives_an_above_30_envelope_violation(edt, hot_home):
     home_yaml, climate = hot_home
     cold = Env(CITY, "2026-01-15", 0.0, 4)
     r = cf.closed_loop(set_temperature(climate, 35), cold, home_yaml, work / "cache")
-    env = cf.envelope(r["temperatures"], r["rooms"])
-    assert r["refused"] == [] and all(v["above_30"] for v in env.values())
+    base = cf.baseline_temperatures(cold, home_yaml, work / "cache")
+    env = cf.envelope(r["temperatures"], r["rooms"], baseline=base)
+    assert r["refused"] == [] and all(v["above_30"] and v["breached_above_30"] for v in env.values())
+    assert all(v["delta_max_c"] > 10 for v in env.values())  # 35 against the starter's 20
     assert not any(v["below_10"] for v in env.values())
 
 
@@ -224,6 +249,49 @@ def test_a_setting_the_thermostat_refuses_leaves_the_rooms_near_their_baseline(e
     assert r["firings"] and not any(v["above_30"] for v in env.values())
 
 
+def test_28_in_stockholm_counts_the_rooms_it_pushed_over_30_and_the_baseline_is_the_home_without_it(edt):
+    work, home_yaml, roles = edt
+    cold = Env(CITY, "2026-01-15", 0.0, 4)
+    r = cf.closed_loop(set_temperature(roles, 28), cold, home_yaml, work / "cache")
+    base = cf.baseline_temperatures(cold, home_yaml, work / "cache")
+    assert set(base) == set(r["rooms"]) and base is cf.baseline_temperatures(cold, home_yaml, work / "cache")
+    env = cf.envelope(r["temperatures"], r["rooms"], baseline=base)
+    assert max(v["baseline_max_c"] for v in env.values()) < 30  # nothing is hot without the automation
+    over = {room for room, v in env.items() if v["above_30"]}
+    assert "kitchen" in over and over == {room for room, v in env.items() if v["breached_above_30"]}
+    assert all(v["delta_max_c"] > 3 for v in env.values())
+
+
+@pytest.fixture(scope="module")
+def warm_home(edt):
+    """The EDT home whose thermostat already starts at 28: its baseline is hot in the sunny rooms too."""
+    import shutil
+
+    import yaml
+    work, home_yaml, _ = edt
+    out = work / "warm"
+    shutil.copytree(home_yaml.parent, out)
+    data = yaml.safe_load((out / "home.yaml").read_text())
+    for d in data["devices"]:
+        if d["name"] == "corridor_thermostat":
+            d["state"] = {"current_heating_setpoint": 28}
+    (out / "home.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+    return out / "home.yaml"
+
+
+def test_a_room_above_30_in_the_baseline_as_well_is_not_counted(edt, warm_home):
+    work, _, roles = edt
+    cold = Env(CITY, "2026-01-15", 0.0, 4)
+    r = cf.closed_loop(set_temperature(roles, 28), cold, warm_home, work / "cache")
+    base = cf.baseline_temperatures(cold, warm_home, work / "cache")
+    env = cf.envelope(r["temperatures"], r["rooms"], baseline=base)
+    hot_anyway = {room for room, v in env.items() if v["baseline_max_c"] > 30}
+    assert "kitchen" in hot_anyway
+    for room in hot_anyway:
+        assert env[room]["breached_above_30"] is True and env[room]["above_30"] is False, room
+    assert not any(v["above_30"] for v in env.values())  # the automation changed nothing here
+
+
 def test_the_report_counts_envelope_violations_per_run_and_room():
     ok = {"min_c": 18.0, "max_c": 22.0, "below_10": False, "above_30": False}
     hot = {"min_c": 29.0, "max_c": 36.0, "below_10": False, "above_30": True}
@@ -232,6 +300,23 @@ def test_the_report_counts_envelope_violations_per_run_and_room():
     r = cf._report([row, {**row, "env_key": "k2", "envelope": {"living": ok}}], seed=0, sample=1, days=3)
     assert r["envelope"]["runs_with_climate_targets"] == 2 and r["envelope"]["above_30"] == 1
     assert r["envelope"]["violations"] == [{"id": "a", "env_key": "k", "room": "living", **hot}]
+    assert r["caveat"] == r["envelope"]["caveat"] == (
+        "indoor temperature carries the thermal model's validation error (sunny rooms overheat; "
+        "see results-2026-11-04-environment.md)")
+
+
+def test_confirm_reports_the_envelope_against_a_baseline_run_once_per_environment(edt):
+    work, _, roles = edt
+    s = sweep({"heat": entry({ENV_A.key: out(tod=8.0)}) | {"bound": set_temperature(roles, 28)},
+               "heat2": entry({ENV_A.key: out(tod=8.0)}) | {"bound": set_temperature(roles, 29)}}, envs=(ENV_A,))
+    cf._BASELINES.clear()
+    report = cf.confirm(s, work / "run3", sample=2, seed=0, cache=work / "cache", days=3)
+    assert report["runs"] == 2 and len(cf._BASELINES) == 1  # one baseline run for both automations
+    e = report["envelope"]
+    assert e["runs_with_climate_targets"] == 2 and e["above_30"] >= 2 and e["breached_above_30"] >= e["above_30"]
+    v = next(x for x in e["violations"] if x["room"] == "kitchen")
+    assert v["above_30"] and v["baseline_max_c"] < 30 and v["delta_max_c"] > 3
+    assert "indoor temperature carries" in report["caveat"]
 
 
 # -- a command's parts are one firing ------------------------------------------------------------
