@@ -423,6 +423,9 @@ def _validate_environment(args) -> int:
         ladder = ladder_report(have["a"], have["b"], Path(args.weather_cache), workers=args.workers)
         out = args.out or Path("results/environment") / f"thermal-ladder-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
         path = _write_report(str(out), "thermal-ladder", ladder, args)
+        written = json.loads(path.read_text())  # the code's hash belongs to `run`, which _write_report fills
+        written["run"]["thermal_ladder_sha256"] = ladder.get("code_sha256")
+        path.write_text(json.dumps(written, indent=2, sort_keys=True, default=str) + "\n")
         for order, row in ladder["orders"].items():
             print(f"{order:<11} A RMSE {row['A']['median_rmse']:.2f} C (r {row['A']['median_r']:.2f}); held out on B "
                   f"RMSE {row['B']['median_rmse']:.2f} C (r {row['B']['median_r']:.2f}); AIC {row['aic_A']:.0f}; "

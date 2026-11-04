@@ -101,6 +101,10 @@ def test_the_ladder_report_names_the_outcome(monkeypatch):
     assert {"A", "B", "identifiability", "verdict", "aic_A"} <= set(row)
     assert set(row["identifiability"]) == set(tl.PARAMS["1R1C+solar"])
     assert row["verdict"] in {"repair", "sponge", "neither"}
+    assert row["verdict_without_width_post_hoc"] in {"repair", "sponge", "neither"}
+    assert report["code_sha256"] == tl.code_sha256() and row["A"]["n_eff"]["min"] > 0
+    room = next(iter(row["A"]["rooms"].values()))
+    assert {"fit", "ci_end", "bound_limited", "rho", "sse_ratio_threshold"} <= set(room) and room["fit"]["nfev"] > 0
 
 
 def test_the_heater_scale_is_not_identifiable_beside_the_aperture():
@@ -112,3 +116,120 @@ def test_the_heater_scale_is_not_identifiable_beside_the_aperture():
     one = tl.simulate("1R1C+solar", a, t_out, ghi, heat, t0=19.0)
     two = tl.simulate("1R1C+solar", b, t_out, ghi, heat, t0=19.0)
     assert np.allclose(one, two, atol=1e-9)
+
+
+# -- review of 2026-11-04: registered bounds, interval-end flags, the verdict rule, the report's provenance --------
+def test_the_bounds_are_the_ones_registered_in_addendum_3():
+    """Addendum 3: R, R_ao, R_am 1e-3-2 K/W; C and C_m 4e5-5e8 J/K (C_a 4e5-5e7); g·A 1e-3-30 m2; the mass-start
+    nuisance -10..+10 C (m0 = offset + 10, so 0.01-20 in the log parametrisation)."""
+    registered = {"r": (1e-3, 2.0), "r_ao": (1e-3, 2.0), "r_am": (1e-3, 2.0), "c": (4e5, 5e8), "c_a": (4e5, 5e7),
+                  "c_m": (4e5, 5e8), "ga": (1e-3, 30.0), "m0": (0.01, 20.0)}
+    assert tl.BOUNDS == registered
+    from pathlib import Path
+    text = Path(__file__).resolve().parents[2].joinpath("docs/experiments/environment-validation.md").read_text()
+    flat = text.replace("\n", " ")
+    assert "R_am 1e-3-2 K/W" in flat and "C and C_m 4e5-5e8 J/K (C_a 4e5-5e7)" in flat
+
+
+@pytest.mark.parametrize("edge, crossed, expected", [
+    (0.5, True, "inside"), (1e-3, False, "bound"), (2.0, False, "bound"), (0.03, False, "grid")])
+def test_an_interval_end_is_inside_at_a_bound_or_at_the_grid(edge, crossed, expected):
+    assert tl._end_status("r", edge, crossed) == expected
+
+
+def test_an_optimum_on_a_bound_is_open_and_bound_limited():
+    t_out, ghi, heat = _week(240)
+    truth = {"r": 0.08, "c": 1.5e5, "p": 1600.0}  # a capacity below the bound: the optimum is pinned to it
+    measured = tl.simulate("1R1C", truth, t_out, ghi, heat, t0=19.0)
+    measured = measured + np.random.default_rng(4).normal(0, 0.02, len(measured))
+    fit = tl.fit_model("1R1C", t_out, ghi, measured, heat)
+    assert fit.params["c"] == pytest.approx(tl.BOUNDS["c"][0], rel=1e-3)
+    assert fit.ci_open["c"][0] is True and fit.ci_end["c"][0] == "bound" and fit.bound_limited["c"][0] is True
+
+
+def test_a_grid_limited_end_is_not_a_bound_limited_one():
+    t_out, _, heat = _week(240)
+    truth = {"r": 0.08, "c": 3e6, "p": 1600.0, "ga": 1.5}
+    zero = np.zeros(len(t_out))
+    measured = tl.simulate("1R1C+solar", truth, t_out, zero, heat, t0=19.0)
+    fit = tl.fit_model("1R1C+solar", t_out, zero, measured, heat)
+    assert fit.ci_end["ga"] == ("grid", "grid") and fit.ci_open["ga"] == (True, True)
+    assert fit.bound_limited["ga"] == (False, False)
+    assert fit.ci_end["r"] == ("inside", "inside")
+
+
+def test_the_main_fit_reports_its_status_and_evaluations():
+    t_out, ghi, heat = _week(240)
+    measured = tl.simulate("1R1C", {"r": 0.08, "c": 3e6, "p": 1600.0}, t_out, ghi, heat, t0=19.0)
+    fit = tl.fit_model("1R1C", t_out, ghi, measured, heat, profile=False)
+    assert fit.fit_info["status"] in (1, 2, 3, 4, 0, -1) and fit.fit_info["nfev"] > 0
+    assert 0 <= fit.fit_info["start"] < 2
+
+
+def test_the_code_hash_is_the_files():
+    import hashlib
+    assert tl.code_sha256() == hashlib.sha256(open(tl.__file__, "rb").read()).hexdigest()
+
+
+@pytest.mark.parametrize("order, b_rmse, b_r, stable, aperture, wide, verdict", [
+    # repair at the boundary: 3.0 C, r = 0.70, parameters within +-50 %, aperture 0.5-3 m2, no interval 10x wide
+    ("1R1C+solar", 3.0, 0.70, True, 1.0, False, "repair"),
+    ("2R2C", 3.0, 0.70, True, None, False, "repair"),            # no aperture to judge in a non-solar order
+    ("1R1C+solar", 3.01, 0.70, True, 1.0, False, "neither"),
+    ("1R1C+solar", 3.0, 0.699, True, 1.0, False, "neither"),
+    ("1R1C+solar", 3.0, 0.70, False, 1.0, False, "neither"),     # parameters not within +-50 %
+    ("1R1C+solar", 3.0, 0.70, True, 0.5, False, "repair"),       # aperture window is inclusive
+    ("1R1C+solar", 3.0, 0.70, True, 3.0, False, "repair"),
+    ("1R1C+solar", 3.0, 0.70, True, 0.49, False, "sponge"),      # an implausible aperture
+    ("1R1C+solar", 3.0, 0.70, True, 3.01, False, "sponge"),
+    ("1R1C+solar", 3.0, 0.70, True, None, False, "sponge"),
+    ("2R2C+solar", 1.0, 0.99, True, 1.0, True, "sponge"),        # an order of magnitude wide voids a good fit
+    ("2R2C", 2.6, 0.83, False, None, True, "sponge"),
+    ("2R2C", 4.0, 0.74, False, None, False, "neither"),          # the middle: well identified, 3 < RMSE <= 5
+    ("2R2C", 6.0, 0.60, True, None, False, "neither"),           # the clear neither: RMSE > 5, well identified
+    ("2R2C", 6.0, 0.60, True, None, True, "sponge"),
+])
+def test_the_verdict_rule(order, b_rmse, b_r, stable, aperture, wide, verdict):
+    assert tl._verdict(order, b_rmse, b_r, stable, aperture, wide)["verdict"] == verdict
+
+
+def test_the_verdict_names_the_middle_and_the_clear_neither():
+    middle = tl._verdict("2R2C", 4.0, 0.74, False, None, False)
+    clear = tl._verdict("2R2C", 5.01, 0.74, False, None, False)
+    edge = tl._verdict("2R2C", 5.0, 0.74, False, None, False)
+    assert middle["inconclusive_middle"] and not middle["neither_clear"]
+    assert clear["neither_clear"] and not clear["inconclusive_middle"]
+    assert edge["inconclusive_middle"] and not edge["neither_clear"]
+    assert tl._verdict("2R2C", 6.0, 0.6, True, None, True)["neither_clear"] is False  # not well identified
+
+
+def test_the_verdict_without_the_width_condition_is_named_as_post_hoc():
+    v = tl._verdict("2R2C+solar", 4.08, 0.74, False, 0.52, True)
+    assert v["verdict"] == "sponge" and v["verdict_without_width_post_hoc"] == "neither"
+    v = tl._verdict("1R1C", 2.59, 0.83, False, None, True)
+    assert v["verdict"] == "sponge" and v["verdict_without_width_post_hoc"] == "neither"
+    v = tl._verdict("1R1C", 2.59, 0.83, True, None, True)
+    assert v["verdict"] == "sponge" and v["verdict_without_width_post_hoc"] == "repair"
+
+
+@pytest.mark.parametrize("ratios, stable", [
+    ({"r": 0.5, "c": 1.5}, True), ({"r": 0.499, "c": 1.0}, False), ({"r": 1.0, "c": 1.501}, False),
+    ({"r": 1.0}, True)])
+def test_parameters_are_stable_within_fifty_percent(ratios, stable):
+    assert tl._stable(ratios) is stable
+
+
+@pytest.mark.parametrize("verdicts, aic, order, outcome", [
+    # the simplest repairing order, not the best AIC
+    ({"1R1C": "neither", "1R1C+solar": "repair", "2R2C": "neither", "2R2C+solar": "repair"},
+     {"1R1C": 10, "1R1C+solar": 30, "2R2C": 20, "2R2C+solar": 5}, "1R1C+solar", "repair"),
+    ({"1R1C": "repair", "1R1C+solar": "repair", "2R2C": "repair", "2R2C+solar": "repair"},
+     {"1R1C": 10, "1R1C+solar": 5, "2R2C": 20, "2R2C+solar": 1}, "1R1C", "repair"),
+    # no repair: the order with the lowest AIC speaks
+    ({"1R1C": "neither", "1R1C+solar": "sponge", "2R2C": "neither", "2R2C+solar": "sponge"},
+     {"1R1C": 10, "1R1C+solar": 30, "2R2C": 20, "2R2C+solar": 5}, "2R2C+solar", "sponge"),
+    ({"1R1C": "neither", "1R1C+solar": "sponge", "2R2C": "neither", "2R2C+solar": "sponge"},
+     {"1R1C": 3, "1R1C+solar": 30, "2R2C": 20, "2R2C+solar": 5}, "1R1C", "neither"),
+])
+def test_the_outcome_is_the_simplest_repair_else_the_best_aic(verdicts, aic, order, outcome):
+    assert tl._outcome(tuple(verdicts), verdicts, aic) == (order, outcome)

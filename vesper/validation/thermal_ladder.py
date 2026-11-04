@@ -37,8 +37,9 @@ PARAMS = {"1R1C": ("r", "c"), "1R1C+solar": ("r", "c", "ga"),
 # heater, 100 W/m² of the standard room; R, C and g·A are read conditional on it.
 HEAT_W = 1600.0
 # bounds and VESPER's own start for a room of the standard room's 16 m² (the constants of vesper.env.indoor)
-BOUNDS = {"r": (1e-3, 2.0), "r_ao": (1e-3, 2.0), "r_am": (1e-3, 1.0), "c": (4e5, 5e8), "c_a": (4e5, 5e7),
-          "c_m": (1e6, 5e8), "ga": (1e-3, 30.0), "m0": (0.01, 20.0)}
+# (the registered bounds of addendum 3; tests/validation/test_thermal_ladder.py pins them)
+BOUNDS = {"r": (1e-3, 2.0), "r_ao": (1e-3, 2.0), "r_am": (1e-3, 2.0), "c": (4e5, 5e8), "c_a": (4e5, 5e7),
+          "c_m": (4e5, 5e8), "ga": (1e-3, 30.0), "m0": (0.01, 20.0)}
 START = {"r": 0.085, "r_ao": 0.085, "r_am": 0.03, "c": 2.64e6, "c_a": 1.0e6, "c_m": 2.0e7, "ga": 0.9,
          "m0": 10.0}
 # a nuisance of the two-node orders (not profiled, not carried to B): the mass node's start less the air's, +10 °C so
@@ -51,6 +52,7 @@ BAND_C = 1.0  # the thermostat's proportional half-band: full heat at setpoint -
 SPIN_UP_H = 48  # hours at the start of a series not scored
 AREA_M2 = STANDARD_ROOM["w"] * STANDARD_ROOM["d"]  # the room the parameters are for
 GRID = 15
+RHO_CAP = 0.99  # not registered in addendum 3; disclosed in the results (n_eff = n (1-rho)/(1+rho))
 GRID_SPAN = 30.0  # the profile's log grid runs from 1/30 to 30 times the optimum
 CHI2_95 = 3.841  # chi-square, one degree of freedom
 WIDE = 10.0  # an interval whose upper end is this many times its lower end spans an order of magnitude
@@ -65,7 +67,11 @@ class FitResult:
     r: float
     ci95: dict
     aic: float
-    ci_open: dict = field(default_factory=dict)  # per parameter: (lower end open, upper end open)
+    ci_open: dict = field(default_factory=dict)  # per parameter: (lower end open, upper end open): not crossed
+    ci_end: dict = field(default_factory=dict)  # per parameter, per end: "inside", "grid" (the grid's end) or "bound"
+    bound_limited: dict = field(default_factory=dict)  # per parameter, per end: the end is a parameter bound
+    fit_info: dict = field(default_factory=dict)  # the chosen start's least_squares status and evaluations
+    rho: float = 0.0  # lag-1 autocorrelation of the residual, capped at RHO_CAP
     n: int = 0
     n_eff: float = 0.0
     sse: float = 0.0
@@ -167,12 +173,13 @@ class _Problem:
         start = [min(max(math.log(x0[n]), a), b) for n, a, b in zip(free, lo, hi, strict=True)]
         sol = least_squares(self.residual, start, args=(free, fixed), bounds=(lo, hi), diff_step=1e-4,
                             max_nfev=max_nfev, x_scale=1.0, ftol=tol, xtol=tol)
-        return {n: math.exp(v) for n, v in zip(free, sol.x, strict=True)}, float(2 * sol.cost)
+        return ({n: math.exp(v) for n, v in zip(free, sol.x, strict=True)}, float(2 * sol.cost),
+                {"status": int(sol.status), "nfev": int(sol.nfev)})
 
 
 def _autocorr(e) -> float:
     d = float(np.dot(e, e))
-    return 0.0 if d <= 0 or len(e) < 3 else min(0.99, max(0.0, float(np.dot(e[1:], e[:-1])) / d))
+    return 0.0 if d <= 0 or len(e) < 3 else min(RHO_CAP, max(0.0, float(np.dot(e[1:], e[:-1])) / d))
 
 
 def _profile(prob, name, best: dict, sse_min: float, n_eff: float):
@@ -192,25 +199,35 @@ def _profile(prob, name, best: dict, sse_min: float, n_eff: float):
                 continue
             fixed = {name: g}
             if others:
-                warm, sse = prob.fit(others, fixed, warm, max_nfev=12, tol=1e-5)
+                warm, sse, _ = prob.fit(others, fixed, warm, max_nfev=12, tol=1e-5)
             else:
                 sse = float(np.sum(prob.residual([], [], fixed) ** 2))
             delta[i] = n_eff * math.log(max(sse, 1e-12) / max(sse_min, 1e-12))
-    ends, opened = [], []
+    ends, status = [], []
     for direction in (-1, 1):
-        edge, inside_open = opt, True
+        edge, crossed = opt, False
         i = at
         while 0 <= i + direction < len(grid):
             j = i + direction
             if delta[j] >= CHI2_95:  # crossed between i and j: interpolate in log-parameter
                 f = (CHI2_95 - delta[i]) / (delta[j] - delta[i])
                 edge = math.exp(math.log(grid[i]) + f * (math.log(grid[j]) - math.log(grid[i])))
-                inside_open = False
+                crossed = True
                 break
             edge, i = grid[j], j
         ends.append(edge)
-        opened.append(inside_open and edge not in (opt,))
-    return (ends[0], ends[1]), (opened[0], opened[1])
+        status.append(_end_status(name, edge, crossed))
+    return (ends[0], ends[1]), (status[0], status[1])
+
+
+def _end_status(name: str, edge: float, crossed: bool) -> str:
+    """Where an interval end lies: "inside" (the profile crossed the threshold), "bound" (the profile never crossed
+    and the end is the parameter's bound, or the optimum itself is on it), or "grid" (never crossed, at the grid's
+    end short of the bound: the true end is at least that far)."""
+    if crossed:
+        return "inside"
+    lo, hi = BOUNDS[name]
+    return "bound" if math.isclose(edge, lo, rel_tol=1e-6) or math.isclose(edge, hi, rel_tol=1e-6) else "grid"
 
 
 def fit_model(order: str, t_out, ghi, measured, heat_on, *, setpoint: float | None = None, profile: bool = True,
@@ -218,26 +235,28 @@ def fit_model(order: str, t_out, ghi, measured, heat_on, *, setpoint: float | No
     """Least-squares fit of one order to one room's hourly series; the 95 % intervals by profile likelihood."""
     prob = _Problem(order, t_out, ghi, measured, heat_on, setpoint)
     names = list(prob.all)
-    best, sse = None, math.inf
+    best, sse, info = None, math.inf, {}
     for k in range(starts):
-        params, s = prob.fit(names, {}, _start(order, k))
+        params, s, i = prob.fit(names, {}, _start(order, k))
         if s < sse:
-            best, sse = params, s
+            best, sse, info = params, s, {**i, "start": k}
     e = (prob.sim(best) - prob.meas)[prob.ok]
     n = len(e)
     rmse = math.sqrt(sse / n) if n else float("nan")
     r = _agreement(prob.sim(best)[prob.ok], prob.meas[prob.ok])["r"]
     rho = _autocorr(e)
     n_eff = max(3.0, n * (1 - rho) / (1 + rho))
-    ci, opened = {}, {}
+    ci, ends = {}, {}
     for name in prob.names:
         if profile:
-            ci[name], opened[name] = _profile(prob, name, best, sse, n_eff)
+            ci[name], ends[name] = _profile(prob, name, best, sse, n_eff)
         else:
-            ci[name], opened[name] = (best[name], best[name]), (False, False)
+            ci[name], ends[name] = (best[name], best[name]), ("inside", "inside")
+    opened = {k: (v[0] != "inside", v[1] != "inside") for k, v in ends.items()}
+    limited = {k: (v[0] == "bound", v[1] == "bound") for k, v in ends.items()}
     aic = n * math.log(max(sse, 1e-12) / n) + 2 * len(names) if n else float("nan")
-    return FitResult(params=best, rmse=rmse, r=r, ci95=ci, aic=aic, ci_open=opened, n=n, n_eff=n_eff, sse=sse,
-                     setpoint=prob.setpoint)
+    return FitResult(params=best, rmse=rmse, r=r, ci95=ci, aic=aic, ci_open=opened, ci_end=ends, bound_limited=limited,
+                     fit_info=info, rho=rho, n=n, n_eff=n_eff, sse=sse, setpoint=prob.setpoint)
 
 
 # -- the ladder ------------------------------------------------------------------------------------------------
@@ -257,22 +276,53 @@ def _row_of(f: FitResult) -> dict:
             "r": None if f.r is None else float(f.r), "aic": round(f.aic, 1), "n": f.n, "n_eff": round(f.n_eff, 1),
             "setpoint_c": round(f.setpoint, 2) if f.setpoint is not None else None,
             "ci95": {k: [float(a), float(b)] for k, (a, b) in f.ci95.items()},
-            "ci_open": {k: [bool(a), bool(b)] for k, (a, b) in f.ci_open.items()}}
+            "ci_open": {k: [bool(a), bool(b)] for k, (a, b) in f.ci_open.items()},
+            "ci_end": {k: list(v) for k, v in f.ci_end.items()},
+            "bound_limited": {k: [bool(a), bool(b)] for k, (a, b) in f.bound_limited.items()},
+            "fit": f.fit_info, "rho": round(f.rho, 4), "rho_capped": bool(f.rho >= RHO_CAP),
+            "sse_ratio_threshold": math.exp(CHI2_95 / f.n_eff)}
 
 
-def _verdict(order: str, b_rmse, b_r, stable: bool, aperture, wide: bool) -> dict:
+def _rule(order: str, b_rmse, b_r, stable: bool, aperture, wide: bool) -> tuple[str, bool, bool, bool]:
+    """The registered rule: (verdict, repair, sponge, aperture plausible)."""
     solar = order.endswith("+solar")
     aperture_ok = (not solar) or (aperture is not None and APERTURE_M2[0] <= aperture <= APERTURE_M2[1])
     c = CRITERIA["repair"]
     repair = bool(b_rmse is not None and b_rmse <= c["b_rmse_c"] and b_r is not None and b_r >= c["b_r"] and stable
                   and aperture_ok and not wide)
     sponge = bool(wide or (solar and not aperture_ok))
-    verdict = "repair" if repair else "sponge" if sponge else "neither"
+    return ("repair" if repair else "sponge" if sponge else "neither"), repair, sponge, aperture_ok
+
+
+def _verdict(order: str, b_rmse, b_r, stable: bool, aperture, wide: bool) -> dict:
+    verdict, repair, sponge, aperture_ok = _rule(order, b_rmse, b_r, stable, aperture, wide)
+    # post hoc, a diagnostic only: what the rule would say without the interval-width condition
+    without = _rule(order, b_rmse, b_r, stable, aperture, False)[0]
     return {"verdict": verdict, "repair": repair, "sponge": sponge, "aperture_plausible": aperture_ok,
             "parameters_stable": stable, "any_interval_spans_10x": wide,
+            "verdict_without_width_post_hoc": without,
+            "rests_on_width_alone": bool(wide and without != "sponge"),
             "neither_clear": bool(b_rmse is not None and b_rmse > CRITERIA["neither"]["b_rmse_c"] and not wide),
             "inconclusive_middle": bool(verdict == "neither" and b_rmse is not None
                                         and b_rmse <= CRITERIA["neither"]["b_rmse_c"])}
+
+
+def _stable(ratios: dict) -> bool:
+    """B's own refit within +-50 % of A's median, every parameter."""
+    t = CRITERIA["repair"]["param_tolerance"]
+    return all(1 - t <= x <= 1 + t for x in ratios.values())
+
+
+def _outcome(orders, verdicts: dict, aic: dict) -> tuple[str, str]:
+    """The ladder's outcome: the simplest order that repairs, else the order with the lowest summed AIC on A."""
+    chosen = next((o for o in orders if verdicts[o] == "repair"), None) or min(orders, key=lambda o: aic[o])
+    return chosen, verdicts[chosen]
+
+
+def code_sha256() -> str:
+    import hashlib
+    with open(__file__, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
 
 
 def ladder_report(appliances: str, sml2010: str, cache, *, orders=ORDERS, workers: int = 2,
@@ -313,7 +363,9 @@ def ladder_report(appliances: str, sml2010: str, cache, *, orders=ORDERS, worker
             lo, hi = _median([f.ci95[n][0] for f in a_fits.values()]), _median([f.ci95[n][1] for f in a_fits.values()])
             ident[n] = {"lo": float(lo), "hi": float(hi), "span": float(hi / lo), "wide": bool(hi / lo >= WIDE),
                         "rooms_wide": sum(f.ci95[n][1] / f.ci95[n][0] >= WIDE for f in a_fits.values()),
-                        "rooms_open": sum(any(f.ci_open[n]) for f in a_fits.values())}
+                        "rooms_open": sum(any(f.ci_open[n]) for f in a_fits.values()),
+                        "rooms_bound_limited": sum(any(f.bound_limited[n]) for f in a_fits.values()),
+                        "rooms_grid_limited": sum("grid" in f.ci_end[n] for f in a_fits.values())}
         held = from_per_m2(per_m2(med))  # A's parameters per m², handed to B's 16 m² room unchanged
         b_rows = []
         for col, label in SML_ROOMS.items():
@@ -328,8 +380,7 @@ def ladder_report(appliances: str, sml2010: str, cache, *, orders=ORDERS, worker
         b_fits = {col: f for o, col, f in refit_done if o == order}
         b_med = {n: _median([f.params[n] for f in b_fits.values()]) for n in names}
         ratio = {n: b_med[n] / med[n] for n in names}
-        stable = all(1 - CRITERIA["repair"]["param_tolerance"] <= x <= 1 + CRITERIA["repair"]["param_tolerance"]
-                     for x in ratio.values())
+        stable = _stable(ratio)
         b_rmse, b_r = _median([x["rmse"] for x in b_rows]), _median([x["r"] for x in b_rows])
         wide = any(v["wide"] for v in ident.values())
         verdict = _verdict(order, b_rmse, b_r, stable, med.get("ga"), wide)
@@ -337,15 +388,19 @@ def ladder_report(appliances: str, sml2010: str, cache, *, orders=ORDERS, worker
             "A": {"rooms": {col: _row_of(f) | {"room": APPLIANCES_ROOMS[col]} for col, f in a_fits.items()},
                   "median_rmse": _median([f.rmse for f in a_fits.values()]),
                   "median_r": _median([f.r for f in a_fits.values()]), "median_params": med,
-                  "per_m2": per_m2(med)},
+                  "per_m2": per_m2(med),
+                  "n_eff": {"min": min(f.n_eff for f in a_fits.values()), "max": max(f.n_eff for f in a_fits.values()),
+                            "rho_capped_rooms": sum(f.rho >= RHO_CAP for f in a_fits.values()),
+                            "sse_ratio_threshold_max": max(math.exp(CHI2_95 / f.n_eff) for f in a_fits.values()),
+                            "sse_ratio_threshold_min": min(math.exp(CHI2_95 / f.n_eff) for f in a_fits.values())}},
             "B": {"held_out": b_rows, "median_rmse": b_rmse, "median_r": b_r,
                   "refit": {col: _row_of(f) | {"room": SML_ROOMS[col]} for col, f in b_fits.items()},
                   "refit_median_params": b_med, "refit_over_A": {n: round(x, 3) for n, x in ratio.items()}},
             "identifiability": ident, "aic_A": round(sum(f.aic for f in a_fits.values()), 1), **verdict}
-    simplest = next((o for o in orders if report["orders"][o]["verdict"] == "repair"), None)
-    best_aic = min(orders, key=lambda o: report["orders"][o]["aic_A"])
-    chosen = simplest or best_aic
-    report["best_aic_order"] = best_aic
-    report["outcome_order"] = chosen
-    report["outcome"] = report["orders"][chosen]["verdict"]
+    verdicts = {o: report["orders"][o]["verdict"] for o in orders}
+    aics = {o: report["orders"][o]["aic_A"] for o in orders}
+    chosen, outcome = _outcome(orders, verdicts, aics)
+    report["best_aic_order"] = min(orders, key=lambda o: aics[o])
+    report["outcome_order"], report["outcome"] = chosen, outcome
+    report["code_sha256"] = code_sha256()
     return report
