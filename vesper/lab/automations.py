@@ -32,6 +32,7 @@ the engine again.
 """
 from __future__ import annotations
 
+import bisect
 import json
 import re
 from collections.abc import Callable
@@ -52,9 +53,29 @@ SET_TEMPERATURE_KEYS = {"temperature", "target_temp_low", "target_temp_high", "h
 AUTOMATION_KEYS = {"id", "alias", "description", "mode", "max", "max_exceeded", "initial_state", "trace", "hide_entity",
                    "triggers", "trigger", "conditions", "condition", "actions", "action"}
 TRIGGER_KEYS = {"state": {"entity_id", "to", "from", "for"}, "numeric_state": {"entity_id", "above", "below", "for"},
-                "time": {"at"}, "sun": {"event", "offset"}}
+                "time": {"at", "weekday"}, "sun": {"event", "offset"}, "time_pattern": {"hours", "minutes", "seconds"},
+                "homeassistant": {"event"}}
 CONDITION_KEYS = {"state": {"entity_id", "state"}, "numeric_state": {"entity_id", "above", "below"},
-                  "time": {"after", "before"}, "sun": {"after", "before", "after_offset", "before_offset"}}
+                  "time": {"after", "before", "weekday"}, "sun": {"after", "before", "after_offset", "before_offset"}}
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+PATTERN_MAX = {"hours": 23, "minutes": 59, "seconds": 59}
+# Triggers no simulated home fires: what each one needs
+TRIGGER_NEEDS = {"webhook": "it needs an HTTP request", "mqtt": "it needs an MQTT message",
+                 "tag": "it needs an NFC tag scan", "conversation": "it needs a voice or text command",
+                 "device": "a device trigger needs Home Assistant's device registry",
+                 "zone": "it needs a person's location", "geo_location": "it needs a geolocation feed",
+                 "calendar": "it needs a calendar", "persistent_notification": "it needs a notification",
+                 "event": None}  # event: by its event type (`_event_class`)
+DEVICE_EVENTS = ("zha_event", "deconz_event", "zwave_js_", "hue_event", "shelly.", "homematic.", "flic_", "knx_",
+                 "lutron_caseta", "esphome.", "tasmota", "xiaomi_aqara", "nanoleaf", "rfxtrx", "dahua", "hikvision",
+                 "nuki_", "matter_", "sonos", "button_", "remote_")
+APP_EVENTS = ("mobile_app_", "ios.", "html5_notification", "alexa_", "android", "companion")
+SERVICE_EVENTS = ("telegram_", "whatsapp", "gotify", "ifttt_", "feedreader", "yandex_", "transmission_", "signal_",
+                  "matrix_", "discord", "slack", "pushover", "imap", "email", "webostv", "notify")
+INTERNAL_EVENTS = ("state_changed", "call_service", "homeassistant_", "automation_", "script_", "lovelace_",
+                   "entity_registry_", "device_registry_", "area_registry_", "component_loaded", "service_registered",
+                   "device_tracker_new_device", "event_template_reloaded", "core_config_updated", "themes_updated",
+                   "user_added", "user_removed", "timer.", "panels_updated", "logbook_entry", "tag_scanned")
 SUN_EVENTS = ("sunrise", "sunset")
 LOGIC = ("and", "or", "not")  # Home Assistant's `not`: none of its conditions holds
 REPEAT_LIMIT = 10000  # Home Assistant stops a repeat after this many iterations
@@ -391,6 +412,9 @@ class Engine:
 
     def _trigger(self, t) -> dict:
         kind = t.get("trigger", t.get("platform")) if isinstance(t, dict) else None
+        if isinstance(kind, str) and kind in TRIGGER_NEEDS:
+            why = TRIGGER_NEEDS[kind] or _event_class(t.get("event_type"))
+            raise AutomationError(f"trigger {kind} is not supported ({why})")
         if kind not in TRIGGER_KEYS:
             raise AutomationError(f"trigger {kind!r} is not supported")
         where = f"trigger {kind}"
@@ -403,7 +427,22 @@ class Engine:
                     "offset": _offset(t["offset"], f"{where}: offset") if "offset" in t else 0.0}
         if kind == "time":
             at = t.get("at")
-            return {"kind": "time", "at": [_clock(x, f"{where}: at") for x in (at if isinstance(at, list) else [at])]}
+            return {"kind": "time", "at": [_clock(x, f"{where}: at") for x in (at if isinstance(at, list) else [at])],
+                    "weekday": self._weekdays(t["weekday"], where) if "weekday" in t else None}
+        if kind == "time_pattern":
+            if not set(t) & set(PATTERN_MAX):
+                raise AutomationError(f"{where}: hours, minutes or seconds is required")
+            given = {k: _pattern(t[k], PATTERN_MAX[k], f"{where}: {k}") for k in PATTERN_MAX if k in t}
+            # Home Assistant: a larger unit given defaults the smaller ones to zero; a missing one matches any value
+            if "minutes" not in given and "hours" in given:
+                given["minutes"] = {0}
+            if "seconds" not in given and "minutes" in given:
+                given["seconds"] = {0}
+            return {"kind": "time_pattern", **{k: sorted(given.get(k, range(PATTERN_MAX[k] + 1))) for k in PATTERN_MAX}}
+        if kind == "homeassistant":
+            if t.get("event") not in ("start", "shutdown"):
+                raise AutomationError(f"{where}: event {t.get('event')!r} is not start or shutdown")
+            return {"kind": "homeassistant", "event": t["event"]}  # a run never shuts Home Assistant down
         if "entity_id" not in t:
             raise AutomationError(f"{where}: entity_id is required")
         out = {"kind": kind, "entities": [self._entity(x).entity_id for x in _entities(t["entity_id"])],
@@ -451,7 +490,8 @@ class Engine:
             return {"kind": "sun", "after": c.get("after"), "before": c.get("before"), **offset}
         if kind == "time":
             return {"kind": "time", "after": _clock(c["after"], f"{where}: after") if "after" in c else None,
-                    "before": _clock(c["before"], f"{where}: before") if "before" in c else None}
+                    "before": _clock(c["before"], f"{where}: before") if "before" in c else None,
+                    "weekday": self._weekdays(c["weekday"], where) if "weekday" in c else None}
         if "entity_id" not in c:
             raise AutomationError(f"{where}: entity_id is required")
         out = {"kind": kind, "entities": [self._entity(x).entity_id for x in _entities(c["entity_id"])]}
@@ -465,6 +505,21 @@ class Engine:
     def _needs_site(self, where: str) -> None:
         if self.site is None:
             raise AutomationError(f"{where}: the home has no site, so it has no sun (add site: to home.yaml)")
+
+    def _weekdays(self, value, where: str) -> set[int]:
+        """Home Assistant's weekday option (mon..sun, one or a list): the days, Monday 0; the site's date says which
+        day a run's day is."""
+        if self.site is None:
+            raise AutomationError(f"{where}: weekday: the home has no site, so it has no date (add site: to home.yaml)")
+        days = value if isinstance(value, list) else [value]
+        if not days or any(d not in WEEKDAYS for d in days):
+            raise AutomationError(f"{where}: weekday {value!r} is not mon..sun")
+        return {WEEKDAYS.index(d) for d in days}
+
+    def _weekday(self, day: int) -> int:
+        """The weekday (Monday 0) of the run's day `day` (0 is the site's date)."""
+        import datetime as dt
+        return (self.site.date + dt.timedelta(days=day)).weekday()
 
     def _sun_events(self, day: int) -> dict:
         from vesper.env.sun import sun_events
@@ -740,6 +795,13 @@ class Engine:
         for day in (0, 1):
             self._schedule_day(day)
         clock.call_at(self._midnight + DAY_S, lambda: self._next_day(2))
+        for a in self.automations:
+            for t in a.triggers:
+                if t["kind"] == "time_pattern":
+                    self._pattern_next(a, t)
+                elif t["kind"] == "homeassistant" and t["event"] == "start":  # Home Assistant has just started
+                    clock.call_at(clock.now(), lambda a=a, t=t: self._fire(a, "homeassistant start",
+                                                                           _tvars(t, event="start")))
 
     def _schedule_day(self, day: int) -> None:
         now = self.session.clock.now()
@@ -759,12 +821,35 @@ class Engine:
                                 _tvars(t, event=t["event"], offset=t["offset"])))
         for a in self.automations:
             for t in a.triggers:
-                if t["kind"] == "time":
+                if t["kind"] == "time" and (t["weekday"] is None or self._weekday(day) in t["weekday"]):
                     for at in t["at"]:
                         when = self._midnight + day * DAY_S + at
                         if when >= now:
                             self.session.clock.call_at(when, lambda a=a, t=t, at=at: self._fire(
                                 a, f"time {at:g}", _tvars(t)))
+
+    def _pattern_next(self, a: Automation, t: dict) -> None:
+        """Schedule a time_pattern trigger's next firing (each firing schedules the one after)."""
+        when = self._next_pattern(t, self.session.clock.now())
+
+        def fire():
+            self._pattern_next(a, t)
+            self._fire(a, f"time_pattern {(when - self._midnight) % DAY_S:g}", _tvars(t))
+        self.session.clock.call_at(when, fire)
+
+    def _next_pattern(self, t: dict, after: float) -> float:
+        """The first instant after `after` whose local hour, minute and second all match the pattern."""
+        since = after - self._midnight
+        day = int(since // DAY_S)
+        for d in (day, day + 1):
+            h0, m0 = (int(since - d * DAY_S) // 3600, int(since - d * DAY_S) % 3600 // 60) if d == day else (0, 0)
+            for h in t["hours"][bisect.bisect_left(t["hours"], h0):]:
+                for m in t["minutes"][bisect.bisect_left(t["minutes"], m0) if h == h0 else 0:]:
+                    for s in t["seconds"]:
+                        x = d * DAY_S + h * 3600 + m * 60 + s
+                        if x > since:
+                            return self._midnight + x
+        raise AssertionError("a time pattern matches every day")
 
     def _next_day(self, day: int) -> None:
         self._schedule_day(day)
@@ -905,7 +990,10 @@ class Engine:
             if a is not None and b is not None and a >= b:  # after sunset and before sunrise: either
                 return since >= a or since < b
             return (a is None or since >= a) and (b is None or since < b)
-        now = (self.session.clock.now() - self._midnight) % DAY_S
+        since = self.session.clock.now() - self._midnight
+        if c["weekday"] is not None and self._weekday(int(since // DAY_S)) not in c["weekday"]:
+            return False  # Home Assistant: the weekday of now, whatever the window
+        now = since % DAY_S
         after, before = c["after"], c["before"]
         if after is not None and before is not None and after >= before:  # across midnight; equal: all day
             return now >= after or now < before
@@ -1013,8 +1101,11 @@ class Engine:
         since = now - self._midnight
         day = int(since // DAY_S)
         if t["kind"] == "time":
-            return min(self._midnight + d * DAY_S + at for d in (day, day + 1) for at in t["at"]
-                       if self._midnight + d * DAY_S + at > now)
+            return min((self._midnight + d * DAY_S + at for d in range(day, day + 8) for at in t["at"]
+                        if self._midnight + d * DAY_S + at > now
+                        and (t["weekday"] is None or self._weekday(d) in t["weekday"])), default=None)
+        if t["kind"] == "time_pattern":
+            return self._next_pattern(t, now)
         if t["kind"] == "sun":
             for d in (day, day + 1, day + 2):
                 ev = self._sun_events(d)[t["event"]]
@@ -1052,6 +1143,39 @@ class Engine:
             command = json.loads(e.cfg["payload_lock" if verb == "lock" else "payload_unlock"])
         for feature, value in flatten(command):
             self.session.automation_command(a.name, why, x["service"], e.entity_id, e.twin_id, feature, value)
+
+
+def _pattern(value, maximum: int, where: str) -> set[int]:
+    """One field of a time_pattern, as Home Assistant's TimePattern takes it: '*' (any), '/n' (multiples of n) or a
+    number (a numeric string too), 0..maximum."""
+    try:
+        if value == "*":
+            return set(range(maximum + 1))
+        if isinstance(value, str) and value.startswith("/"):
+            n = int(value[1:])
+            if not 0 < n <= maximum:
+                raise ValueError
+            return {v for v in range(maximum + 1) if v % n == 0}
+        if isinstance(value, bool):
+            raise ValueError
+        n = int(value)
+        if not 0 <= n <= maximum or (isinstance(value, float) and value != n):
+            raise ValueError
+        return {n}
+    except (TypeError, ValueError):
+        raise AutomationError(f"{where}: {value!r} is not a time pattern") from None
+
+
+def _event_class(event_type) -> str:
+    """What fires an event of this type, for a refusal that can be counted: a device, a phone app, a messaging or web
+    service, Home Assistant itself, or another automation or script."""
+    types = [str(x) for x in (event_type if isinstance(event_type, list) else [event_type])]
+    for prefixes, what in ((DEVICE_EVENTS, "a device's button or remote event"), (APP_EVENTS, "a phone app's event"),
+                           (SERVICE_EVENTS, "a messaging or web service's event"),
+                           (INTERNAL_EVENTS, "a Home Assistant internal event")):
+        if any(x.startswith(prefixes) for x in types):
+            return what
+    return "a custom event another automation or script fires"
 
 
 def _tvars(t: dict, **extra) -> dict:

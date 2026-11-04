@@ -275,3 +275,98 @@ def test_a_fired_event_is_recorded_in_permissive_mode(tmp_path):
     _, s, e, calls = setup(tmp_path, [auto([{"event": "my_event", "event_data": {"x": 1}}])], permissive=True)
     s.clock.advance(1.5 * H)
     assert services(calls) == ["event.my_event"]
+
+
+# ---- time, time_pattern, homeassistant ----------------------------------------------------------------------------
+
+def sited_home(tmp_path):
+    """A home at Charlotte; its first day, 2026-06-21, is a Sunday; it starts at 07:30."""
+    from tests.lab.homes import catalog, write_home
+    from tests.lab.test_environment_session import SITED
+    from vesper.lab.automations import entity_ids
+    from vesper.lab.home import load_lab_home
+    from vesper.lab.session import Session
+    from vesper.twins.clock import LogicalClock
+    home = load_lab_home(write_home(tmp_path, SITED), catalog())
+    return entity_ids(home), Session(home, clock=LogicalClock())
+
+
+def test_time_weekday_in_a_condition_and_a_trigger_follow_the_sites_calendar(tmp_path):
+    def autos(ids):
+        lamp, _ = lamp_motion(ids)
+        on = {"action": "light.turn_on", "target": {"entity_id": lamp}}
+        return [auto([on], at("08:00"), alias="sunday", conditions=[{"condition": "time", "weekday": "sun"}]),
+                auto([on], at("08:00"), alias="weekdays",
+                     conditions=[{"condition": "time", "weekday": ["mon", "tue", "wed", "thu", "fri"]}]),
+                auto([on], [{"trigger": "time", "at": "09:00", "weekday": ["mon"]}], alias="monday")]
+    _, s, e, calls = setup(tmp_path, autos, text_home=sited_home)
+    assert e.refused == []
+    s.clock.advance(2 * 24 * H)  # Sunday 07:30 to Tuesday 07:30
+    assert [(c[0], c[1]) for c in calls] == [("sunday", "time 28800"), ("weekdays", "time 28800"),
+                                              ("monday", "time 32400")]
+
+
+def test_a_weekday_needs_a_site_for_its_date(tmp_path):
+    assert refusal(tmp_path, [auto([], conditions=[{"condition": "time", "weekday": "mon"}])]) == (
+        "condition time: weekday: the home has no site, so it has no date (add site: to home.yaml)")
+
+
+@pytest.mark.parametrize("pattern, first_three", [
+    ({"minutes": "/15"}, ["07:15:00", "07:30:00", "07:45:00"]),  # hours every hour, seconds 0
+    ({"hours": 9}, ["09:00:00", "09:00:00+1d", "09:00:00+2d"]),  # minutes and seconds 0
+    ({"seconds": "/20"}, ["07:00:20", "07:00:40", "07:01:00"]),
+    ({"hours": "/4", "minutes": 30}, ["08:30:00", "12:30:00", "16:30:00"]),
+    ({"minutes": "*", "seconds": 5}, ["07:00:05", "07:01:05", "07:02:05"]),
+])
+def test_time_pattern_fires_as_home_assistants_time_change_listener(tmp_path, pattern, first_three):
+    def autos(ids):
+        return [auto([{"action": "light.turn_on", "target": {"entity_id": lamp_motion(ids)[0]}}],
+                     [{"trigger": "time_pattern", **pattern}])]
+    _, s, e, calls = setup(tmp_path, autos)
+    times = []
+    s.automation_command = lambda *args: times.append(s.clock.now())
+    s.clock.advance(3 * 24 * H)
+
+    def clock(t):
+        day, sec = divmod(int(t), 86400)
+        text = f"{sec // 3600:02d}:{sec % 3600 // 60:02d}:{sec % 60:02d}"
+        return text + (f"+{day}d" if day else "")
+    assert [clock(t + 7 * H) for t in times[:3]] == first_three  # the session starts at 07:00
+
+
+@pytest.mark.parametrize("pattern, reason", [
+    ({}, "trigger time_pattern: hours, minutes or seconds is required"),
+    ({"minutes": "/0"}, "trigger time_pattern: minutes: '/0' is not a time pattern"),
+    ({"hours": 24}, "trigger time_pattern: hours: 24 is not a time pattern"),
+])
+def test_a_time_pattern_home_assistant_refuses_is_refused(tmp_path, pattern, reason):
+    assert refusal(tmp_path, [auto([], [{"trigger": "time_pattern", **pattern}])]) == reason
+
+
+def test_homeassistant_start_fires_once_when_the_engine_starts_and_shutdown_never(tmp_path):
+    def autos(ids):
+        on = {"action": "light.turn_on", "target": {"entity_id": lamp_motion(ids)[0]}}
+        return [auto([on], [{"trigger": "homeassistant", "event": "start"}], alias="start"),
+                auto([on], [{"platform": "homeassistant", "event": "shutdown"}], alias="shutdown")]
+    _, s, e, calls = setup(tmp_path, autos)
+    s.clock.advance(24 * H)
+    assert [(c[0], c[1]) for c in calls] == [("start", "homeassistant start")]
+
+
+@pytest.mark.parametrize("trigger, reason", [
+    ({"trigger": "event", "event_type": "zha_event"},
+     "trigger event is not supported (a device's button or remote event)"),
+    ({"platform": "event", "event_type": "mobile_app_notification_action"},
+     "trigger event is not supported (a phone app's event)"),
+    ({"platform": "event", "event_type": "telegram_callback"},
+     "trigger event is not supported (a messaging or web service's event)"),
+    ({"platform": "event", "event_type": "call_service"},
+     "trigger event is not supported (a Home Assistant internal event)"),
+    ({"platform": "event", "event_type": "my_custom_event"},
+     "trigger event is not supported (a custom event another automation or script fires)"),
+    ({"platform": "webhook", "webhook_id": "x"}, "trigger webhook is not supported (it needs an HTTP request)"),
+    ({"platform": "mqtt", "topic": "x"}, "trigger mqtt is not supported (it needs an MQTT message)"),
+    ({"platform": "tag", "tag_id": "x"}, "trigger tag is not supported (it needs an NFC tag scan)"),
+])
+def test_triggers_that_need_a_device_a_resident_or_a_service_are_refused_by_class(tmp_path, trigger, reason):
+    assert refusal(tmp_path, [auto([], [trigger])]) == reason
