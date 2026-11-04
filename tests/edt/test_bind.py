@@ -179,19 +179,19 @@ def test_a_room_without_a_motion_sensor_uses_its_illuminance_sensors_occupancy(e
     ("light.shed", ("light", "porch")),
     ("switch.pool_pump", ("switch", "porch")),
     ("light.veranda", ("light", "porch")),
-    ("sensor.aussenbereich_wetterstation_helligkeit", ("illuminance", "porch")),
+    ("sensor.aussen_station_helligkeit", ("illuminance", "porch")),
     ("sensor.patio_luminance_hue", ("illuminance", "porch")),
     ("sensor.outside_light_sensor_illuminance_lux", ("illuminance", "porch")),
     ("sensor.openweathermap_temperature", ("temperature", "porch")),
     ("sensor.dark_sky_humidity", ("humidity", "porch")),
     ("sensor.weather_temperature", ("temperature", "porch")),
     ("sensor.openweathermap_condition", None),
-    ("sensor.fuerth_bayern_temperatur", ("temperature", "living")),
+    ("sensor.stadt_temperatur", ("temperature", "living")),
     ("sensor.wohnzimmer_luftfeuchtigkeit", ("humidity", "living")),
     ("sensor.current_temperature", ("temperature", "living")),
     ("sensor.heating_current_temperature", ("temperature", "living")),
     ("sensor.kitchen_current", None),
-    ("sensor.fuerth_bayern_absolute_luftfeuchtigkeit", None),
+    ("sensor.stadt_absolute_luftfeuchtigkeit", None),
     ("sensor.terrace_dew_point", None),
     ("sensor.garden_soil_moisture", None),
     ("sensor.time", None),
@@ -866,20 +866,20 @@ def test_a_room_less_actuator_name_binds_to_the_living_rooms_copies(edt):
 # --- classes found by the hand audit of bound ambient sensor names --------------------------------------------------
 
 @pytest.mark.parametrize("entity_id,expected", [
-    ("sensor.keukensensor_illuminance", ("illuminance", "kitchen")),
-    ("sensor.heizung_schlafzimmer_actual_temperature", ("temperature", "bedroom_1")),
+    ("sensor.keuken_lux", ("illuminance", "kitchen")),
+    ("sensor.schlafzimmer_actual_temperature", ("temperature", "bedroom_1")),
     ("sensor.entrance_luminance", ("illuminance", "corridor")),
-    ("sensor.entryway_nightlight_illuminance", ("illuminance", "corridor")),
-    ("sensor.fibaron_entrada_luminance", ("illuminance", "corridor")),
+    ("sensor.entryway_lux", ("illuminance", "corridor")),
+    ("sensor.entrada_luminance", ("illuminance", "corridor")),
     ("sensor.foyer_temperature", ("temperature", "corridor")),
     ("sensor.flur_temperatur", ("temperature", "corridor")),
     ("sensor.woonkamer_temperatuur", ("temperature", "living")),
     ("sensor.badkamer_luchtvochtigheid", ("humidity", "bathroom")),
     ("sensor.chambre_temperature", ("temperature", "bedroom_1")),
-    ("sensor.bedroom_heating_temp", None),  # a heating setpoint (fed to climate.set_temperature)
-    ("sensor.fan_operation_mode_temp", None),  # a mode, not a temperature
-    ("sensor.bedroom_strip_light", None),  # an LED strip's state
-    ("sensor.bedroom_light_brightness", None),  # a lamp's brightness setting
+    ("sensor.office_heating_temp", None),  # a heating setpoint (fed to climate.set_temperature)
+    ("sensor.ac_operation_mode_temp", None),  # a mode, not a temperature
+    ("sensor.kitchen_strip_light", None),  # an LED strip's state
+    ("sensor.office_lamp_brightness", None),  # a lamp's brightness setting
     ("sensor.heating_current_temperature", ("temperature", "living")),
     ("sensor.outdoor_brightness", ("illuminance", "porch")),
 ])
