@@ -1,0 +1,2321 @@
+{
+ "analysis": "R2-c the setback population: the below-10 C finding over every automation that commands a setpoint below 10 C (post hoc)",
+ "commit_of_inputs": "120f4ca",
+ "elapsed_s": 764.2,
+ "step1_population": {
+  "automations": 22,
+  "checks": {
+   "edt_home_identical_to_sweep": true,
+   "parsed_automations": 43280,
+   "parsed_matches_sweep": true,
+   "population_from_sweep_bound_equal": true,
+   "rebind_seconds": 74.0,
+   "rebound_differs_or_unbindable": 0,
+   "rebound_equal_to_sweep_bound": 5934
+  },
+  "commanded_setpoints_c": {
+   "5.0": 3,
+   "7.0": 19
+  },
+  "corpus_context": {
+   "automations_commanding_a_setpoint_below_10_c": 41,
+   "automations_with_a_literal_setpoint_32_to_50": 6,
+   "automations_with_a_templated_setpoint": 386,
+   "commanded_setpoints_c": {
+    "4.0": 3,
+    "5.0": 11,
+    "6.0": 1,
+    "7.0": 22,
+    "8.0": 4
+   },
+   "note": "templated setpoints are not evaluated; a literal 32-50 is below 10 C only if meant in Fahrenheit (the engine reads Celsius); neither is in the population",
+   "of_which_bound": 22,
+   "of_which_run_at_rung_4": 22,
+   "parsed": 43280,
+   "repositories": 11
+  },
+  "flagged": 18,
+  "per_automation": [
+   {
+    "automation": "A1",
+    "flagged": false,
+    "repository": "R1",
+    "setpoints_c": [
+     5.0
+    ]
+   },
+   {
+    "automation": "A2",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A3",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A4",
+    "flagged": true,
+    "repository": "R3",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A5",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A6",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A7",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A8",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A9",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A10",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A11",
+    "flagged": true,
+    "repository": "R4",
+    "setpoints_c": [
+     5.0
+    ]
+   },
+   {
+    "automation": "A12",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A13",
+    "flagged": false,
+    "repository": "R5",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A14",
+    "flagged": false,
+    "repository": "R6",
+    "setpoints_c": [
+     5.0
+    ]
+   },
+   {
+    "automation": "A15",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A16",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A17",
+    "flagged": false,
+    "repository": "R3",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A18",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A19",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A20",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A21",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   },
+   {
+    "automation": "A22",
+    "flagged": true,
+    "repository": "R2",
+    "setpoints_c": [
+     7.0
+    ]
+   }
+  ],
+  "repositories": 6,
+  "rule": "a literal 'temperature' or 'target_temp_low' below 10 C in the data of a climate.* action of the bound automation (vesper.edt.setback.low_setpoints); templated values cannot be read statically"
+ },
+ "step2_closed_loop": {
+  "breaching_runs": [
+   {
+    "automation": "A2",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.8,
+    "coldest_room_c": 5.8,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 13.1,
+    "low_commands": 2,
+    "outdoor_mean_over_setback_c": -6.43,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 47.25
+   },
+   {
+    "automation": "A2",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.2,
+    "coldest_room_c": 5.2,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 13.0,
+    "low_commands": 2,
+    "outdoor_mean_over_setback_c": -6.43,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 47.25
+   },
+   {
+    "automation": "A2",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.3,
+    "coldest_room_c": 9.3,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 10.0,
+    "low_commands": 2,
+    "outdoor_mean_over_setback_c": 2.05,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 47.25
+   },
+   {
+    "automation": "A2",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.3,
+    "coldest_room_c": 9.3,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 10.0,
+    "low_commands": 2,
+    "outdoor_mean_over_setback_c": 2.05,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 47.25
+   },
+   {
+    "automation": "A3",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.9,
+    "coldest_room_c": 5.9,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 13.1,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.4,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.5
+   },
+   {
+    "automation": "A3",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.2,
+    "coldest_room_c": 5.2,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 13.0,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.4,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.5
+   },
+   {
+    "automation": "A3",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 8.6,
+    "coldest_room_c": 8.6,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 10.7,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.5
+   },
+   {
+    "automation": "A3",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 8.6,
+    "coldest_room_c": 8.6,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 10.7,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.5
+   },
+   {
+    "automation": "A6",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.8,
+    "coldest_room_c": 5.8,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 13.2,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.39,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.5
+   },
+   {
+    "automation": "A6",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.3,
+    "coldest_room_c": 5.3,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 13.0,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.39,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.5
+   },
+   {
+    "automation": "A6",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 8.1,
+    "coldest_room_c": 8.1,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 11.3,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.5
+   },
+   {
+    "automation": "A6",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 8.1,
+    "coldest_room_c": 8.1,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 11.3,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.5
+   },
+   {
+    "automation": "A7",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.9,
+    "coldest_room_c": 5.9,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 13.1,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.38,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A7",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.2,
+    "coldest_room_c": 5.2,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 13.0,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.4,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A7",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.2,
+    "coldest_room_c": 9.2,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 10.1,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A7",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.2,
+    "coldest_room_c": 9.2,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 10.1,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A8",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 2,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 9.3,
+    "coldest_room_c": 9.3,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 9.3,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.04,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 36.0
+   },
+   {
+    "automation": "A8",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 4,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 8.7,
+    "coldest_room_c": 8.7,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 9.0,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.04,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 36.0
+   },
+   {
+    "automation": "A9",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.8,
+    "coldest_room_c": 5.8,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 13.1,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.4,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A9",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.4,
+    "coldest_room_c": 5.4,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 12.7,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.4,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A9",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 4,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.6,
+    "coldest_room_c": 9.6,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 9.6,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.04,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A9",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 4,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.6,
+    "coldest_room_c": 9.6,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 9.6,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.04,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A10",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.8,
+    "coldest_room_c": 5.8,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 13.1,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.41,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A10",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.4,
+    "coldest_room_c": 5.4,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 12.8,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.4,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A10",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 3,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.7,
+    "coldest_room_c": 9.7,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 9.6,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.04,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A10",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 3,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.7,
+    "coldest_room_c": 9.7,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 9.6,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.04,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A11",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 2.7,
+    "coldest_room_c": 2.7,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 15.7,
+    "low_commands": 1,
+    "outdoor_mean_over_setback_c": -6.36,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 48.0
+   },
+   {
+    "automation": "A12",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 1,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 9.8,
+    "coldest_room_c": 9.8,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 8.8,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.04,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 36.0
+   },
+   {
+    "automation": "A12",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 1,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 9.2,
+    "coldest_room_c": 9.2,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 8.4,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.04,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 36.0
+   },
+   {
+    "automation": "A13",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 3.5,
+    "coldest_room_c": 3.5,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 15.6,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.36,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 48.0
+   },
+   {
+    "automation": "A13",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 3.4,
+    "coldest_room_c": 3.4,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 14.9,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.36,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 48.0
+   },
+   {
+    "automation": "A13",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 8.4,
+    "coldest_room_c": 8.4,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 11.0,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.05,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 48.0
+   },
+   {
+    "automation": "A13",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 8.4,
+    "coldest_room_c": 8.4,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 11.0,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.05,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 48.0
+   },
+   {
+    "automation": "A15",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.7,
+    "coldest_room_c": 5.7,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 13.2,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.37,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 47.0
+   },
+   {
+    "automation": "A15",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.3,
+    "coldest_room_c": 5.3,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 13.0,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.39,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 47.0
+   },
+   {
+    "automation": "A15",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 7.6,
+    "coldest_room_c": 7.6,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 11.9,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 47.0
+   },
+   {
+    "automation": "A15",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 7.6,
+    "coldest_room_c": 7.6,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 11.9,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 47.0
+   },
+   {
+    "automation": "A16",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.8,
+    "coldest_room_c": 5.8,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 13.1,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.41,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A16",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.4,
+    "coldest_room_c": 5.4,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 12.8,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.4,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A16",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 3,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.7,
+    "coldest_room_c": 9.7,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 9.6,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.04,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A16",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 3,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.7,
+    "coldest_room_c": 9.7,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 9.6,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.04,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A18",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 4,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 8.7,
+    "coldest_room_c": 8.7,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 9.9,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.17,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 40.0
+   },
+   {
+    "automation": "A18",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 4,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 8.7,
+    "coldest_room_c": 8.7,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 9.0,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.17,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 40.0
+   },
+   {
+    "automation": "A20",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.9,
+    "coldest_room_c": 5.9,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 13.1,
+    "low_commands": 2,
+    "outdoor_mean_over_setback_c": -6.4,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 47.0
+   },
+   {
+    "automation": "A20",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.2,
+    "coldest_room_c": 5.2,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 13.0,
+    "low_commands": 2,
+    "outdoor_mean_over_setback_c": -6.4,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 47.0
+   },
+   {
+    "automation": "A20",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 8.5,
+    "coldest_room_c": 8.5,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 10.9,
+    "low_commands": 2,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 47.0
+   },
+   {
+    "automation": "A20",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 8.5,
+    "coldest_room_c": 8.5,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 10.9,
+    "low_commands": 2,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 47.0
+   },
+   {
+    "automation": "A21",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 2,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 9.2,
+    "coldest_room_c": 9.2,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 9.4,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.09,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 38.0
+   },
+   {
+    "automation": "A21",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 4,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 8.7,
+    "coldest_room_c": 8.7,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 9.0,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.09,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 38.0
+   },
+   {
+    "automation": "A22",
+    "baseline_coldest_room_c": 17.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.9,
+    "coldest_room_c": 5.9,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n0",
+    "largest_drop_k": 13.1,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.38,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A22",
+    "baseline_coldest_room_c": 15.6,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Minneapolis",
+    "coldest_caused_room_c": 5.2,
+    "coldest_room_c": 5.2,
+    "date": "2026-01-14",
+    "env": "Minneapolis 2026-01-14 n180",
+    "largest_drop_k": 13.0,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": -6.4,
+    "outdoor_min_over_setback_c": -13.6,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A22",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.2,
+    "coldest_room_c": 9.2,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n0",
+    "largest_drop_k": 10.1,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.0
+   },
+   {
+    "automation": "A22",
+    "baseline_coldest_room_c": 18.5,
+    "breached_any_cause": true,
+    "caused": true,
+    "caused_cells": 7,
+    "cells": 7,
+    "city": "Stockholm",
+    "coldest_caused_room_c": 9.2,
+    "coldest_room_c": 9.2,
+    "date": "2026-01-14",
+    "env": "Stockholm 2026-01-14 n180",
+    "largest_drop_k": 10.1,
+    "low_commands": 3,
+    "outdoor_mean_over_setback_c": 2.06,
+    "outdoor_min_over_setback_c": 0.9,
+    "refused": false,
+    "setback_h": 46.0
+   }
+  ],
+  "elapsed_s": 518.5,
+  "environments": 48,
+  "overall": {
+   "automations_with_caused_breach": 16,
+   "baseline_cells_below_10_all_runs": 0,
+   "baseline_coldest_room_c_breaching_envs": 15.6,
+   "breach_envs": {
+    "Minneapolis 2026-01-14 n0": 15,
+    "Minneapolis 2026-01-14 n180": 16,
+    "Stockholm 2026-01-14 n0": 11,
+    "Stockholm 2026-01-14 n180": 11
+   },
+   "by_city_runs_and_breaching": {
+    "Minneapolis": {
+     "breaching": 31,
+     "runs": 176
+    },
+    "Phoenix": {
+     "breaching": 0,
+     "runs": 176
+    },
+    "Seattle": {
+     "breaching": 0,
+     "runs": 176
+    },
+    "Singapore": {
+     "breaching": 0,
+     "runs": 176
+    },
+    "Stockholm": {
+     "breaching": 22,
+     "runs": 176
+    },
+    "Sydney": {
+     "breaching": 0,
+     "runs": 176
+    }
+   },
+   "caused_cells": 315,
+   "cells": 7392,
+   "cold_setback_runs_by_env": {
+    "Minneapolis 2026-01-14": {
+     "breaching": 31,
+     "coldest_room_c": [
+      2.7,
+      14.2
+     ],
+     "outdoor_mean_c": [
+      -12.64,
+      -6.04
+     ],
+     "runs": 35,
+     "setback_h": [
+      3.5,
+      48.0
+     ]
+    },
+    "Minneapolis 2026-04-15": {
+     "breaching": 0,
+     "coldest_room_c": [
+      19.1,
+      20.2
+     ],
+     "outdoor_mean_c": [
+      4.14,
+      5.19
+     ],
+     "runs": 10,
+     "setback_h": [
+      1.0,
+      3.5
+     ]
+    },
+    "Minneapolis 2026-10-14": {
+     "breaching": 0,
+     "coldest_room_c": [
+      13.9,
+      18.3
+     ],
+     "outdoor_mean_c": [
+      7.65,
+      8.61
+     ],
+     "runs": 33,
+     "setback_h": [
+      10.0,
+      48.0
+     ]
+    },
+    "Seattle 2026-01-14": {
+     "breaching": 0,
+     "coldest_room_c": [
+      12.4,
+      17.3
+     ],
+     "outdoor_mean_c": [
+      4.47,
+      7.06
+     ],
+     "runs": 35,
+     "setback_h": [
+      3.5,
+      48.0
+     ]
+    },
+    "Seattle 2026-04-15": {
+     "breaching": 0,
+     "coldest_room_c": [
+      15.7,
+      16.2
+     ],
+     "outdoor_mean_c": [
+      8.22,
+      8.41
+     ],
+     "runs": 32,
+     "setback_h": [
+      46.0,
+      48.0
+     ]
+    },
+    "Stockholm 2026-01-14": {
+     "breaching": 22,
+     "coldest_room_c": [
+      7.6,
+      16.4
+     ],
+     "outdoor_mean_c": [
+      2.0,
+      2.86
+     ],
+     "runs": 34,
+     "setback_h": [
+      3.5,
+      48.0
+     ]
+    },
+    "Stockholm 2026-04-15": {
+     "breaching": 0,
+     "coldest_room_c": [
+      16.0,
+      17.0
+     ],
+     "outdoor_mean_c": [
+      8.59,
+      8.69
+     ],
+     "runs": 22,
+     "setback_h": [
+      46.0,
+      48.0
+     ]
+    }
+   },
+   "coldest_caused_room_per_run_c": [
+    2.7,
+    8.1,
+    9.8
+   ],
+   "largest_drop_below_baseline_k": 15.7,
+   "near_model_free": {
+    "breaching_runs_with_outdoor_mean_over_setback_below_10_c": 53,
+    "of": 53,
+    "share": 1.0
+   },
+   "non_breaching_runs_with_setback_and_outdoor_mean_below_10_c": 148,
+   "outdoor_mean_over_setback_c_breaching": [
+    -6.43,
+    2.06
+   ],
+   "outdoor_min_over_setback_c_breaching": [
+    -13.6,
+    0.9
+   ],
+   "runs": 1056,
+   "runs_breached_any_cause": 53,
+   "runs_with_caused_breach": 53,
+   "runs_with_refused_action": 0,
+   "runs_with_setback_in_window": 370,
+   "setback_h_breaching_runs": [
+    36.0,
+    48.0
+   ]
+  },
+  "per_automation": [
+   {
+    "automation": "A1",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": null,
+    "breach_envs": [],
+    "coldest_caused_room_c": null,
+    "outdoor_mean_over_setback_c_breaching": null,
+    "outdoor_min_over_setback_c_breaching": null,
+    "runs": 48,
+    "runs_with_caused_breach": 0,
+    "runs_with_setback_in_window": 0,
+    "setback_h_all_runs_with_setback": null,
+    "setback_h_breaching_runs": null
+   },
+   {
+    "automation": "A2",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 5.2,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.43,
+     2.05
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 16,
+    "setback_h_all_runs_with_setback": [
+     47.25,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     47.25,
+     47.25
+    ]
+   },
+   {
+    "automation": "A3",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 5.2,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.4,
+     2.06
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 22,
+    "setback_h_all_runs_with_setback": [
+     39.0,
+     47.25
+    ],
+    "setback_h_breaching_runs": [
+     46.5,
+     46.5
+    ]
+   },
+   {
+    "automation": "A4",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": null,
+    "breach_envs": [],
+    "coldest_caused_room_c": null,
+    "outdoor_mean_over_setback_c_breaching": null,
+    "outdoor_min_over_setback_c_breaching": null,
+    "runs": 48,
+    "runs_with_caused_breach": 0,
+    "runs_with_setback_in_window": 20,
+    "setback_h_all_runs_with_setback": [
+     8.62,
+     48.0
+    ],
+    "setback_h_breaching_runs": null
+   },
+   {
+    "automation": "A5",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": null,
+    "breach_envs": [],
+    "coldest_caused_room_c": null,
+    "outdoor_mean_over_setback_c_breaching": null,
+    "outdoor_min_over_setback_c_breaching": null,
+    "runs": 48,
+    "runs_with_caused_breach": 0,
+    "runs_with_setback_in_window": 8,
+    "setback_h_all_runs_with_setback": [
+     3.5,
+     3.5
+    ],
+    "setback_h_breaching_runs": null
+   },
+   {
+    "automation": "A6",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 5.3,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.39,
+     2.06
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 26,
+    "setback_h_all_runs_with_setback": [
+     42.5,
+     47.25
+    ],
+    "setback_h_breaching_runs": [
+     46.5,
+     46.5
+    ]
+   },
+   {
+    "automation": "A7",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 5.2,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.4,
+     2.06
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 22,
+    "setback_h_all_runs_with_setback": [
+     38.5,
+     47.0
+    ],
+    "setback_h_breaching_runs": [
+     46.0,
+     46.0
+    ]
+   },
+   {
+    "automation": "A8",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 8.7,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.04,
+     -6.04
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     -13.6
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 2,
+    "runs_with_setback_in_window": 14,
+    "setback_h_all_runs_with_setback": [
+     1.0,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     36.0,
+     36.0
+    ]
+   },
+   {
+    "automation": "A9",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 5.4,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.4,
+     2.04
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 14,
+    "setback_h_all_runs_with_setback": [
+     33.5,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     46.0,
+     46.0
+    ]
+   },
+   {
+    "automation": "A10",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 5.4,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.41,
+     2.04
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 14,
+    "setback_h_all_runs_with_setback": [
+     35.0,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     46.0,
+     46.0
+    ]
+   },
+   {
+    "automation": "A11",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 2.7,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.36,
+     -6.36
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     -13.6
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 1,
+    "runs_with_setback_in_window": 40,
+    "setback_h_all_runs_with_setback": [
+     8.0,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     48.0,
+     48.0
+    ]
+   },
+   {
+    "automation": "A12",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 9.2,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.04,
+     -6.04
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     -13.6
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 2,
+    "runs_with_setback_in_window": 14,
+    "setback_h_all_runs_with_setback": [
+     1.0,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     36.0,
+     36.0
+    ]
+   },
+   {
+    "automation": "A13",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 3.4,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.36,
+     2.05
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 48,
+    "setback_h_all_runs_with_setback": [
+     48.0,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     48.0,
+     48.0
+    ]
+   },
+   {
+    "automation": "A14",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": null,
+    "breach_envs": [],
+    "coldest_caused_room_c": null,
+    "outdoor_mean_over_setback_c_breaching": null,
+    "outdoor_min_over_setback_c_breaching": null,
+    "runs": 48,
+    "runs_with_caused_breach": 0,
+    "runs_with_setback_in_window": 0,
+    "setback_h_all_runs_with_setback": null,
+    "setback_h_breaching_runs": null
+   },
+   {
+    "automation": "A15",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 5.3,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.39,
+     2.06
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 26,
+    "setback_h_all_runs_with_setback": [
+     19.33,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     47.0,
+     47.0
+    ]
+   },
+   {
+    "automation": "A16",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 5.4,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.41,
+     2.04
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 14,
+    "setback_h_all_runs_with_setback": [
+     35.0,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     46.0,
+     46.0
+    ]
+   },
+   {
+    "automation": "A17",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": null,
+    "breach_envs": [],
+    "coldest_caused_room_c": null,
+    "outdoor_mean_over_setback_c_breaching": null,
+    "outdoor_min_over_setback_c_breaching": null,
+    "runs": 48,
+    "runs_with_caused_breach": 0,
+    "runs_with_setback_in_window": 0,
+    "setback_h_all_runs_with_setback": null,
+    "setback_h_breaching_runs": null
+   },
+   {
+    "automation": "A18",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 8.7,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.17,
+     -6.17
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     -13.6
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 2,
+    "runs_with_setback_in_window": 14,
+    "setback_h_all_runs_with_setback": [
+     3.0,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     40.0,
+     40.0
+    ]
+   },
+   {
+    "automation": "A19",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": null,
+    "breach_envs": [],
+    "coldest_caused_room_c": null,
+    "outdoor_mean_over_setback_c_breaching": null,
+    "outdoor_min_over_setback_c_breaching": null,
+    "runs": 48,
+    "runs_with_caused_breach": 0,
+    "runs_with_setback_in_window": 10,
+    "setback_h_all_runs_with_setback": [
+     10.0,
+     10.0
+    ],
+    "setback_h_breaching_runs": null
+   },
+   {
+    "automation": "A20",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 5.2,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.4,
+     2.06
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 12,
+    "setback_h_all_runs_with_setback": [
+     33.5,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     47.0,
+     47.0
+    ]
+   },
+   {
+    "automation": "A21",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 8.7,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.09,
+     -6.09
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     -13.6
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 2,
+    "runs_with_setback_in_window": 14,
+    "setback_h_all_runs_with_setback": [
+     2.0,
+     48.0
+    ],
+    "setback_h_breaching_runs": [
+     38.0,
+     38.0
+    ]
+   },
+   {
+    "automation": "A22",
+    "baseline_coldest_room_c_all_envs": 15.6,
+    "baseline_coldest_room_c_breaching_envs": 15.6,
+    "breach_envs": [
+     "Minneapolis 2026-01-14 n0",
+     "Minneapolis 2026-01-14 n180",
+     "Stockholm 2026-01-14 n0",
+     "Stockholm 2026-01-14 n180"
+    ],
+    "coldest_caused_room_c": 5.2,
+    "outdoor_mean_over_setback_c_breaching": [
+     -6.4,
+     2.06
+    ],
+    "outdoor_min_over_setback_c_breaching": [
+     -13.6,
+     0.9
+    ],
+    "runs": 48,
+    "runs_with_caused_breach": 4,
+    "runs_with_setback_in_window": 22,
+    "setback_h_all_runs_with_setback": [
+     38.5,
+     47.0
+    ],
+    "setback_h_breaching_runs": [
+     46.0,
+     46.0
+    ]
+   }
+  ],
+  "reproduces_confirmation_120f4ca": {
+   "caused_below_10_mismatches": 0,
+   "cells": 686,
+   "max_abs_baseline_min_c_diff": 0.0,
+   "max_abs_min_c_diff": 0.0
+  },
+  "rule": "a room-run cell is a caused breach when the room's minimum over days 1-2 is below 10 C with the automation and not in the same environment's baseline (no automation); setback: hours within days 1-2 that the last accepted setpoint command is below 10 C; outdoor: ERA5 2 m air temperature at the site, every 10 min over the setback"
+ },
+ "step3_mass_sensitivity": {
+  "elapsed_s": 167.8,
+  "environments": [
+   "Minneapolis 2026-01-14 n0",
+   "Minneapolis 2026-01-14 n180",
+   "Stockholm 2026-01-14 n0",
+   "Stockholm 2026-01-14 n180"
+  ],
+  "per_scale": {
+   "0.5": {
+    "automations_with_caused_breach": 17,
+    "baseline_cells_below_10_all_runs": 0,
+    "baseline_coldest_room_c": 14.7,
+    "by_automation": {
+     "A1": 0,
+     "A10": 4,
+     "A11": 1,
+     "A12": 4,
+     "A13": 4,
+     "A14": 0,
+     "A15": 4,
+     "A16": 4,
+     "A17": 0,
+     "A18": 4,
+     "A19": 2,
+     "A2": 4,
+     "A20": 4,
+     "A21": 4,
+     "A22": 4,
+     "A3": 4,
+     "A4": 0,
+     "A5": 0,
+     "A6": 4,
+     "A7": 4,
+     "A8": 4,
+     "A9": 4
+    },
+    "by_city_runs_and_breaching": {
+     "Minneapolis": {
+      "breaching": 33,
+      "runs": 44
+     },
+     "Stockholm": {
+      "breaching": 30,
+      "runs": 44
+     }
+    },
+    "caused_cells": 439,
+    "cells": 616,
+    "coldest_caused_room_per_run_c": [
+     -2.9,
+     5.8,
+     9.4
+    ],
+    "coldest_room_per_run_c": [
+     -2.9,
+     18.5
+    ],
+    "largest_drop_below_baseline_k": 21.8,
+    "runs": 88,
+    "runs_with_caused_breach": 63
+   },
+   "1.0": {
+    "automations_with_caused_breach": 16,
+    "baseline_cells_below_10_all_runs": 0,
+    "baseline_coldest_room_c": 15.6,
+    "by_automation": {
+     "A1": 0,
+     "A10": 4,
+     "A11": 1,
+     "A12": 2,
+     "A13": 4,
+     "A14": 0,
+     "A15": 4,
+     "A16": 4,
+     "A17": 0,
+     "A18": 2,
+     "A19": 0,
+     "A2": 4,
+     "A20": 4,
+     "A21": 2,
+     "A22": 4,
+     "A3": 4,
+     "A4": 0,
+     "A5": 0,
+     "A6": 4,
+     "A7": 4,
+     "A8": 2,
+     "A9": 4
+    },
+    "by_city_runs_and_breaching": {
+     "Minneapolis": {
+      "breaching": 31,
+      "runs": 44
+     },
+     "Stockholm": {
+      "breaching": 22,
+      "runs": 44
+     }
+    },
+    "caused_cells": 315,
+    "cells": 616,
+    "coldest_caused_room_per_run_c": [
+     2.7,
+     8.1,
+     9.8
+    ],
+    "coldest_room_per_run_c": [
+     2.7,
+     18.5
+    ],
+    "largest_drop_below_baseline_k": 15.7,
+    "runs": 88,
+    "runs_with_caused_breach": 53
+   },
+   "2.0": {
+    "automations_with_caused_breach": 12,
+    "baseline_cells_below_10_all_runs": 0,
+    "baseline_coldest_room_c": 16.8,
+    "by_automation": {
+     "A1": 0,
+     "A10": 1,
+     "A11": 1,
+     "A12": 0,
+     "A13": 2,
+     "A14": 0,
+     "A15": 2,
+     "A16": 1,
+     "A17": 0,
+     "A18": 0,
+     "A19": 0,
+     "A2": 2,
+     "A20": 2,
+     "A21": 0,
+     "A22": 2,
+     "A3": 2,
+     "A4": 0,
+     "A5": 0,
+     "A6": 2,
+     "A7": 2,
+     "A8": 0,
+     "A9": 1
+    },
+    "by_city_runs_and_breaching": {
+     "Minneapolis": {
+      "breaching": 20,
+      "runs": 44
+     },
+     "Stockholm": {
+      "breaching": 0,
+      "runs": 44
+     }
+    },
+    "caused_cells": 67,
+    "cells": 616,
+    "coldest_caused_room_per_run_c": [
+     7.7,
+     9.0,
+     9.9
+    ],
+    "coldest_room_per_run_c": [
+     7.7,
+     18.6
+    ],
+    "largest_drop_below_baseline_k": 11.2,
+    "runs": 88,
+    "runs_with_caused_breach": 20
+   },
+   "4.0": {
+    "automations_with_caused_breach": 0,
+    "baseline_cells_below_10_all_runs": 0,
+    "baseline_coldest_room_c": 17.7,
+    "by_automation": {
+     "A1": 0,
+     "A10": 0,
+     "A11": 0,
+     "A12": 0,
+     "A13": 0,
+     "A14": 0,
+     "A15": 0,
+     "A16": 0,
+     "A17": 0,
+     "A18": 0,
+     "A19": 0,
+     "A2": 0,
+     "A20": 0,
+     "A21": 0,
+     "A22": 0,
+     "A3": 0,
+     "A4": 0,
+     "A5": 0,
+     "A6": 0,
+     "A7": 0,
+     "A8": 0,
+     "A9": 0
+    },
+    "by_city_runs_and_breaching": {
+     "Minneapolis": {
+      "breaching": 0,
+      "runs": 44
+     },
+     "Stockholm": {
+      "breaching": 0,
+      "runs": 44
+     }
+    },
+    "caused_cells": 0,
+    "cells": 616,
+    "coldest_caused_room_per_run_c": null,
+    "coldest_room_per_run_c": [
+     12.4,
+     18.7
+    ],
+    "largest_drop_below_baseline_k": null,
+    "runs": 88,
+    "runs_with_caused_breach": 0
+   }
+  },
+  "s1_reproduces_step2": {
+   "caused_below_10_mismatches": 0,
+   "cells": 616,
+   "exact": true,
+   "max_abs_baseline_min_c_diff": 0.0,
+   "max_abs_min_c_diff": 0.0,
+   "runs": 88,
+   "setback_mismatches": 0
+  },
+  "scales": [
+   0.5,
+   1.0,
+   2.0,
+   4.0
+  ]
+ },
+ "step4_reconciliation": {
+  "120f4ca": {
+   "confirm_breachers": 4,
+   "confirm_breachers_ids": [
+    "A7",
+    "A8",
+    "A12",
+    "A21"
+   ],
+   "confirm_breachers_in_population": 4,
+   "confirm_breachers_outside_population": [],
+   "population_breaching_here_not_in_sample": 10,
+   "population_in_sample": 6,
+   "population_in_sample_and_breaching_here": [
+    "A6",
+    "A7",
+    "A8",
+    "A12",
+    "A15",
+    "A21"
+   ],
+   "population_in_sample_ids": [
+    "A6",
+    "A7",
+    "A8",
+    "A12",
+    "A15",
+    "A21"
+   ],
+   "sampled_automations": 400,
+   "sampled_population_runs_per_automation": [
+    10,
+    10,
+    10,
+    22,
+    22,
+    24
+   ]
+  },
+  "dc119cd": {
+   "confirm_breachers": 7,
+   "confirm_breachers_ids": [
+    "A6",
+    "A7",
+    "A8",
+    "A12",
+    "A16",
+    "A18",
+    "A21"
+   ],
+   "confirm_breachers_in_population": 7,
+   "confirm_breachers_outside_population": [],
+   "population_breaching_here_not_in_sample": 9,
+   "population_in_sample": 8,
+   "population_in_sample_and_breaching_here": [
+    "A6",
+    "A7",
+    "A8",
+    "A12",
+    "A16",
+    "A18",
+    "A21"
+   ],
+   "population_in_sample_ids": [
+    "A6",
+    "A7",
+    "A8",
+    "A12",
+    "A16",
+    "A18",
+    "A19",
+    "A21"
+   ],
+   "sampled_automations": 400,
+   "sampled_population_runs_per_automation": [
+    8,
+    10,
+    10,
+    10,
+    10,
+    10,
+    18,
+    22
+   ]
+  }
+ }
+}

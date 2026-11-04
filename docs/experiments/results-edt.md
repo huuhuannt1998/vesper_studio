@@ -251,7 +251,8 @@ no automation (protocol section 4; the confirmation's causal rule).
   so the above-30 envelope cannot be judged with this model; the causal rule keeps the failure from being reported as
   a finding, but it also hides any real overheating an automation would cause.
 
-How far the below-10 C count depends on the model's thermal mass (post hoc): "Revision R2-a", item 10, at the end.
+How far the below-10 C count depends on the model's thermal mass (post hoc): "Revision R2-a", item 10, at the end;
+the same finding over every automation that commands a setpoint below 10 C rather than a sample: "Revision R2-c".
 
 ## RQ3: is the physics necessary? (the necessity ladder)
 
@@ -796,3 +797,111 @@ Reading it (as Addendum 5 said it would be read):
   the other plan). That moves the temperature-reading automations (54 of 90 stable) more than the humidity ones (29 of
   32).
 - Five homes are a small sample of synthetic plans, not a population of real homes.
+
+## Revision R2-c (post hoc): the setback population
+
+**Post hoc, not pre-registered**, for the review (MUST 3). The below-10 C finding above rests on the confirmation's
+seeded sample of 200 flagged automations, so it moves with the sample: 7 breaching automations on the blended-weather
+sweep (`dc119cd`), 4 on the ERA5 sweep (`120f4ca`), mostly because the flagged set moved by 2 and the sample with it.
+Here the population is fixed statically instead, and every member is run. Inputs: the local ERA5 sweep `120f4ca`
+(rung 4), its home and recorded weather, the two confirmation reports, and the corpus (read-only, re-bound). Script:
+`scripts/revision/r2c_setback_population.py` (the static rule is `vesper.edt.setback`, tested in
+`tests/edt/test_setback.py`); numbers in `results/edt/setback-population-r2c-120f4ca.json` (aggregates only;
+automations are A1-A22 in sorted id order, repositories R1-R6 in order of first appearance).
+
+**1. The population (static, model-free).** An automation is in it when it runs at rung 4 and its bound actions
+command a climate setpoint below 10 C: a literal `temperature` or `target_temp_low` below 10 in the data of a
+`climate.*` action (nested `choose` / `if` / `repeat` steps included; a mode change counts only if it carries such a
+value). **22 automations from 6 repositories** (18 flagged, 4 not), commanding **7 C (19) or 5 C (3)**. Re-binding
+the corpus reproduces the sweep exactly (43,280 parsed; all 5,934 run automations re-bind to the sweep's bound
+automation; the EDT home is byte-identical; the rule on the sweep's stored bound automations gives the same 22).
+Context over the whole parsed corpus: 41 automations from 11 repositories command a literal setpoint below 10 C
+(4-8 C), bound or not; the other 19 do not bind. Not counted: 386 automations whose climate setpoint is a template
+(not evaluated statically) and 6 with a literal 32-50 (below 10 C only if meant in Fahrenheit).
+
+**2. Closed loop on the whole population.** Every one of the 22 alone (`vesper.edt.confirm.closed_loop`, unchanged)
+in all 48 sweep environments, 1,056 runs, each against its environment's baseline (no automation); the confirmation's
+causal rule (a room-run cell counts when the room's minimum over days 1-2 is below 10 C with the automation and not in
+the baseline; 7 indoor rooms per run, the hallway thermostat heating them all). The setback is the hours within days
+1-2 that the last accepted setpoint command is below 10 C; the outdoor air is the cached ERA5 2 m temperature at the
+site every 10 minutes over the setback. Check: for the 98 (automation, environment) pairs the `120f4ca` confirmation
+also ran, all 686 cells are identical (minimum, baseline minimum, breach). No command was refused.
+
+| A | Repo | Flagged | Setpoint | Runs with a setback (of 48) | Caused breach (of 48) | Where (2026-01-14) | Coldest caused room | Setback in breaching runs | Outdoor mean / min over it | Baseline coldest room |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A1 | R1 | no | 5 C | 0 | 0 | | | | | |
+| A2 | R2 | yes | 7 C | 16 | 4 | M n0/n180, S n0/n180 | 5.2 C | 47.3 h | -6.4..2.1 / -13.6..0.9 C | 15.6 C |
+| A3 | R2 | yes | 7 C | 22 | 4 | M, S (both) | 5.2 | 46.5 | -6.4..2.1 / -13.6..0.9 | 15.6 |
+| A4 | R3 | yes | 7 C | 20 | 0 | | | | | |
+| A5 | R2 | yes | 7 C | 8 | 0 | | | | | |
+| A6 | R2 | yes | 7 C | 26 | 4 | M, S (both) | 5.3 | 46.5 | -6.4..2.1 / -13.6..0.9 | 15.6 |
+| A7 | R2 | yes | 7 C | 22 | 4 | M, S (both) | 5.2 | 46.0 | -6.4..2.1 / -13.6..0.9 | 15.6 |
+| A8 | R2 | yes | 7 C | 14 | 2 | M (both) | 8.7 | 36.0 | -6.0 / -13.6 | 15.6 |
+| A9 | R2 | yes | 7 C | 14 | 4 | M, S (both) | 5.4 | 46.0 | -6.4..2.0 / -13.6..0.9 | 15.6 |
+| A10 | R2 | yes | 7 C | 14 | 4 | M, S (both) | 5.4 | 46.0 | -6.4..2.0 / -13.6..0.9 | 15.6 |
+| A11 | R4 | yes | 5 C | 40 | 1 | M n180 | 2.7 | 48.0 | -6.4 / -13.6 | 15.6 |
+| A12 | R2 | yes | 7 C | 14 | 2 | M (both) | 9.2 | 36.0 | -6.0 / -13.6 | 15.6 |
+| A13 | R5 | no | 7 C | 48 | 4 | M, S (both) | 3.4 | 48.0 | -6.4..2.1 / -13.6..0.9 | 15.6 |
+| A14 | R6 | no | 5 C | 0 | 0 | | | | | |
+| A15 | R2 | yes | 7 C | 26 | 4 | M, S (both) | 5.3 | 47.0 | -6.4..2.1 / -13.6..0.9 | 15.6 |
+| A16 | R2 | yes | 7 C | 14 | 4 | M, S (both) | 5.4 | 46.0 | -6.4..2.0 / -13.6..0.9 | 15.6 |
+| A17 | R3 | no | 7 C | 0 | 0 | | | | | |
+| A18 | R2 | yes | 7 C | 14 | 2 | M (both) | 8.7 | 40.0 | -6.2 / -13.6 | 15.6 |
+| A19 | R2 | yes | 7 C | 10 | 0 | | | | | |
+| A20 | R2 | yes | 7 C | 12 | 4 | M, S (both) | 5.2 | 47.0 | -6.4..2.1 / -13.6..0.9 | 15.6 |
+| A21 | R2 | yes | 7 C | 14 | 2 | M (both) | 8.7 | 38.0 | -6.1 / -13.6 | 15.6 |
+| A22 | R2 | yes | 7 C | 22 | 4 | M, S (both) | 5.2 | 46.0 | -6.4..2.1 / -13.6..0.9 | 15.6 |
+
+(M Minneapolis, S Stockholm; "both" is plan north 0 and 180; outdoor ranges run from Minneapolis to Stockholm.)
+
+**Overall: 53 of 1,056 runs have a caused breach (315 of 7,392 room-run cells), from 16 automations in 3
+repositories (R2 14, R4 1, R5 1)**, all on 2026-01-14: Minneapolis 31 runs (15 at n0, 16 at n180), Stockholm 22
+(11 + 11); no other city or date. The coldest caused room per run is 2.7-9.8 C (median 8.1 C), up to 15.7 K below
+the same room in the baseline; no baseline room falls below 10 C anywhere (coldest 15.6 C in these environments). The
+breaching runs' setbacks last 36-48 of the 48 measured hours, with outdoor air averaging -6.4 to 2.1 C over them
+(minimum -13.6 to 0.9 C). A1, A14 and A17 never command their setback within the measured days in any environment; A4, A5 and A19 command it
+but never breach.
+
+*The near-model-free condition.* **All 53 breaching runs (100 %) have an outdoor mean below 10 C over the setback**:
+that is the condition under which any heat-loss model moves an unheated room toward the outdoor air and so toward a
+5-7 C setpoint. It is necessary, not sufficient, within two days: 148 other runs also set back with the outdoor mean
+below 10 C and do not breach. Per city and date, runs with a cold setback (outdoor mean below 10 C) and how many
+breach: Minneapolis January 35 / 31 (outdoor -12.6 to -6.0 C);
+Stockholm January 34 / 22 (2.0-2.9 C); Seattle January 35 / 0 (4.5-7.1 C; coldest room 12.4 C); Minneapolis
+October 33 / 0 (7.7-8.6 C); Seattle April 32 / 0, Stockholm April 22 / 0, Minneapolis April 10 / 0 (4.1-8.7 C). So
+the rule and the climate decide *that* the rooms head for the setpoint; the model decides *whether* they get below
+10 C within the 48 measured hours, which takes a sub-zero or near-zero outdoor mean and a setback of 36 h or more.
+
+**3. Mass sensitivity on the same population.** Step 2 again in the four environments with a breach (Minneapolis and
+Stockholm, 2026-01-14, plan north 0 and 180), all 22 automations (88 runs per scale), every room's heat capacity
+x S (`vesper.env.indoor.knobs(CAPACITY_SCALE=S)`), each S with its own four baselines. **S = 1, run afresh,
+reproduces step 2 exactly** (88 runs, 616 cells: every minimum, baseline minimum, breach and setback interval
+identical).
+
+| S (kJ/(m² K)) | Runs with a caused breach (of 88) | Minneapolis / Stockholm (of 44 each) | Caused cells (of 616) | Automations | Coldest caused room per run: min / median / max | Baseline coldest room | Largest drop below baseline |
+|---|---|---|---|---|---|---|---|
+| 0.5 (82.5) | **63** | 33 / 30 | 439 | 17 | -2.9 / 5.8 / 9.4 C | 14.7 C | 21.8 K |
+| **1 (165)** | **53** | 31 / 22 | 315 | 16 | 2.7 / 8.1 / 9.8 C | 15.6 C | 15.7 K |
+| 2 (330) | **20** | 20 / 0 | 67 | 12 | 7.7 / 9.0 / 9.9 C | 16.8 C | 11.2 K |
+| 4 (660) | **0** | 0 / 0 | 0 | 0 | none (rooms 12.4-18.7 C) | 17.7 C | |
+
+No baseline room falls below 10 C at any scale. As in R2-a, whether the rooms cross 10 C within two days depends on
+the mass: the population count runs 63 / 53 / 20 / 0 for half, nominal, twice and four times the mass, Stockholm
+drops out at twice, everything at four times.
+
+**4. Reconciliation with the confirmation samples.** Every confirmation breacher is in the population: **7 of 7** on
+`dc119cd` (A6, A7, A8, A12, A16, A18, A21) and **4 of 4** on `120f4ca` (A7, A8, A12, A21); none is outside it, so no
+other mechanism (turning the heating off, a templated setpoint) produced a confirmation breach. The `dc119cd` sample
+held 8 of the 22 (the 7 breachers and A19, which never breaches); the `120f4ca` sample held 6 (A6, A7, A8, A12, A15,
+A21), all of which breach here, but A6 and A15 were not run in a cold January environment: the confirmation runs a
+flagged automation only in the environments where its screening outcome departs from its most common one, and on the
+ERA5 sweep Minneapolis and Stockholm in January were not among those for these two. So the sample's 4 versus 7 is
+the sample (which automations, and which environments per automation), not the physics: the population count on the
+ERA5 sweep is 16 automations, of which the `120f4ca` sample missed 10 and the `dc119cd` sample 9.
+
+**The finding, reframed (MUST 3).** 22 automations from 6 repositories command a setback setpoint of 5 or 7 C, below
+the 10 C envelope; in Minneapolis and Stockholm in January, with outdoor air averaging -6.4 to 2.1 C over a setback
+of 36-48 hours (minimum -13.6 to 0.9 C), 16 of them (3 repositories) let the rooms fall to 2.7-9.8 C (median 8.1 C;
+nominal mass) in 53 of 1,056 runs, while no room of the same home without them falls below 15.6 C; with half the
+mass 63 of the 88 cold-January runs breach, with twice the mass 20 (Minneapolis only), with four times none. The
+rule and the climate set the direction; the thermal model sets how cold and how fast.
