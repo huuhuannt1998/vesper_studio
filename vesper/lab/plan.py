@@ -34,6 +34,7 @@ MERGE_M = 0.15  # edges closer than this to one line are one line
 GAP_M = 0.25  # a gap between two rooms' facing walls narrower than this is closed
 DOOR_REACH_M = 0.5  # a door or window further than this from its wall is not on it
 SLIVER_M2 = 0.05  # a leftover piece of a trimmed room smaller than this is dropped
+TRIM_MAX_M = 0.5  # an overlap thicker than this is two rooms drawn into each other, not a wall drawn twice
 _EPS = 1e-9
 
 _KEYS = {"format", "units", "scale", "rooms", "doors", "windows", "entrance"}
@@ -213,7 +214,7 @@ def load_plan(raw: dict) -> dict:
             errs.append(f"window {k}: at must be an [x, y] point")
         if not _num(w["width"]) or w["width"] <= 0:
             errs.append(f"window {k}: width must be a number above 0")
-        if w["room"] not in ids:
+        if not isinstance(w["room"], str) or w["room"] not in ids:
             errs.append(f"window {k}: room {w['room']!r} is not in the plan")
 
     ent = raw.get("entrance")
@@ -354,12 +355,15 @@ def _normal(plan: dict) -> dict:
 # (a wall at another angle, left as drawn).
 
 def _cls(a: Point, b: Point) -> str | None:
+    """'h' or 'v' for a wall within SNAP_DEG of an axis whose far end would move by no more than MERGE_M when it is
+    straightened about its middle (a long wall a few degrees off is left as drawn); None otherwise."""
     dx, dz = b[0] - a[0], b[1] - a[1]
     ang = math.degrees(math.atan2(abs(dz), abs(dx)))  # 0 along x, 90 along z
+    length = math.hypot(dx, dz)
     if ang <= SNAP_DEG:
-        return "h"
+        return "h" if length * math.sin(math.radians(ang)) / 2 <= MERGE_M else None
     if ang >= 90.0 - SNAP_DEG:
-        return "v"
+        return "v" if length * math.sin(math.radians(90.0 - ang)) / 2 <= MERGE_M else None
     return None
 
 
@@ -458,8 +462,24 @@ def _cell_area(cells: set[tuple[int, int]], xs: list[float], zs: list[float]) ->
 
 
 def _overlap_area(a: list[Point], b: list[Point]) -> float:
-    xs, zs = _grid(a, b)
-    return _cell_area(_cells(a, xs, zs) & _cells(b, xs, zs), xs, zs)
+    """The area two rooms share: exact for rectilinear rooms, sampled (5 cm, coarser for very large rooms) for
+    others."""
+    if _is_rectilinear(a) and _is_rectilinear(b):
+        xs, zs = _grid(a, b)
+        return _cell_area(_cells(a, xs, zs) & _cells(b, xs, zs), xs, zs)
+    x0, x1 = max(min(p[0] for p in a), min(p[0] for p in b)), min(max(p[0] for p in a), max(p[0] for p in b))
+    z0, z1 = max(min(p[1] for p in a), min(p[1] for p in b)), min(max(p[1] for p in a), max(p[1] for p in b))
+    if x1 <= x0 or z1 <= z0:
+        return 0.0
+    step = max(0.05, math.sqrt((x1 - x0) * (z1 - z0) / 40000))
+    nx, nz = int((x1 - x0) / step), int((z1 - z0) / step)
+    hits = 0
+    for i in range(nx):
+        for j in range(nz):
+            c = (x0 + (i + 0.5) * step, z0 + (j + 0.5) * step)
+            if point_in_polygon(c, a) and point_in_polygon(c, b):
+                hits += 1
+    return hits * step * step
 
 
 def _loops(cells: set[tuple[int, int]], xs: list[float], zs: list[float]) -> list[list[Point]]:
@@ -557,29 +577,53 @@ def _outside_walls(k: int, rings: list[list[Point]]) -> list[tuple[Point, Point]
     return [s for s in out if math.dist(*s) > 1e-6]
 
 
+def _closest(a: Point, b: Point, p: Point) -> Point:
+    dx, dz = b[0] - a[0], b[1] - a[1]
+    t = 0.0 if dx == dz == 0 else ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / (dx * dx + dz * dz)
+    t = max(0.0, min(1.0, t))
+    return (a[0] + t * dx, a[1] + t * dz)
+
+
 def _nearest(segs: list[tuple[Point, Point]], p: Point, width: float) -> tuple[Point, float] | None:
-    """The point on the walls nearest p where an opening `width` wide fits (its centre kept half a width from each
-    end of the stretch, or at the middle of a stretch shorter than that), and how far it is."""
+    """Where an opening `width` wide goes on the walls: the point of the wall nearest p, moved along the wall until
+    its centre is half a width from each end of the stretch; and how far p was from the wall. Stretches shorter than
+    the opening do not count; None when none is long enough."""
     best: tuple[Point, float] | None = None
     for a, b in segs:
         length = math.dist(a, b)
-        if length > width:
-            f = (width / 2) / length
-            dx, dz = b[0] - a[0], b[1] - a[1]
-            a, b = (a[0] + dx * f, a[1] + dz * f), (b[0] - dx * f, b[1] - dz * f)
-        else:
-            a = b = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-        dx, dz = b[0] - a[0], b[1] - a[1]
-        t = 0.0 if dx == dz == 0 else ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / (dx * dx + dz * dz)
-        t = max(0.0, min(1.0, t))
-        q = (a[0] + t * dx, a[1] + t * dz)
+        if length < width - 1e-6:
+            continue
+        q = _closest(a, b, p)
         d = math.dist(p, q)
+        f = min(0.5, (width / 2) / length)
+        dx, dz = b[0] - a[0], b[1] - a[1]
+        q = _closest((a[0] + dx * f, a[1] + dz * f), (b[0] - dx * f, b[1] - dz * f), q)
         if best is None or d < best[1]:
             best = (q, d)
     return best
 
 
+def _longest(segs: list[tuple[Point, Point]]) -> float:
+    return max((math.dist(a, b) for a, b in segs), default=0.0)
+
+
 # --- rectify -----------------------------------------------------------------------------------------------------
+
+def _turn(rings: list[list[Point]]) -> tuple[float, Point]:
+    points = [p for r in rings for p in r]
+    about = (sum(p[0] for p in points) / len(points), sum(p[1] for p in points) / len(points))
+    skew = _skew(rings)
+    return (-skew if skew != 0.0 else 0.0), about
+
+
+def plan_transform(plan_m: dict) -> dict:
+    """The turn `rectify` applies first, for drawing the original over the rectified plan: every point (x, z) of the
+    input goes to (cx + dx cos a - dz sin a, cz + dx sin a + dz cos a) with dx, dz = x - cx, z - cz, a =
+    angle_deg in degrees and (cx, cz) = centre. Straightening then moves walls by at most a few centimetres."""
+    load_plan(plan_m)
+    angle, about = _turn([_ring(r["polygon"]) for r in plan_m["rooms"]])
+    return {"angle_deg": angle, "centre": [about[0], about[1]]}
+
 
 def rectify(plan_m: dict) -> dict:
     """The plan straightened. In order: the plan is turned so its dominant wall direction is the x axis; every wall
@@ -598,13 +642,11 @@ def rectify(plan_m: dict) -> dict:
     doors, windows = plan["doors"], plan["windows"]
 
     # 1. turn the plan square
-    points = [p for r in rings for p in r]
-    about = (sum(p[0] for p in points) / len(points), sum(p[1] for p in points) / len(points))
-    skew = _skew(rings)
-    if skew != 0.0:
-        rings = [[_rotate(p, about, -skew) for p in r] for r in rings]
+    angle, about = _turn(rings)
+    if angle != 0.0:
+        rings = [[_rotate(p, about, angle) for p in r] for r in rings]
         for item in (*doors, *windows):
-            item["at"] = list(_rotate(tuple(item["at"]), about, -skew))
+            item["at"] = list(_rotate(tuple(item["at"]), about, angle))
 
     # 2. straighten each room
     def tidy(k: int, ring: list[Point]) -> list[Point]:
@@ -615,7 +657,7 @@ def rectify(plan_m: dict) -> dict:
         return out
     rings = [tidy(k, r) for k, r in enumerate(rings)]
 
-    # 3. overlaps: the smaller room keeps the strip
+    # 3. overlaps: the smaller room keeps the strip (a thin one: a thicker one is two rooms drawn into each other)
     areas = [polygon_area(r) for r in rings]
     for i in range(len(rings)):
         for j in range(i + 1, len(rings)):
@@ -625,9 +667,21 @@ def rectify(plan_m: dict) -> dict:
             if (max(p[0] for p in a) <= min(p[0] for p in b) or max(p[0] for p in b) <= min(p[0] for p in a)
                     or max(p[1] for p in a) <= min(p[1] for p in b) or max(p[1] for p in b) <= min(p[1] for p in a)):
                 continue
-            if _overlap_area(a, b) <= _EPS:
+            xs, zs = _grid(a, b)
+            both = _cells(a, xs, zs) & _cells(b, xs, zs)
+            area = _cell_area(both, xs, zs)
+            if area <= _EPS:
                 continue
             big, small = (i, j) if areas[i] >= areas[j] else (j, i)
+            loops = _loops(both, xs, zs)
+            perimeter = sum(math.dist(p, q) for lp in loops for p, q in zip(lp, lp[1:] + lp[:1], strict=True))
+            if 2 * area / perimeter > TRIM_MAX_M:
+                pts = [p for lp in loops for p in lp]
+                depth = min(max(p[0] for p in pts) - min(p[0] for p in pts),
+                            max(p[1] for p in pts) - min(p[1] for p in pts))
+                verb = "lies inside" if area >= 0.95 * areas[small] else "overlaps"
+                raise PlanError(f"room {ids[small]!r} {verb} {ids[big]!r} by {depth:.1f} m: redraw them as "
+                                f"separate rooms")
             rings[big] = tidy(big, _trim(ids[big], rings[big], ids[small], rings[small]))
 
     # 4. gaps and near-collinear walls between rooms: walls that should be one line are joined (closest first, a line
@@ -635,6 +689,10 @@ def rectify(plan_m: dict) -> dict:
     info = [_edges(r) for r in rings]
     walls = [(k, i) for k, es in enumerate(info) for i, e in enumerate(es) if e["cls"] is not None]
     pairs = []
+    door_at = {}  # the pairs of rooms a door joins -> where the doors are
+    for d in doors:
+        if "outside" not in d["rooms"]:
+            door_at.setdefault(frozenset(ids.index(r) for r in d["rooms"]), []).append(tuple(d["at"]))
     for x, (ka, ia) in enumerate(walls):
         for kb, ib in walls[x + 1:]:
             ea, eb = info[ka][ia], info[kb][ib]
@@ -643,11 +701,20 @@ def rectify(plan_m: dict) -> dict:
             along = min(ea["t1"], eb["t1"]) - max(ea["t0"], eb["t0"])
             if ea["s"] == eb["s"]:  # both rooms on the same side: one wall drawn twice
                 if abs(ea["off"] - eb["off"]) <= MERGE_M and along > -0.3:
-                    pairs.append((abs(ea["off"] - eb["off"]), (ka, ia), (kb, ib)))
-            else:  # the rooms back to back: a wall drawn as a gap between them
+                    pairs.append((abs(ea["off"] - eb["off"]), (ka, ia), (kb, ib), GAP_M))
+            else:  # the rooms back to back: a wall drawn as a gap between them (or as a sliver of overlap)
                 inner, outer = (ea, eb) if ea["s"] == -1 else (eb, ea)
-                if 0 <= outer["off"] - inner["off"] < GAP_M and along > 0.1:
-                    pairs.append((outer["off"] - inner["off"], (ka, ia), (kb, ib)))
+                gap = outer["off"] - inner["off"]
+                if along <= 0.1 or gap >= DOOR_REACH_M or gap <= -MERGE_M:
+                    continue
+                if gap < GAP_M:
+                    pairs.append((abs(gap), (ka, ia), (kb, ib), GAP_M))
+                else:  # a wider gap closes only where a door between the two rooms opens onto it
+                    lo, hi = max(ea["t0"], eb["t0"]), min(ea["t1"], eb["t1"])
+                    a, b = _seg({"cls": ea["cls"], "off": (inner["off"] + outer["off"]) / 2}, lo, hi)
+                    if any(math.dist(p, _closest(a, b, p)) <= DOOR_REACH_M
+                           for p in door_at.get(frozenset((ka, kb)), [])):
+                        pairs.append((gap, (ka, ia), (kb, ib), DOOR_REACH_M))
     parent = {w: w for w in walls}
     span = {w: (info[w[0]][w[1]]["off"],) * 2 for w in walls}
 
@@ -656,12 +723,12 @@ def rectify(plan_m: dict) -> dict:
             parent[w] = parent[parent[w]]
             w = parent[w]
         return w
-    for _, wa, wb in sorted(pairs):
+    for _, wa, wb, limit in sorted(pairs):
         ra, rb = root(wa), root(wb)
         if ra == rb:
             continue
         lo, hi = min(span[ra][0], span[rb][0]), max(span[ra][1], span[rb][1])
-        if hi - lo < GAP_M:
+        if hi - lo < limit:
             parent[rb] = ra
             span[ra] = (lo, hi)
     for w in walls:
@@ -687,13 +754,20 @@ def rectify(plan_m: dict) -> dict:
             if not segs:
                 raise PlanError(f"{what}: the rooms do not touch (they have no wall in common)")
             wall = "their shared wall"
-        q, dist = _nearest(segs, at, d["width"])
+        hit = _nearest(segs, at, d["width"])
+        if hit is None:
+            raise PlanError(f"{what}: the door ({d['width']:.2f} m) is wider than the wall it belongs to "
+                            f"(at most {_longest(segs):.2f} m)")
+        q, dist = hit
         if dist > DOOR_REACH_M + 1e-9:
             raise PlanError(f"{what}: it is {dist:.2f} m from {wall} (more than {DOOR_REACH_M} m)")
         d["at"] = [round(q[0], 9) + 0.0, round(q[1], 9) + 0.0]
     for k, w in enumerate(windows):
         segs = _outside_walls(ids.index(w["room"]), rings)
         hit = _nearest(segs, tuple(w["at"]), w["width"]) if segs else None
+        if segs and hit is None:
+            raise PlanError(f"window {k} of {w['room']!r}: the window ({w['width']:.2f} m) is wider than the wall it "
+                            f"belongs to (at most {_longest(segs):.2f} m)")
         if hit is None or hit[1] > DOOR_REACH_M + 1e-9:
             raise PlanError(f"window {k} of {w['room']!r}: it is not within {DOOR_REACH_M} m of an outside wall "
                             f"of the room")
@@ -726,7 +800,7 @@ def check_house(plan_m: dict) -> list[str]:
     for i, a in enumerate(rooms):
         for b in rooms[i + 1:]:
             ra, rb = rings[a["id"]], rings[b["id"]]
-            if _is_rectilinear(ra) and _is_rectilinear(rb) and (over := _overlap_area(ra, rb)) > SLIVER_M2:
+            if (over := _overlap_area(ra, rb)) > SLIVER_M2:
                 problems.append(f"rooms {a['id']!r} and {b['id']!r} overlap by {over:.2f} m²")
     ent = plan_m.get("entrance")
     if ent is None:
@@ -752,3 +826,4 @@ def check_house(plan_m: dict) -> list[str]:
     problems.extend(f"room {r['id']!r} is not reachable from the entrance through doors"
                     for r in rooms if r["id"] not in seen)
     return problems
+

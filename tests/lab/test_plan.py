@@ -2,11 +2,12 @@
 task A1). Pure geometry: no image, no Claude, no files."""
 import copy
 import math
+import random
 
 import pytest
 
 from vesper.lab.geometry import polygon_area
-from vesper.lab.plan import PlanError, check_house, load_plan, rectify, scale_plan
+from vesper.lab.plan import PlanError, check_house, load_plan, plan_transform, rectify, scale_plan
 
 
 def rect(x0, z0, x1, z1):
@@ -243,10 +244,10 @@ def test_two_rooms_overlapping_by_20_cm_the_smaller_keeps_the_strip():
 
 def test_an_overlap_that_would_split_or_hollow_a_room_is_refused():
     inside = metres([room("living", "living", rect(0, 0, 8, 6)), room("bathroom", "bathroom", rect(2, 2, 4, 4))])
-    with pytest.raises(PlanError, match=r"'living'.*'bathroom'"):
+    with pytest.raises(PlanError, match=r"room 'bathroom' lies inside 'living' by 2.0 m: redraw"):
         rectify(inside)
     split = metres([room("living", "living", rect(0, 0, 8, 6)), room("corridor", "corridor", rect(3, -1, 4, 7))])
-    with pytest.raises(PlanError, match=r"'living'.*'corridor'"):
+    with pytest.raises(PlanError, match=r"'corridor'.*'living'"):
         rectify(split)
 
 
@@ -465,3 +466,168 @@ def test_check_house_wants_metres_and_a_valid_plan():
     bad["rooms"][0]["polygon"] = [[0, 0], [1, 1]]
     with pytest.raises(PlanError, match="living"):
         check_house(bad)
+
+
+# --- review fixes ------------------------------------------------------------------------------------------------
+
+def test_abutting_rooms_drawn_with_a_few_cm_of_jitter_still_share_a_wall():
+    p = metres([room("a", "living", rect(0, 0, 4, 4)), room("b", "kitchen", [[4, 0], [8, 0], [8, 4], [3.96, 4]])],
+               doors=[{"at": [4, 2], "width": 0.9, "rooms": ["a", "b"]}])
+    out = rectify(p)
+    assert out["doors"][0]["at"][0] == by_id(out, "a")["polygon"][1][0] == by_id(out, "b")["polygon"][0][0]
+    assert rectify(out) == out
+
+
+def grid_house(rng, degrees):
+    """A 3 x 2 grid of rooms that touch exactly (no gaps), each drawn with 3 cm of jitter, tilted, a door on every
+    shared wall and one to the outside."""
+    xs, zs = [0.0], [0.0]
+    for _ in range(3):
+        xs.append(xs[-1] + rng.uniform(3.6, 5.0))
+    for _ in range(2):
+        zs.append(zs[-1] + rng.uniform(3.6, 4.5))
+    types = ["living", "bedroom", "dining", "dining", "bedroom", "living"]
+    jit = lambda: rng.uniform(-0.03, 0.03)  # noqa: E731
+    rooms, doors = [], []
+    for j in range(2):
+        for i in range(3):
+            c = [(xs[i], zs[j]), (xs[i + 1], zs[j]), (xs[i + 1], zs[j + 1]), (xs[i], zs[j + 1])]
+            rooms.append(room(f"r{j}{i}", types[3 * j + i], [[x + jit(), z + jit()] for x, z in c]))
+            if i < 2:
+                doors.append({"at": [xs[i + 1], (zs[j] + zs[j + 1]) / 2], "width": 0.9,
+                              "rooms": [f"r{j}{i}", f"r{j}{i + 1}"]})
+            if j == 0:
+                doors.append({"at": [(xs[i] + xs[i + 1]) / 2, zs[1]], "width": 0.9, "rooms": [f"r0{i}", f"r1{i}"]})
+    doors.append({"at": [0.0, zs[1] / 2], "width": 0.9, "rooms": ["r00", "outside"]})
+    return tilted(metres(rooms, doors=doors, entrance=len(doors) - 1), degrees)
+
+
+def test_gridded_houses_with_jitter_and_tilt_all_rectify_to_a_stable_house():
+    rng = random.Random("vesper-plan-fuzz")
+    for n in range(30):
+        p = grid_house(rng, rng.uniform(-8, 8))
+        out = rectify(p)
+        assert rectify(out) == out, n
+        assert check_house(out) == [], n
+        assert all(edges_axis_aligned(r) for r in out["rooms"]), n
+
+
+def test_a_wall_at_an_angle_that_would_move_a_corner_far_is_left_as_drawn():
+    slanted = [[0, 0], [5, 0], [5, 4], [0, 4.83]]  # the north wall is 9.4 degrees off: snapping would move it 0.4 m
+    out = rectify(metres([room("living", "living", slanted)]))
+    assert by_id(out, "living")["polygon"] == slanted
+    nearly = [[0, 0], [5, 0], [5, 4], [0, 4.12]]  # 1.4 degrees off: straightened
+    assert len(by_id(rectify(metres([room("living", "living", nearly)])), "living")["polygon"]) == 4
+    assert edges_axis_aligned(by_id(rectify(metres([room("living", "living", nearly)])), "living"))
+
+
+def test_rooms_30_cm_apart_with_a_door_between_them_share_a_wall():
+    p = metres([room("a", "living", rect(0, 0, 4, 4)), room("b", "kitchen", rect(4.3, 0, 8, 4))],
+               doors=[{"at": [4.15, 2], "width": 0.9, "rooms": ["a", "b"]}])
+    out = rectify(p)
+    assert by_id(out, "a")["polygon"][1][0] == by_id(out, "b")["polygon"][0][0] == pytest.approx(4.15)
+    assert out["doors"][0]["at"] == [pytest.approx(4.15), 2]
+    p["doors"] = []
+    assert rectify(p)["rooms"] == p["rooms"]  # without a door the rooms stay as drawn
+
+
+def test_a_door_does_not_pull_together_walls_far_from_it():
+    p = metres([room("a", "living", rect(0, 0, 4, 4)), room("b", "kitchen", rect(4.3, 0, 8, 4)),
+                room("c", "office", rect(0, 4.3, 3, 8))],
+               doors=[{"at": [4.15, 2], "width": 0.9, "rooms": ["a", "b"]}])
+    out = rectify(p)
+    assert by_id(out, "c")["polygon"] == rect(0, 4.3, 3, 8)
+
+
+def test_check_house_finds_an_overlap_of_rooms_that_are_not_rectilinear():
+    chamfered = [[0, 0], [4.6, 0], [5, 0.4], [5, 4], [0, 4]]  # the corner is cut at 45 degrees
+    p = house()
+    p["rooms"][0]["polygon"] = chamfered
+    p["rooms"][1]["polygon"] = rect(4.6, 0, 8.5, 4)  # 0.4 m into the living room
+    assert any("'living'" in s and "'kitchen'" in s and "overlap" in s for s in check_house(p))
+    p["rooms"][1]["polygon"] = rect(5, 0, 8.5, 4)
+    assert not any("overlap" in s for s in check_house(p))
+
+
+JUNK = [None, 3, -1.5, "x", "", [], {}, [1], [[1, 2]], True, {"a": 1}, float("nan")]
+
+
+def paths(node, prefix=()):
+    yield prefix
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from paths(v, (*prefix, k))
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from paths(v, (*prefix, i))
+
+
+def test_any_field_of_the_wrong_type_is_a_plan_error_never_a_crash():
+    base = house()
+    base["windows"] = [{"at": [2.5, 0], "width": 1.2, "room": "living"}]
+    base["scale"] = {"length_m": 3.0, "from": [0, 0], "to": [1, 0]}
+    for path in paths(base):
+        if not path:
+            continue
+        for junk in [*JUNK, "<delete>"]:
+            plan = copy.deepcopy(base)
+            parent = plan
+            for key in path[:-1]:
+                parent = parent[key]
+            if junk == "<delete>":
+                if isinstance(parent, dict):
+                    del parent[path[-1]]
+            else:
+                parent[path[-1]] = junk
+            try:
+                load_plan(plan)
+            except PlanError:
+                continue
+            for call in (lambda p: scale_plan(p, area_m2=50), lambda p: rectify(p) if p["units"] == "m" else None):
+                try:
+                    call(plan)
+                except PlanError:
+                    pass
+    plan = house()
+    plan["windows"] = [{"at": [1, 0], "width": 1, "room": ["living"]}]
+    with pytest.raises(PlanError, match="window 0"):
+        load_plan(plan)
+
+
+def test_a_door_near_a_corner_is_measured_to_its_wall_then_kept_clear_of_the_corner():
+    p = metres([room("living", "living", rect(0, 0, 5, 4)), room("kitchen", "kitchen", rect(5, 0, 8.5, 4))],
+               doors=[{"at": [5.39, 3.95], "width": 0.9, "rooms": ["living", "kitchen"]}])
+    assert rectify(p)["doors"][0]["at"] == [5, pytest.approx(3.55)]
+
+
+def test_a_door_or_window_wider_than_its_wall_is_refused():
+    p = metres([room("living", "living", rect(0, 0, 5, 4)), room("hall", "corridor", rect(5, 0, 5.8, 1.2))],
+               doors=[{"at": [5, 0.6], "width": 1.5, "rooms": ["living", "hall"]}])
+    with pytest.raises(PlanError, match=r"door 0 between 'living' and 'hall'.*wider"):
+        rectify(p)
+    q = metres([room("living", "living", rect(0, 0, 5, 4))], windows=[{"at": [2.5, 0], "width": 6, "room": "living"}])
+    with pytest.raises(PlanError, match=r"window 0 of 'living'.*wider"):
+        rectify(q)
+
+
+def test_a_room_drawn_inside_another_is_refused_with_how_far_in_it_is():
+    p = metres([room("living", "living", rect(0, 0, 8, 6)), room("kitchen", "kitchen", rect(2, 1.5, 5, 4.5))])
+    with pytest.raises(PlanError, match=r"room 'kitchen' lies inside 'living' by 3.0 m: redraw them as separate rooms"):
+        rectify(p)
+
+
+def test_plan_transform_is_the_turn_rectify_applies():
+    base = metres([room("living", "living", rect(0, 0, 5, 4)), room("kitchen", "kitchen", rect(5, 0, 8.5, 4))],
+                  doors=[{"at": [5, 2], "width": 0.9, "rooms": ["living", "kitchen"]}])
+    assert plan_transform(base) == {"angle_deg": 0.0, "centre": [pytest.approx(4.625), pytest.approx(2)]}
+    p = tilted(base, 6)
+    tf = plan_transform(p)
+    assert tf["angle_deg"] == pytest.approx(-6)
+    t, (cx, cz) = math.radians(tf["angle_deg"]), tf["centre"]
+    turn = lambda q: (cx + (q[0] - cx) * math.cos(t) - (q[1] - cz) * math.sin(t),  # noqa: E731
+                      cz + (q[0] - cx) * math.sin(t) + (q[1] - cz) * math.cos(t))
+    out = rectify(p)
+    for before, after in zip(p["rooms"], out["rooms"], strict=True):
+        for a, b in zip(before["polygon"], after["polygon"], strict=True):
+            assert turn(a) == pytest.approx(tuple(b), abs=1e-6)
+    assert turn(p["doors"][0]["at"]) == pytest.approx(tuple(out["doors"][0]["at"]), abs=1e-6)
