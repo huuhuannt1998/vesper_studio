@@ -49,7 +49,7 @@ SERVICES = {"light": ("turn_on", "turn_off", "toggle"), "switch": ("turn_on", "t
             "lock": ("lock", "unlock"), "climate": ("set_temperature", "set_hvac_mode", "turn_on", "turn_off")}
 TURN_ON_MODES = ("heat_cool", "heat", "cool")  # Home Assistant's climate.turn_on: the first of these the entity has
 SET_TEMPERATURE_KEYS = {"temperature", "target_temp_low", "target_temp_high", "hvac_mode"}
-AUTOMATION_KEYS = {"id", "alias", "description", "mode", "max_exceeded", "initial_state", "trace",
+AUTOMATION_KEYS = {"id", "alias", "description", "mode", "max", "max_exceeded", "initial_state", "trace", "hide_entity",
                    "triggers", "trigger", "conditions", "condition", "actions", "action"}
 TRIGGER_KEYS = {"state": {"entity_id", "to", "from", "for"}, "numeric_state": {"entity_id", "above", "below", "for"},
                 "time": {"at"}, "sun": {"event", "offset"}}
@@ -57,7 +57,21 @@ CONDITION_KEYS = {"state": {"entity_id", "state"}, "numeric_state": {"entity_id"
                   "time": {"after", "before"}, "sun": {"after", "before", "after_offset", "before_offset"}}
 SUN_EVENTS = ("sunrise", "sunset")
 SERVICE_NAME = re.compile(r"[a-z0-9_]+\.[a-z0-9_]+")
-ACTION_KEYS = {"action", "service", "target", "entity_id", "data", "alias", "continue_on_error"}
+ACTION_KEYS = {"action", "service", "target", "entity_id", "data", "data_template", "metadata", "alias",
+               "continue_on_error"}
+# Home Assistant's light.turn_on (and toggle) data; light.turn_off takes transition and flash
+LIGHT_ON_KEYS = {"transition", "brightness", "brightness_pct", "brightness_step", "brightness_step_pct", "color_name",
+                 "color_temp", "color_temp_kelvin", "kelvin", "hs_color", "rgb_color", "rgbw_color", "rgbww_color",
+                 "xy_color", "white", "profile", "flash", "effect"}
+LIGHT_OFF_KEYS = {"transition", "flash"}
+COLOUR_KEYS = {"color_name", "hs_color", "rgb_color", "rgbw_color", "rgbww_color", "xy_color"}
+TEMPERATURE_KEYS = {"color_temp", "color_temp_kelvin", "kelvin"}
+COLOUR_MODES = {"hs", "xy", "rgb", "rgbw", "rgbww"}
+UNMODELLED = {"transition": "the twin has no fade", "flash": "the twin does not flash",
+              "effect": "the twin has no effects", "profile": "Home Assistant's light profiles are not modelled",
+              "brightness_step": "a relative brightness is not modelled",
+              "brightness_step_pct": "a relative brightness is not modelled"}
+HOMEASSISTANT_VERBS = ("turn_on", "turn_off", "toggle")  # homeassistant.<verb>: each entity's own <domain>.<verb>
 
 
 class AutomationError(ValueError):
@@ -153,14 +167,31 @@ def _number(value, where: str) -> float:
     return float(value)
 
 
+def _coerced(value, where: str) -> float:
+    """A number as Home Assistant's vol.Coerce(float) takes it: a number or a numeric string (a YAML boolean is
+    refused here, though Coerce would take it as 0 or 1)."""
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            pass
+    return _number(value, where)
+
+
 def _seconds(value, where: str) -> float:
-    """A Home Assistant duration: 'HH:MM:SS', a mapping of hours/minutes/seconds, or a number of seconds."""
+    """A Home Assistant duration (cv.time_period): 'HH:MM:SS', a mapping of days/hours/minutes/seconds, or a number
+    of seconds (a numeric string too)."""
     if isinstance(value, bool):
         raise AutomationError(f"{where}: {value!r} is not a duration")
     if isinstance(value, int | float):
         return float(value)
+    if isinstance(value, str) and ":" not in value:
+        try:
+            return float(value)
+        except ValueError:
+            raise AutomationError(f"{where}: {value!r} is not a duration") from None
     if isinstance(value, dict):
-        fields = {"hours": 3600, "minutes": 60, "seconds": 1, "milliseconds": 0.001}
+        fields = {"days": 86400, "hours": 3600, "minutes": 60, "seconds": 1, "milliseconds": 0.001}
         if set(value) - set(fields) or not all(isinstance(v, int | float) and not isinstance(v, bool)
                                               for v in value.values()):
             raise AutomationError(f"{where}: {value!r} is not a duration")
@@ -170,7 +201,7 @@ def _seconds(value, where: str) -> float:
 
 def _offset(value, where: str) -> float:
     """A sun offset: a duration that may be negative ('-00:30:00', -1800)."""
-    if isinstance(value, str) and value.startswith("-"):
+    if isinstance(value, str) and value.startswith("-") and ":" in value:
         return -_seconds(value[1:], where)
     return _seconds(value, where)
 
@@ -278,6 +309,8 @@ class Engine:
         if "use_blueprint" in a:
             raise AutomationError("blueprint automations are not supported")
         _keys(a, AUTOMATION_KEYS)
+        if not isinstance(a.get("hide_entity", False), bool):  # deprecated in Home Assistant, still a boolean
+            raise AutomationError(f"hide_entity: {a['hide_entity']!r} is not true or false")
         mode, approximations = a.get("mode", "single"), []
         if mode != "single":
             if not self.permissive:
@@ -323,8 +356,8 @@ class Engine:
             out["from"] = _states(t["from"], f"{where}: from") if t.get("from") is not None else None
             out["from_only"] = "from" in t and "to" not in t  # a `for:` then lasts while the state is not `from`
         else:
-            out["above"] = _number(t["above"], f"{where}: above") if "above" in t else None
-            out["below"] = _number(t["below"], f"{where}: below") if "below" in t else None
+            out["above"] = _coerced(t["above"], f"{where}: above") if "above" in t else None
+            out["below"] = _coerced(t["below"], f"{where}: below") if "below" in t else None
             if out["above"] is None and out["below"] is None:
                 raise AutomationError(f"{where}: above or below is required")
         return out
@@ -353,8 +386,8 @@ class Engine:
         if kind == "state":
             out["state"] = _states(c.get("state"), f"{where}: state")
         else:
-            out["above"] = _number(c["above"], f"{where}: above") if "above" in c else None
-            out["below"] = _number(c["below"], f"{where}: below") if "below" in c else None
+            out["above"] = _coerced(c["above"], f"{where}: above") if "above" in c else None
+            out["below"] = _coerced(c["below"], f"{where}: below") if "below" in c else None
         return out
 
     def _needs_site(self, where: str) -> None:
@@ -373,6 +406,8 @@ class Engine:
             return {"kind": "delay", "seconds": _seconds(x["delay"], "delay")}
         service = x.get("action", x.get("service"))
         domain, _, verb = str(service).partition(".")
+        if domain == "homeassistant" and verb in HOMEASSISTANT_VERBS:
+            return self._homeassistant(x, service, verb)
         if domain == "climate" and verb in SERVICES["climate"]:
             try:
                 return self._climate(x, service, verb)
@@ -386,46 +421,103 @@ class Engine:
                 return self._record(x, service)
             raise AutomationError(f"action {service!r} is not supported")
         where = f"action {service}"
+        ents, data = self._call_parts(x, where, domain)
+        for e in ents:
+            if self._entity(e).platform != domain:
+                raise AutomationError(f"{where}: {e} is not a {domain}")
+        return {"kind": "call", "service": service, "entities": ents,
+                "brightness": self._light_data(service, ents, data, where) if domain == "light" else
+                self._no_data(data, where)}
+
+    def _call_parts(self, x: dict, where: str, domain: str) -> tuple[list[str], dict]:
+        """(target entity ids, data) of a service call, as Home Assistant's script assembles them: `target`, a
+        top-level `entity_id` (which wins), else the legacy `entity_id` in `data`/`data_template` (merged in that
+        order); `entity_id: all` is every entity of the service's domain, `none` is none."""
         _keys(x, ACTION_KEYS, where)
         target = x.get("target") or {}
         if not isinstance(target, dict):
             raise AutomationError(f"{where}: target {target!r} is not a mapping")
         if set(target) - {"entity_id"}:  # an area or a device: Home Assistant's registries, not the engine's
             raise AutomationError(f"{where}: target {sorted(set(target) - {'entity_id'})[0]!r} is not supported")
-        ents = _entities(target.get("entity_id") or x.get("entity_id"))
-        if not ents:
+        data = {}
+        for key in ("data", "data_template"):
+            part = x.get(key) or {}
+            if not isinstance(part, dict):
+                raise AutomationError(f"{where}: {key} {part!r} is not a mapping")
+            data.update(part)
+        named = x["entity_id"] if "entity_id" in x else target.get("entity_id", data.get("entity_id"))
+        data.pop("entity_id", None)
+        if named in ("all", "none"):
+            ents = [e.entity_id for e in self.entities.values() if e.platform == domain] if named == "all" else []
+        else:
+            ents = _entities(named)
+        if not ents and named != "none":
             raise AutomationError(f"{where}: no target entity")
-        for e in ents:
-            if self._entity(e).platform != domain:
-                raise AutomationError(f"{where}: {e} is not a {domain}")
-        data = x.get("data") or {}
-        if not isinstance(data, dict):
-            raise AutomationError(f"{where}: data {data!r} is not a mapping")
-        allowed = {"brightness": 255, "brightness_pct": 100} if service == "light.turn_on" else {}
+        return ents, data
+
+    @staticmethod
+    def _no_data(data: dict, where: str) -> None:
+        if data:
+            raise AutomationError(f"{where}: data {sorted(data, key=str)[0]!r} is not supported")
+
+    def _light_data(self, service: str, ents: list[str], data: dict, where: str) -> float | None:
+        """The brightness (0..255) a light action sets, from Home Assistant's light service data. As Home Assistant's
+        filter_turn_on_params does, a colour or colour temperature none of the lights has a mode for is dropped; a
+        parameter the twin cannot apply (a transition, a flash, an effect the light has) is refused, or in permissive
+        mode dropped and noted."""
+        verb = service.split(".")[1]
+        allowed = LIGHT_OFF_KEYS if verb == "turn_off" else LIGHT_ON_KEYS
+        modes = set().union(*(self._colour_modes(self._entity(e)) for e in ents)) if ents else set()
         brightness = None
         for key, value in data.items():
             if key not in allowed:
                 raise AutomationError(f"{where}: data {key!r} is not supported")
-            v = _number(value, f"{where}: data {key}")
-            if not 0 <= v <= allowed[key]:
-                raise AutomationError(f"{where}: data {key}: {value!r} is not between 0 and {allowed[key]}")
-            brightness = round(v * 255 / 100) if key == "brightness_pct" else v  # the light service's 0..255
-        return {"kind": "call", "service": service, "entities": ents, "brightness": brightness}
+            if key in ("brightness", "brightness_pct"):
+                top = 255 if key == "brightness" else 100
+                v = _number(value, f"{where}: data {key}")
+                if not 0 <= v <= top:
+                    raise AutomationError(f"{where}: data {key}: {value!r} is not between 0 and {top}")
+                brightness = round(v * 255 / 100) if key == "brightness_pct" else v  # the light service's 0..255
+                continue
+            if key in COLOUR_KEYS or key in TEMPERATURE_KEYS or key == "white":
+                # a light with a colour mode converts between colour forms, and from a colour temperature
+                capable = (modes & COLOUR_MODES or ("color_temp" in modes and key in TEMPERATURE_KEYS)
+                           or (key == "white" and "white" in modes))
+                if not capable:
+                    continue  # Home Assistant drops it: the light has no mode for it
+                why = "the engine sends no colour"
+            elif key == "effect" and not any(self._entity(e).cfg.get("effect") for e in ents):
+                continue  # a light without effects: Home Assistant drops it
+            else:
+                why = UNMODELLED[key]
+            if not self.permissive:
+                raise AutomationError(f"{where}: data {key!r} is not supported ({why})")
+            self._notes.append(f"{service}: {key} ignored")
+        return brightness
+
+    @staticmethod
+    def _colour_modes(e: Entity) -> set[str]:
+        """A light's colour modes as Home Assistant reports them (MQTT discovery's supported_color_modes)."""
+        return set(e.cfg.get("supported_color_modes") or ())
+
+    def _homeassistant(self, x: dict, service: str, verb: str) -> dict:
+        """homeassistant.turn_on/turn_off/toggle: each entity's own <domain>.<verb>, grouped by domain as Home
+        Assistant does; an entity whose domain has no such service is skipped (Home Assistant logs a warning)."""
+        where = f"action {service}"
+        ents, data = self._call_parts(x, where, "homeassistant")
+        steps = []
+        for domain in dict.fromkeys(self._entity(e).platform for e in ents):
+            if verb not in SERVICES.get(domain, ()):
+                continue
+            mine = [e for e in ents if self._entity(e).platform == domain]
+            steps.append(self._action({"action": f"{domain}.{verb}", "entity_id": mine, "data": data}))
+        return steps[0] if len(steps) == 1 else {"kind": "sequence", "steps": steps, "group": True}
 
     def _climate(self, x: dict, service: str, verb: str) -> dict:
         """A climate action on the home's thermostats: per entity, the (feature, value) commands the climate entity
         sends (Home Assistant's MQTT climate: `temperature_command_template` and `mode_command_template`)."""
         where = f"action {service}"
-        _keys(x, ACTION_KEYS, where)
-        target = x.get("target") or {}
-        if not isinstance(target, dict) or set(target) - {"entity_id"}:
-            raise AutomationError(f"{where}: target {target!r} is not an entity id list")
-        ents = _entities(target.get("entity_id") or x.get("entity_id"))
-        if not ents:
-            raise AutomationError(f"{where}: no target entity")
-        data = x.get("data") or {}
-        if not isinstance(data, dict):
-            raise AutomationError(f"{where}: data {data!r} is not a mapping")
+        ents, data = self._call_parts(x, where, "climate")
         commands = {}
         for entity_id in ents:
             e = self._entity(entity_id)
@@ -483,7 +575,9 @@ class Engine:
         target = x.get("target") or {}
         if not isinstance(target, dict):
             raise AutomationError(f"{where}: target {target!r} is not a mapping")
-        targets = _entities(target.get("entity_id") or x.get("entity_id"))
+        data = {**(x.get("data") if isinstance(x.get("data"), dict) else {}),
+                **(x.get("data_template") if isinstance(x.get("data_template"), dict) else {})}
+        targets = _entities(x["entity_id"] if "entity_id" in x else target.get("entity_id", data.get("entity_id")))
         if not all(isinstance(t, str) for t in targets):
             raise AutomationError(f"{where}: entity_id {targets!r} is not entity ids")
         return {"kind": "record", "service": service, "targets": targets}
@@ -662,6 +756,9 @@ class Engine:
     def _run(self, a: Automation, actions: list, why: str) -> None:
         while actions:
             x = actions.pop(0)
+            if x["kind"] == "sequence":
+                actions[:0] = x["steps"]
+                continue
             if x["kind"] == "delay":
                 clock = self.session.clock
                 clock.call_at(clock.now() + x["seconds"], lambda: self._run(a, actions, why))
