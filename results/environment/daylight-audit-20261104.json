@@ -1,0 +1,207 @@
+{
+ "ensemble_check_D": {
+  "median_pct": 1.7608,
+  "n_rooms": 80,
+  "range_pct": [
+   1.1973,
+   4.3016
+  ]
+ },
+ "part1_overcast": [
+  {
+   "A_m2": 75.0,
+   "A_model_m2": 75.0,
+   "R": 0.5,
+   "T": 0.68,
+   "d_m": 1.0,
+   "df_formula_pct": 0.0,
+   "df_model_pct": 0.0,
+   "floor_m2": 10.0,
+   "glazed_m2": 0,
+   "glazing_to_floor_pct": 0.0,
+   "kind": "hall",
+   "ratio": null,
+   "room": "corridor",
+   "theta_deg": 80.0,
+   "w_m": 10.0,
+   "windows": []
+  },
+  {
+   "A_m2": 94.6,
+   "A_model_m2": 94.6,
+   "R": 0.5,
+   "T": 0.68,
+   "d_m": 3.8,
+   "df_formula_pct": 3.435,
+   "df_model_pct": 3.435,
+   "floor_m2": 22.8,
+   "glazed_m2": 4.48,
+   "glazing_to_floor_pct": 19.6,
+   "kind": "living",
+   "ratio": 1.0,
+   "room": "living",
+   "theta_deg": 80.0,
+   "w_m": 6.0,
+   "windows": [
+    {
+     "facing": 0,
+     "h": 1.4,
+     "w": 1.6
+    },
+    {
+     "facing": 0,
+     "h": 1.4,
+     "w": 1.6
+    }
+   ]
+  },
+  {
+   "A_m2": 66.88,
+   "A_model_m2": 66.88,
+   "R": 0.5,
+   "T": 0.68,
+   "d_m": 3.8,
+   "df_formula_pct": 1.5617,
+   "df_model_pct": 1.5617,
+   "floor_m2": 14.44,
+   "glazed_m2": 1.44,
+   "glazing_to_floor_pct": 10.0,
+   "kind": "bedroom",
+   "ratio": 1.0,
+   "room": "bedroom_2",
+   "theta_deg": 80.0,
+   "w_m": 3.8,
+   "windows": [
+    {
+     "facing": 0,
+     "h": 1.2,
+     "w": 1.2
+    }
+   ]
+  },
+  {
+   "A_m2": 49.24,
+   "A_model_m2": 49.24,
+   "R": 0.5,
+   "T": 0.68,
+   "d_m": 3.8,
+   "df_formula_pct": 2.1212,
+   "df_model_pct": 2.1212,
+   "floor_m2": 9.12,
+   "glazed_m2": 1.44,
+   "glazing_to_floor_pct": 15.8,
+   "kind": "bedroom",
+   "ratio": 1.0,
+   "room": "bedroom_1",
+   "theta_deg": 80.0,
+   "w_m": 2.4,
+   "windows": [
+    {
+     "facing": 270,
+     "h": 1.2,
+     "w": 1.2
+    }
+   ]
+  },
+  {
+   "A_m2": 41.68,
+   "A_model_m2": 41.68,
+   "R": 0.5,
+   "T": 0.68,
+   "d_m": 3.8,
+   "df_formula_pct": 1.7402,
+   "df_model_pct": 1.7402,
+   "floor_m2": 6.84,
+   "glazed_m2": 1.0,
+   "glazing_to_floor_pct": 14.6,
+   "kind": "kitchen",
+   "ratio": 1.0,
+   "room": "kitchen",
+   "theta_deg": 80.0,
+   "w_m": 1.8,
+   "windows": [
+    {
+     "facing": 180,
+     "h": 1.0,
+     "w": 1.0
+    }
+   ]
+  },
+  {
+   "A_m2": 41.68,
+   "A_model_m2": 41.68,
+   "R": 0.5,
+   "T": 0.68,
+   "d_m": 3.8,
+   "df_formula_pct": 0.6265,
+   "df_model_pct": 0.6265,
+   "floor_m2": 6.84,
+   "glazed_m2": 0.36,
+   "glazing_to_floor_pct": 5.3,
+   "kind": "bathroom",
+   "ratio": 1.0,
+   "room": "bathroom",
+   "theta_deg": 80.0,
+   "w_m": 1.8,
+   "windows": [
+    {
+     "facing": 180,
+     "h": 0.6,
+     "w": 0.6
+    }
+   ]
+  },
+  {
+   "A_m2": 61.84,
+   "A_model_m2": 61.84,
+   "R": 0.5,
+   "T": 0.68,
+   "d_m": 3.8,
+   "df_formula_pct": 1.689,
+   "df_model_pct": 1.689,
+   "floor_m2": 12.92,
+   "glazed_m2": 1.44,
+   "glazing_to_floor_pct": 11.1,
+   "kind": "office",
+   "ratio": 1.0,
+   "room": "office",
+   "theta_deg": 80.0,
+   "w_m": 3.4,
+   "windows": [
+    {
+     "facing": 90,
+     "h": 1.2,
+     "w": 1.2
+    }
+   ]
+  }
+ ],
+ "part2_dataset_B_hours": {
+  "cloud_cover_median_pct": 8.5,
+  "direct_fraction_median": 0.7320000000000001,
+  "hours": 240,
+  "median_over_rooms": {
+   "sky_only": 0.5174,
+   "with_sun": 0.9354
+  },
+  "rooms": {
+   "bedroom_1": {
+    "sky_only": 0.5685,
+    "with_sun": 0.9503
+   },
+   "bedroom_2": {
+    "sky_only": 0.4185,
+    "with_sun": 0.4185
+   },
+   "kitchen": {
+    "sky_only": 0.4664,
+    "with_sun": 2.4513
+   },
+   "living": {
+    "sky_only": 0.9206,
+    "with_sun": 0.9206
+   }
+  },
+  "weather_source": "Open-Meteo archive, ERA5 (models=era5), cell 39.5, -0.5"
+ }
+}

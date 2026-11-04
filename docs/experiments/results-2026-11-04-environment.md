@@ -27,7 +27,8 @@ Code: VESPER at the harness commit the reports name (its working tree differs on
 - **H on B.** Simulated humidity is 13-15 points too dry: it follows the room's (too warm) temperature, and there are
   no moisture sources. On A it passed, by 9.3 points, despite the 15 % floor and no sources; the bathroom (17.6
   points) is the exception, as expected.
-- **D.** The measured ratio of indoor to outdoor horizontal illuminance is 0.1 %, about 15 times lower than VESPER's.
+- **D.** The measured ratio of indoor to outdoor horizontal illuminance (dataset B) is 0.12 %, about 15 times lower
+  than VESPER's model (median 1.76 % over the generated homes' rooms; see "Revision R-A" below for which is which).
   Indoor readings never exceed 163 lux, against up to 120,000 lux outside, so the sensors are probably placed away
   from the windows or shaded; the protocol states this is not corrected. The check cannot tell VESPER's daylight
   model from the sensor placement; it fails as declared.
@@ -213,3 +214,66 @@ well as on its widths (post hoc, without the width condition it is still "sponge
 that **no order repairs**: B's refit parameters are outside ±50 % of A's in all four orders, converged or not, and no
 order meets B's criteria (RMSE 3.0 °C and r 0.70) with identifiable parameters and a plausible aperture. The sponge
 label itself is what is fragile (it was "neither, inconclusive middle" for three orders without the width condition).
+
+## Revision R-A (2026-11-04): is the daylight factor a bug, and which weather product
+
+A review read VESPER's daylight factor as about 0.12 %, below the 1-5 % of a habitable room, and asked whether that
+is a bug before it is put down to the validation's limits.
+
+**Which number is which.** In every report (`environment-20261104T053851Z.json`, `...T065549Z.json`,
+`...T212613Z.json`) check D gives `measured_median_pct` 0.1191 (dataset B: the dining room 0.0885 and the other room
+0.1496, medians over 240 hours) and `vesper_median_pct` 1.761 (VESPER's model: median over 80 living rooms, kitchens and
+bedrooms of 20 generated homes, range 1.197-4.302). **0.12 % is the dataset's; 1.76 % is VESPER's.** This document's
+table and the paper's validation table and prose state them in that order; nothing is inverted.
+`vesper.env.indoor.DAYLIGHT_SCALE`'s comment ("validation D measured 1/14.8 of the model") says the same.
+
+**The model is the BRE formula, exactly.** `scripts/revision/daylight_audit.py` computes, for each room of the
+standard home (the cross-site and EDT home: six rooms, seed 7), DF = W T θ / (A (1 - R²)) by hand from the room's box
+(A = 2 x floor + perimeter x 2.5 m, window included) and the model's own output, 100 x the room's daylight over a
+10,000 lx overcast sky (`results/environment/daylight-audit-20261104.json`). T = 0.68, θ = 80°, R = 0.5 in every room:
+
+| Room | Floor (m²) | W, glazed (m²) | W / floor | A (m²) | DF, formula | DF, VESPER's model |
+|---|---|---|---|---|---|---|
+| living | 22.8 | 4.48 | 19.6 % | 94.6 | 3.435 % | 3.435 % |
+| bedroom_1 | 9.12 | 1.44 | 15.8 % | 49.24 | 2.121 % | 2.121 % |
+| kitchen | 6.84 | 1.00 | 14.6 % | 41.68 | 1.740 % | 1.740 % |
+| office | 12.92 | 1.44 | 11.1 % | 61.84 | 1.689 % | 1.689 % |
+| bedroom_2 | 14.44 | 1.44 | 10.0 % | 66.88 | 1.562 % | 1.562 % |
+| bathroom | 6.84 | 0.36 | 5.3 % | 41.68 | 0.626 % | 0.626 % |
+| corridor | 10.0 | 0 | 0 | 75.0 | 0 | 0 |
+
+The largest relative difference is 0 (the code is the formula); the habitable rooms are at 1.6-3.4 %, inside the
+1-5 % range. A test pins a hand-computed room (4 x 4 m, one 1.2 x 1.2 m window: 1.4507 %, 145.07 lx under 10,000 lx;
+`tests/env/test_indoor.py`). No bug; the model is unchanged, so check D was not re-run for a model change (it was
+re-run with the weather pin below, D identical).
+
+**What D compares (post hoc, descriptive; the pre-registered failure stands).** A daylight factor is defined under an
+overcast sky; D's hours (10:00-16:00, irradiance ≥ 300 W/m²) are mostly clear in Valencia's spring (ERA5 median cloud
+cover 8.5 %, VESPER's direct share 0.73), and the measured ratio divides by the global horizontal light, sun included.
+Measured the way dataset B measures, VESPER's own standard-home living rooms, kitchens and bedrooms give (median over
+those 240 hours, then over the four rooms) 0.52 % from the sky alone (0.42-0.92 per room; their overcast DFs are
+1.56-3.44 %, median 1.93 %) and 0.94 % with the model's room-average sun share (the south-facing kitchen 2.45 %). The
+sky is about 27 % of the global light in these hours, so a factor of about 3.7 of the 15 is the comparison of an
+overcast-sky quantity with sunny hours; the rest, 4-8x (0.52-0.94 % against 0.12 %), is not explained by anything in
+the model: B's sensor placement and room geometry are unknown. The protocol's comparison is kept as registered.
+
+**The weather product.** VESPER asked Open-Meteo's archive for no `models=`, so it got the archive's default blend,
+while the paper says ERA5. From f19bd31 the archive is asked for `models=era5` (the forecast service, used for days
+less than six days old, for `best_match`, its default, a different product named as such); each cached day records its
+model and has it in its file name, and every weather source string names the products it read. Days cached before the
+pin are kept and still read when nothing newer exists, named "default blend", never ERA5. Over the 189 cached days of
+datasets A (2016) and B (2012), the blend's cloud cover and radiation are identical to ERA5's; its temperature and
+humidity came from a 0.1° cell (ERA5-Land's grid; ERA5's is 0.25°): mean absolute hourly difference 0.75 °C (at most
+5.4) and 3.8 points (at most 26) over 4,536 hours.
+The validation was re-run with ERA5 (`vesper validate environment`, report `environment-20261104T212613Z.json`, clean
+tree at f19bd31):
+
+| Check | Before (default blend) | ERA5 |
+|---|---|---|
+| W on A | PASS: bias -0.08 °C, RMSE 0.97 °C, r 0.984 | PASS: bias +0.20 °C, RMSE 0.75 °C, r 0.991 |
+| W on B | FAIL: bias -3.19 °C, RMSE 3.65 °C, r 0.928 | FAIL: bias -2.09 °C, RMSE 2.63 °C, r 0.930 (best lag -1 h) |
+| T, H on A and B | as above | identical to every printed digit (they use the measured outdoor air and ERA5's unchanged radiation and cloud) |
+| D | FAIL, 0.12 % against 1.76 % | identical |
+
+For the 2026 dates of the cross-site experiment and the EDT sweeps the blend is not ERA5 in any variable (see
+`results-2026-11-04-crosssite.md`, "With the weather pinned to ERA5").
