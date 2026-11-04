@@ -371,7 +371,7 @@ def test_device_triggers_conditions_and_actions_bind_through_their_entity_or_rol
     raw = {"alias": "dev", "triggers": [
         {"trigger": "device", "device_id": DEV, "domain": "binary_sensor", "entity_id": REG, "type": "no_motion",
          "id": "clear"},
-        {"platform": "device", "device_id": DEV, "domain": "sensor", "entity_id": "sensor.anna_temperature",
+        {"platform": "device", "device_id": DEV, "domain": "sensor", "entity_id": "sensor.child_temperature",
          "type": "temperature", "below": 23, "for": {"minutes": 2}},
         {"trigger": "device", "device_id": DEV, "domain": "sensor", "entity_id": "sensor.office_lux",
          "type": "illuminance", "above": 300}],
@@ -739,7 +739,7 @@ def test_changed_states_is_a_state_trigger_on_any_change(edt):
 
 
 @pytest.mark.parametrize("entity_id", ["sensor.pool_temperature", "sensor.garage_illuminance",
-                                       "sensor.proxmox_garage_average_temperature", "binary_sensor.garage_door",
+                                       "sensor.x_garage_average_temperature", "binary_sensor.garage_door",
                                        "binary_sensor.shed_motion", "sensor.greenhouse_humidity",
                                        "sensor.carport_lux", "sensor.veranda_temperature"])
 def test_a_sensor_of_a_semi_outdoor_space_is_refused(edt, entity_id):
@@ -819,18 +819,18 @@ def test_review_gate_refusals(edt, cond, reason):
 # --- re-review tokens ------------------------------------------------------------------------------------------------
 
 @pytest.mark.parametrize("entity_id,expected", [
-    ("sensor.i_regul_heatpump_external_temperature", ("temperature", "porch")),
-    ("sensor.netatmo_ute_temperature", ("temperature", "porch")),
-    ("sensor.th_balcon_nord_temperature", ("temperature", "porch")),
+    ("sensor.x_external_temperature", ("temperature", "porch")),
+    ("sensor.x_ute_temperature", ("temperature", "porch")),
+    ("sensor.x_balcon_temperature", ("temperature", "porch")),
     ("sensor.parkeerplaats_lux", ("illuminance", "porch")),
     ("sensor.parking_illuminance", ("illuminance", "porch")),
-    ("light.lyktstolpe", ("light", "porch")),
+    ("light.x_lyktstolpe", ("light", "porch")),
     ("sensor.fuse_box_temperature", None),
     ("sensor.beer_cooler_temperature", None),
-    ("sensor.frys_forrad_temperature", None),
+    ("sensor.x_frys_temperature", None),
     ("sensor.freezer_temperature", None),
     ("sensor.water_tank_temperature", None),
-    ("sensor.temperature_ballon_haut", None),
+    ("sensor.x_ballon_temperature", None),
     ("sensor.temp_mech_room", None),
     ("sensor.probe_bathroom_wall", None),
     ("sensor.temperature_derivative", None),
