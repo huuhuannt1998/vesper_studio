@@ -6,6 +6,11 @@ protocol, fixed before the first full run, is `docs/experiments/edt-protocol.md`
 design and its research questions are `docs/superpowers/specs/2026-11-04-environmental-differential-testing-design.md`.
 "Pre-registered" means fixed in the protocol before the run; anything else is labelled post hoc.
 
+**Revision R-A (ERA5).** The sweep above read Open-Meteo's default archive blend. The paper reports the re-run with the
+archive pinned to ERA5 (commit `120f4ca`; `results/edt/summary-120f4ca.json`, `analysis-120f4ca.json`,
+`controls-120f4ca.json`); see "ERA5 re-run" below for every number that moved. Numbers in the sections below are the
+original `dc119cd` ones unless that section says otherwise.
+
 ## What was run
 
 - **Code**: commit `dc119cd` (branch `plan-w4b`), `vesper edt run` / `cover` / `ladder` and the closed-loop
@@ -644,3 +649,40 @@ confirmation's one-hour tolerance. The flag (that the automation behaves differe
 to a 2 K error in the room temperature; the per-environment behaviour (first firing times) is not. The 26 unflagged
 ones fire in no environment, at any offset, so their stability says nothing. (Humidity's own model error, without the
 temperature: `results-2026-11-04-environment.md`, "Revision R2-a".)
+
+## ERA5 re-run (revision R-A; the numbers the paper reports)
+
+Open-Meteo's archive was pinned to ERA5 (`0c7f1ff`, `models=era5`); rungs 4 and 3 were re-swept at `120f4ca` in a
+fresh work directory, then the cover, ladder, closed-loop confirmation (same sample size and seed), controls, summary
+and revision analyses re-ran unchanged. Rungs 1 and 2 read no weather, so their `dc119cd` sweeps are reused. Every
+number is in `results/edt/summary-120f4ca.json` and `analysis-120f4ca.json`.
+
+| Quantity | blended (`dc119cd`) | ERA5 (`120f4ca`) |
+|---|---|---|
+| parsed / bound / run | 43,280 / 9,524 / 5,934 | same |
+| flagged (rung 4); env-coupled flagged of env-coupled run | 799; 780 / 1,213 | 797; 778 / 1,213 (64.1 %, repo bootstrap 59.5-68.9 %) |
+| flagged of run, repo bootstrap 95 % | 13.5 % | 13.4 % [12.0, 15.1] |
+| time_spread / fires_somewhere_only / flaps | 716 / 192 / 10 | 716 / 192 / 9 |
+| temperature-coupled flagged | 130 | 128 |
+| negative control (firing subset) | 0 / 1,247 | 0 / 1,247 |
+| rung 3 flagged (reproduced) | 798 (0.999) | 796 (0.999) |
+| rung 2 / rung 1 reproduced | 0.770 / 0.00 | 0.772 / 0.00 |
+| rung 0 AUC [95 %]; recall at precision | 0.939 [0.917, 0.956]; 0.926 @ 0.646 | 0.945 [0.925, 0.962]; 0.927 @ 0.639 |
+| pre-registered cover | 1 env (Stockholm Jan, n0), held-out 0.808, max share 0.83 (degenerate) | 1 env (Stockholm Jul, n180), held-out 0.854, max share 0.84 (degenerate) |
+| post hoc pair cover (Minneapolis Jan n0 + Stockholm Jul n180) | train 0.902, held-out 0.889 | train 0.895, held-out 0.900 |
+| six-city grid baseline, held-out | 0.959 | 0.981 |
+| closed loop: overall / flagged / unflagged agreement | 94.3 / 93.8 / 98.5 % | 94.8 / 94.3 / 99.0 % |
+| closed loop: flagged arm, repo bootstrap 95 % | [0.890, 0.976] | [0.899, 0.979] |
+| below-10 C caused (sample): runs / cells / automations | 20 / 108 / 7 (1 repository) | 10 / 42 / 4 (the same repository) |
+| above-30 C: runs (every one with a baseline above 30 too) | 47 | 112 |
+| controls: positive; sensor-path negative | 54/54, 0 FP, MAE 0; 0/16 | same |
+
+**The below-10 C count is a sample artefact as much as a weather effect.** The confirmation samples 200 flagged
+automations with seed 0 from the flagged set; the set moved by two automations, so the sample changed (163 of 400
+sampled automations shared). Of the 7 `dc119cd` breachers, 5 are in the ERA5 sample and 4 of them still breach (one
+stops with ERA5 weather); no new breacher appears. A headline count must not depend on what a sample includes, so
+revision R2-c (below) runs the whole population of automations that command a setback setpoint below 10 C, closed
+loop, in every environment.
+
+The upper envelope stays unjudgeable: every above-30 C cell has its no-automation baseline above 30 C as well (the
+standard home has no cooling), and ERA5's warmer summer days double the count.
