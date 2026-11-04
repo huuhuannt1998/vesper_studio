@@ -8,6 +8,8 @@ from vesper.edt.cover import (
     greedy_cover,
     half,
     non_degeneracy,
+    restricted_divergences,
+    set_coverage,
     witnesses,
 )
 from vesper.edt.types import Env, Outcome
@@ -68,7 +70,7 @@ def test_exposing_minority_side_of_fired():
     by_env = {A: NO, B: at(20.0), C: at(20.5), D: at(21.0)}
     assert exposing(by_env, {"fires_somewhere_only"}) == {A}
     tie = {A: NO, B: NO, C: at(20.0), D: at(20.0)}
-    assert exposing(tie, {"fires_somewhere_only"}) == {A, B}  # a tie: the not-firing side
+    assert exposing(tie, {"fires_somewhere_only"}) == {A, B, C, D}  # a tie: no majority, both sides expose
 
 
 def test_exposing_outside_the_modal_three_hour_window():
@@ -76,6 +78,25 @@ def test_exposing_outside_the_modal_three_hour_window():
     assert exposing(by_env, {"time_spread"}) == {D}
     wrap = {A: at(23.5), B: at(0.5), C: at(1.0), D: at(12.0)}  # the window wraps round midnight
     assert exposing(wrap, {"time_spread"}) == {D}
+
+
+def test_exposing_unites_the_outside_sets_of_tied_modal_windows():
+    by_env = {A: at(1.0), B: at(3.5), C: at(6.0), D: at(20.0)}  # windows at 1 h and 3.5 h both hold two
+    assert exposing(by_env, {"time_spread"}) == {A, C, D}
+
+
+def test_set_coverage_needs_the_divergence_inside_the_set():
+    by_auto = {"late": {A: at(14.0), B: at(19.0), C: at(14.0), D: at(14.5)},
+               "lamp": {A: at(20.0, night_light=True), B: at(20.0), C: at(20.0), D: at(20.0)},
+               "dark": {A: NO, B: at(20.0), C: at(20.0), D: at(20.0)}}
+    assert restricted_divergences(by_auto["late"], [A, C]) == set()
+    assert restricted_divergences(by_auto["late"], [A, B]) == {"time_spread"}
+    assert restricted_divergences(by_auto["lamp"], [A]) == set()  # night_light in every env of {A}: static there
+    assert restricted_divergences(by_auto["lamp"], [A, C]) == {"night_light"}
+    assert set_coverage([A, C], by_auto) == 2 / 3  # lamp and dark, not late
+    assert set_coverage([B], by_auto) == 0.0      # one environment shows no difference
+    assert set_coverage([A, B], by_auto) == 1.0
+    assert set_coverage([A], {}) is None
 
 
 def test_exposing_envelope_kinds_where_they_hold():
@@ -127,4 +148,7 @@ def test_cover_report_has_the_cover_the_held_out_coverage_baselines_and_witnesse
     w = rep["witnesses"]["a0"]
     assert w["axis"] == "north_deg" and sto_jan.key in (w["a"], w["b"])
     assert rep["witnesses_by_axis"]["north_deg"] == 4
+    assert rep["cover"]["set_coverage_held_out"] == 0.0  # one environment alone shows no divergence
+    assert rep["baselines"]["six_city_grid"]["set_coverage_held_out"] == 1.0  # Stockholm Jan beside another
+    assert 0.0 < rep["baselines"]["random_5"]["set_coverage_held_out"] < 1.0
     assert cover_report(result) == rep  # deterministic

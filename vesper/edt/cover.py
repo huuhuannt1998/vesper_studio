@@ -1,9 +1,12 @@
 """The environment cover and witnesses, from a sweep result (docs/experiments/edt-protocol.md, section 6).
 
 An environment *exposes* a flagged automation when its outcome there departs from what the automation does in most
-environments, kind by kind: the minority side of fired / not fired (a tie: the not-firing side); a first firing
-outside the modal 3-hour window of the firing environments; an environmental envelope kind (flaps, night_light,
-night_cover) where it holds. A set of environments covers the automation if it holds one that exposes it.
+environments, kind by kind: the minority side of fired / not fired (a tie: both sides); a first firing outside the
+modal 3-hour window of the firing environments (tied windows: outside any of them); an environmental envelope kind
+(flaps, night_light, night_cover) where it holds. A set of environments covers the automation if it holds one that
+exposes it. Beside it, the set-based coverage assumes no neutral behaviour: a set S covers an automation iff the
+oracle's divergences over its outcomes in S are non-empty, an envelope kind holding in every environment of S being
+static there (protocol addendum 1, A1.3).
 
 `greedy_cover` adds, one at a time, the environment exposing the most not-yet-covered automations (ties to the
 smaller `Env.key`) until the target share is covered or nothing adds. `witnesses` lists the pairs of environments that
@@ -17,7 +20,7 @@ import hashlib
 import random
 from collections import Counter
 
-from vesper.edt.oracle import TIME_SPREAD_H
+from vesper.edt.oracle import TIME_SPREAD_H, divergences
 from vesper.edt.types import Env, Outcome
 
 TARGET = 0.8
@@ -39,14 +42,11 @@ def _gap(a: float, b: float) -> float:
     return min(d, 24.0 - d)
 
 
-def _modal_window(tods: list[float]) -> tuple[float, int]:
-    """The start of the circular 3-hour window, starting at one of `tods`, holding the most of them (ties: earliest)."""
-    best = (0.0, -1)
-    for start in sorted(set(tods)):
-        n = sum(1 for t in tods if (t - start) % 24.0 <= TIME_SPREAD_H)
-        if n > best[1]:
-            best = (start, n)
-    return best
+def _modal_windows(tods: list[float]) -> list[float]:
+    """The starts of the circular 3-hour windows, each starting at one of `tods`, that hold the most of them."""
+    counts = {start: sum(1 for t in tods if (t - start) % 24.0 <= TIME_SPREAD_H) for start in sorted(set(tods))}
+    most = max(counts.values())
+    return [start for start, n in counts.items() if n == most]
 
 
 def exposing(by_env: dict[Env, Outcome], kinds) -> set[Env]:
@@ -55,12 +55,17 @@ def exposing(by_env: dict[Env, Outcome], kinds) -> set[Env]:
     if "fires_somewhere_only" in kinds:
         fired = {e for e, o in by_env.items() if o.fired}
         silent = set(by_env) - fired
-        out |= fired if len(fired) < len(silent) else silent
+        if len(fired) < len(silent):
+            out |= fired
+        elif len(silent) < len(fired):
+            out |= silent
+        else:  # no majority: both sides expose
+            out |= fired | silent
     if "time_spread" in kinds:
         tods = {e: o.first_tod_h for e, o in by_env.items() if o.fired and o.first_tod_h is not None}
         if tods:
-            start, _ = _modal_window(list(tods.values()))
-            out |= {e for e, t in tods.items() if (t - start) % 24.0 > TIME_SPREAD_H}
+            for start in _modal_windows(list(tods.values())):
+                out |= {e for e, t in tods.items() if (t - start) % 24.0 > TIME_SPREAD_H}
     for kind in ENVELOPE:
         if kind in kinds:
             out |= {e for e, o in by_env.items() if getattr(o, kind)}
@@ -73,6 +78,24 @@ def coverage(envs, flagged: dict[str, set[Env]]) -> float | None:
         return None
     chosen = set(envs)
     return sum(1 for exp in flagged.values() if exp & chosen) / len(flagged)
+
+
+def restricted_divergences(by_env: dict[Env, Outcome], envs) -> set[str]:
+    """The environmental divergences an automation shows over `envs` alone: the oracle's divergences of its outcomes
+    there, minus an envelope kind that holds in every one of them (static within the set)."""
+    outs = {e: by_env[e] for e in envs if e in by_env}
+    if not outs:
+        return set()
+    kinds = divergences(outs)
+    return {k for k in kinds if k not in ENVELOPE or not all(getattr(o, k) for o in outs.values())}
+
+
+def set_coverage(envs, by_auto: dict[str, dict[Env, Outcome]]) -> float | None:
+    """The share of automations (id -> outcomes by Env) whose divergences restricted to `envs` are non-empty."""
+    if not by_auto:
+        return None
+    envs = list(envs)
+    return sum(1 for outs in by_auto.values() if restricted_divergences(outs, envs)) / len(by_auto)
 
 
 def greedy_cover(flagged: dict[str, set[Env]], target: float = TARGET) -> list[Env]:
@@ -162,26 +185,42 @@ def _cov(envs, flagged) -> float | None:
     return None if c is None else round(c, 6)
 
 
+def _set_cov(envs, by_auto) -> float | None:
+    c = set_coverage(envs, by_auto)
+    return None if c is None else round(c, 6)
+
+
 def cover_report(result: dict) -> dict:
-    """The cover (training half), its held-out coverage, the baselines, non-degeneracy and the minimal witnesses."""
+    """The cover (training half), its held-out coverage, the baselines, non-degeneracy and the minimal witnesses.
+    Every coverage is given twice: by exposure (`coverage_*`, the primary criterion) and set-based
+    (`set_coverage_*`)."""
     envs = _envs(result)
     matrix = exposure_matrix(result)
+    outs = {aid: outcomes_of(result["automations"][aid], envs) for aid in matrix}
     halves = {aid: half(result["automations"][aid]["repo"]) for aid in matrix}
-    train = {a: exp for a, exp in matrix.items() if halves[a] == "train"}
-    held = {a: exp for a, exp in matrix.items() if halves[a] == "held_out"}
-    cover = greedy_cover(train, TARGET)
+    parts = {name: {a for a in matrix if name == "all" or halves[a] == name} for name in ("train", "held_out", "all")}
+    exp = {name: {a: matrix[a] for a in sorted(ids)} for name, ids in parts.items()}
+    sets = {name: {a: outs[a] for a in sorted(ids)} for name, ids in parts.items()}
+    cover = greedy_cover(exp["train"], TARGET)
     rng = random.Random(RANDOM_SEED)
     draws = [rng.sample(envs, min(RANDOM_SIZE, len(envs))) for _ in range(RANDOM_DRAWS)] if envs else []
 
-    def mean(flagged):
-        vals = [coverage(d, flagged) for d in draws]
+    def mean(fn, part):
+        vals = [fn(d, part) for d in draws]
         return None if not vals or vals[0] is None else round(sum(vals) / len(vals), 6)
+
+    def both(chosen, names):
+        out = {}
+        for name in names:
+            out[f"coverage_{name}"] = _cov(chosen, exp[name])
+            out[f"set_coverage_{name}"] = _set_cov(chosen, sets[name])
+        return out
 
     rung = envs[0].rung if envs else 4
     grid = [e for e in envs if e.date in GRID_DATES and e.north_deg == GRID_NORTH and e.rung == rung]
     wit, by_axis = {}, Counter()
     for aid in matrix:
-        w = minimal_witness(outcomes_of(result["automations"][aid], envs), envs)
+        w = minimal_witness(outs[aid], envs)
         if w is None:
             wit[aid] = None
             continue
@@ -189,16 +228,16 @@ def cover_report(result: dict) -> dict:
         by_axis[w[2]] += 1
     return {
         "rung": result.get("rung"),
-        "flagged": {"all": len(matrix), "train": len(train), "held_out": len(held)},
+        "flagged": {"all": len(matrix), "train": len(exp["train"]), "held_out": len(exp["held_out"])},
         "split": "sha256(repo.encode('utf-8')) parity, repo = 'owner/name'; even = train, odd = held_out",
         "cover": {"envs": [e.key for e in cover], "size": len(cover), "target": TARGET, "target_size": TARGET_SIZE,
-                  "coverage_train": _cov(cover, train), "coverage_held_out": _cov(cover, held),
-                  "coverage_all": _cov(cover, matrix)},
+                  **both(cover, ("train", "held_out", "all"))},
         "baselines": {
             "random_5": {"draws": RANDOM_DRAWS, "seed": RANDOM_SEED, "size": RANDOM_SIZE,
-                         "coverage_held_out": mean(held), "coverage_all": mean(matrix)},
-            "six_city_grid": {"envs": [e.key for e in grid], "size": len(grid),
-                              "coverage_held_out": _cov(grid, held), "coverage_all": _cov(grid, matrix)},
+                         **{f"{kind}_{name}": mean(fn, part[name])
+                            for kind, fn, part in (("coverage", coverage, exp), ("set_coverage", set_coverage, sets))
+                            for name in ("held_out", "all")}},
+            "six_city_grid": {"envs": [e.key for e in grid], "size": len(grid), **both(grid, ("held_out", "all"))},
         },
         "non_degeneracy": non_degeneracy(matrix),
         "single_env_share": {e.key: _cov([e], matrix) for e in envs} if matrix else {},
