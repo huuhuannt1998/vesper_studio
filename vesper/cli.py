@@ -396,9 +396,10 @@ def _validate_environment(args) -> int:
         c, b0, b1 = fit["chosen"], fit["baseline_B"]["T"], fit["held_out_B"]["T"]
         print(f"fit on A: ACH {c['ach']}, solar-to-air {c['solar_to_air']} (A's median RMSE "
               f"{c['A']['T']['median_rmse_c']:.2f} C, {c['A']['T']['median_within_2c']:.0%} within 2 C); "
-              f"held out on B: median RMSE {b1['median_rmse_c']:.2f} C ({b1['median_within_2c']:.0%} within 2 C) against "
-              f"{b0['median_rmse_c']:.2f} C as it stands; {'adopt' if fit['adopt'] else 'keep the current constants'}; "
-              f"report {path}")
+              f"held out on B: median RMSE {b1['median_rmse_c']:.2f} C ({b1['median_within_2c']:.0%} within 2 C) "
+              f"against {b0['median_rmse_c']:.2f} C as it stands; " + (
+                  "the current constants are A's best: the model stays" if fit["unchanged"] else
+                  "adopt" if fit["adopt"] else "B got worse: keep the current constants") + f"; report {path}")
         return 0
     report = environment_report(have["a"], have["b"], Path(args.weather_cache), args.catalog)
     out = args.out or Path("results/environment") / f"environment-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"

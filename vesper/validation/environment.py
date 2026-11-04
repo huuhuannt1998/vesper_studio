@@ -426,4 +426,6 @@ def fit_report(appliances: str, sml2010: str, cache) -> dict:
             "grid_on_A": [{k: g[k] for k in ("ach", "solar_to_air", "T", "H")} for g in grid],
             "chosen": {"ach": best["ach"], "solar_to_air": best["solar_to_air"], "A": best},
             "held_out_B": held_out, "baseline_B": baseline_b,
-            "adopt": held_out["T"]["median_rmse_c"] <= baseline_b["T"]["median_rmse_c"]}
+            "unchanged": (best["ach"], best["solar_to_air"]) == (indoor.ACH, indoor.SOLAR_TO_AIR),
+            "adopt": (best["ach"], best["solar_to_air"]) != (indoor.ACH, indoor.SOLAR_TO_AIR)
+            and held_out["T"]["median_rmse_c"] <= baseline_b["T"]["median_rmse_c"]}
