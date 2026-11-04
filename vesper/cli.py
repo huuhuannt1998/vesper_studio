@@ -2196,6 +2196,15 @@ def main(argv: list[str] | None = None) -> int:
     edt_cover = edt_actions.add_parser("cover", help="the environment cover, witnesses and baselines of a sweep")
     edt_cover.add_argument("--sweep", required=True, help="a sweep result from `vesper edt run`")
     edt_cover.add_argument("--out", required=True, help="the cover report (JSON)")
+    edt_confirm = edt_actions.add_parser("confirm", help="run a sample of a sweep's automations closed loop and "
+                                                         "compare with the open-loop outcomes")
+    edt_confirm.add_argument("--sweep", required=True, help="a sweep result from `vesper edt run`")
+    edt_confirm.add_argument("--work", required=True, help="scratch directory (the standard home is built in it)")
+    edt_confirm.add_argument("--out", required=True, help="the confirmation report (JSON)")
+    edt_confirm.add_argument("--sample", type=int, default=200, help="automations per group (default 200)")
+    edt_confirm.add_argument("--seed", type=int, default=0)
+    edt_confirm.add_argument("--workers", type=int, default=2, help="processes (default 2)")
+    edt_confirm.add_argument("--cache", help="recorded weather (<cache>/weather; default <work>/cache; never fetched)")
     args = parser.parse_args(argv)
     _configured_defaults(args)
     if args.command in ("setup", "twins", "validate", "lab"):
@@ -2540,8 +2549,30 @@ def _edt_cover(args) -> int:
     return 0
 
 
+def _edt_confirm(args) -> int:
+    """`vesper edt confirm`: the closed-loop confirmation of a sweep result (a sample, the engine in the loop)."""
+    from vesper.edt import confirm as cf
+    sweep_file = Path(args.sweep)
+    try:
+        result = json.loads(sweep_file.read_text())
+    except (OSError, ValueError) as e:
+        print(f"FAILED edt confirm: {sweep_file} is not a sweep result ({e})", file=sys.stderr)
+        return 1
+    report = cf.confirm(result, Path(args.work), sample=args.sample, seed=args.seed,
+                        cache=Path(args.cache) if args.cache else None, workers=args.workers)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name(out.name + ".tmp")
+    tmp.write_text(json.dumps(report, indent=1, sort_keys=True, default=str) + "\n")
+    tmp.replace(out)
+    ag, n = report["agreement"], report["automations"]
+    print(f"{report['runs']} runs of {n['flagged']} flagged and {n['unflagged']} unflagged automations; agreement "
+          f"{ag['overall']} (flagged {ag['flagged']}, unflagged {ag['unflagged']}); report {out}")
+    return 0
+
+
 _EDT_ACTIONS = {"census": _edt_census, "ladder": _edt_ladder, "run": _edt_run,
-                "cover": _edt_cover}  # one entry per `vesper edt` subcommand
+                "cover": _edt_cover, "confirm": _edt_confirm}  # one entry per `vesper edt` subcommand
 
 
 def _dispatch(args) -> int:

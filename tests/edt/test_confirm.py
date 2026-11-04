@@ -386,3 +386,38 @@ def test_a_copy_light_lifts_the_rooms_lux_only_once_turned_on(edt):
     report = cf.confirm(s, work / "run3", sample=1, seed=0, cache=work / "cache", days=2)
     [d] = report["disagreements"]
     assert d["closed"]["flaps"] is True and d["open"]["flaps"] is False
+
+
+def test_cli_confirm_runs_the_closed_loop_on_a_sweep_file_and_writes_the_report(monkeypatch, tmp_path, capsys):
+    import json
+
+    from vesper import cli
+    s = sweep({"a1": entry({ENV_A.key: out(), ENV_B.key: out(), ENV_C.key: out()})})
+    sweep_file = tmp_path / "sweep.json"
+    sweep_file.write_text(json.dumps(s))
+    seen = {}
+
+    def fake(result, work, sample=200, seed=0, *, cache=None, catalog_dir="catalog/vds", days=3, workers=1):
+        seen.update(result=result, work=work, sample=sample, seed=seed, cache=cache, workers=workers)
+        return {"agreement": {"overall": 1.0, "flagged": None, "unflagged": 1.0}, "runs": 2,
+                "automations": {"flagged": 0, "unflagged": 1}}
+
+    monkeypatch.setattr(cf, "confirm", fake)
+    report = tmp_path / "out" / "confirm.json"
+    assert cli.main(["edt", "confirm", "--sweep", str(sweep_file), "--work", str(tmp_path / "w"), "--out",
+                     str(report), "--sample", "5", "--seed", "3", "--workers", "1",
+                     "--cache", str(tmp_path / "c")]) == 0
+    assert seen == {"result": s, "work": tmp_path / "w", "sample": 5, "seed": 3, "cache": tmp_path / "c",
+                    "workers": 1}
+    assert json.loads(report.read_text())["runs"] == 2
+    assert "2 runs" in capsys.readouterr().out
+    assert cli.main(["edt", "confirm", "--sweep", str(sweep_file), "--work", str(tmp_path / "w"), "--out",
+                     str(report)]) == 0
+    assert (seen["sample"], seen["seed"], seen["workers"], seen["cache"]) == (200, 0, 2, None)
+
+
+def test_cli_confirm_refuses_a_missing_sweep(tmp_path, capsys):
+    from vesper import cli
+    assert cli.main(["edt", "confirm", "--sweep", str(tmp_path / "absent.json"), "--work", str(tmp_path / "w"),
+                     "--out", str(tmp_path / "o.json")]) == 1
+    assert "FAILED edt confirm" in capsys.readouterr().err
