@@ -34,6 +34,7 @@ NC_CONDITIONS = {"state", "time"}
 NC_LOGIC = {"and", "or", "not"}
 NC_ROLES = {"motion", "door", "light", "switch", "lock"}
 PROTOCOL = "docs/experiments/edt-protocol.md"
+NC_HALT = 0.05  # halt: more than this share of the firing negative control flagged (fixed before the run)
 
 
 # ---- the negative control ------------------------------------------------------------------------------------------
@@ -110,13 +111,13 @@ def _site_of(trace: Path):
 
 def _replay(trace: Path, ids: list[str], out: dict) -> None:
     """Replay `ids` in one engine; if the engine fails, halve the batch until the failing automation is alone, and
-    record it as refused with the error."""
+    record its error (`out["errors"]`)."""
     from vesper.edt.replay import replay_detailed
     try:
         r = replay_detailed(_W["home_yaml"], trace, {i: _W["bound"][i] for i in ids}, catalog_dir=_W["catalog_dir"])
     except Exception as e:  # noqa: BLE001 - one bad automation must not sink its batch
         if len(ids) == 1:
-            out["refused"][ids[0]] = f"replay error: {type(e).__name__}: {str(e)[:200]}"
+            out["errors"][ids[0]] = f"replay error: {type(e).__name__}: {str(e)[:200]}"
             return
         mid = len(ids) // 2
         _replay(trace, ids[:mid], out)
@@ -130,18 +131,26 @@ def _replay(trace: Path, ids: list[str], out: dict) -> None:
         out["approximations"][name] = sorted(set(approx))
 
 
-def _run_env(env: Env) -> tuple[str, dict, dict, dict, float]:
-    """(env key, {id: outcome dict}, {id: refusal}, {id: approximations}, seconds) for one environment."""
-    from vesper.edt.trace import record_trace
+def _run_env(env: Env) -> tuple[str, dict, dict, dict, float, str | None]:
+    """(env key, {id: outcome dict}, {id: refusal}, {id: approximations}, seconds, failure) for one environment.
+    A trace that cannot be recorded, or an environment in which every replay fails, is one failure of the
+    environment (no outcomes, no per-automation refusals)."""
+    from vesper.edt import trace as edt_trace
     t0 = time.monotonic()
-    trace = record_trace(_W["home_yaml"], env, _W["cache"], fetch=False, catalog_dir=_W["catalog_dir"])
-    site = _site_of(trace)
+    try:
+        trace = edt_trace.record_trace(_W["home_yaml"], env, _W["cache"], fetch=False, catalog_dir=_W["catalog_dir"])
+        site = _site_of(trace)
+    except Exception as e:  # noqa: BLE001 - one environment's failure is recorded, the others go on
+        return env.key, {}, {}, {}, time.monotonic() - t0, f"trace: {type(e).__name__}: {str(e)[:200]}"
     ids = sorted(_W["bound"])
-    out = {"firings": {}, "refused": {}, "approximations": {}}
+    out = {"firings": {}, "refused": {}, "approximations": {}, "errors": {}}
     for k in range(0, len(ids), _W["batch"]):
         _replay(trace, ids[k:k + _W["batch"]], out)
+    if ids and len(out["errors"]) == len(ids):
+        first = out["errors"][ids[0]]
+        return env.key, {}, {}, {}, time.monotonic() - t0, f"every replay failed ({len(ids)}), e.g. {first}"
     outcomes = {i: dataclasses.asdict(outcome(f, site)) for i, f in out["firings"].items()}
-    return env.key, outcomes, out["refused"], out["approximations"], time.monotonic() - t0
+    return env.key, outcomes, out["refused"] | out["errors"], out["approximations"], time.monotonic() - t0, None
 
 
 # ---- the sweep ------------------------------------------------------------------------------------------------------
@@ -230,16 +239,20 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
         results = map(_run_env, envs)
         for res in results:
             per_env[res[0]] = res
-            log(f"{len(per_env)}/{len(envs)} {res[0]} {res[4]:.1f} s")
+            log(f"{len(per_env)}/{len(envs)} {res[0]} {res[4]:.1f} s" + (f" FAILED {res[5]}" if res[5] else ""))
     else:
         with multiprocessing.get_context("spawn").Pool(min(workers, len(envs)), _init, args) as pool:
             for res in pool.imap_unordered(_run_env, envs):
                 per_env[res[0]] = res
-                log(f"{len(per_env)}/{len(envs)} {res[0]} {res[4]:.1f} s")
+                log(f"{len(per_env)}/{len(envs)} {res[0]} {res[4]:.1f} s"
+                    + (f" FAILED {res[5]}" if res[5] else ""))
     log(f"replayed {len(bound_by_id)} x {len(envs)} in {time.monotonic() - t0:.1f} s")
 
+    failed_envs: dict[str, str] = {}
     for env in envs:  # the given order, whatever order the workers finished in
-        _, outcomes, refused, approximations, _ = per_env[env.key]
+        _, outcomes, refused, approximations, _, failure = per_env[env.key]
+        if failure:
+            failed_envs[env.key] = failure
         for aid, o in outcomes.items():
             autos[aid]["outcomes"][env.key] = o
         for aid, why in refused.items():
@@ -257,22 +270,35 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
         static = {k for k in ENVELOPE if k in kinds and all(getattr(o, k) for o in outs.values())}
         entry["divergences"] = sorted(kinds - static)
         entry["static"] = sorted(static)
-    return _summarise(rung, envs, dict(sorted(autos.items())))
+    return _summarise(rung, envs, dict(sorted(autos.items())), failed_envs)
 
 
-def _summarise(rung: int, envs: list[Env], autos: dict) -> dict:
+def negative_control_summary(autos: dict) -> dict:
+    """The negative control over the automations that ran (have an outcome): how many, how many fire in at least one
+    environment, how many of those are flagged, the flag rate over the firing subset (one that never fires cannot
+    diverge) and whether it is above the halt threshold (protocol A1.2)."""
+    nc = [a for a in autos.values() if a["negative_control"] and a["outcomes"]]
+    fired = [a for a in nc if any(o.get("fired") for o in a["outcomes"].values())]
+    flagged = sum(1 for a in fired if a["divergences"])
+    rate = flagged / len(fired) if fired else None
+    return {"n": len(nc), "fired": len(fired), "flagged": flagged, "rate": rate, "threshold": NC_HALT,
+            "halt": rate is not None and rate > NC_HALT, "rate_over": "control automations that fire somewhere"}
+
+
+def _summarise(rung: int, envs: list[Env], autos: dict, failed_envs: dict[str, str]) -> dict:
     ran = [a for a in autos.values() if a["outcomes"]]
     flagged = [a for a in ran if a["divergences"]]
     static = [a for a in ran if a["static"]]
-    nc = [a for a in ran if a["negative_control"]]
-    nc_flagged = sum(1 for a in nc if a["divergences"])
+    nc = negative_control_summary(autos)
     refused = Counter(reason_class(r) for a in autos.values() for r in set(a["refused"].values()))
     return {
         "rung": rung,
         "envs": [{**dataclasses.asdict(e), "key": e.key} for e in envs],
         "automations": autos,
-        "negative_control_rate": (nc_flagged / len(nc)) if nc else None,
-        "negative_control": {"n": len(nc), "flagged": nc_flagged},
+        "negative_control_rate": nc["rate"],
+        "negative_control": nc,
+        "failed_envs": failed_envs,
+        "partially_refused": sum(1 for a in ran if a["refused"]),
         "yield": {"parsed": len(autos), "bound": sum(1 for a in autos.values() if a["bound"] is not None),
                   "run": len(ran)},
         "flagged": {"n": len(flagged), "by_kind": dict(sorted(Counter(k for a in flagged

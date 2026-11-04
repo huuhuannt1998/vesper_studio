@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from vesper.edt.corpus import automation_hash
-from vesper.edt.sweep import is_negative_control, sweep
+from vesper.edt.sweep import is_negative_control, negative_control_summary, sweep
 from vesper.edt.types import Env
 
 pytestmark = pytest.mark.skipif(not Path("catalog/vds/zigbee.json").is_file(), reason="needs catalog/vds")
@@ -89,7 +89,8 @@ def test_lamp_and_sunset_depend_on_the_environment(result):
 def test_negative_control_rate(result):
     nc = {k for k, a in result["automations"].items() if a["negative_control"]}
     assert nc == {hid(MOTION), hid(MORNING)}
-    assert result["negative_control"] == {"n": 2, "flagged": 0}
+    assert result["negative_control"] == {"n": 2, "fired": 1, "flagged": 0, "rate": 0.0, "threshold": 0.05,
+                                          "halt": False, "rate_over": "control automations that fire somewhere"}
     assert result["negative_control_rate"] == 0.0
     assert result["automations"][hid(MORNING)]["outcomes"][ENVS[0].key]["fired"] is True
 
@@ -159,3 +160,96 @@ def test_cli_run_and_cover(corpus, work, tmp_path, monkeypatch):
     assert result["yield"] == {"parsed": 5, "bound": 4, "run": 4} and len(result["envs"]) == 2
     assert cli.main(["edt", "cover", "--sweep", str(out), "--out", str(cov)]) == 0
     assert json.loads(cov.read_text())["flagged"]["all"] == result["flagged"]["n"]
+
+
+def _nc(fired, flagged):
+    out = {"outcomes": {"e": {"fired": fired}}, "divergences": ["time_spread"] if flagged else [],
+           "negative_control": True}
+    return out
+
+
+def test_negative_control_halts_above_five_percent_of_its_firing_subset():
+    autos = {f"q{i}": _nc(False, False) for i in range(80)}  # never fire: cannot diverge, not in the rate
+    autos |= {f"f{i}": _nc(True, i < 2) for i in range(20)}  # 2 of 20 firing ones flagged: 10 %
+    nc = negative_control_summary(autos)
+    assert nc["n"] == 100 and nc["fired"] == 20 and nc["flagged"] == 2
+    assert nc["rate"] == 0.1 and nc["halt"] is True
+    autos["f0"] = _nc(True, False)
+    assert negative_control_summary(autos)["halt"] is False  # 1 of 20 = 5 %: not above
+    assert negative_control_summary({})["rate"] is None and negative_control_summary({})["halt"] is False
+
+
+def test_cli_run_prints_halt_and_fails(tmp_path, monkeypatch, capsys):
+    from vesper import cli
+    from vesper.edt import sweep as sw
+    fake = {"rung": 4, "envs": [], "automations": {}, "yield": {"parsed": 0, "bound": 0, "run": 0},
+            "flagged": {"n": 0, "by_kind": {}}, "failed_envs": {}, "negative_control_rate": 0.5,
+            "negative_control": {"n": 4, "fired": 2, "flagged": 1, "rate": 0.5, "threshold": 0.05, "halt": True}}
+    monkeypatch.setattr(sw, "sweep", lambda *a, **k: fake)
+    out = tmp_path / "sweep.json"
+    assert cli.main(["edt", "run", "--corpus", str(tmp_path), "--work", str(tmp_path / "w"), "--out", str(out),
+                     "--no-fetch"]) != 0
+    assert "HALT" in capsys.readouterr().err
+    assert json.loads(out.read_text())["negative_control"]["halt"] is True  # the result is still written
+
+
+def _failing_on(bad_ids=(), refuse=None):
+    """replay_detailed that raises when a batch holds one of `bad_ids`, and adds `refuse` = (id, env key, reason)."""
+    from vesper.edt import replay as rp
+    real = rp.replay_detailed
+
+    def fake(home_yaml, trace, automations, **kw):
+        if any(i in automations for i in bad_ids):
+            raise TypeError("unhashable type: 'list'")
+        r = real(home_yaml, trace, automations, **kw)
+        if refuse and refuse[0] in automations and refuse[1] in Path(trace).name:
+            r.refused[refuse[0]] = refuse[2]
+            r.firings[refuse[0]] = []
+        return r
+    return fake
+
+
+def test_a_failing_automation_is_bisected_out_of_its_batch(corpus, work, result, monkeypatch):
+    from vesper.edt import replay as rp
+    bad = hid(SUNSET)
+    monkeypatch.setattr(rp, "replay_detailed", _failing_on([bad]))
+    r = sweep(corpus, work, ENVS, rung=4, workers=1, limit=20, fetch=False)
+    keys = [e.key for e in ENVS]
+    dusk = r["automations"][bad]
+    assert dusk["outcomes"] == {} and sorted(dusk["refused"]) == sorted(keys)
+    assert all(v.startswith("replay error: TypeError") for v in dusk["refused"].values())
+    for aid, a in r["automations"].items():
+        if aid != bad and a["bound"] is not None:
+            assert a["outcomes"] == result["automations"][aid]["outcomes"] and a["refused"] == {}
+    assert r["failed_envs"] == {} and r["yield"]["run"] == 3
+
+
+def test_an_environment_where_every_replay_fails_is_one_failure(corpus, work, monkeypatch):
+    from vesper.edt import replay as rp
+    monkeypatch.setattr(rp, "replay_detailed", _failing_on([hid(a) for a in (LAMP, SUNSET, MOTION, MORNING)]))
+    r = sweep(corpus, work, ENVS[:2], rung=4, workers=1, limit=20, fetch=False)
+    assert sorted(r["failed_envs"]) == sorted(e.key for e in ENVS[:2])
+    assert "replay error" in r["failed_envs"][ENVS[0].key]
+    assert all(a["refused"] == {} and a["outcomes"] == {} for a in r["automations"].values())
+    assert r["yield"]["run"] == 0
+
+
+def test_a_trace_that_cannot_be_recorded_is_an_environment_failure(corpus, work, monkeypatch):
+    from vesper.edt import trace as tr
+
+    def boom(*a, **k):
+        raise OSError("disk full")
+    monkeypatch.setattr(tr, "record_trace", boom)
+    r = sweep(corpus, work, ENVS[:1], rung=4, workers=1, limit=20, fetch=False)
+    assert "disk full" in r["failed_envs"][ENVS[0].key]
+
+
+def test_refused_in_one_environment_and_run_in_the_others(corpus, work, result, monkeypatch):
+    from vesper.edt import replay as rp
+    lamp = hid(LAMP)
+    monkeypatch.setattr(rp, "replay_detailed", _failing_on(refuse=(lamp, ENVS[0].key, "trigger 'x' is not supported")))
+    r = sweep(corpus, work, ENVS, rung=4, workers=1, limit=20, fetch=False)
+    a = r["automations"][lamp]
+    assert a["refused"] == {ENVS[0].key: "trigger 'x' is not supported"}
+    assert sorted(a["outcomes"]) == sorted(e.key for e in ENVS[1:])
+    assert r["partially_refused"] == 1 and r["yield"]["run"] == 4

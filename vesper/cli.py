@@ -2357,12 +2357,20 @@ def _edt_run(args) -> int:
     tmp.write_text(json.dumps(result, sort_keys=True) + "\n")
     tmp.replace(out)
     y, nc = result["yield"], result["negative_control"]
-    rate = result["negative_control_rate"]
+    rate = nc["rate"]
     print(f"{y['parsed']} automations, {y['bound']} bound, {y['run']} run in {len(result['envs'])} environments "
           f"(rung {result['rung']}) in {time.monotonic() - t0:.0f} s; flagged {result['flagged']['n']}; "
-          f"negative control {nc['flagged']}/{nc['n']}"
+          f"negative control {nc['flagged']}/{nc['fired']} firing of {nc['n']}"
           + (f" ({rate:.1%})" if rate is not None else "") + f"; result {out}")
-    return 0
+    failed = result.get("failed_envs") or {}
+    if failed:
+        print(f"FAILED environments: {len(failed)} ({', '.join(sorted(failed))})", file=sys.stderr)
+    if nc["halt"]:
+        print(f"HALT: the negative control's flag rate {rate:.1%} is above {nc['threshold']:.0%} of its firing "
+              "subset; the harness is wrong, do not use these results (docs/experiments/edt-protocol.md, A1.2)",
+              file=sys.stderr)
+        return 3
+    return 2 if failed else 0
 
 
 def _edt_cover(args) -> int:
