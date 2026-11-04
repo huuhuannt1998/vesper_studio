@@ -230,3 +230,36 @@ def test_each_automations_firings_are_in_time_order(edt, trace4):
     _, roles = edt
     out = replay(edt[0], trace4, {"x": lamp(roles, below=60), "y": lamp(roles, below=40)})
     assert all(a.t <= b.t for fs in out.values() for a, b in zip(fs, fs[1:], strict=False))
+
+
+def test_a_real_traces_initial_state_seeds_the_replay(edt, trace4, tmp_path):
+    """The header's initial_state is where every sensor stands before its first report (20.5 C at t=0, then a
+    report of 20.5 at t=10): 'above 15 C' is not crossed by that, only by a real crossing later."""
+    _, roles = edt
+    header, reports = read(trace4)
+    twin, feature = "zigbee:sonoff:snzb-02@kitchen_temp0", "temperature"
+    assert header["initial_state"][twin][feature] == 20.5
+    warm = bind({"alias": "warm", "triggers": [{"trigger": "numeric_state", "entity_id": "sensor.kitchen_temperature",
+                                                 "above": 15}],
+                 "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.kitchen"}}]}, roles, 0)
+    got = replay_detailed(edt[0], trace4, {"warm": warm})
+    entity = roles[("temperature", "kitchen", 0)]
+    assert got.start_states[entity] == "20.5"  # the replay's state at the start is the header's
+    assert got.start_states[roles[("illuminance", "kitchen", 0)]] == "0"
+    # fires exactly on crossings of the held value from <= 15 to > 15 in days 1 and 2 (the 0 -> 20.5 jump of an
+    # unseeded start is not one)
+    held, want = header["initial_state"][twin][feature], []
+    ours = sorted((r for r in reports if (r["twin_id"], r["feature"]) == (twin, feature)),
+                  key=lambda r: r["observed_t"])
+    for r in ours:
+        if held <= 15 < r["value"] and DAY <= r["observed_t"] < 3 * DAY:
+            want.append(r["observed_t"])
+        held = r["value"]
+    assert [f.t for f in got.firings["warm"]] == want
+    # without the key a sensor has no state until its first report
+    path = tmp_path / "stripped.jsonl.gz"
+    with gzip.open(path, "wt") as f:
+        f.write(json.dumps({k: v for k, v in header.items() if k != "initial_state"}) + "\n")
+        for r in reports:
+            f.write(json.dumps(r) + "\n")
+    assert replay_detailed(edt[0], path, {"warm": warm}).start_states[entity] == "unknown"

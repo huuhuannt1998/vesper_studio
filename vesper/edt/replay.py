@@ -37,6 +37,7 @@ class Replay:
     firings: dict[str, list[Firing]]
     refused: dict[str, str] = field(default_factory=dict)
     approximations: dict[str, list[str]] = field(default_factory=dict)
+    start_states: dict[str, str] = field(default_factory=dict)  # entity id -> its state when the run starts
 
 
 class _TraceRuntime:
@@ -141,6 +142,7 @@ def replay_detailed(home_yaml: Path, trace: Path, automations: dict[str, dict], 
             event = Event(r["twin_id"], r["feature"], r["value"], r["t"], r["observed_t"], "trace")
             clock.call_at(r["observed_t"], lambda event=event: session.deliver(event))
     engine.start()
+    start_states = dict(engine._state)  # noqa: SLF001 - the engine keeps no public view of its entity states
     clock.advance_to(end)
     out: dict[str, list[Firing]] = {key: [] for key, _ in given}
     for f in session.firings:
@@ -149,7 +151,7 @@ def replay_detailed(home_yaml: Path, trace: Path, automations: dict[str, dict], 
     by_position = {f"automation {k + 1}": key for k, (key, _) in enumerate(given)}
     refused = {by_position.get(x["automation"], x["automation"]): x["reason"] for x in engine.refused}
     approximations = {a.name: a.approximations for a in engine.automations if a.approximations}
-    return Replay(out, refused, approximations)
+    return Replay(out, refused, approximations, start_states)
 
 
 def replay(home_yaml: Path, trace: Path, automations: dict[str, dict], *, until: float | None = None,
