@@ -26,6 +26,7 @@ PRECISION_FLOOR = 0.55
 FOLDS = 5
 SEED = 0
 L2 = 1.0
+MIN_RESAMPLES = 100
 
 FEATURES = ("sun_trigger", "sun_condition", "numeric_state_illuminance", "numeric_state_temperature",
             "numeric_state_humidity", "numeric_state_weather", "time_trigger", "n_conditions")
@@ -180,20 +181,23 @@ def _standardised_scores(x: np.ndarray, y: np.ndarray, tr: np.ndarray, te: np.nd
     return ((x[tr] - mu) / sd) @ w + b, ((x[te] - mu) / sd) @ w + b
 
 
-def _cross_validate(x: np.ndarray, y: np.ndarray, fold: np.ndarray) -> tuple[np.ndarray, list[dict]]:
-    """Out-of-fold scores for the given fold assignment, and per fold the material for a held-out threshold. A fold
-    whose training rows hold one class has no model: its test rows score 0 and its `train_scores` is None."""
+def _cross_validate(x: np.ndarray, y: np.ndarray, fold: np.ndarray) -> tuple[np.ndarray, list[dict], np.ndarray]:
+    """Out-of-fold scores for the given fold assignment, per fold the material for a held-out threshold, and a mask of
+    the rows that were really scored. A fold whose training rows hold one class has no model: its test rows are not
+    scored (the mask is False, they must stay out of any AUC) and its `train_scores` is None."""
     scores = np.zeros(len(y))
+    scored = np.ones(len(y), dtype=bool)
     folds: list[dict] = []
     for f in sorted(set(fold.tolist())):
         tr, te = fold != f, fold == f
         if len(set(y[tr].tolist())) < 2:
             folds.append({"train_scores": None, "train_labels": y[tr], "test_scores": scores[te], "test_labels": y[te]})
+            scored[te] = False
             continue
         s_tr, s_te = _standardised_scores(x, y, tr, te)
         scores[te] = s_te
         folds.append({"train_scores": s_tr, "train_labels": y[tr], "test_scores": s_te, "test_labels": y[te]})
-    return scores, folds
+    return scores, folds, scored
 
 
 def stratified_folds(y, k: int) -> np.ndarray:
@@ -258,14 +262,15 @@ def heldout_recall_at_precision(folds: list[dict], floor: float = PRECISION_FLOO
             "thresholds": thresholds, "degenerate_folds": sum(f["train_scores"] is None for f in folds)}
 
 
-def bootstrap_auc_ci(scores, labels, groups, n: int = 1000) -> list[float] | None:
-    """95 % percentile interval of the AUC over `n` resamples of whole groups (repos) with replacement, seed 0.
-    A resample that holds one class is skipped; None when fewer than two groups or no usable resample."""
+def bootstrap_auc_ci(scores, labels, groups, n: int = 1000) -> tuple[list[float] | None, int]:
+    """(95 % percentile interval, resamples used) of the AUC over `n` resamples of whole groups (repos) with
+    replacement, seed 0. A resample that holds one class has no AUC and is not counted. The interval is None when
+    fewer than two groups or fewer than MIN_RESAMPLES usable resamples."""
     s = np.asarray(scores, dtype=float)
     y = np.asarray(labels, dtype=int)
     names = sorted(set(groups))
     if len(names) < 2:
-        return None
+        return None, 0
     members = {g: [] for g in names}
     for i, g in enumerate(groups):
         members[g].append(i)
@@ -277,9 +282,9 @@ def bootstrap_auc_ci(scores, labels, groups, n: int = 1000) -> list[float] | Non
         a = auc(s[idx], y[idx])
         if a is not None:
             values.append(a)
-    if not values:
-        return None
-    return [float(np.percentile(values, 2.5)), float(np.percentile(values, 97.5))]
+    if len(values) < MIN_RESAMPLES:
+        return None, len(values)
+    return [float(np.percentile(values, 2.5)), float(np.percentile(values, 97.5))], len(values)
 
 
 def _rung0(autos: dict) -> dict:
@@ -293,7 +298,8 @@ def _rung0(autos: dict) -> dict:
             "base_rate": float(y.mean()) if len(items) else None, "folds": 0, "folds_random": 0, "seed": SEED,
             "model": f"logistic regression, L2 {L2}, standardised features",
             "cv": "5-fold, whole repos per fold, stratified as well as repos allow",
-            "auc": None, "auc_ci95": None, "auc_random_folds": None, recall_key: None, "null": None}
+            "auc": None, "auc_ci95": None, "auc_ci95_n": 0, "auc_random_folds": None, "degenerate_folds": 0,
+            "n_excluded": 0, recall_key: None, "null": None}
     minority = int(min(y.sum(), len(y) - y.sum())) if len(items) else 0
     if not items:
         return {**base, "null": "no automation is bound at rung 4"}
@@ -303,15 +309,24 @@ def _rung0(autos: dict) -> dict:
         return {**base, "null": "a class has fewer than 2 members: no cross-validation is possible"}
     x = np.array([[linter_features(a["raw"])[f] for f in FEATURES] for _, a in items], dtype=float)
     k_random = min(FOLDS, minority)
-    random_scores, _ = _cross_validate(x, y, stratified_folds(y, k_random))
-    out = {**base, "folds_random": k_random, "auc_random_folds": auc(random_scores, y)}
+    random_scores, _, random_scored = _cross_validate(x, y, stratified_folds(y, k_random))
+    out = {**base, "folds_random": k_random, "auc_random_folds": auc(random_scores[random_scored], y[random_scored])}
     if base["n_repos"] < 2:
         return {**out, "null": "fewer than 2 repos: no cross-validation by repo is possible"}
     k = min(FOLDS, base["n_repos"])
-    scores, folds = _cross_validate(x, y, grouped_folds(groups, y, k))
+    scores, folds, scored = _cross_validate(x, y, grouped_folds(groups, y, k))
     held = heldout_recall_at_precision(folds, PRECISION_FLOOR)
-    return {**out, "folds": k, "auc": auc(scores, y), "auc_ci95": bootstrap_auc_ci(scores, y, groups),
-            recall_key: held}
+    degenerate = sum(f["train_scores"] is None for f in folds)
+    out = {**out, "folds": k, "degenerate_folds": degenerate, "n_excluded": int((~scored).sum()), recall_key: held}
+    if k - degenerate < 2:
+        return {**out, "null": f"fewer than 2 usable folds ({degenerate} of {k} had a training set of one class): "
+                               "the AUC is withheld"}
+    usable_groups = [g for g, keep in zip(groups, scored, strict=True) if keep]
+    value = auc(scores[scored], y[scored])
+    if value is None:
+        return {**out, "null": "the usable held-out rows hold one class: the AUC is undefined"}
+    ci, n_used = bootstrap_auc_ci(scores[scored], y[scored], usable_groups)
+    return {**out, "auc": value, "auc_ci95": ci, "auc_ci95_n": n_used}
 
 
 # --- rungs 1-3 against rung 4 ------------------------------------------------------------------------------------

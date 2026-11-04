@@ -236,6 +236,7 @@ def test_rung0_perfect_feature_gives_auc_one():
     assert r0["auc_random_folds"] == pytest.approx(1.0) and r0["n_repos"] == 20
     lo, hi = r0["auc_ci95"]
     assert lo == pytest.approx(1.0) and hi == pytest.approx(1.0)
+    assert r0["auc_ci95_n"] >= 100 and r0["degenerate_folds"] == 0 and r0["n_excluded"] == 0
     assert len(r0["recall_at_precision_0.55"]["thresholds"]) == 5
     json.dumps(rep)  # the report is JSON-serialisable
 
@@ -272,10 +273,40 @@ def test_bootstrap_ci_resamples_repos_and_is_seeded():
     scores = [0.1, 0.7, 0.3, 0.4, 0.6, 0.5, 0.8, 0.9]
     labels = [0, 0, 0, 0, 1, 0, 1, 1]
     groups = ["a", "a", "b", "b", "c", "c", "d", "d"]
-    ci = bootstrap_auc_ci(scores, labels, groups, n=300)
-    assert ci == bootstrap_auc_ci(scores, labels, groups, n=300)
+    ci, n_used = bootstrap_auc_ci(scores, labels, groups, n=300)
+    assert (ci, n_used) == bootstrap_auc_ci(scores, labels, groups, n=300)
     assert 0.0 <= ci[0] <= auc(scores, labels) <= ci[1] <= 1.0 and ci[0] < ci[1]
-    assert bootstrap_auc_ci([0.1, 0.9], [0, 1], ["a", "a"], n=50) is None  # one repo: nothing to resample
+    assert 100 <= n_used <= 300  # a resample that draws only one class is dropped, and counted out
+    assert bootstrap_auc_ci([0.1, 0.9], [0, 1], ["a", "a"], n=50) == (None, 0)  # one repo: nothing to resample
+
+
+def test_bootstrap_ci_counts_the_resamples_it_used_and_is_null_below_100():
+    scores = [0.9, 0.8, 0.1, 0.2, 0.3, 0.4]
+    labels = [1, 1, 0, 0, 0, 0]
+    groups = ["p", "p", "n1", "n2", "n3", "n4"]  # the only positives are one repo: many resamples miss it
+    ci, n_used = bootstrap_auc_ci(scores, labels, groups, n=1000)
+    assert ci is not None and 100 <= n_used < 1000
+    ci, n_used = bootstrap_auc_ci(scores, labels, groups, n=60)  # fewer than 100 resamples can be usable
+    assert ci is None and n_used <= 60
+
+
+def test_a_fold_with_no_model_does_not_leak_into_the_auc():
+    # 10 flagged automations in ONE repo and 10 clear ones in ten repos: the fold holding the flagged repo trains on
+    # negatives only, has no model, and its test rows must not be pooled as if they had been scored
+    autos = {f"p{i}": _auto(4, i, SUN, [10.0, 10.0, 10.0], ["d"], repo="o/flagged") for i in range(10)}
+    autos.update({f"n{i}": _auto(4, 10 + i, PLAIN, [10.0, 10.0, 10.0], [], repo=f"o/clear{i}") for i in range(10)})
+    r0 = ladder_report({4: _result(4, autos)})["rung0"]
+    assert r0["degenerate_folds"] == 1 and r0["n_excluded"] == 10
+    assert r0["auc"] is None and r0["auc_ci95"] is None and r0["null"]  # the usable rows hold one class
+    assert r0["auc_ci95_n"] == 0
+
+
+def test_fewer_than_two_usable_folds_leave_the_auc_null_with_a_reason():
+    # two repos, so two folds; the flagged one has no model when held out, the clear one trains on flagged only
+    autos = {f"p{i}": _auto(4, i, SUN, [10.0, 10.0, 10.0], ["d"], repo="o/flagged") for i in range(4)}
+    autos.update({f"n{i}": _auto(4, 4 + i, PLAIN, [10.0, 10.0, 10.0], [], repo="o/clear") for i in range(4)})
+    r0 = ladder_report({4: _result(4, autos)})["rung0"]
+    assert r0["auc"] is None and "usable" in r0["null"] and r0["degenerate_folds"] == 2 and r0["n_excluded"] == 8
 
 
 def test_rung0_uninformative_features_are_near_chance():
