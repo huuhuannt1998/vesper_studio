@@ -12,8 +12,15 @@ World → devices:
   for a door, or a device on a door, in one of the door's rooms or in its doorway;
 - devices: a person within reach operates a lamp, plug, switch or lock by hand, or presses a button; a device
   with `controls` switches those devices too, as a Zigbee binding does;
-- ambient: every room's temperature, humidity and illuminance follow the time of day and the lamps that are on
-  (an assumed model: no windows, no weather), applied as `ambient` stimuli every AMBIENT_EVERY_S.
+- ambient: every room's temperature, humidity and illuminance, applied as `ambient` stimuli every AMBIENT_EVERY_S.
+  A home with a site (vesper.env) takes them from its place and date: the sun and the recorded weather outside,
+  daylight through each room's windows and shades, each room's heat balance with the heating its thermostat calls
+  for, and the people in it (vesper.env.indoor); each tick is traced as an `environment` rule record. A home
+  without a site keeps the assumed curve: the time of day and the lamps that are on, no windows, no weather;
+- heating (a home with a site): a heating thermostat whose mode is heat (or auto, or that has no mode) heats its
+  room while the room is below its setpoint (0.3 °C either side); one in a hallway heats every room that has no
+  thermostat of its own, as central heating does. Cooling is not modelled;
+- shades: a person in a window's room opens or closes its shade.
 
 Devices → world: `effects` holds what the views show, a light's or plug's on/off, a lock's state, a door's
 state; `on_effect` handlers hear every change.
@@ -31,6 +38,8 @@ WALL_RANGE_M, WALL_FOV_DEG = 7.0, 110.0  # a wall-mounted motion sensor's covera
 RETRIGGER_S = 10.0  # a person moving inside coverage re-triggers a motion sensor this often
 AMBIENT_EVERY_S = 60.0
 LAMP_LUX = 200  # what one lamp adds to its room's illuminance (assumed)
+HEAT_BAND_C = 0.3  # a thermostat heats below setpoint - this and stops above setpoint + this (assumed)
+CENTRAL_ROOMS = ("hall", "corridor", "entry")  # a thermostat in one of these heats the whole home
 ONOFF, LOCK_STATE = "On/Off.OnOff", "Door Lock.LockState"
 _AMBIENT = {"temperature", "local_temperature", "humidity", "illuminance", "illuminance_lux"} | {
     n for names in MATTER_AMBIENT.values() for n in names}
@@ -141,6 +150,13 @@ class Rules:
         self._last_trigger: dict[tuple[str, str], float] = {}
         self._doorway_at = {c: d.id for d in home.map.doorways for c in d.cells}
         self._still = {name for name in self.devices if _senses_stillness(self.twin(name))}
+        self.env = None  # a home with a site: its environment (vesper.env.indoor)
+        if getattr(home, "site", None) is not None:
+            from vesper.env.indoor import HomeEnvironment
+            self.env = HomeEnvironment.for_home(home)
+        self.rooms_now: dict[str, dict] = {}  # each room's last ambient values
+        self._room_of: dict[str, str] = {}  # actor -> the room it was last seen in
+        self._heating: dict[str, bool] = {}  # thermostat -> heating now
 
     # -- set-up -------------------------------------------------------------------------------
     def start(self) -> None:
@@ -297,6 +313,8 @@ class Rules:
 
     def _presence(self, ev: dict) -> None:
         actor, here, now = ev["actor"], (ev["x"], ev["z"]), self.now()
+        if ev.get("room"):
+            self._room_of[actor] = ev["room"]
         for name, dev in self.devices.items():
             twin = self.twin(name)
             if not _is_presence(twin):
@@ -335,11 +353,87 @@ class Rules:
         for name, dev in self.devices.items():
             if dev.room and dev.record["identity"]["category"] == "light" and is_on(self.twin(name)):
                 lamps[dev.room] = lamps.get(dev.room, 0) + 1
+        seconds = self.home.start_time + self.now()
+        if self.env is not None:
+            people: dict[str, int] = {}
+            for room in self._room_of.values():
+                people[room] = people.get(room, 0) + 1
+            self.rooms_now = self.env.step(seconds, lamps, self._heating_now(), people, LAMP_LUX)
+            outdoor = self.env.last
+            self.record({"t": self.now(), "rule": "environment", "outdoor": outdoor.as_dict(),
+                         "rooms": self.rooms_now, "heating": sorted(n for n, on in self._heating.items() if on)})
         for name, dev in self.devices.items():
             if dev.room and _AMBIENT & set(self.twin(name).features):
-                self.runtime.stimulate(self.twin_ids[name], {"type": "ambient", **ambient_at(
-                    self.home.start_time + self.now(), lamps.get(dev.room, 0))})
+                if self.env is None:
+                    values = ambient_at(seconds, lamps.get(dev.room, 0))
+                elif dev.room in self.rooms_now:
+                    values = self.rooms_now[dev.room]
+                else:  # a device outdoors (a porch): the outdoor air and light
+                    o = self.env.last
+                    values = {"temperature": round(o.temperature_c, 1), "humidity": round(o.humidity_pct),
+                              "illuminance": round(o.illuminance_lux)}
+                self.runtime.stimulate(self.twin_ids[name], {"type": "ambient", **values})
         self.runtime.clock.call_at(self.now() + AMBIENT_EVERY_S, self._ambient_tick)
+
+    def _heating_now(self) -> dict[str, float]:
+        """Each room's heating (1 on, 0 off) from the thermostats' states and the rooms' temperatures."""
+        rooms = self.env.rooms
+        out: dict[str, float] = {}
+        central = []
+        for name, dev in self.devices.items():
+            t = thermostat(self.twin(name))
+            if t is None or dev.room not in rooms:
+                continue
+            temp, sp = rooms[dev.room].temperature, t["setpoint"]
+            heats = t["mode"] in (None, "heat", "auto") and isinstance(sp, int | float)
+            was = self._heating.get(name, False)
+            on = heats and (temp < sp - HEAT_BAND_C or (was and temp < sp + HEAT_BAND_C))
+            self._heating[name] = on
+            label = self.home.map.room(dev.room).label.lower()
+            if any(w in label for w in CENTRAL_ROOMS):
+                central.append((name, on))
+            out[dev.room] = max(out.get(dev.room, 0.0), 1.0 if on else 0.0)
+        if central:
+            served = {d.room for n, d in self.devices.items() if thermostat(self.twin(n)) is not None}
+            on = any(o for _, o in central)
+            for rid in rooms:
+                if rid not in served:
+                    out[rid] = 1.0 if on else 0.0
+        return out
+
+    def daylight(self, room: str) -> float:
+        """A room's daylight without lamps, lux: the environment's (a home with a site), else the assumed curve."""
+        if self.env is not None:
+            state = self.env.last or self.env.outdoor.at(self.home.start_time + self.now())
+            return self.env.daylight(room, state)
+        return ambient_at(self.home.start_time + self.now(), 0)["illuminance"]
+
+    def sun_up(self) -> bool | None:
+        """Whether the sun is up over the home's site, or None for a home without one."""
+        if self.env is None:
+            return None
+        return self.env.outdoor.at(self.home.start_time + self.now()).sun.up
+
+    def windows_in(self, room: str) -> list[dict]:
+        if self.env is None or room not in self.env.rooms:
+            return []
+        return list(self.env.rooms[room].windows)
+
+    def shade(self, actor: str, window: str, is_open: bool) -> dict:
+        """A person opens or closes a window's shade; within reach means in the window's room."""
+        w = next((x for r in (self.env.rooms.values() if self.env else ()) for x in r.windows if x["id"] == window),
+                 None)
+        if w is None:
+            return {"result": "unknown window"}
+        if self._room_of.get(actor) != w["room"]:
+            return {"result": "out of reach"}
+        if self.env.shades.get(window) == is_open:
+            return {"result": "already " + ("open" if is_open else "closed")}
+        self.env.set_shade(window, is_open)
+        self.record({"t": self.now(), "rule": "shade", "window": window, "open": is_open, "actor": actor})
+        for fn in self._effect_handlers:
+            fn(window, {"shade_open": is_open})
+        return {"result": "opened" if is_open else "closed"}
 
     # -- devices, seen ------------------------------------------------------------------------
     def _on_report(self, event) -> None:

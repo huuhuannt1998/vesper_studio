@@ -3,6 +3,22 @@
 // model's origin is the middle of its footprint on the floor; w runs along x, d along z, and its front faces +z,
 // toward the room (the view turns it by the piece's facing). THREE is passed in, so node tests can build it.
 
+// Where a counter run of width w holds its sink and hob, along it from its centre: near its ends (0.35 m in) when it is
+// long enough, as a kitchen keeps them 1.2 m apart (NKBA); never closer than 0.46 w. layoutcheck.py mirrors it.
+export function counterParts(w) {
+  const s = Math.max(0.23 * w, w / 2 - 0.35);
+  return { sink: -s, hob: s };
+}
+
+// A free model's scale in its piece: it fills the piece's footprint on the floor (what the walking map and the layout
+// rules use); its height follows, so a headboard or a chair's back rises above the piece's box, but never above
+// MAX_MODEL_H. `size` is the model's box {x, y, z}; `item` the piece {w, d, h}, x along w.
+export const MAX_MODEL_H = 2.4;
+export function fitScale(size, item) {
+  const k = Math.min(item.w / Math.max(size.x, 1e-3), item.d / Math.max(size.z, 1e-3));
+  return Math.min(k, MAX_MODEL_H / Math.max(size.y, 1e-3));
+}
+
 export const KINDS = ["sofa", "coffee_table", "rug", "tv_stand", "armchair", "bookshelf", "plant", "counter", "fridge",
   "dining_table", "chair", "bed", "nightstand", "wardrobe", "bath", "vanity", "toilet", "desk", "office_chair",
   "sideboard", "washer", "dryer", "cabinet", "console"];
@@ -134,9 +150,10 @@ export function buildFurniture(T, item) {
       const doors = Math.max(1, Math.round(w / 0.6));
       for (let k = 1; k < doors; k++) box(0.006, h - 0.16, 0.004, -w / 2 + (w * k) / doors, 0.1, front - 0.01, 0xbfbfbb);
       box(w, 0.04, d, 0, h - 0.04, 0, STONE, "worktop", { roughness: 0.35 });
-      box(0.5, 0.012, 0.4, -w * 0.22, h, 0.03, STEEL, "sink", { metalness: 0.6, roughness: 0.3 });
-      box(0.58, 0.012, 0.5, w * 0.24, h, 0.02, 0x15171a, "hob", { roughness: 0.2 });
-      cyl(0.012, 0.25, -w * 0.22, h, -d / 2 + 0.06, STEEL, "tap", { metalness: 0.7, roughness: 0.3 });
+      const parts = counterParts(w);
+      box(0.5, 0.012, 0.4, parts.sink, h, 0.03, STEEL, "sink", { metalness: 0.6, roughness: 0.3 });
+      box(0.58, 0.012, 0.5, parts.hob, h, 0.02, 0x15171a, "hob", { roughness: 0.2 });
+      cyl(0.012, 0.25, parts.sink, h, -d / 2 + 0.06, STEEL, "tap", { metalness: 0.7, roughness: 0.3 });
       box(w, 0.6, 0.01, 0, h, -d / 2 + 0.005, 0xe6e3dc, "splashback", { roughness: 0.4 });
       box(w, 0.7, 0.35, 0, h + 0.55, -d / 2 + 0.175, WHITE, "wall_cabinets");
       break;

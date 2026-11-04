@@ -23,6 +23,8 @@ What it does, from its routine and its profile:
   light on;
 - leaving home (an AWAY task) it goes out through the front door, closes it and locks it behind, unless it
   forgets; coming home it unlocks, opens and closes it again;
+- in a home with a site (vesper.env): beginning a daytime task in a room, it opens the room's shades; going to bed,
+  it closes the bedroom's; "too dark" reads the room's daylight through its windows;
 - a closed door on its way it opens, and closes behind it; a walk it cannot make is traced;
 - an alarm (a smoke or gas sensor reporting) sends it out of the home, and keeps it out until every alarm has
   cleared; then it goes back to what its routine has it do.
@@ -37,7 +39,7 @@ from collections import deque
 from vesper.lab.geometry import distance
 from vesper.lab.home import spawn_point
 from vesper.lab.profile import Profile
-from vesper.lab.rules import ambient_at, is_locked, is_on, thermostat
+from vesper.lab.rules import is_locked, is_on, thermostat
 
 ALARMS = {("smoke_sensor", "smoke"), ("gas_sensor", "gas")}
 RETRY_S = 2.0  # waiting for a doorway someone stands in
@@ -157,7 +159,10 @@ class Resident:
             steps.append(("walk_room", task.room, task.name))
             if bed:
                 steps.append(("lights_out", task.room))  # going to bed: the lights go off
+                steps.append(("shades", task.room, False, "bedtime"))
             elif task.category != "SLEEP":
+                if self.rules.sun_up():
+                    steps.append(("shades", task.room, True, "daytime"))
                 steps.append(("dark", task.room))
                 steps.append(("comfort", task.room))
             steps.append(("devices", task))
@@ -236,6 +241,10 @@ class Resident:
             self._comfort(step[1])
         elif kind == "set":
             self._set(*step[1:])
+        elif kind == "shades":
+            for w in self.rules.windows_in(step[1]):
+                if self.rules.env.shades.get(w["id"]) != step[2]:
+                    self.session.shade(w["id"], step[2], actor=self.name, why=self._why(step[3], None))
         elif kind == "lights_out":
             for light in reversed(self._lights(step[1])):
                 self._steps.appendleft(("use", light, False, "bedtime"))
@@ -325,8 +334,7 @@ class Resident:
         lights = self._lights(room)
         if not lights or any(self._state(d) for d in lights):
             return
-        daylight = ambient_at(self.home.start_time + self.session.clock.now(), 0)["illuminance"]
-        if daylight < self.profile.dark_lux:
+        if self.rules.daylight(room) < self.profile.dark_lux:
             self._steps.appendleft(("use", lights[0], True, "a dark room"))
 
     def _comfort(self, room: str) -> None:

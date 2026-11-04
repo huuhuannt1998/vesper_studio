@@ -191,3 +191,32 @@ test("each room gets the floor a home has there: tiles where water is, carpet in
   assert.deepEqual(kinds, ["tile", "tile", "tile", "carpet", "wood", "wood", "wood", "wood", "outside"]);
   assert.equal(floorKind({ id: "x", label: "laundryroom/mudroom", outdoor: false }), "tile"); // HSSD's labels too
 });
+
+import { cutWindows, skyColor, sunDirection } from "../../../vesper/lab/ui/scene3d.js";
+
+test("the sun stands where its azimuth and elevation say, turned by the site's north", () => {
+  const close = (a, b) => a.every((v, k) => Math.abs(v - b[k]) < 1e-9);
+  assert.ok(close(sunDirection(180, 0), [0, 0, 1])); // due south on the horizon: toward +z, the plan's bottom
+  assert.ok(close(sunDirection(90, 0), [1, 0, 0])); // due east: the plan's right
+  assert.ok(close(sunDirection(0, 90), [0, 1, 0])); // overhead
+  assert.ok(close(sunDirection(90, 0, 90), [0, 0, -1])); // the plan's top faces east: the east sun is at its top
+});
+
+test("the sky darkens from a day's blue through the low sun's warmth to night", () => {
+  const day = skyColor(45);
+  assert.ok((day & 0xff) > day >> 16); // a day's sky: more blue than red
+  assert.equal(skyColor(-20), 0x10182c);
+  const warm = skyColor(2), r = warm >> 16, b = warm & 0xff;
+  assert.ok(r > b); // a low sun: warm, not blue
+});
+
+test("a window is cut out of its wall: the wall either side, under the sill and over the lintel stay", () => {
+  const w = { side: "z0", x: 2, z: 0, width: 1, sill: 0.9, height: 1.2 };
+  const pieces = cutWindows([0, -0.1, 4, 0.1], [w], 2.5);
+  assert.deepEqual(pieces.map((p) => p.map((v) => +v.toFixed(3))), [
+    [0, -0.1, 1.5, 0.1, 0, 2.5], [2.5, -0.1, 4, 0.1, 0, 2.5], [1.5, -0.1, 2.5, 0.1, 0, 0.9],
+    [1.5, -0.1, 2.5, 0.1, 2.1, 2.5]]);
+  assert.deepEqual(cutWindows([0, 3, 4, 3.2], [w], 2.5), [[0, 3, 4, 3.2, 0, 2.5]]); // another wall: whole
+  const side = { side: "x1", x: 6, z: 2, width: 1, sill: 1, height: 1 };
+  assert.equal(cutWindows([5.9, 0, 6.1, 4], [side], 2.5).length, 4);
+});

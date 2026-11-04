@@ -49,7 +49,8 @@ def furnisher(tmp_path, *, listening=None, renav=None, popen=FakeClaude, **kw):
     launched = []
     f = Furnisher(path, catalog(), tmp_path / "catalog", listening=lambda port: up["blender"], port=9911,
                   launch_blender=lambda port: launched.append(port) or up.__setitem__("blender", True), popen=popen,
-                  renav=renav or (lambda home, catalog_dir: (True, "map re-taken")), sleep=lambda s: None, **kw)
+                  renav=renav or (lambda home, catalog_dir: (True, "map re-taken")), sleep=lambda s: None,
+                  layout=kw.pop("layout", lambda home, catalog: (True, "every rule holds")), **kw)
     f.launched = launched
     return f, path
 
@@ -76,7 +77,7 @@ def test_a_run_writes_the_shell_opens_its_own_blender_runs_claude_checks_the_mod
     assert json.loads((tmp_path / "dress" / "mcp.json").read_text())["mcpServers"]["blender"]["env"][
         "BLENDER_PORT"] == "9911"
     assert s["state"] == "done", s
-    assert [st["name"] for st in s["steps"]] == ["shell", "blender", "claude", "model", "renav"]
+    assert [st["name"] for st in s["steps"]] == ["shell", "blender", "claude", "model", "renav", "layout"]
     assert all(st["ok"] for st in s["steps"])
     assert (tmp_path / "dress" / "build_home.py").is_file() and (tmp_path / "dress" / "BRIEF.md").is_file()
     assert s["cost_usd"] == 3.25 and s["turns"] == 12
@@ -147,3 +148,12 @@ def test_its_blender_starts_with_an_empty_scene_and_the_add_on_listening_on_the_
     code = blender_startup(addon, 9911)
     assert str(addon) in code and "blendermcp_port = 9911" in code and "objects.remove" in code
     compile(code, "startup", "exec")  # Blender runs it with --python-expr
+
+
+def test_a_model_that_breaks_a_layout_rule_is_flagged_and_kept(tmp_path):
+    f, _ = furnisher(tmp_path, layout=lambda home, catalog: (False, "1 error(s): doorway d0: bed 0.3 m from it"))
+    f.run()
+    s = f.status()
+    assert s["state"] == "done" and (tmp_path / "scene.glb").is_file()
+    layout = s["steps"][-1]
+    assert layout["name"] == "layout" and layout["ok"] is False and "bed" in layout["detail"]

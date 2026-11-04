@@ -26,7 +26,7 @@ BLENDER_PORT = 9876  # mcp-for-blender's default
 MCP_PACKAGE = "mcp-for-blender==2.2.6"  # the version VESPER's end-to-end run used (RKA jrn_01M69VKZTYJKGN9BR53QYVWAQ1)
 TOOLS = ("mcp__blender", "Read", "Write", "Edit", "Glob", "Grep")  # Blender, and files: no shell, no web
 BUDGET_USD = 25.0  # the end-to-end run cost USD 16.44 on Opus
-STEPS = ("shell", "blender", "claude", "model", "renav")
+STEPS = ("shell", "blender", "claude", "model", "renav", "layout")
 LINES = 40  # the progress lines the lobby shows
 
 
@@ -141,6 +141,21 @@ Change no other file of the home (not home.yaml, not map.json): VESPER takes the
 afterwards. Finish with one short paragraph: what each room got."""
 
 
+def _layout(home_yaml: Path, catalog: dict) -> tuple[bool, str]:
+    """(no errors, what the layout check found) for the exported model."""
+    from vesper.lab.home import load_lab_home
+    from vesper.lab.layoutcheck import check
+    try:
+        report = check(load_lab_home(home_yaml, catalog))
+    except Exception as e:  # noqa: BLE001 - an unreadable model: flagged, the run goes on
+        return False, f"the model could not be checked: {type(e).__name__}: {e}"
+    bad = [f["message"] for f in report["findings"] if not f["ok"]]
+    if not bad:
+        return True, f"{report['pieces']} pieces: every rule holds ({', '.join(report['checked'])})"
+    return report["errors"] == 0, f"{report['errors']} error(s), {report['warnings']} warning(s): " + \
+        "; ".join(bad[:4]) + (" ..." if len(bad) > 4 else "")
+
+
 class Furnisher:
     """One furnishing run of the home at `home_yaml`; `run()` does it (`start()` in a thread), `status()` says how
     far it is."""
@@ -148,7 +163,7 @@ class Furnisher:
     def __init__(self, home_yaml: Path, catalog: dict, catalog_dir: Path, *, model: str | None = None,
                  budget: float = BUDGET_USD, port: int | None = None, listening=blender_listening,
                  launch_blender=_launch_blender, popen=subprocess.Popen, renav=_renav, wait_s: float = 120.0,
-                 sleep=time.sleep):
+                 sleep=time.sleep, layout=None):
         self.home_yaml, self.home_dir = Path(home_yaml), Path(home_yaml).parent
         if (self.home_dir / "render.json").is_file():
             raise FurnishError("this home is an HSSD house: it comes furnished; Blender furnishes a home VESPER "
@@ -157,6 +172,7 @@ class Furnisher:
         self.model, self.budget, self.port = model, budget, port
         self._listening, self._launch_blender, self._popen, self._renav = listening, launch_blender, popen, renav
         self.wait_s, self._sleep = wait_s, sleep
+        self._layout = layout or _layout
         self.claude = None
         self._stopped = False
         self._lock = threading.Lock()
@@ -211,6 +227,7 @@ class Furnisher:
                 return
             self._model()
             self._renav_step()
+            self._layout_step()
         except FurnishError as e:
             self._end("stopped" if self._stopped else "failed", str(e))
             return
@@ -306,6 +323,13 @@ class Furnisher:
             raise FurnishError(f"Claude finished, but {glb} is {'not whole' if glb.exists() else 'not there'}: "
                                "nothing was exported (its run is in dress/claude.jsonl)")
         self._step("model", True, f"scene.glb, {glb.stat().st_size / 1e6:.1f} MB")
+
+    def _layout_step(self) -> None:
+        """The model checked as every home is (vesper.lab.layoutcheck): what breaks a rule is flagged; the model
+        is kept either way."""
+        self._step("layout", None, "checking the furniture against the layout rules")
+        ok, detail = self._layout(self.home_yaml, self.catalog)
+        self._step("layout", ok, detail)
 
     def _renav_step(self) -> None:
         self._step("renav", None, "taking the walkable floor from the furniture")

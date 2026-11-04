@@ -3,7 +3,8 @@
 Each room gets the pieces a home of its kind has (a living room a sofa facing a TV, a bedroom a bed between
 nightstands, a kitchen a counter run and a fridge...), each against a wall or where it belongs, at a typical size.
 No piece stands within DOOR_CLEAR_M of a doorway or within DEVICE_CLEAR_M of a wall or floor device or a light's wall
-switch; and a piece is kept only if, with the floor under it taken, every doorway of its room and every device a
+switch, and none taller than a window's sill stands in front of it (a sofa, a bed or a desk may sit under one);
+and a piece is kept only if, with the floor under it taken, every doorway of its room and every device a
 hand reaches there can still be reached on foot. `block` then takes the floor under each solid piece off the walking
 map, so people walk round the furniture; the 3D view draws each piece as a model (furniture3d.js).
 
@@ -15,6 +16,7 @@ from __future__ import annotations
 from collections import deque
 
 from vesper.lab.geometry import distance, point_in_polygon
+from vesper.lab.windows import blocks as blocks_window
 
 FORMAT = "vesper-furniture/1"
 DOOR_CLEAR_M = 0.9  # nothing within this of a doorway's centre
@@ -67,8 +69,9 @@ def room_kind(room) -> str | None:
 
 
 class _Room:
-    def __init__(self, room, world_map, devices):
+    def __init__(self, room, world_map, devices, windows=()):
         self.room, self.map = room, world_map
+        self.windows = [w for w in windows if w["room"] == room.id]
         xs, zs = [p[0] for p in room.polygon], [p[1] for p in room.polygon]
         self.x0, self.x1, self.z0, self.z1 = min(xs), max(xs), min(zs), max(zs)
         self.doorways = [d for d in world_map.doorways if room.id in d.rooms]
@@ -135,9 +138,9 @@ def _overlaps(a, b, gap=GAP_M) -> bool:
     return a[0] < b[2] + gap and b[0] < a[2] + gap and a[1] < b[3] + gap and b[1] < a[3] + gap
 
 
-def furnish(world_map, devices, start=None) -> list[dict]:
+def furnish(world_map, devices, start=None, windows=()) -> list[dict]:
     """The furniture for every room of the map, as dicts (kind, room, x, z, w, d, h, facing, solid, box). The map
-    is not changed: `block` takes the floor under the solid pieces."""
+    is not changed: `block` takes the floor under the solid pieces. `windows`: the home's (vesper.lab.windows)."""
     g = world_map.grid
     taken = set()  # cells under the pieces placed so far
     items = []
@@ -145,7 +148,7 @@ def furnish(world_map, devices, start=None) -> list[dict]:
         kind = None if room.outdoor else room_kind(room)
         if kind is None:
             continue
-        r = _Room(room, world_map, devices)
+        r = _Room(room, world_map, devices, windows)
         placed: dict[str, dict] = {}
         for name, w, d, h, where, solid in PIECES[kind]:
             for item in _candidates(r, name, w, d, h, where, placed):
@@ -291,6 +294,8 @@ def _fits(r, item, items, taken, solid) -> bool:
     if any(_overlaps(box, o["box"], 0 if (item["kind"], o["kind"]) in SEATS else GAP_M) for o in items if o["solid"]):
         return False
     if any(_gap(box, dw.center) < DOOR_CLEAR_M for dw in r.doorways):
+        return False
+    if any(blocks_window(box, w, item["h"]) for w in r.windows):
         return False
     return all(_gap(box, p) >= DEVICE_CLEAR_M for p in r.clear)
 

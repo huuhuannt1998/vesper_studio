@@ -178,8 +178,15 @@ def scene_data(home, world3d=None, models: dict | None = None) -> dict:
                          "category")), d.position[1]],
                      "switch": None if d.wall_switch is None else [d.wall_switch[0], device_height("wall", "switch"),
                                                                     d.wall_switch[1]]} for d in home.devices]}
+    from vesper.lab.windows import load_windows
+    data["windows"] = load_windows(Path(home.path).parent)
+    if getattr(home, "site", None) is not None:  # the site's sun at 14:00 of its date: the build's Sun lamp
+        from vesper.env.sun import sun_at
+        sun = sun_at(home.site.lat, home.site.lon, home.site.elevation_m, home.site.utc(14 * 3600))
+        data["sun"] = {"azimuth": sun.azimuth, "elevation": sun.elevation, "north_deg": home.site.north_deg,
+                       "at": home.site.local(14 * 3600).isoformat()}
     if world3d is not None:
-        data["walls"], data["doorways"] = [], []
+        data["walls"], data["doorways"], data["windows"] = [], [], []
         data["hssd"] = {"floor_y": world3d.floor_y, "items": [
             {"kind": i.get("kind"), "asset": i["asset"], "model": str(models[i["asset"]]), "matrix": i["matrix"],
              "doorway": i.get("doorway"), "opening": i.get("opening")} for i in world3d.manifest["items"]]}
@@ -227,9 +234,11 @@ In Blender 4.2 or later: Scripting, open `{script}`, Run Script. Or with Blender
 
 The script makes one collection, `{COLLECTION}`, with:
 - a collection per room (`room:<id>`), holding its floor; put the room's furniture in it;
-- `walls`: {data['wall_m']} m high, with openings where the doorways are;
+- `walls`: {data['wall_m']} m high, with openings where the doorways are and the windows cut out
+  ({len(data.get('windows') or [])} windows, glazed: `window:<id>`);
 - `doorways`: a lintel over each opening, {data['door_m']} m up;
-- `devices`: an empty where each device is (`device:<name>`, its category a custom property).
+- `devices`: an empty where each device is (`device:<name>`, its category a custom property);
+- `sun`: a Sun lamp where the home's sun stands at 14:00 of its date, when the home has a site.
 
 Running it again rebuilds only what it made (walls, floors, lintels, device empties): what you add stays.
 
@@ -242,6 +251,8 @@ Running it again rebuilds only what it made (walls, floors, lintels, device empt
 - Furnish each room as what it is, inside its own collection.
 - Keep the walkways clear: nothing within a metre of a doorway, and corridors and halls left open. The furniture is
   drawn, not solid: a person walks where the map says the floor is free.
+- Nothing taller than a window's sill in front of it (a sofa, a bed or a desk may sit under one), and no bed or
+  wardrobe across a doorway: `vesper lab layout` checks the exported model and says what is in the way.
 - Leave the wall in front of each `switch:` empty clear (a ceiling light's wall switch: people walk up to it).
 - Do not move, resize or delete the walls, floors, lintels or device empties; do not add doors (VESPER draws them
   and swings them open and shut) or a ceiling (the camera rises above the walls).
@@ -343,7 +354,8 @@ import bpy
 
 DATA = json.loads(r"""__DATA__""")
 ROOT = "VESPER home"
-COLORS = {"floor": (0.82, 0.78, 0.70, 1.0), "outdoor": (0.55, 0.62, 0.48, 1.0), "wall": (0.93, 0.92, 0.89, 1.0)}
+COLORS = {"floor": (0.82, 0.78, 0.70, 1.0), "outdoor": (0.55, 0.62, 0.48, 1.0), "wall": (0.93, 0.92, 0.89, 1.0),
+          "glass": (0.80, 0.90, 0.95, 0.25)}
 
 
 def material(name):
@@ -360,6 +372,8 @@ def material(name):
         bsdf = next((n for n in tree.nodes if n.type == "BSDF_PRINCIPLED"), None) if tree is not None else None
         if bsdf is not None:  # what the glTF export reads
             bsdf.inputs["Base Color"].default_value = colour
+            if colour[3] < 1 and "Alpha" in bsdf.inputs:  # glass: see-through
+                bsdf.inputs["Alpha"].default_value = colour[3]
     return m
 
 
@@ -496,8 +510,18 @@ def build():
     if hssd and not any(o.get("vesper_hssd") for o in placed):  # not in the collections (deleted): bring it in again
         import_hssd(root)
     walls = collection("walls", root)
-    for k, (x0, z0, x1, z1) in enumerate(DATA["walls"]):
-        cuboid("wall-%d" % k, x0, z0, x1, z1, 0.0, DATA["wall_m"], walls, "wall")
+    for k, box in enumerate(DATA["walls"]):
+        for p, (x0, z0, x1, z1, y0, y1) in enumerate(cut_windows(box, DATA.get("windows", []), DATA["wall_m"])):
+            cuboid("wall-%d-%d" % (k, p), x0, z0, x1, z1, y0, y1, walls, "wall")
+    for w in DATA.get("windows", []):  # the glass in each opening
+        half, t = w["width"] / 2, 0.01
+        if w["side"] in ("z0", "z1"):
+            box = (w["x"] - half, w["z"] - t, w["x"] + half, w["z"] + t)
+        else:
+            box = (w["x"] - t, w["z"] - half, w["x"] + t, w["z"] + half)
+        cuboid("window:" + w["id"], *box, w["sill"], w["sill"] + w["height"], walls, "glass")
+    if DATA.get("sun"):
+        add_sun(root, DATA["sun"])
     lintels = collection("doorways", root)
     for d in DATA["doorways"]:
         x0, z0, x1, z1 = d["box"]
@@ -524,6 +548,55 @@ def build():
             plate["mount"] = "wall"
             devices.objects.link(plate)
     return root
+
+
+def cut_windows(box, windows, wall_h, slack=0.12):
+    """A wall box (x0, z0, x1, z1) with the windows standing in it cut out: the pieces left (x0, z0, x1, z1, y0,
+    y1), as the play page cuts them (scene3d.js cutWindows)."""
+    pieces = [(*box, 0.0, wall_h)]
+    for w in windows:
+        along_x = w["side"] in ("z0", "z1")
+        half, top = w["width"] / 2, min(wall_h, w["sill"] + w["height"])
+        out = []
+        for p in pieces:
+            x0, z0, x1, z1, y0, y1 = p
+            inside = (z0 - slack <= w["z"] <= z1 + slack and w["x"] - half < x1 and w["x"] + half > x0) if along_x \
+                else (x0 - slack <= w["x"] <= x1 + slack and w["z"] - half < z1 and w["z"] + half > z0)
+            if not inside or y0 != 0 or y1 != wall_h:
+                out.append(p)
+                continue
+            lo = max(x0, w["x"] - half) if along_x else max(z0, w["z"] - half)
+            hi = min(x1, w["x"] + half) if along_x else min(z1, w["z"] + half)
+            start, end = (x0, x1) if along_x else (z0, z1)
+
+            def span(a, b, ya, yb):
+                return (a, z0, b, z1, ya, yb) if along_x else (x0, a, x1, b, ya, yb)
+            if lo > start:
+                out.append(span(start, lo, 0.0, wall_h))
+            if hi < end:
+                out.append(span(hi, end, 0.0, wall_h))
+            if w["sill"] > 0:
+                out.append(span(lo, hi, 0.0, w["sill"]))
+            if top < wall_h:
+                out.append(span(lo, hi, top, wall_h))
+        pieces = out
+    return pieces
+
+
+def add_sun(root, sun):
+    """A Sun lamp toward the site's sun (azimuth and elevation in degrees, the plan's top facing north_deg)."""
+    import math
+    from mathutils import Vector
+    t, e = math.radians(sun["azimuth"] - sun["north_deg"]), math.radians(sun["elevation"])
+    toward = Vector((math.cos(e) * math.sin(t), math.cos(e) * math.cos(t), math.sin(e)))  # x, -z (plan top), up
+    data = bpy.data.lights.get("VESPER sun") or bpy.data.lights.new("VESPER sun", type="SUN")
+    data.energy = 4.0 if sun["elevation"] > 0 else 0.0
+    obj = bpy.data.objects.get("sun") or built(bpy.data.objects.new("sun", data))
+    obj.rotation_mode = "QUATERNION"
+    obj.rotation_quaternion = toward.to_track_quat("Z", "Y")
+    obj.location = toward * 30
+    if obj.name not in root.objects:
+        root.objects.link(obj)
 
 
 def export():

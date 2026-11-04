@@ -30,7 +30,13 @@ body > header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing:
 .scenario[hidden] { display: none; }
 
 main { display: grid; grid-template-columns: 1fr 360px; gap: 10px; padding: 10px; min-height: 0; }
-aside { display: grid; grid-template-rows: auto auto 110px 1fr 200px; gap: 10px; min-height: 0; }
+/* the side column: Inspect and Room at their own height (never clipped: the Room card's last line is the room's
+   light and warmth), Residents and Console fixed, Home Assistant what is left; a short window scrolls it */
+aside { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
+aside > .panel { flex: none; }
+#residents-panel { height: 110px; }
+#hub-panel { flex: 1 1 0; min-height: 120px; }
+#console-panel { height: 200px; }
 .inspect { padding: 10px 12px 8px; }
 .inspect select { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
   background: var(--panel); }
@@ -210,7 +216,7 @@ body.watching .pad { display: none; }
 
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; grid-template-rows: 60vh auto; }
-  aside { grid-template-rows: auto 200px 200px; }
+  #hub-panel { flex: none; height: 200px; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 

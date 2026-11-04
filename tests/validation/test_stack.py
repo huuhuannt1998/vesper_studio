@@ -468,6 +468,7 @@ def test_the_lab_s_home_assistant_may_be_framed_and_loads_the_home_s_automations
     assert "use_x_frame_options" not in text  # HA 2026.10 reads http: from YAML once; the store decides (below)
     assert text.endswith("automation: !include automations.yaml\n")
     assert (cfg / "automations.yaml").read_text() == rules == lab.read_automations()
+    assert "\nsun:\n" in text  # live 2026-11-04: without it Home Assistant had no sun.sun for the home's automations
 
 
 class FakeHAWebSocket:

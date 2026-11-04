@@ -114,7 +114,8 @@ def test_an_automation_the_engine_cannot_run_is_refused_by_name_and_the_others_s
     s.start(spawn_player=False, automations=True)
     s.spawn("player", "female_0", (5.0, 1.0))
     refused = s.records[0]["automations"]["refused"]
-    assert refused == [{"automation": "at sunset", "reason": "trigger 'sun' is not supported"},
+    assert refused == [{"automation": "at sunset",
+                        "reason": "trigger sun: the home has no site, so it has no sun (add site: to home.yaml)"},
                        {"automation": "unknown lamp", "reason": "entity light.nowhere is not one of this home's"}]
     s.walk_to((1.5, 3.0))
     s.clock.advance(10)

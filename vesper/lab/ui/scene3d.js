@@ -257,3 +257,56 @@ export function floorKind(room) {
   if (/bed/.test(what)) return "carpet";
   return "wood";
 }
+
+// The sun in the scene (environment design 2026-11-03): a unit vector toward it, [x, y, z], from its compass azimuth
+// and elevation (degrees) and the site's north_deg (the plan's top, -z, faces that bearing; the plan's right, +x,
+// faces north_deg + 90).
+export function sunDirection(azimuth, elevation, northDeg = 0) {
+  const t = rad(azimuth - northDeg), e = rad(elevation);
+  return [Math.cos(e) * Math.sin(t), Math.sin(e), -Math.cos(e) * Math.cos(t)];
+}
+
+// The sky's colour (0xRRGGBB) for the sun's elevation: night, twilight, the low sun's warm light, a day's blue.
+export function skyColor(elevation) {
+  const stops = [[-12, [0x10, 0x18, 0x2c]], [-4, [0x3a, 0x40, 0x66]], [0, [0xd9, 0x8c, 0x5f]], [8, [0xe8, 0xc7, 0x9a]],
+    [20, [0xbf, 0xd6, 0xea]], [90, [0x9c, 0xc4, 0xec]]];
+  if (elevation <= stops[0][0]) return hexOf(stops[0][1]);
+  for (let k = 1; k < stops.length; k++) {
+    const [e1, c1] = stops[k], [e0, c0] = stops[k - 1];
+    if (elevation <= e1) {
+      const f = (elevation - e0) / (e1 - e0);
+      return hexOf(c0.map((v, i) => Math.round(v + (c1[i] - v) * f)));
+    }
+  }
+  return hexOf(stops[stops.length - 1][1]);
+}
+const hexOf = ([r, g, b]) => (r << 16) | (g << 8) | b;
+
+// A wall box [x0, z0, x1, z1] (from 0 to wallH high) with the windows that stand in it cut out: the pieces left,
+// [x0, z0, x1, z1, y0, y1] each, the sill's and the lintel's within the window's span. A window stands in the box
+// when its centre lies inside the box (within `slack` across the wall).
+export function cutWindows(box, windows, wallH, slack = 0.12) {
+  let pieces = [[...box, 0, wallH]];
+  for (const w of windows) {
+    const alongX = w.side === "z0" || w.side === "z1";
+    const half = w.width / 2, top = Math.min(wallH, w.sill + w.height);
+    const next = [];
+    for (const p of pieces) {
+      const [x0, z0, x1, z1, y0, y1] = p;
+      const inside = alongX
+        ? w.z >= z0 - slack && w.z <= z1 + slack && w.x - half < x1 && w.x + half > x0
+        : w.x >= x0 - slack && w.x <= x1 + slack && w.z - half < z1 && w.z + half > z0;
+      if (!inside || y0 !== 0 || y1 !== wallH) { next.push(p); continue; }
+      const lo = alongX ? Math.max(x0, w.x - half) : Math.max(z0, w.z - half);
+      const hi = alongX ? Math.min(x1, w.x + half) : Math.min(z1, w.z + half);
+      const span = (a, b, y0b, y1b) => (alongX ? [a, z0, b, z1, y0b, y1b] : [x0, a, x1, b, y0b, y1b]);
+      const start = alongX ? x0 : z0, end = alongX ? x1 : z1;
+      if (lo > start) next.push(span(start, lo, 0, wallH));
+      if (hi < end) next.push(span(hi, end, 0, wallH));
+      if (w.sill > 0) next.push(span(lo, hi, 0, w.sill));
+      if (top < wallH) next.push(span(lo, hi, top, wallH));
+    }
+    pieces = next;
+  }
+  return pieces;
+}

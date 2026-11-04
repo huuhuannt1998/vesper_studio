@@ -105,3 +105,13 @@ test("a furnishing run reads as its steps, done, going or failed, with what it c
   assert.match(failed.note, /Not furnished: Blender's MCP server is not listening/);
   assert.equal(furnishView({ state: "none" }).steps.length, 5);
 });
+
+test("a home with a place asks for its city, day and orientation; without one, nothing", () => {
+  const base = { rooms: { mode: "count", count: 4, program: [] }, seed: 0, rows: [] };
+  assert.equal(buildRequest(base).request.site, undefined);
+  const { request, problems } = buildRequest({ ...base, site: { city: "Phoenix, AZ, USA", date: "2026-07-01", north: 90 } });
+  assert.deepEqual(request.site, { city: "Phoenix, AZ, USA", date: "2026-07-01", north_deg: 90 });
+  assert.deepEqual(problems, []);
+  assert.deepEqual(buildRequest({ ...base, site: { city: "Phoenix, AZ, USA", date: "", north: 0 } }).problems,
+    ["place: choose the home's date"]);
+});

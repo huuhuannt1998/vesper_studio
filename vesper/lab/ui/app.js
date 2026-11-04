@@ -98,6 +98,7 @@ function onHello(h) {
     actors: Object.fromEntries(h.actors.map((a) => [a.actor, a])),
     residents: Object.fromEntries((h.residents || []).map((r) => [r.name, { ...r, reason: null }])),
     cells: decodeGrid(h.map.grid.walkable, h.map.grid.width, h.map.grid.height),
+    environment: h.environment || null, // a home with a site: the outdoors, each room's values, the shades
   };
   for (const d of h.devices) if (d.effect) state.effects[d.name] = d.effect;
   spread(h.devices, state.doorways);
@@ -282,6 +283,15 @@ function updateRoom() { // the Room panel and the measurements in the view follo
   devs.className = "muted";
   devs.textContent = `${f.devices} device${f.devices === 1 ? "" : "s"} in it`;
   box.append(name, grid, devs);
+  const env = state.environment;
+  if (env && env.outdoor) { // a home with a site: the room's light and warmth, and the sky's, now
+    const here = (env.rooms || {})[room.id], o = env.outdoor, line = document.createElement("p");
+    line.className = "muted env-line";
+    const inside = here ? `${here.illuminance} lx, ${here.temperature} °C, ${here.humidity} % here` : "";
+    const sun = o.sun_elevation > 0 ? `sun ${Math.round(o.sun_elevation)}° up` : "sun down";
+    line.textContent = `${inside}${inside ? " · " : ""}outside ${Math.round(o.temperature_c)} °C, ${sun}`;
+    box.append(line);
+  }
 }
 $("dims").addEventListener("change", () => updateRoom());
 $("names").addEventListener("change", () => { if (view3d && view3d.showLabels) view3d.showLabels($("names").checked); });
@@ -374,6 +384,14 @@ function onRecord(r, live = true) {
     drawScenario();
   }
   if (r.kind === "report" && state.devices[r.device]) state.devices[r.device].state[r.feature] = r.value;
+  if (r.kind === "rule" && r.rule === "environment") { // the sun, the sky and each room's values move on
+    const shades = (state.environment && state.environment.shades) || {};
+    state.environment = { outdoor: r.outdoor, rooms: r.rooms, shades, sources: state.environment && state.environment.sources };
+    if (view3d && view3d.setEnvironment) view3d.setEnvironment(state.environment);
+    roomShown = null;
+    updateRoom();
+  }
+  if (r.kind === "rule" && r.rule === "shade" && state.environment) state.environment.shades[r.window] = r.open;
   const who = r.kind === "task" ? r.resident : r.kind === "input" && r.why ? r.why.resident : null;
   if (who && state.residents[who]) {
     const p = state.residents[who];
@@ -701,6 +719,12 @@ function pickAt(e) { // the device, door or hub under the pointer in the 3D view
 
 function clickOn(t) { // as in Room 334: a click shows a device (or the hub); a door is opened or shut, as by hand
   if (t.kind === "door") { send({ type: "interact", target: t.target }); return; }
+  if (t.kind === "window") { // its shade, rolled down or up, from inside its room
+    const id = t.target.slice("window:".length), env = state.environment;
+    const open = env && id in (env.shades || {}) ? env.shades[id] : true;
+    send({ type: "shade", window: id, open: !open });
+    return;
+  }
   inspect(false, t.target);
 }
 view3dBox.addEventListener("mousedown", (e) => {

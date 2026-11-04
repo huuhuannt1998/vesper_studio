@@ -176,7 +176,7 @@ def test_a_day_runs_the_home_s_automations_with_vesper_s_engine_and_names_the_re
     out = capsys.readouterr().out
     assert "automations.yaml: 0 of 2 automations run by VESPER's engine (Home Assistant is not in the loop)" in out
     assert "refused: wake-up light: entity light.nowhere is not one of this home's" in out
-    assert "refused: at sunset: trigger 'sun' is not supported" in out
+    assert "refused: at sunset: trigger sun: the home has no site" in out
     assert "0 automation commands" in out
 
 

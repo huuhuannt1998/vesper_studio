@@ -14,10 +14,10 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { decodeGrid, gridBounds } from "./mapview.js";
 import { buildDevice, buildHub, facingYaw } from "./devices3d.js";
-import { buildFurniture } from "./furniture3d.js";
+import { buildFurniture, fitScale } from "./furniture3d.js";
 import {
   BACK_M, PIVOT_M, RAISE_M, cameraPose, devicePoint, doorMount, frameAt, furnitureFor, hinge, pullIn, roomAt, walkPhase,
-  floorKind, wallBoxes, wallMount, wallRuns,
+  cutWindows, floorKind, skyColor, sunDirection, wallBoxes, wallMount, wallRuns,
 } from "./scene3d.js";
 
 const SKY = 0xbfd6ea, WALL = 0xeeebe4, FLOOR = 0xd2c9b8, OUTSIDE = 0x9fb98e, DOOR = 0x8a5a2b, LOCKED = 0xc0392b;
@@ -31,15 +31,21 @@ export async function createView3d(container, hello, onProgress = () => {}) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0; // a lit interior, as Room 334's
+  renderer.shadowMap.enabled = true; // the sun through the windows (a home with a site), soft as Room 334's key light
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.append(renderer.domElement);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY); // what a window shows
   scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.8;
-  scene.add(new THREE.HemisphereLight(0xfffdf8, 0x9a8f80, 1.6)); // the ceiling panels' light, everywhere indoors
-  const sun = new THREE.DirectionalLight(0xfff4e0, 0.8);
+  scene.environmentIntensity = 0.9; // Room 334's
+  const fill = new THREE.HemisphereLight(0xfffdf8, 0x9a8f80, 1.6); // the ceiling panels' light, everywhere indoors
+  scene.add(fill);
+  const sun = new THREE.DirectionalLight(0xfff4e0, 0.8); // a home with a site: the real sun (setEnvironment)
   sun.position.set(4, 10, 2);
-  scene.add(sun);
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.bias = -0.0005;
+  scene.add(sun, sun.target);
+  const windowParts = {}; // window id -> {shade, glass}: drawn in a map-built home's walls
   const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 200); // a walkthrough's wide view, as Room 334's
   const floorY = hello.world3d ? hello.world3d.floor_y : 0;
   const solids = []; // what the camera and the crosshair do not pass: the stage, or the map's walls
@@ -47,7 +53,8 @@ export async function createView3d(container, hello, onProgress = () => {}) {
   const doors = {}; // doorway id -> {pivot, angle}
   const devices = {}; // name -> {model, point}: the hardware (devices3d.js) and where the crosshair aims
   const actors = {}; // actor -> {group, x, z, yaw}
-  const status = { source: hello.world3d ? "scene" : "map", total: 0, loaded: 0, failed: 0, missing: [] };
+  const status = { source: hello.world3d ? "scene" : "map", total: 0, loaded: 0, failed: 0, missing: [],
+    freePlaced: 0, freeFailed: 0 }; // free furniture models placed, and failed (built-in shape kept)
   const ktx2 = new KTX2Loader().setTranscoderPath("./vendor/three/examples/jsm/libs/basis/").detectSupport(renderer);
   const loader = new GLTFLoader().setKTX2Loader(ktx2);
   const humanoids = {}; // avatar -> a promise of {model, motion}: each loaded once, cloned per person
@@ -200,9 +207,13 @@ export async function createView3d(container, hello, onProgress = () => {}) {
         floors.get(kind).push(box);
       }
     }
+    const windows = hello.windows || [];
     for (const [i0, i1, j0, j1] of wallBoxes(wallRuns(cells, g.width, g.height))) {
-      walls.push(new THREE.BoxGeometry((i1 - i0) * c, WALL_M, (j1 - j0) * c)
-        .translate(ox + ((i0 + i1) / 2) * c, floorY + WALL_M / 2, oz + ((j0 + j1) / 2) * c));
+      const box = [ox + i0 * c, oz + j0 * c, ox + i1 * c, oz + j1 * c]; // a window's opening cut out of its wall
+      for (const [x0, z0, x1, z1, y0, y1] of cutWindows(box, windows, WALL_M)) {
+        walls.push(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0)
+          .translate((x0 + x1) / 2, floorY + (y0 + y1) / 2, (z0 + z1) / 2));
+      }
       skirting.push(new THREE.BoxGeometry((i1 - i0) * c + 0.03, 0.09, (j1 - j0) * c + 0.03) // a skirting board
         .translate(ox + ((i0 + i1) / 2) * c, floorY + 0.045, oz + ((j0 + j1) / 2) * c));
     }
@@ -213,11 +224,13 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     };
     for (const [kind, parts] of floors) { // each kind its own surface, textured in metres (worldUV)
       const m = new THREE.Mesh(worldUV(mergeGeometries(parts), FLOOR_TILE[kind]), floorMaterial(kind));
+      m.receiveShadow = true;
       scene.add(m);
       plain.push(m);
     }
     if (walls.length) { // with a dressed model the map's walls still stop the camera and the crosshair, unseen
       const w = mesh(walls, WALL);
+      w.castShadow = w.receiveShadow = true;
       solids.push(w);
       plain.push(w);
       plain.push(mesh(skirting, 0xf6f5f1));
@@ -227,6 +240,7 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       const shape = new THREE.Shape(room.polygon.map(([x, z]) => new THREE.Vector2(x, z)));
       const ceil = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(Math.PI / 2).translate(0, floorY + WALL_M, 0),
         new THREE.MeshStandardMaterial({ color: 0xf7f6f2, roughness: 0.95 }));
+      ceil.castShadow = true; // the roof: the sun comes in through the windows only
       scene.add(ceil);
       plain.push(ceil);
       const xs = room.polygon.map((q) => q[0]), zs = room.polygon.map((q) => q[1]);
@@ -247,7 +261,12 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       const model = buildFurniture(THREE, item);
       model.position.set(item.x, floorY, item.z);
       model.rotation.y = facingYaw(item.facing);
+      model.traverse((o) => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
       scene.add(model);
+      const url = hello.assets && hello.assets.models && hello.assets.models[item.kind];
+      if (url) freeModel(url).then((obj) => { // a free model (CC0) instead; a failed one keeps the built-in shape
+        if (obj) { dressPiece(model, obj, item); status.freePlaced += 1; } else status.freeFailed += 1;
+      });
       plain.push(model);
     }
     const pieces = new Map(); // an older home without furniture.json: boxes that say what each room is (drawn only)
@@ -267,6 +286,82 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     scene.add(ceiling);
     solids.push(ceiling);
     for (const door of hello.doors) addSlab(door.id);
+    for (const w of windows) addWindow(w);
+  }
+
+  const freeModels = {}; // url -> a promise of the loaded model (vesper.lab.assets: Poly Haven, CC0), cloned per piece
+  function freeModel(url) {
+    freeModels[url] ||= loader.loadAsync(url).then((g) => g.scene).catch(() => null);
+    return freeModels[url].then((m) => (m ? m.clone(true) : null));
+  }
+  function dressPiece(model, obj, item) { // the free model in the piece's box: turned to its long side, scaled to
+    // fit, on the floor; the built-in shape is hidden
+    let size = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+    if ((size.x >= size.z) !== (item.w >= item.d) && Math.abs(size.x - size.z) > 0.05) {
+      obj.rotation.y = Math.PI / 2;
+      size = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+    }
+    obj.scale.setScalar(fitScale(size, item));
+    const box = new THREE.Box3().setFromObject(obj), c = box.getCenter(new THREE.Vector3());
+    const holder = new THREE.Group();
+    obj.position.set(-c.x, -box.min.y, -c.z);
+    holder.add(obj);
+    holder.traverse((o) => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+    for (const child of model.children) child.visible = false;
+    model.add(holder);
+  }
+
+  function addWindow(w) { // glass in the opening, a white frame, and a roller shade on the room's side
+    const alongX = w.side === "z0" || w.side === "z1";
+    const inward = { z0: [0, 1], z1: [0, -1], x0: [1, 0], x1: [-1, 0] }[w.side] || [0, 0];
+    const y = floorY + w.sill + w.height / 2, group = new THREE.Group();
+    group.position.set(w.x, y, w.z);
+    group.rotation.y = alongX ? 0 : Math.PI / 2;
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(w.width, w.height), new THREE.MeshPhysicalMaterial({
+      color: 0xd7ebf5, transparent: true, opacity: 0.16, roughness: 0.05, metalness: 0, side: THREE.DoubleSide }));
+    const frame = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.6 });
+    for (const [fw, fh, fx, fy] of [[w.width + 0.08, 0.05, 0, w.height / 2], [w.width + 0.08, 0.05, 0, -w.height / 2],
+      [0.05, w.height, -w.width / 2, 0], [0.05, w.height, w.width / 2, 0], [0.03, w.height, 0, 0]]) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(fw, fh, 0.08), frame);
+      bar.position.set(fx, fy, 0);
+      bar.castShadow = true;
+      group.add(bar);
+    }
+    group.add(glass);
+    const shade = new THREE.Mesh(new THREE.BoxGeometry(w.width + 0.06, w.height + 0.04, 0.015),
+      new THREE.MeshStandardMaterial({ color: 0xe8e1d3, roughness: 0.9 }));
+    shade.position.set(0, 0, alongX ? inward[1] * 0.14 : -inward[0] * 0.14);
+    shade.castShadow = true;
+    shade.visible = false; // open: rolled up
+    group.add(shade);
+    tag(group, `window:${w.id}`, "window");
+    scene.add(group);
+    pickables.push(group);
+    plain.push(group);
+    windowParts[w.id] = { shade, glass };
+  }
+
+  const bounds = gridBounds(hello.map.grid); // the sun's shadow covers the home
+  {
+    const cx = (bounds.minX + bounds.maxX) / 2, cz = (bounds.minZ + bounds.maxZ) / 2;
+    const r = Math.hypot(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) / 2 + 2;
+    Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 0.5, far: 80 });
+    sun.shadow.camera.updateProjectionMatrix();
+    sun.target.position.set(cx, floorY, cz);
+  }
+  function setEnvironment(env) { // a home with a site: the sun, the sky and the shades of the moment (vesper.env)
+    if (!env || !env.outdoor) return;
+    const o = env.outdoor, north = (hello.site && hello.site.north_deg) || 0;
+    const [x, y, z] = sunDirection(o.sun_azimuth, o.sun_elevation, north);
+    const t = sun.target.position;
+    sun.position.set(t.x + x * 40, t.y + y * 40, t.z + z * 40);
+    const up = o.sun_elevation > 0, direct = (o.illuminance_lux || 0) * (1 - Math.min(1, (o.cloud_cover_pct || 0) / 100));
+    sun.castShadow = up;
+    sun.intensity = up ? 0.3 + 2.7 * Math.min(1, direct / 80000) : 0;
+    sun.color.setHex(o.sun_elevation < 8 ? 0xffc48a : 0xfff4e0);
+    scene.background = new THREE.Color(skyColor(o.sun_elevation));
+    fill.intensity = 1.0 + 0.6 * Math.max(0, Math.min(1, o.sun_elevation / 30));
+    for (const [id, open] of Object.entries(env.shades || {})) if (windowParts[id]) windowParts[id].shade.visible = !open;
   }
 
   const dims = []; // the room's measurement labels (showDimensions)
@@ -433,6 +528,7 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     buildFromMap();
     if (hello.dressed) await loadDressed();
   }
+  setEnvironment(hello.environment); // a home with a site: the sun and sky of its moment; later ticks from app.js
   await people;
   status.ready = true;
   onProgress(status);
@@ -482,6 +578,10 @@ export async function createView3d(container, hello, onProgress = () => {}) {
         door.pivot.children[0].material.color.setHex(e.locked ? LOCKED : DOOR); // only the plain leaves
       }
     }
+    for (const [id, parts] of Object.entries(windowParts)) { // a shade a person opened or closed (an effect)
+      const e = state.effects[`${id}`];
+      if (e && "shade_open" in e) parts.shade.visible = !e.shade_open;
+    }
     for (const [name, dev] of Object.entries(devices)) { // each model shows its device's state as the hardware does
       const key = dev.follows || name, d = state.devices[key];
       if (d) dev.model.update(d.state, state.effects[key] || {});
@@ -516,6 +616,7 @@ export async function createView3d(container, hello, onProgress = () => {}) {
   return {
     status, camera,
     floorY,
+    setEnvironment,
     frame(state, cam, dt) {
       update(state, cam, dt);
       renderer.render(scene, camera);

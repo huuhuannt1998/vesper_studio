@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import * as THREE from "../../../vesper/lab/ui/vendor/three/build/three.module.min.js";
-import { KINDS, buildFurniture } from "../../../vesper/lab/ui/furniture3d.js";
+import { KINDS, MAX_MODEL_H, buildFurniture, counterParts, fitScale } from "../../../vesper/lab/ui/furniture3d.js";
 
 const SIZES = { sofa: [2.1, 0.9, 0.85], coffee_table: [1, 0.55, 0.42], rug: [2, 1.4, 0.01], tv_stand: [1.6, 0.45, 0.5],
   armchair: [0.85, 0.85, 0.85], bookshelf: [0.9, 0.35, 1.9], plant: [0.45, 0.45, 1.2], counter: [2.6, 0.62, 0.9],
@@ -39,4 +39,22 @@ test("an unknown kind is a plain box of its size, so a newer furnisher never bre
   const s = new THREE.Box3().setFromObject(buildFurniture(THREE, { kind: "piano", w: 1.5, d: 0.6, h: 1.2 }))
     .getSize(new THREE.Vector3());
   assert.ok(Math.abs(s.x - 1.5) < 0.01 && Math.abs(s.y - 1.2) < 0.01 && Math.abs(s.z - 0.6) < 0.01);
+});
+
+test("a counter's sink and hob stand near its ends, 1.2 m apart where it is long enough (NKBA)", () => {
+  const long = counterParts(2.0);
+  assert.ok(long.hob - long.sink >= 1.2 - 1e-9);
+  for (const w of [1.2, 2.0, 3.5]) {
+    const p = counterParts(w);
+    assert.ok(p.sink - 0.25 >= -w / 2 - 1e-9 && p.hob + 0.29 <= w / 2 + 1e-9, `w=${w}`); // both on the worktop
+    assert.ok(p.hob - p.sink >= 0.46 * w - 1e-9);  // never closer than before
+  }
+});
+
+test("a free model fills its piece's footprint; a headboard or a chair's back may rise above it (live look 2026-11-04)", () => {
+  // Poly Haven's bed with its tall headboard, in a 1.6 x 2.1 m bed whose mattress is 0.55 m high: fitting the height
+  // too shrank it to 40 %
+  assert.ok(Math.abs(fitScale({ x: 1.7, y: 1.4, z: 2.2 }, { w: 1.6, d: 2.1, h: 0.55 }) - 1.6 / 1.7) < 1e-9);
+  // a model whose footprint scale would make it taller than a room is capped at MAX_MODEL_H
+  assert.ok(Math.abs(fitScale({ x: 0.2, y: 1.0, z: 0.2 }, { w: 0.6, d: 0.6, h: 1.0 }) - MAX_MODEL_H / 1.0) < 1e-9);
 });

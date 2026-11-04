@@ -57,6 +57,8 @@ def lab_stack(root: Path, home, keep=None, matter_interface: str | None = None):
         try:
             ha.start()
             ha.onboard()
+            if getattr(home, "site", None) is not None:
+                ha.set_location(home.site)  # Home Assistant's sun is the home's (vesper.env)
             ha.ensure_mqtt(hub_port)
             if any("tasmota" in d.record["binding"] for d in home.devices):
                 ha.ensure_tasmota()  # Home Assistant's Tasmota integration hears the Wi-Fi devices (plan W7a2)

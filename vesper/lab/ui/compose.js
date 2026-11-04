@@ -31,6 +31,10 @@ export function buildRequest(model) {
     request.rooms = n;
   }
   request.seed = Number(model.seed) || 0;
+  if (model.site && model.site.city) { // where and when the home is: its sun, weather and daylight (vesper.env)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(model.site.date || "")) problems.push("place: choose the home's date");
+    request.site = { city: model.site.city, date: model.site.date, north_deg: Number(model.site.north) || 0 };
+  }
   request.devices = [];
   model.rows.forEach((row, k) => {
     const what = row.product ? { product: row.product } : row.category ? { category: row.category } : null;
@@ -117,8 +121,9 @@ if (typeof document !== "undefined") {
     { product: null, category: "thermostat", where: { kind: "room", room: "hall" } },
     { product: null, category: "smoke_sensor", where: { kind: "room", room: "kitchen" } },
   ];
+  const today = new Date().toISOString().slice(0, 10);
   const model = { rooms: { mode: "count", count: 6, program: ["living", "kitchen", "bedroom"], scene: null }, seed: 0,
-                  rows: structuredClone(STARTER) };
+                  rows: structuredClone(STARTER), site: { city: "", date: today, north: 0 } };
   let meta = null, chosenRow = null, shown = null;
   let houses = null; // the HSSD houses here ({scenes, habitat, error}), asked for when the house choice is first made
   const downloading = new Set();
@@ -157,6 +162,27 @@ if (typeof document !== "undefined") {
     }
     box.append(el("label", { className: "seed" }, model.rooms.mode === "house" ? "Device seed " : "Layout seed ",
       el("input", { type: "number", min: 0, value: model.seed, oninput: (e) => { model.seed = Number(e.target.value); } })));
+  }
+
+  // The home's place and day (vesper.env): its sun, recorded weather and daylight; no place keeps the assumed curve.
+  function drawPlace() {
+    const box = $("place");
+    box.innerHTML = "";
+    const city = el("select", { "aria-label": "The home's city", id: "site-city",
+                                 onchange: (e) => { model.site.city = e.target.value; drawPlace(); } },
+      el("option", { value: "", textContent: "No place: indoor light and warmth follow a fixed day" }),
+      ...(meta.cities || []).map((c) => el("option", { value: c, textContent: c, selected: model.site.city === c })));
+    box.append(el("label", { className: "choice" }, "City ", city));
+    if (!model.site.city) return;
+    box.append(
+      el("label", { className: "choice" }, "First day ", el("input", { type: "date", id: "site-date",
+        value: model.site.date, oninput: (e) => { model.site.date = e.target.value; } })),
+      el("label", { className: "choice" }, "The floor plan's top faces ", el("select", { id: "site-north",
+        onchange: (e) => { model.site.north = Number(e.target.value); } },
+        ...[[0, "north"], [90, "east"], [180, "south"], [270, "west"]].map(([v, t]) =>
+          el("option", { value: v, textContent: t, selected: Number(model.site.north) === v })))),
+      el("p", { className: "muted", textContent: "The sun of that place and day, its recorded weather (download it " +
+        "with `vesper lab env --fetch`), and the daylight through each room's windows drive the home's sensors." }));
   }
 
   // The houses: the complete ones to choose, the others to download first (in the lobby, in the background).
@@ -474,6 +500,7 @@ if (typeof document !== "undefined") {
       drawFurnish(st);
     }
     drawRooms();
+    drawPlace();
     drawRows();
     await search();
     page.ready = true;

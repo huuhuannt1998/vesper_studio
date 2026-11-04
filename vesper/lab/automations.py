@@ -10,7 +10,10 @@ would see and acts as Home Assistant would:
   `payload_on`, a lock's `payload_lock`), applied as the bridge applies a command.
 - an event entity's state (a button's `action`) is the time of its last event, so every press is a change.
 Supported: triggers `state` (to, from, for; `to: ~` is any change), `numeric_state` (above, below, for) and `time`
-(at); conditions `state`, `numeric_state` and `time` (after, before); actions `light.*` (brightness,
+(at); conditions `state`, `numeric_state` and `time` (after, before); for a home with a site (vesper.env), trigger
+`sun` (event sunrise or sunset, offset), condition `sun` (after and before sunrise or sunset, with offsets; after
+and before across midnight is either), and the entity `sun.sun` (above_horizon, below_horizon), all from the same
+astral sun as Home Assistant's at the site and the run's date; actions `light.*` (brightness,
 brightness_pct), `switch.*` (turn_on, turn_off, toggle), `lock.lock`/`lock.unlock` and `delay`; `enabled: false`
 anywhere; mode `single`. An automation using anything else (a template, an option, a key the engine does not
 know, an unquoted on/off that Home Assistant itself refuses) is refused by name when the file is loaded, never run
@@ -39,9 +42,10 @@ SERVICES = {"light": ("turn_on", "turn_off", "toggle"), "switch": ("turn_on", "t
 AUTOMATION_KEYS = {"id", "alias", "description", "mode", "max_exceeded", "initial_state", "trace",
                    "triggers", "trigger", "conditions", "condition", "actions", "action"}
 TRIGGER_KEYS = {"state": {"entity_id", "to", "from", "for"}, "numeric_state": {"entity_id", "above", "below", "for"},
-                "time": {"at"}}
+                "time": {"at"}, "sun": {"event", "offset"}}
 CONDITION_KEYS = {"state": {"entity_id", "state"}, "numeric_state": {"entity_id", "above", "below"},
-                  "time": {"after", "before"}}
+                  "time": {"after", "before"}, "sun": {"after", "before", "after_offset", "before_offset"}}
+SUN_EVENTS = ("sunrise", "sunset")
 ACTION_KEYS = {"action", "service", "target", "entity_id", "data", "alias", "continue_on_error"}
 
 
@@ -152,6 +156,13 @@ def _seconds(value, where: str) -> float:
     return _clock(value, where)
 
 
+def _offset(value, where: str) -> float:
+    """A sun offset: a duration that may be negative ('-00:30:00', -1800)."""
+    if isinstance(value, str) and value.startswith("-"):
+        return -_seconds(value[1:], where)
+    return _seconds(value, where)
+
+
 def _clock(value, where: str) -> float:
     try:
         if not isinstance(value, str):
@@ -207,6 +218,9 @@ class Engine:
         for name, twin_id, entities in _matter(self.home):
             for entity_id, _, platform, primary in entities:
                 self.entities[entity_id] = Entity(entity_id, name, twin_id, primary, platform, {"matter": True})
+        self.site = getattr(self.home, "site", None)
+        if self.site is not None:  # Home Assistant's sun, at the home's site and date
+            self.entities["sun.sun"] = Entity("sun.sun", "sun", "", "", "sun", {})
         self._of_feature: dict[tuple[str, str], list[Entity]] = {}
         for e in self.entities.values():
             self._of_feature.setdefault((e.twin_id, e.feature), []).append(e)
@@ -271,6 +285,12 @@ class Engine:
             raise AutomationError(f"trigger {kind!r} is not supported")
         where = f"trigger {kind}"
         _keys(t, TRIGGER_KEYS[kind] | {"trigger", "platform", "id"}, where)
+        if kind == "sun":
+            self._needs_site(where)
+            if t.get("event") not in SUN_EVENTS:
+                raise AutomationError(f"{where}: event {t.get('event')!r} is not sunrise or sunset")
+            return {"kind": "sun", "event": t["event"],
+                    "offset": _offset(t["offset"], f"{where}: offset") if "offset" in t else 0.0}
         if kind == "time":
             at = t.get("at")
             return {"kind": "time", "at": [_clock(x, f"{where}: at") for x in (at if isinstance(at, list) else [at])]}
@@ -295,6 +315,15 @@ class Engine:
             raise AutomationError(f"condition {kind!r} is not supported")
         where = f"condition {kind}"
         _keys(c, CONDITION_KEYS[kind] | {"condition", "alias"}, where)
+        if kind == "sun":
+            self._needs_site(where)
+            for k in ("after", "before"):
+                if k in c and c[k] not in SUN_EVENTS:
+                    raise AutomationError(f"{where}: {k} {c[k]!r} is not sunrise or sunset")
+            if "after" not in c and "before" not in c:
+                raise AutomationError(f"{where}: after or before is required")
+            offset = {k: _offset(c[k], f"{where}: {k}") if k in c else 0.0 for k in ("after_offset", "before_offset")}
+            return {"kind": "sun", "after": c.get("after"), "before": c.get("before"), **offset}
         if kind == "time":
             return {"kind": "time", "after": _clock(c["after"], f"{where}: after") if "after" in c else None,
                     "before": _clock(c["before"], f"{where}: before") if "before" in c else None}
@@ -307,6 +336,14 @@ class Engine:
             out["above"] = _number(c["above"], f"{where}: above") if "above" in c else None
             out["below"] = _number(c["below"], f"{where}: below") if "below" in c else None
         return out
+
+    def _needs_site(self, where: str) -> None:
+        if self.site is None:
+            raise AutomationError(f"{where}: the home has no site, so it has no sun (add site: to home.yaml)")
+
+    def _sun_events(self, day: int) -> dict:
+        from vesper.env.sun import sun_events
+        return sun_events(self.site, day)
 
     def _action(self, x) -> dict:
         if not isinstance(x, dict):
@@ -349,16 +386,36 @@ class Engine:
     def start(self) -> None:
         clock = self.session.clock
         for e in self.entities.values():
+            if e.platform == "sun":
+                continue
             value = self.runtime.state(e.twin_id).get(e.feature)
             self._state[e.entity_id] = "unknown" if e.platform == "event" else self._state_of(e, value)
         self.session.subscribe_reports(self._on_report)  # as Home Assistant hears them: across the links
         self._midnight = clock.now() - self.home.start_time
+        if self.site is not None:
+            from vesper.env.sun import sun_at
+            here = self.site.utc(clock.now() - self._midnight)
+            up = sun_at(self.site.lat, self.site.lon, self.site.elevation_m, here).elevation > -0.833
+            self._state["sun.sun"] = "above_horizon" if up else "below_horizon"
         for day in (0, 1):
             self._schedule_day(day)
         clock.call_at(self._midnight + DAY_S, lambda: self._next_day(2))
 
     def _schedule_day(self, day: int) -> None:
         now = self.session.clock.now()
+        if self.site is not None:
+            events = self._sun_events(day)
+            for ev, state in (("sunrise", "above_horizon"), ("sunset", "below_horizon")):
+                if events[ev] is not None and self._midnight + events[ev] >= now:
+                    self.session.clock.call_at(self._midnight + events[ev],
+                                               lambda state=state: self._apply([self._set("sun.sun", state)]))
+            for a in self.automations:
+                for t in a.triggers:
+                    if t["kind"] == "sun" and events[t["event"]] is not None:
+                        when = self._midnight + events[t["event"]] + t["offset"]
+                        if when >= now:
+                            self.session.clock.call_at(when, lambda a=a, t=t: self._fire(
+                                a, f"sun {t['event']}{t['offset']:+g} s"))
         for a in self.automations:
             for t in a.triggers:
                 if t["kind"] == "time":
@@ -403,6 +460,15 @@ class Engine:
                     continue
             self._state[e.entity_id] = new
             changes.append((e.entity_id, old, new))
+        self._apply(changes)
+
+    def _set(self, entity: str, new: str) -> tuple:
+        """A state an entity that no device reports takes (sun.sun): the change, for `_apply`."""
+        old, self._state[entity] = self._state.get(entity), new
+        return entity, old, new
+
+    def _apply(self, changes: list) -> None:
+        changes = [c for c in changes if c[1] != c[2]]
         for entity, _, new in changes:
             for h in self._held.get(entity, ()):
                 h.alive = h.alive and h.still(new)
@@ -469,6 +535,18 @@ class Engine:
             return all(self._state.get(e) in c["state"] for e in c["entities"])
         if c["kind"] == "numeric_state":
             return all(self._in_range(c, self._state.get(e, "")) for e in c["entities"])
+        if c["kind"] == "sun":
+            since = self.session.clock.now() - self._midnight
+            events = self._sun_events(int(since // DAY_S))
+            after = None if c["after"] is None else events[c["after"]]
+            before = None if c["before"] is None else events[c["before"]]
+            if (c["after"] and after is None) or (c["before"] and before is None):
+                return False  # the sun does not rise or set that day
+            a = None if after is None else after + c["after_offset"]
+            b = None if before is None else before + c["before_offset"]
+            if a is not None and b is not None and a >= b:  # after sunset and before sunrise: either
+                return since >= a or since < b
+            return (a is None or since >= a) and (b is None or since < b)
         now = (self.session.clock.now() - self._midnight) % DAY_S
         after, before = c["after"], c["before"]
         if after is not None and before is not None and after >= before:  # across midnight; equal: all day

@@ -200,6 +200,13 @@ function describe(r) {
     if (r.rule === "contact") return `contact: ${r.device}, the door ${r.open ? "opened" : "closed"}`;
     if (r.rule === "binding") return `binding: ${r.via} switches ${r.device}`;
     if (r.rule === "interact") return r.target ? `${r.actor} uses ${r.target}: ${r.result}` : `${r.actor}: ${r.result}`;
+    if (r.rule === "environment") {
+      const o = r.outdoor || {}, up = o.sun_elevation > 0;
+      const sky = up ? `sun ${Math.round(o.sun_elevation)}° up, ${Math.round(o.illuminance_lux)} lx` : "sun down";
+      const heat = (r.heating || []).length ? `; heating: ${r.heating.join(", ")}` : "";
+      return `environment: outside ${Math.round(o.temperature_c)} °C, ${sky}${heat}`;
+    }
+    if (r.rule === "shade") return `shade: ${r.actor} ${r.open ? "opens" : "closes"} ${r.window}`;
     return `${r.rule}: ${r.device || ""}`;
   }
   if (r.kind === "world") {

@@ -25,6 +25,7 @@ from pathlib import Path
 
 import yaml
 
+from vesper.env.site import Site, SiteError, parse_site
 from vesper.exposure.tasmota import expected_entities
 from vesper.exposure.z2m_bridge import topic_safe
 from vesper.twins.twin import Twin, TwinError
@@ -81,6 +82,7 @@ class LabHome:
     broker: tuple[str, int] = ("127.0.0.1", 18830)
     matter_interface: str | None = None
     network: Network | None = None  # the home's network (security-lab spec §3); set by load_lab_home
+    site: Site | None = None  # where and when the home is (environment design 2026-11-03); None: the assumed curve
 
     def device(self, name: str) -> PlacedDevice:
         for d in self.devices:
@@ -141,6 +143,10 @@ def load_lab_home(path: Path, catalog: dict[str, dict], patch=None) -> LabHome:
     except NetworkError as e:
         raise HomeError(str(e)) from e
     automations = spec.get("automations")
+    try:
+        site = parse_site(spec.get("site"))
+    except SiteError as e:
+        raise HomeError(str(e)) from e
     return LabHome(path=path, map=world_map, scene=str(spec.get("scene", world_map.scene)),
                    seed=_int(spec.get("seed", 0), "seed"), start_time=_clock(spec.get("start_time", "07:00")),
                    avatar={"model": avatar.get("model", "female_0"), "start": spawn_point(world_map, start)},
@@ -150,7 +156,7 @@ def load_lab_home(path: Path, catalog: dict[str, dict], patch=None) -> LabHome:
                    defenses=list(_mapping(spec.get("security") or {}, "security").get("defenses") or []),
                    broker=(_text(broker.get("host", "127.0.0.1"), "broker.host"),
                            _int(broker.get("port", 18830), "broker.port")),
-                   matter_interface=spec.get("matter_interface"), network=network)
+                   matter_interface=spec.get("matter_interface"), network=network, site=site)
 
 
 def _residents(raw, path: Path, world_map: WorldMap, devices: list[PlacedDevice]) -> list[ResidentSpec]:

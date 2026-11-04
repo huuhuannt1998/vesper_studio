@@ -60,13 +60,22 @@ class Hub:
 
     def start(self) -> None:
         self.bridge.start()
+        if self.session.rules.env is not None:  # the home's site: its environment device (vesper.env.ha)
+            from vesper.env.ha import discovery
+            for topic, cfg in discovery():
+                self.bridge._publish(topic, cfg, retain=True)
 
     def stop(self) -> None:
         self.bridge.stop()
         self.bridge.flush()
 
     def _on_record(self, r: dict) -> None:
-        """A device's hop down for Zigbee2MQTT's availability timeout makes it unavailable; up again, available."""
+        """A device's hop down for Zigbee2MQTT's availability timeout makes it unavailable; up again, available.
+        An environment tick is published as the environment device's state."""
+        if r.get("kind") == "rule" and r.get("rule") == "environment":
+            from vesper.env.ha import STATE_TOPIC, state
+            self.bridge._publish(STATE_TOPIC, state(r["outdoor"]), retain=True)
+            return
         if r.get("kind") != "net" or not r["link"].startswith("zigbee/") or r["event"] not in ("down", "up"):
             return
         name = r["link"][len("zigbee/"):]

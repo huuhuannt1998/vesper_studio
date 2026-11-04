@@ -273,3 +273,15 @@ test("a device label that would cover another moves down a line, at most three",
   const full = [0, 13, 26, 39].map((d) => ({ x: 100, z: 50 + d, w: 60 }));
   assert.equal(freeSpot(full, 100, 50, 60), 89);
 });
+
+test("the console says what the outdoors is doing and who works a shade (live look 2026-11-04: an empty line)", () => {
+  const start = 13 * 3600;
+  assert.equal(recordLine({ t: 0, kind: "rule", rule: "environment", heating: ["corridor_thermostat"],
+    outdoor: { temperature_c: 2.46, sun_elevation: 33.4, illuminance_lux: 64075 }, rooms: {} }, start),
+  "13:00:00 environment: outside 2 °C, sun 33° up, 64075 lx; heating: corridor_thermostat");
+  assert.equal(recordLine({ t: 1, kind: "rule", rule: "environment", heating: [],
+    outdoor: { temperature_c: -3.6, sun_elevation: -20, illuminance_lux: 0 }, rooms: {} }, start),
+  "13:00:01 environment: outside -4 °C, sun down");
+  assert.equal(recordLine({ t: 2, kind: "rule", rule: "shade", window: "living_window1", open: false, actor: "alex" },
+    start), "13:00:02 shade: alex closes living_window1");
+});

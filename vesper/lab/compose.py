@@ -155,7 +155,7 @@ def compose_home(request: dict, catalog: dict, out: Path) -> dict:
 
 
 HOME_FILES = ("home.yaml", "map.json", "request.yaml", "scene.glb", "map.original.json", "dress", "render.json",
-              "openings.json")
+              "openings.json", "furniture.json", "windows.json")
 
 
 MOSQUITTO_PATHS = ("/opt/homebrew/sbin/mosquitto", "/usr/local/sbin/mosquitto", "/usr/sbin/mosquitto")
@@ -255,6 +255,7 @@ class ComposeServer:
         return f"http://127.0.0.1:{self.port}/"
 
     def meta(self) -> dict:
+        from vesper.env.site import CITIES
         from vesper.lab.generate import AREAS, PROTOCOLS, RULES
         cats: dict[str, int] = {}
         for r in self.catalog.values():
@@ -263,7 +264,7 @@ class ComposeServer:
                 cats[c] = cats.get(c, 0) + 1
         return {"room_types": sorted(AREAS), "categories": dict(sorted(cats.items())),
                 "placed_by_rule": sorted(RULES), "protocols": [p for p in PROTOCOLS if p != "zwave"],
-                "out": str(self.out), "hub": self.hub(), "furnish": self.furnish_tools()}
+                "out": str(self.out), "hub": self.hub(), "furnish": self.furnish_tools(), "cities": list(CITIES)}
 
     # -- furnishing in Blender with Claude (vesper.lab.furnish) -------------------------------------------
     def furnish_tools(self) -> dict:

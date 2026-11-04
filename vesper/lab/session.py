@@ -74,6 +74,8 @@ class Session:
                 "scene": self.home.scene,
                 "seed": self.home.seed, "start_time": self.home.start_time,
                 "devices": {d.name: d.product for d in self.home.devices}}
+        if self.rules.env is not None:  # where the home's outdoor and indoor values come from (vesper.env)
+            meta["environment"] = self.rules.env.provenance()
         if automations:
             from vesper.lab.automations import Engine
             self.automations = Engine(self)
@@ -131,6 +133,14 @@ class Session:
         began = self.clock.now()
         outcome = self.rules.adjust(actor, target, feature, value)
         self._input(actor, "set", {"target": target, "feature": feature, "value": value}, outcome=outcome, t=began,
+                    **({"why": why} if why else {}))
+        return outcome
+
+    def shade(self, window: str, is_open: bool, actor: str = PLAYER, why: dict | None = None) -> dict:
+        """Open or close a window's shade, from inside its room (a home with a site)."""
+        began = self.clock.now()
+        outcome = self.rules.shade(actor, window, is_open)
+        self._input(actor, "shade", {"window": window, "open": is_open}, outcome=outcome, t=began,
                     **({"why": why} if why else {}))
         return outcome
 
@@ -293,6 +303,8 @@ def replay(records: list[dict], home) -> list[dict]:
                 s.interact(a["target"], actor=r["actor"], why=r.get("why"))
             elif r["op"] == "set":
                 s.adjust(a["target"], a["feature"], a["value"], actor=r["actor"], why=r.get("why"))
+            elif r["op"] == "shade":
+                s.shade(a["window"], a["open"], actor=r["actor"], why=r.get("why"))
             elif r["op"] == "effect":
                 from vesper.lab.linklayer import Effect
                 s.network_effect(Effect.from_dict(a))

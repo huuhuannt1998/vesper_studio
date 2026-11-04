@@ -309,11 +309,12 @@ class HomeAssistant:
         if self.automations is not None:
             (cfg / "automations.yaml").write_text(self.automations)
             automation = "automation: !include automations.yaml\n"
+        sun = "sun:\n" if self.frameable else ""  # the Lab's: the sun of the home's site (set_location)
         (cfg / "configuration.yaml").write_text(
             "homeassistant:\n  name: VESPER\n  unit_system: metric\n  time_zone: UTC\n  country: US\n"
             "  currency: USD\n"
             f"http:\n  server_host: 127.0.0.1\n  server_port: {self.port}\n"
-            f"api:\nconfig:\nonboarding:\nlogger:\n  default: warning\n{automation}")
+            f"api:\nconfig:\nonboarding:\nlogger:\n  default: warning\n{sun}{automation}")
 
     def lab_login(self) -> tuple[str, str]:
         """A login for the Lab's hub panel (Home Assistant's dashboard in the play page). Onboarding gives the
@@ -341,6 +342,22 @@ class HomeAssistant:
         with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
             json.dump({"username": "vesper", "password": password}, f)
         return "vesper", password
+
+    def set_location(self, site) -> None:
+        """Home Assistant's home location, elevation and time zone set to a site (vesper.env.site), so its
+        `sun.sun` is the home's sun (on the wall clock, on today's date)."""
+        from websockets.exceptions import WebSocketException
+        from websockets.sync.client import connect
+        try:
+            with connect(f"ws://127.0.0.1:{self.port}/api/websocket", proxy=None, open_timeout=30) as ws:
+                json.loads(ws.recv(timeout=30))  # auth_required
+                ws.send(json.dumps({"type": "auth", "access_token": self.token()}))
+                if json.loads(ws.recv(timeout=30)).get("type") != "auth_ok":
+                    raise StackError("Home Assistant refused VESPER's token on its WebSocket API")
+                _ws_call(ws, 1, "config/core/update", latitude=site.lat, longitude=site.lon,
+                         elevation=round(site.elevation_m), time_zone=site.tz)
+        except (OSError, TimeoutError, ValueError, WebSocketException) as e:
+            raise StackError(f"could not set Home Assistant's location: {type(e).__name__}: {e}") from e
 
     def write_http_store(self) -> None:
         """Home Assistant 2026.10 keeps its HTTP settings in .storage/http and reads `http:` from YAML only on a

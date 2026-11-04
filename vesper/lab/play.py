@@ -10,9 +10,9 @@ gets `hello` (the whole home) when it connects, then every change:
 - `record` {record}, every trace record (the console);
 and the answers to its own inputs: `result` (interact), `walk` (walk_to), `error`.
 
-Inputs are `move` {dx, dz}, `walk_to` {x, z} and `interact` {target?}. They run on the session's clock thread,
-like every other change to the world, so the rules never see two things at once. The session's clock must be
-running (the wall clock, as play is).
+Inputs are `move` {dx, dz}, `walk_to` {x, z}, `interact` {target?} and `shade` {window, open}. They run on the
+session's clock thread, like every other change to the world, so the rules never see two things at once. The
+session's clock must be running (the wall clock, as play is).
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ class PlayError(RuntimeError):
 
 
 def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoids=None, scenario=None,
-          kept=(), hub_login: dict | None = None) -> dict:
+          kept=(), hub_login: dict | None = None, assets=None) -> dict:
     home, world, m = session.home, session.world, session.home.map
     return {
         "type": "hello", "scene": home.scene, "player": PLAYER, "hub": hub_url, "reach_m": INTERACT_M,
@@ -78,7 +78,26 @@ def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoid
         "actors": [_pose(world.pose(a)) for a in world.actors()],
         "residents": [_resident(session, r) for r in session.residents.values()],
         "reach": reach(session), "records": list(recent), "scenario_records": list(kept),
-        "network": _network(home.network), "furniture": furniture_of(home)}
+        "network": _network(home.network), "furniture": furniture_of(home),
+        "site": None if home.site is None else home.site.as_dict(), "windows": windows_of(home),
+        "environment": environment_of(session),
+        "assets": None if assets is None else assets.for_page()}  # free models per furniture kind (vesper.lab.assets)
+
+
+def windows_of(home) -> list:
+    """The home's windows (vesper.lab.windows), for the 3D view's openings and the sun through them."""
+    from vesper.lab.windows import load_windows
+    return load_windows(Path(home.path).parent)
+
+
+def environment_of(session) -> dict | None:
+    """The home's environment now (a home with a site): the outdoors, each room's values and the shades."""
+    env = session.rules.env
+    if env is None:
+        return None
+    state = env.last or env.outdoor.at(session.home.start_time + session.clock.now())
+    return {"outdoor": state.as_dict(), "rooms": dict(session.rules.rooms_now), "shades": dict(env.shades),
+            "sources": state.sources}
 
 
 def furniture_of(home) -> list | None:
@@ -230,9 +249,10 @@ def _number(msg: dict, key: str) -> float:
 class PlayServer:
     def __init__(self, session, *, host: str = "127.0.0.1", port: int = 18080, hub_url: str | None = None,
                  ui_dir: Path = UI_DIR, world3d=None, humanoids=None, scenario: dict | None = None,
-                 on_page_ready=None, hub_login: dict | None = None):
+                 on_page_ready=None, hub_login: dict | None = None, assets=None):
         self.session, self.host, self.hub_url, self.ui_dir = session, host, hub_url, Path(ui_dir)
         self.hub_login = hub_login
+        self.assets = assets  # vesper.lab.assets.Assets: the free furniture models, or None (built-in shapes)
         self.scenario = scenario  # {title, condition, t0}: a scenario plays the player, the page only watches
         self._on_page_ready = on_page_ready  # run once, on the clock, when the first page says it is drawn
         self.world3d = world3d  # vesper.lab.world3d.World3d, or None: the page draws the home from its map
@@ -326,6 +346,12 @@ class PlayServer:
             return _response(200, "application/json", json.dumps(card).encode())
         if path.startswith("/humanoids/"):
             return self._humanoid_file(path.removeprefix("/humanoids/"))
+        if path.startswith("/assets/"):
+            f = self.assets.file(path.removeprefix("/assets/")) if self.assets is not None else None
+            if f is None:  # only the pinned models' files, whole
+                return _response(404, "text/plain; charset=utf-8", b"not one of the pinned models' files")
+            return _response(200, CONTENT_TYPES.get(f.suffix.lower(), "application/octet-stream"), f.read_bytes(),
+                             cache=SCENE_CACHE)
         root = self.ui_dir.resolve()
         f = (root / ("index.html" if path in ("", "/") else path.lstrip("/"))).resolve()
         if not f.is_relative_to(root) or not f.is_file():
@@ -363,7 +389,7 @@ class PlayServer:
             try:
                 snapshot = await self._on_clock(
                     lambda: hello(self.session, self.hub_url, self._recent, self.world3d, self.humanoids,
-                                  self.scenario, self._kept, self.hub_login))
+                                  self.scenario, self._kept, self.hub_login, self.assets))
             except Exception as e:  # noqa: BLE001 - kept for the look, then the page is closed
                 self._fail(f"hello: {type(e).__name__}: {e}")
                 return
@@ -415,7 +441,7 @@ class PlayServer:
                     self._fail(f"start: {type(e).__name__}: {e}")
                     return {"type": "error", "message": f"the scenario could not start: {type(e).__name__}: {e}"}
             return None
-        if self.scenario is not None and kind in ("move", "walk_to", "interact"):
+        if self.scenario is not None and kind in ("move", "walk_to", "interact", "shade"):
             return {"type": "error", "message": f"{kind}: the scenario plays the player; this page watches it"}
         try:
             if kind == "move":
@@ -433,6 +459,11 @@ class PlayServer:
                 if target is not None and not isinstance(target, str):
                     raise ValueError(f"interact: target must be a device or door name, not {target!r}")
                 return {"type": "result", **await self._on_clock(lambda: s.interact(target))}
+            if kind == "shade":
+                window, is_open = msg.get("window"), msg.get("open")
+                if not isinstance(window, str) or not isinstance(is_open, bool):
+                    raise ValueError("shade: give the window's id and open (true or false)")
+                return {"type": "result", **await self._on_clock(lambda: s.shade(window, is_open))}
         except (ValueError, WorldError) as e:
             return {"type": "error", "message": str(e)}
         except TimeoutError:
@@ -441,7 +472,8 @@ class PlayServer:
         except Exception as e:  # noqa: BLE001 - a bug in the rules or the twins: the page is told, a look sees it
             self._fail(f"{kind}: {type(e).__name__}: {e}")
             return {"type": "error", "message": f"the session failed: {type(e).__name__}: {e}"}
-        return {"type": "error", "message": f"unknown input {kind!r}; the inputs are move, walk_to and interact"}
+        return {"type": "error", "message": f"unknown input {kind!r}; the inputs are move, walk_to, interact and "
+                                            "shade"}
 
     def _on_map(self, x: float, z: float) -> bool:
         g = self.session.home.map.grid

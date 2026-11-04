@@ -136,6 +136,18 @@ def _setup(args) -> int:
         return _setup_claude_desktop(args)
     if args.action in ("habitat", "scenes", "all"):
         return _setup_more(args)
+    if args.action == "assets":
+        from vesper.lab.assets import AssetError, setup_assets
+        try:
+            lock = setup_assets(Path(args.root))
+        except AssetError as e:
+            print(f"FAILED setup: {e}", file=sys.stderr)
+            return 1
+        kinds = lock["kinds"]
+        print(f"{len(kinds)} furniture kind(s) with a model ({lock['credit']}): "
+              + ", ".join(f"{k} = {v['name']}" for k, v in sorted(kinds.items())))
+        print(f"pinned in {Path(args.root) / 'assets' / 'assets.lock.json'}; the others keep their built-in shapes")
+        return 0
     from vesper.validation import stack
     try:
         if args.action == "matter":
@@ -611,6 +623,10 @@ def _lab(args) -> int:
             return 0
         if args.action == "network":
             return _lab_network(load_lab_home(Path(args.home), catalog))
+        if args.action == "env":
+            return _lab_env(load_lab_home(Path(args.home), catalog), args)
+        if args.action == "layout":
+            return _lab_layout(load_lab_home(Path(args.home), catalog), args)
         if args.action == "run":
             return _lab_run(args, load_lab_home(Path(args.home), catalog))
         if args.action in ("play", "look"):
@@ -732,6 +748,7 @@ def _lab_generate(args, catalog) -> int:
     """`vesper lab generate` (home-generator spec §1, §6): a home, or a batch of homes, from a number of rooms or a
     request file."""
     import csv
+    import dataclasses
     import random
 
     from vesper.lab.generate import GenerateError, Request, generate_home, load_request, program, starter, summary_row
@@ -762,7 +779,7 @@ def _lab_generate(args, catalog) -> int:
         for k in range(args.count):
             types = base.program if args.request or lo == hi else program(
                 random.Random(f"vesper-batch:{args.seed}:{k}").randint(lo, hi))
-            request, _ = _with_starter(Request(base.path, types, args.seed + k, base.devices), catalog, starter)
+            request, _ = _with_starter(dataclasses.replace(base, program=types, seed=args.seed + k), catalog, starter)
             name = f"home-{k:03d}"
             generate_home(request, catalog, out / name)
             rows.append(summary_row(name, load_lab_home(out / name / "home.yaml", catalog)))
@@ -795,8 +812,9 @@ def _with_starter(request, catalog, starter):
     """A request with no devices gets the starter set; what it left out."""
     if request.devices:
         return request, []
+    import dataclasses
     devices, left = starter(request.program, catalog)
-    return type(request)(request.path, request.program, request.seed, devices), left
+    return dataclasses.replace(request, devices=devices), left  # its scene, furnishing and site kept
 
 
 def _lab_scenario(args, catalog) -> int:
@@ -857,6 +875,56 @@ def _warn_range(home) -> None:
         print(f"network: {', '.join(off)} {'is' if len(off) == 1 else 'are'} out of the router's Wi-Fi range: "
               f"{'it joins' if len(off) == 1 else 'they join'} once in range; until then never heard, never "
               "commanded (`network: router:` in the home file; `vesper lab network` shows each link)")
+
+
+def _lab_env(home, args) -> int:
+    """A home's site and outdoors (environment design 2026-11-03): the sun, and hour by hour the outdoor light,
+    temperature and humidity of its first day, each with its source; `--fetch` first downloads its weather."""
+    from vesper.env.outdoor import Outdoor
+    from vesper.env.weather import WeatherError, fetch, utc_days
+    site = home.site
+    if site is None:
+        print(f"{home.path}: no site: the home has no place or date, so its rooms follow the assumed indoor curve "
+              "(add site: {city: ..., date: YYYY-MM-DD} to home.yaml)")
+        return 1
+    cache = home.path.parent / "weather"  # the home carries its weather
+    if args.fetch:
+        days = utc_days(site.utc(0), site.utc(args.days * 86400))
+        try:
+            paths = fetch(site.lat, site.lon, days[0], days[-1], cache)
+        except WeatherError as e:
+            print(f"weather: {e}")
+            return 1
+        print(f"weather: {len(paths)} day(s) cached in {cache}")
+    out = Outdoor.for_run(site, cache, days=args.days)
+    where = site.name or f"{site.lat:.4f}, {site.lon:.4f}"
+    print(f"{home.path}: {where} ({site.tz}), first day {site.date}, the plan's top faces {site.north_deg:g} deg")
+    print("weather: " + (out.weather.source if out.weather else "none cached: clear sky and an assumed temperature "
+                         "curve (vesper lab env --fetch downloads the recorded weather)"))
+    print(f"{'time':>5}  {'sun el/az':>12}  {'lux':>7}  {'deg C':>6}  {'RH %':>5}  cloud %")
+    for hour in range(0, 24, args.step):
+        st = out.at(hour * 3600)
+        cloud = "-" if st.cloud_cover_pct is None else f"{st.cloud_cover_pct:.0f}"
+        print(f"{hour:02d}:00  {st.sun.elevation:5.1f}/{st.sun.azimuth:5.1f}  {st.illuminance_lux:7.0f}  "
+              f"{st.temperature_c:6.1f}  {st.humidity_pct:5.0f}  {cloud}")
+    for k, v in out.at(12 * 3600).sources.items():
+        print(f"  {k}: {v}")
+    return 0
+
+
+def _lab_layout(home, args) -> int:
+    """Is the home laid out as homes are (vesper.lab.layoutcheck)? Every rule's findings; 1 if any error."""
+    from vesper.lab.layoutcheck import check
+    report = check(home)
+    if args.json:
+        Path(args.json).write_text(json.dumps(report, indent=1) + "\n")
+    print(f"{home.path}: {report['pieces']} piece(s) from {report['source']}; rules: {', '.join(report['checked'])}")
+    for f in report["findings"]:
+        if not f["ok"] or args.all:
+            mark = "ok   " if f["ok"] else ("ERROR" if f["severity"] == "error" else "warn ")
+            print(f"  {mark} {f['rule']}: {f['message']}")
+    print(f"{report['errors']} error(s), {report['warnings']} warning(s)")
+    return 1 if report["errors"] else 0
 
 
 def _lab_network(home) -> int:
@@ -1053,8 +1121,10 @@ def _lab_play(args, home, scenario=None) -> int:
         world3d, drawn = _world3d(home, args.hssd)
         humanoids, people = _humanoids(home, args.humanoids)
         login = dict(zip(("user", "password"), lab.login, strict=True)) if lab else None
+        from vesper.lab.assets import Assets
         server = PlayServer(session, port=args.port, hub_url=lab.ha.url if lab else None, world3d=world3d,
-                            humanoids=humanoids, scenario=banner, on_page_ready=begin, hub_login=login)
+                            humanoids=humanoids, scenario=banner, on_page_ready=begin, hub_login=login,
+                            assets=Assets(Path(args.root)))
         stack.callback(server.stop)
         try:
             server.start()
@@ -1302,8 +1372,9 @@ def _lab_look(args, home, scenario=None) -> int:
         _print_matter(matter, home, lab)
         if banner:
             print(f'scenario "{banner["title"]}", {banner["condition"]}: its timeline begins when the page is ready')
+        from vesper.lab.assets import Assets
         server = PlayServer(session, port=0, hub_url=lab.ha.url if lab else None, world3d=world3d,
-                            humanoids=humanoids, scenario=banner)
+                            humanoids=humanoids, scenario=banner, assets=Assets(Path(args.root)))
         stack.callback(server.stop)
         server.start()
         try:
@@ -1487,6 +1558,9 @@ def main(argv: list[str] | None = None) -> int:
     setup_ha_cmd.add_argument("--root", default=".vesper")
     setup_matter_cmd = setup_actions.add_parser("matter", help="the Matter host and Matter Server (needs Node.js)")
     setup_matter_cmd.add_argument("--root", default=".vesper")
+    setup_assets_cmd = setup_actions.add_parser("assets", help="free furniture models (Poly Haven, CC0), one per "
+                                                               "kind, pinned by SHA-256 (network)")
+    setup_assets_cmd.add_argument("--root", default=".vesper")
 
     setup_hab = setup_actions.add_parser("habitat", help="the Habitat environment (conda or micromamba; "
                                                          "habitat-sim 0.3.3, Python 3.9) for HSSD homes")
@@ -1628,6 +1702,21 @@ def main(argv: list[str] | None = None) -> int:
     lab_network = lab_actions.add_parser("network", help="the home's network: the router and each link's quality")
     lab_network.add_argument("home")
     lab_network.add_argument("--catalog", default="catalog/vds")
+    lab_env = lab_actions.add_parser("env", help="the home's site and outdoors: sun, light, temperature, weather")
+    lab_env.add_argument("home")
+    lab_env.add_argument("--fetch", action="store_true", help="first download the recorded weather of its days "
+                                                              "(Open-Meteo archive, network)")
+    from vesper.env.outdoor import RUN_DAYS
+    lab_env.add_argument("--days", type=float, default=RUN_DAYS,
+                         help=f"how many days from the first (default {RUN_DAYS}, as a session reads)")
+    lab_env.add_argument("--step", type=int, default=2, help="hours between rows (default 2)")
+    lab_env.add_argument("--catalog", default="catalog/vds")
+    lab_layout = lab_actions.add_parser("layout", help="check the home's layout: doorways and windows clear, beds "
+                                                       "against walls, walkways, reach, the kitchen triangle")
+    lab_layout.add_argument("home")
+    lab_layout.add_argument("--all", action="store_true", help="also list what holds")
+    lab_layout.add_argument("--json", help="also write the findings as JSON here")
+    lab_layout.add_argument("--catalog", default="catalog/vds")
     lab_check = lab_actions.add_parser("check", help="validate a home file")
     lab_check.add_argument("home")
     lab_check.add_argument("--catalog", default="catalog/vds")

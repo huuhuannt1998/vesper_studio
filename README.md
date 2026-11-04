@@ -41,6 +41,8 @@ its pages in your browser, or as a desktop app for macOS and Windows.
   - [Choosing products](#choosing-products)
   - [Generated homes](#generated-homes)
   - [Furniture](#furniture)
+  - [A home in a real place: sun, weather, windows](#a-home-in-a-real-place-sun-weather-windows)
+  - [Checking a layout](#checking-a-layout)
   - [A custom look in Blender (optional)](#a-custom-look-in-blender-optional)
   - [A home from a real 3D scene (HSSD)](#a-home-from-a-real-3d-scene-hssd)
   - [Residents and their routines](#residents-and-their-routines)
@@ -674,7 +676,66 @@ washer and a dryer...), at a typical size, against its walls. No piece stands wi
 or floor device or a light switch, and a piece is kept only if every doorway and device of its room can still be
 reached on foot. The floor under each piece is taken off the walking map (the plan without furniture stays as
 `map.original.json`), so people walk round it, and `furniture.json` beside the home lists every piece; the 3D view
-draws each as a model. `furnish: false` in a request leaves the rooms bare.
+draws each as a model. `furnish: false` in a request leaves the rooms bare. No piece taller than a window's sill stands
+in front of it (a sofa, a bed or a desk may sit under one).
+
+With free models installed, the 3D view draws each piece with a realistic model instead of its built-in shape:
+
+    vesper setup assets
+
+downloads one model per furniture kind from [Poly Haven](https://polyhaven.com) (every model there is CC0: free to
+use, share and change), and pins every file's SHA-256 in `.vesper/assets/assets.lock.json`. A kind with no model keeps
+its built-in shape. VESPER ships no branded models: a smart fridge is drawn as a fridge, labelled with its catalog
+product.
+
+### A home in a real place: sun, weather, windows
+
+Give a home a place and a day, and its sensors read that place and day instead of a fixed curve. In the lobby choose
+a **City**, the **First day** and which way the floor plan faces; in a request or `home.yaml`:
+
+    site: {city: "Charlotte, NC, USA", date: "2026-01-15", north_deg: 0}
+
+(or `lat`, `lon`, `elevation_m` and `tz` for any place). Then
+
+- the **sun** is computed for the site and the clock by astral, the library Home Assistant's own `sun.sun` uses;
+- the **weather** is the recorded hourly weather of that place and date from the Open-Meteo archive (ERA5
+  reanalysis, data CC BY 4.0). Download it once, beside the home:
+
+      vesper lab env homes/eight/home.yaml --fetch
+
+  Runs only read it, so a logical run stays exact and needs no network; without it, a clear sky and an assumed
+  temperature curve stand in, and the trace says so;
+- each generated room gets **windows** on its outside wall (a living room two, a bedroom one, a kitchen one over the
+  counter, a bathroom a small high one), and its **daylight** comes through them: the sky's share by the BRE average
+  daylight factor, plus direct sun through a window the sun faces. Lamps add to it, and shades cut it;
+- each room's **temperature** follows the weather, the sun through its windows, the people in it and its heating: a
+  heating thermostat warms its room while it is below its setpoint (one in a hallway heats the whole home);
+- **residents** switch a light on when a room is too dark by that daylight, open a room's shades on a daytime task and
+  close the bedroom's at bedtime; you click a window to roll its shade;
+- the play page draws the **sky and a sun that casts shadows** through the windows; a home built in Blender gets the
+  same windows and a Sun lamp;
+- with Home Assistant in the loop, VESPER sets Home Assistant's location to the site and publishes a **VESPER
+  environment** device (outdoor temperature, humidity and illuminance, cloud cover, the sun's elevation, "Sun up"),
+  so automations such as "lights on when it gets dark" agree with the sensors. VESPER's own automation engine runs
+  `sun` triggers and conditions and `sun.sun` from the same sun. Home Assistant's own `sun.sun` follows its wall
+  clock, today's date, so for a home dated in the past (or a run faster than real time) trigger Home Assistant's
+  automations on the environment device's "Sun up" sensor, which follows the session. Thermostats reach Home
+  Assistant without a climate entity yet: VESPER heats the rooms from their setpoints, but Home Assistant cannot
+  set them.
+
+`vesper lab env HOME` prints the home's sun, light and temperature hour by hour, each with its source. Every constant
+of the indoor model (glazing transmittance, wall and window U-values, thermal mass) is an assumed engineering value,
+named in the trace's header with the weather's source.
+
+### Checking a layout
+
+    vesper lab layout homes/eight/home.yaml --all
+
+checks a home against the rules homes are built and furnished by, whoever furnished it (the built-in furniture, or a
+model built in Blender, read from `scene.glb`): nothing solid within 0.9 m of a doorway, nothing taller than a sill
+in front of a window, a bed against a wall, a 0.9 m path between a room's doorways, every device within reach, and the
+kitchen's work triangle (NKBA guidelines). A run of **Build it in Blender with Claude** ends with this check and flags
+what breaks a rule; the model is kept.
 
 ### A custom look in Blender (optional)
 
