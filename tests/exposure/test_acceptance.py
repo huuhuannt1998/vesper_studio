@@ -203,3 +203,11 @@ def test_a_multi_endpoint_light_left_out_is_a_core_function_not_exposed():
     assert core_exposed([["color", "part of the light entity"]])
     assert not core_exposed([["x", "climate entities are not exposed yet"]])
     assert not core_exposed([["l2", "multi-endpoint lights are not exposed yet"]])
+
+
+def test_home_assistant_sets_a_thermostat_s_setpoint_through_its_climate_entity(vds):
+    results, _, _ = run([vds["THERM-2"]])
+    (r,) = results
+    climate = next(e for e in r["entities"] if e["platform"] == "climate")
+    assert climate["state_ok"] and climate["probe"]["kind"] == "climate.set_temperature" and climate["probe"]["ok"]
+    assert r["passed"] and r["core_exposed"], r

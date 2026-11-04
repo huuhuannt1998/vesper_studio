@@ -77,3 +77,17 @@ def test_the_trace_names_the_environment_s_sources_and_a_replay_closes_the_shade
     s.stop()
     again = replay(s.records, home)
     assert any(r.get("kind") == "rule" and r.get("rule") == "shade" for r in again)
+
+
+def test_a_thermostat_reports_heat_while_it_heats_and_idle_when_it_stops(tmp_path):
+    """Home Assistant showed a heating thermostat as idle (live 2026-11-04): its running_state now follows."""
+    text = SITED.replace("zigbee:acme:therm-1", "zigbee:acme:therm-2").replace("current_heating_setpoint: 25",
+                                                                               "current_heating_setpoint: 30")
+    t = sited(tmp_path, text)
+    t.clock.advance(120)
+    assert t.rules._heating["bedroom_thermostat"] is True
+    assert t.state("bedroom_thermostat")["running_state"] == "heat"
+    t.runtime.platform_set(t.rules.twin_ids["bedroom_thermostat"], "current_heating_setpoint", 5)  # it stops next tick
+    t.clock.advance(120)
+    assert t.rules._heating["bedroom_thermostat"] is False
+    assert t.state("bedroom_thermostat")["running_state"] == "idle"

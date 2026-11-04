@@ -115,7 +115,7 @@ Pass: `passed == products` and `len(categories_passing) >= 8` (exit code 0 means
 - was exercised by at least one command or stimulus;
 - had its core function exposed.
 
-Thermostat (climate), cover and fan are not exposed yet, so they never count. `categories_displayed` is the weaker count, in which every product merely passed its display checks. The paper reports both, the per-category numbers, and every skipped entity type.
+Cover and fan are not exposed yet, so they never count; a thermostat is one climate entity since 2026-11-04 (its setpoint probed with `climate.set_temperature`), except a multi-endpoint one or one with no setpoint. `categories_displayed` is the weaker count, in which every product merely passed its display checks. The paper reports both, the per-category numbers, and every skipped entity type.
 
 ## Experiment 3: reporting rules (L3, offline, no services)
 

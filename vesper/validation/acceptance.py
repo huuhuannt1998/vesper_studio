@@ -69,6 +69,15 @@ def _probe(e: ExpectedEntity, twin) -> dict | None:
         return {"call": ("light", "turn_on", data), "twin": ("state", f["value_on"]), "also": extra, "ha": "on"}
     if e.platform == "lock":
         return {"call": ("lock", "lock", {}), "twin": ("state", f["value_on"]), "ha": "locked"}
+    if e.platform == "climate":  # the setpoint, as Home Assistant's thermostat card sets it
+        lo, hi = f.get("range", (7, 35))  # Home Assistant's default limits
+        step = f.get("step") or 0.5
+        mid = lo + round((hi - lo) / 2 / step) * step
+        value = next((v for v in (mid, hi, lo) if v != current), None)
+        if value is None:
+            return None
+        return {"call": ("climate", "set_temperature", {"temperature": value}), "twin": (e.feature, value),
+                "ha": {"attribute": "temperature", "value": float(value)}}
     if e.platform == "number" and "range" in f:
         lo, hi = f["range"]
         mid = lo + (hi - lo) // 2 if isinstance(lo, int) and isinstance(hi, int) else (lo + hi) / 2
@@ -99,6 +108,11 @@ def _probe(e: ExpectedEntity, twin) -> dict | None:
 def _matches(state: dict | None, expected) -> bool:
     if state is None:
         return False
+    if isinstance(expected, dict):  # an attribute's value (a thermostat's setpoint)
+        try:
+            return abs(float(state.get("attributes", {})[expected["attribute"]]) - expected["value"]) < 1e-6
+        except (KeyError, TypeError, ValueError):
+            return False
     if isinstance(expected, float):
         try:
             return abs(float(state["state"]) - expected) < 1e-6
@@ -127,6 +141,8 @@ def _displayed(e: ExpectedEntity, twin, reported: dict, state: dict | None) -> b
         return shown == ("on" if value == f["value_on"] else "off")
     if e.platform == "lock":
         return shown == ("locked" if value == f["value_on"] else "unlocked")
+    if e.platform == "climate":  # its state is the mode; the setpoint is its temperature attribute
+        return value is not None and _matches(state, {"attribute": "temperature", "value": float(value)})
     if f["type"] == "numeric" and not isinstance(value, bool):
         try:
             return abs(float(shown) - float(value)) < 1e-6
@@ -171,10 +187,13 @@ def check_product(ha, runtime: Runtime, bridge: Bridge, placement: Placement, *,
 
 
 def core_exposed(skipped) -> bool:
-    """Whether the bridge exposed a product's core function: not when it left out a composite entity (climate,
-    cover, fan) or the lights of a multi-endpoint product."""
-    return not any(reason.endswith("entities are not exposed yet")
-                   or reason == "multi-endpoint lights are not exposed yet" for _, reason in skipped)
+    """Whether the bridge exposed a product's core function: not when it left out a composite entity (cover, fan, a
+    thermostat with no setpoint) or the lights or thermostats of a multi-endpoint product."""
+    return not any(reason.endswith("entities are not exposed yet") or reason in NOT_EXPOSED for _, reason in skipped)
+
+
+NOT_EXPOSED = {"multi-endpoint lights are not exposed yet", "multi-endpoint thermostats are not exposed yet",
+               "a thermostat without a setpoint: no climate entity"}
 
 
 def run_probe(ha, runtime, twin_id: str, entity_id: str, probe: dict, timeout: float, poll: float,
@@ -206,7 +225,8 @@ def run_probe(ha, runtime, twin_id: str, entity_id: str, probe: dict, timeout: f
 
 def summarize(products: list[dict]) -> dict:
     """Per-category results. A category passes only when every product passed, was exercised by at least
-    one command or stimulus, and had its core function exposed (climate, cover and fan are not yet);
+    one command or stimulus, and had its core function exposed (cover and fan are not yet, nor a multi-endpoint
+    thermostat or light);
     `categories_displayed` is the weaker count where every product merely passed its checks."""
     by_category: dict[str, dict] = {}
     for p in products:

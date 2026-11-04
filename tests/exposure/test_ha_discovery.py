@@ -64,7 +64,7 @@ def test_button_actions_are_events_on_their_own_topic(vds):
 
 def test_unexposed_features_are_listed_with_a_reason(vds):
     _, payload, expected, skipped = discover(vds["TRV-1"])
-    assert ("local_temperature", "climate entities are not exposed yet") in skipped
+    assert ("local_temperature", "a thermostat without a setpoint: no climate entity") in skipped
     assert ("schedule", "feature type not modeled") in skipped
     assert payload["cmps"] == {} and expected == []
 
@@ -97,3 +97,28 @@ def test_a_device_is_available_only_while_both_it_and_the_bridge_are_as_zigbee2m
                                                              "zigbee2mqtt/bridge/state"]
     assert payload["availability_mode"] == "all"
     assert {render(a["value_template"], {"state": "offline"}) for a in payload["availability"]} == {"offline"}
+
+
+def test_a_thermostat_is_one_climate_entity_with_its_setpoint_mode_and_action(vds):
+    cmps = components(vds["THERM-2"])
+    c = cmps[object_id(IEEE, "climate")]
+    assert c["p"] == "climate" and c["name"] is None and c["temperature_unit"] == "C"
+    assert (c["min_temp"], c["max_temp"], c["temp_step"]) == (5, 30, 0.5) and c["modes"] == ["off", "auto", "heat"]
+    state = {"local_temperature": 19.5, "current_heating_setpoint": 21, "system_mode": "heat", "running_state": "heat"}
+    assert render(c["current_temperature_template"], state) == "19.5"
+    assert render(c["temperature_state_template"], state) == "21"
+    assert render(c["mode_state_template"], state) == "heat" and render(c["action_template"], state) == "heating"
+    assert json.loads(render(c["temperature_command_template"], 22.5)) == {"current_heating_setpoint": 22.5}
+    assert json.loads(render(c["mode_command_template"], "off")) == {"system_mode": "off"}
+    for topic in ("current_temperature_topic", "temperature_state_topic", "mode_state_topic", "action_topic"):
+        assert c[topic] == "zigbee2mqtt/dev"
+    assert c["temperature_command_topic"] == c["mode_command_topic"] == "zigbee2mqtt/dev/set"
+    assert not any(x["p"] in ("sensor", "select", "number") and "setpoint" in x["unique_id"] for x in cmps.values())
+
+
+def test_a_thermostat_s_modes_are_only_those_home_assistant_knows(vds):
+    import copy
+    rec = copy.deepcopy(vds["THERM-2"])
+    mode = next(f for f in rec["features"] if f["name"] == "system_mode")
+    mode["values"] = ["off", "heat", "emergency_heating", "sleep"]
+    assert components(rec)[object_id(IEEE, "climate")]["modes"] == ["off", "heat"]

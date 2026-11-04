@@ -28,7 +28,11 @@ SPEC_START = {"Color Control.ColorTemperatureMireds": 250, "Color Control.Couple
 # Zigbee starting values that 0 gets wrong: a battery device starts full (3 V on its cell) and at room temperature,
 # not empty, so Home Assistant does not list every battery twin as low. Assumed, like every default.
 NAMED_START = {("battery", "%"): 100, ("battery", None): 100, ("voltage", "mV"): 3000,
-               ("device_temperature", "\u00b0C"): 20, ("device_temperature", None): 20}
+               ("device_temperature", "\u00b0C"): 20, ("device_temperature", None): 20,
+               # a thermostat as a home keeps one (found live 2026-11-04: off at 5 degrees, nothing was heated)
+               ("current_heating_setpoint", "\u00b0C"): 20, ("occupied_heating_setpoint", "\u00b0C"): 20,
+               ("occupied_cooling_setpoint", "\u00b0C"): 24, ("local_temperature", "\u00b0C"): 20}
+ENUM_START = {"system_mode": ("heat", "auto")}  # the first of these a thermostat offers; never "off"
 
 
 def _initial(f: dict):
@@ -44,7 +48,8 @@ def _initial(f: dict):
         lo, hi = f.get("range", [None, None])
         return 0 if lo is None or lo <= 0 <= hi else lo
     if kind == "enum":
-        return (f.get("values") or [None])[0]
+        values = f.get("values") or [None]
+        return next((v for v in ENUM_START.get(f["name"], ()) if v in values), values[0])
     if kind == "bitmap":
         return 0
     return "" if kind == "text" else None

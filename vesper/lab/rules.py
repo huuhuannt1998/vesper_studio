@@ -375,6 +375,17 @@ class Rules:
                 self.runtime.stimulate(self.twin_ids[name], {"type": "ambient", **values})
         self.runtime.clock.call_at(self.now() + AMBIENT_EVERY_S, self._ambient_tick)
 
+    def _report_running(self, name: str, on: bool) -> None:
+        """A thermostat reports what it is doing (its running_state: heat while it calls for heat, else idle), as a
+        real one does; Home Assistant shows it as the climate entity's action."""
+        f = self.twin(name).features.get("running_state")
+        if not f or not {"heat", "idle"} <= set(f.get("values") or ()):
+            return
+        value = "heat" if on else "idle"
+        if self.twin(name).state.get("running_state") != value:
+            self.runtime.stimulate(self.twin_ids[name], {"type": "measured", "feature": "running_state",
+                                                         "value": value})
+
     def _heating_now(self) -> dict[str, float]:
         """Each room's heating (1 on, 0 off) from the thermostats' states and the rooms' temperatures."""
         rooms = self.env.rooms
@@ -389,6 +400,7 @@ class Rules:
             was = self._heating.get(name, False)
             on = heats and (temp < sp - HEAT_BAND_C or (was and temp < sp + HEAT_BAND_C))
             self._heating[name] = on
+            self._report_running(name, on)
             label = self.home.map.room(dev.room).label.lower()
             if any(w in label for w in CENTRAL_ROOMS):
                 central.append((name, on))

@@ -13,6 +13,12 @@ OCCUPANCY = {"name": "occupancy", "access": 1, "type": "binary", "property": "oc
 ACTION = {"name": "action", "access": 1, "type": "enum", "property": "action", "category": "diagnostic",
           "values": ["single", "double", "hold"]}
 BRIGHTNESS_ONLY = {"type": "light", "features": [LIGHT["features"][0], LIGHT["features"][1]]}
+CLIMATE = {"type": "climate", "features": [  # a radiator thermostat as zigbee-herdsman-converters exposes one
+    {"name": "local_temperature", "access": 5, "type": "numeric", "property": "local_temperature", "unit": "°C"},
+    {"name": "current_heating_setpoint", "access": 7, "type": "numeric", "property": "current_heating_setpoint",
+     "unit": "°C", "value_min": 5, "value_max": 30, "value_step": 0.5},
+    {"name": "system_mode", "access": 7, "type": "enum", "property": "system_mode", "values": ["off", "auto", "heat"]},
+    {"name": "running_state", "access": 5, "type": "enum", "property": "running_state", "values": ["idle", "heat"]}]}
 
 
 def records():
@@ -22,6 +28,7 @@ def records():
         zdef("BTN-1", "Acme", [ACTION, BATTERY]),
         zdef("DIM-1", "Acme", [BRIGHTNESS_ONLY]),
         zdef("PLUG-1", "Acme", [SWITCH, POWER]),
+        zdef("THERM-2", "Acme", [CLIMATE, BATTERY]),
     ]}
     return {r["identity"]["model"]: r for r in zigbee_records(doc)}
 

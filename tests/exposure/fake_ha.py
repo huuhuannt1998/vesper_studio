@@ -50,6 +50,13 @@ class FakeHA:
             return {"state": "unknown", "attributes": attrs}
         if p == "light":
             return {"state": "on" if payload.get("state") == "ON" else "off", "attributes": attrs}
+        if p == "climate":  # the mode is the state; the setpoint and the room's temperature are attributes
+            mode = _render(cfg["mode_state_template"], value_json=payload) if "mode_state_template" in cfg else \
+                cfg["modes"][0]
+            attrs["temperature"] = float(_render(cfg["temperature_state_template"], value_json=payload))
+            if "current_temperature_template" in cfg:
+                attrs["current_temperature"] = float(_render(cfg["current_temperature_template"], value_json=payload))
+            return {"state": mode, "attributes": attrs}
         rendered = _render(cfg["value_template"], value_json=payload)
         if p in ("binary_sensor", "switch"):
             on, off = cfg.get("state_on") or cfg.get("payload_on", "ON"), cfg.get("state_off") or cfg.get(
@@ -61,8 +68,11 @@ class FakeHA:
 
     def call(self, domain, service, data):
         cfg, _ = self._entities()[data["entity_id"]]
-        topic = cfg["command_topic"]
-        if (domain, service) == ("switch", "turn_on"):
+        topic = cfg.get("command_topic")
+        if (domain, service) == ("climate", "set_temperature"):
+            topic, payload = cfg["temperature_command_topic"], _render(cfg["temperature_command_template"],
+                                                                         value=data["temperature"])
+        elif (domain, service) == ("switch", "turn_on"):
             payload = cfg["payload_on"]
         elif (domain, service) == ("light", "turn_on"):
             message = {"state": "ON"}

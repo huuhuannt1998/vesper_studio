@@ -12,7 +12,7 @@ def test_every_word_must_match_and_the_best_modelled_come_first():
     assert {"zigbee:acme:dim-1", "zigbee:acme:pir-1", "zigbee:acme:therm-1"} <= set(found)
     assert [r["id"] for r in search(records, "acme dim")] == ["zigbee:acme:dim-1"]
     assert [r["id"] for r in search(records, "acme", category="thermostat")] == [
-        "zigbee:acme:therm-1", "zigbee:acme:trv-1"]  # TRV-1 has an unmodelled primary feature: L0 only
+        "zigbee:acme:therm-1", "zigbee:acme:therm-2", "zigbee:acme:trv-1"]  # TRV-1: an unmodelled primary feature, L0
     assert search(records, "no such thing") == []
     levels = [fidelity_level(r) for r in search(records, "")]
     assert levels == sorted(levels, reverse=True)

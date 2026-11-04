@@ -144,6 +144,55 @@ def _lock(fs: list[dict], ieee: str, set_topic: str):
     return oid, cfg, ExpectedEntity(f"lock.{oid}", "lock", None, None, "state", True)
 
 
+HA_HVAC_MODES = ("off", "auto", "heat", "cool", "heat_cool", "dry", "fan_only")  # climate's modes (mqtt/climate.py)
+HA_HVAC_ACTIONS = {"idle": "idle", "heat": "heating", "cool": "cooling", "fan_only": "fan", "off": "off",
+                   "dry": "drying", "preheating": "preheating", "defrosting": "defrosting"}
+SETPOINTS = ("current_heating_setpoint", "occupied_heating_setpoint", "occupied_cooling_setpoint")
+
+
+def _climate(fs: list[dict], ieee: str, state_topic: str, set_topic: str):
+    """A thermostat's one climate entity (Home Assistant's MQTT climate: its current temperature, its setpoint,
+    its mode and what it is doing), or a reason; with the names of the features it carries."""
+    if any("endpoint" in f for f in fs):
+        return "multi-endpoint thermostats are not exposed yet"
+    names = {f["name"]: f for f in fs}
+    setpoint = next((names[n] for n in SETPOINTS if n in names and "set" in names[n]["access"]), None)
+    if setpoint is None:
+        return "a thermostat without a setpoint: no climate entity"
+    oid = object_id(ieee, "climate")
+    cfg = {"p": "climate", "unique_id": oid, "default_entity_id": f"climate.{oid}", "name": None,
+           "temperature_command_topic": set_topic,
+           "temperature_command_template": _command_template(setpoint["name"], False),
+           "temperature_state_topic": state_topic,
+           "temperature_state_template": f"{{{{ {_accessor(setpoint['name'])} }}}}",
+           "temperature_unit": "F" if setpoint.get("unit") == "°F" else "C", "precision": 0.1}
+    used = [setpoint["name"]]
+    if "range" in setpoint:
+        cfg["min_temp"], cfg["max_temp"] = setpoint["range"]
+    if setpoint.get("step"):
+        cfg["temp_step"] = setpoint["step"]
+    if "local_temperature" in names:
+        cfg |= {"current_temperature_topic": state_topic,
+                "current_temperature_template": f"{{{{ {_accessor('local_temperature')} }}}}"}
+        used.append("local_temperature")
+    mode = names.get("system_mode")
+    modes = [m for m in (mode or {}).get("values", []) if m in HA_HVAC_MODES]
+    if modes:
+        cfg |= {"modes": modes, "mode_state_topic": state_topic,
+                "mode_state_template": f"{{{{ {_accessor('system_mode')} }}}}"}
+        if "set" in mode["access"]:
+            cfg |= {"mode_command_topic": set_topic, "mode_command_template": _command_template("system_mode", True)}
+        used.append("system_mode")
+    else:
+        cfg["modes"] = ["cool"] if "cooling" in setpoint["name"] else ["heat"]
+    if "running_state" in names:
+        table = json.dumps({v: HA_HVAC_ACTIONS.get(v, "idle") for v in names["running_state"].get("values", [])})
+        cfg |= {"action_topic": state_topic,
+                "action_template": f"{{% set m = {table} %}}{{{{ m.get({_accessor('running_state')}, 'idle') }}}}"}
+        used.append("running_state")
+    return oid, cfg, ExpectedEntity(f"climate.{oid}", "climate", None, None, setpoint["name"], True), used
+
+
 def device_discovery(vds: dict, *, ieee: str, friendly_name: str, base_topic: str = "zigbee2mqtt"):
     """(topic, payload, expected entities, skipped [(feature, reason)]) for one twin."""
     state_topic = f"{base_topic}/{friendly_name}"
@@ -155,9 +204,9 @@ def device_discovery(vds: dict, *, ieee: str, friendly_name: str, base_topic: st
         if f["type"] == "unsupported" or not f["ha"]:
             skipped.append((f["name"], "feature type not modeled" if f["type"] == "unsupported"
                             else "no Home Assistant mapping"))
-        elif f.get("path") in ("light", "lock"):
+        elif f.get("path") in ("light", "lock", "climate"):
             grouped.setdefault(f["path"], []).append(f)
-        elif f.get("path") in ("climate", "cover", "fan"):
+        elif f.get("path") in ("cover", "fan"):
             skipped.append((f["name"], f"{f['path']} entities are not exposed yet"))
         else:
             built = _component(f, ieee, state_topic, set_topic)
@@ -166,6 +215,15 @@ def device_discovery(vds: dict, *, ieee: str, friendly_name: str, base_topic: st
             else:
                 cmps[built[0]] = built[1]
                 expected.append(built[2])
+    if "climate" in grouped:
+        built = _climate(grouped["climate"], ieee, state_topic, set_topic)
+        if isinstance(built, str):
+            skipped.extend((f["name"], built) for f in grouped["climate"])
+        else:
+            cmps[built[0]] = built[1]
+            expected.append(built[2])
+            skipped.extend((f["name"], "a thermostat option the climate entity does not carry")
+                           for f in grouped["climate"] if f["name"] not in built[3])
     for path, builder in (("light", _light), ("lock", _lock)):
         if path in grouped:
             built = builder(grouped[path], ieee, set_topic)

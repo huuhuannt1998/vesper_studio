@@ -26,6 +26,23 @@ def test_a_battery_device_starts_with_a_full_battery_not_an_empty_one():
     assert narrow.state["battery"] == 0  # a start outside the feature's range is not used
 
 
+
+def test_a_thermostat_starts_heating_to_a_room_temperature_not_off_at_its_minimum():
+    """Every thermostat twin started off at its lowest setpoint (5 degrees), so a home in winter was never heated,
+    even when Home Assistant raised the setpoint (found live 2026-11-04). It starts in heat at 20 degrees, as a
+    home keeps one; a cooling setpoint at 24."""
+    feats = [{"name": "current_heating_setpoint", "type": "numeric", "range": [5, 30], "unit": "\u00b0C",
+              "access": ["state", "set"]},
+             {"name": "occupied_cooling_setpoint", "type": "numeric", "unit": "\u00b0C", "access": ["state", "set"]},
+             {"name": "local_temperature", "type": "numeric", "unit": "\u00b0C", "access": ["state"]},
+             {"name": "system_mode", "type": "enum", "values": ["off", "auto", "heat"], "access": ["state", "set"]}]
+    t = Twin.from_vds({"id": "zigbee:x:t", "features": feats})
+    assert (t.state["current_heating_setpoint"], t.state["occupied_cooling_setpoint"], t.state["local_temperature"],
+            t.state["system_mode"]) == (20, 24, 20, "heat")
+    auto = Twin.from_vds({"id": "zigbee:x:u", "features": [{"name": "system_mode", "type": "enum",
+                                                            "values": ["off", "auto"], "access": ["state", "set"]}]})
+    assert auto.state["system_mode"] == "auto"  # no heat mode: auto, never off
+
 def test_a_matter_color_temperature_light_starts_at_the_spec_default_not_below_its_physical_range():
     """Experiment 6 (2026-10-26): starting at 0 and 1 mireds, two products' twins lay below the node's physical
     minimum (135 mireds) and the node refused them. Matter's ColorTemperatureMireds default is 0x00FA (250)."""

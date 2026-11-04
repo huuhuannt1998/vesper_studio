@@ -719,9 +719,9 @@ a **City**, the **First day** and which way the floor plan faces; in a request o
   so automations such as "lights on when it gets dark" agree with the sensors. VESPER's own automation engine runs
   `sun` triggers and conditions and `sun.sun` from the same sun. Home Assistant's own `sun.sun` follows its wall
   clock, today's date, so for a home dated in the past (or a run faster than real time) trigger Home Assistant's
-  automations on the environment device's "Sun up" sensor, which follows the session. Thermostats reach Home
-  Assistant without a climate entity yet: VESPER heats the rooms from their setpoints, but Home Assistant cannot
-  set them.
+  automations on the environment device's "Sun up" sensor, which follows the session. A thermostat is one
+  climate entity in Home Assistant (its setpoint, mode, room temperature and whether it is heating); a setpoint
+  set there heats the home, and a thermostat twin starts in heat at 20 °C, as a home keeps one.
 
 `vesper lab env HOME` prints the home's sun, light and temperature hour by hour, each with its source. Every constant
 of the indoor model (glazing transmittance, wall and window U-values, thermal mass) is an assumed engineering value,
