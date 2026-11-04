@@ -686,3 +686,113 @@ loop, in every environment.
 
 The upper envelope stays unjudgeable: every above-30 C cell has its no-automation baseline above 30 C as well (the
 standard home has no cooling), and ERA5's warmer summer days double the count.
+
+## Home variation (protocol Addendum 5; descriptive, no pass/fail threshold)
+
+Pre-registered in Addendum 5 before any variant ran. The standard home and four variants of it, each swept once at
+rung 4 over the same 48 environments and the same corpus, with the same recorded ERA5 weather:
+- glazing x0.5 and glazing x2: every window pane's area halved or doubled, at the same place;
+- plan seed 8: another generated floor plan with the same rooms and products;
+- mirrored: the standard plan mirrored east-west.
+
+The base is the standard home's rung-4 sweep at `120f4ca`; the variants ran at `6d22cf0` (whose standard home is
+byte-identical to it). Script: `scripts/edt_analysis/home_variation.py`. Every number below is in
+`results/edt/home-variation.json` (aggregates only). Every home binds the same automations to the same roles: 43,280
+parsed, 9,524 bound, 5,934 run in each, and the comparison is over those 5,934. In every home the negative control
+flags 0 of its 1,247 firing automations; no home halted.
+
+| Home | Flagged | time_spread | fires_somewhere_only | night_light | flaps | Minimal witness: date / orientation / city |
+|---|---|---|---|---|---|---|
+| Standard | 797 | 716 | 192 | 30 | 9 | 667 / 129 / 1 |
+| Glazing x0.5 | 785 | 698 | 182 | 30 | 9 | 673 / 111 / 1 |
+| Glazing x2 | 785 | 700 | 193 | 30 | 9 | 667 / 117 / 1 |
+| Plan seed 8 | 779 | 704 | 189 | 30 | 9 | 666 / 112 / 1 |
+| Mirrored | 797 | 719 | 192 | 30 | 9 | 668 / 128 / 1 |
+
+By environment kind as written (a flagged automation counts once in each of its kinds):
+
+| Home | sun | temperature | humidity | illuminance | weather | none |
+|---|---|---|---|---|---|---|
+| Standard | 609 | 128 | 37 | 15 | 8 | 19 |
+| Glazing x0.5 | 609 | 117 | 37 | 15 | 8 | 18 |
+| Glazing x2 | 610 | 117 | 36 | 16 | 8 | 18 |
+| Plan seed 8 | 609 | 111 | 37 | 15 | 8 | 18 |
+| Mirrored | 609 | 128 | 37 | 15 | 8 | 19 |
+
+Static findings (night_light, flaps in every environment) number 353 in every home.
+
+**Across homes.** 800 automations are flagged in at least one home:
+
+| Flagged in | All 5 homes | At least 3 | Only 1 |
+|---|---|---|---|
+| Automations | 768 (96.0 %) | 797 (99.6 %) | 3 (0.4 %) |
+
+By number of homes, 1 to 5: 3, 0, 16, 13, 768. Of the standard home's 797 flagged, 768 (96.4 %) are flagged in every
+variant.
+
+Against the standard home, the flagged sets have these Jaccard indices: glazing x0.5 0.985, glazing x2 0.978, plan
+seed 8 0.977, mirrored 1.000. The variants lose rather than add flags:
+
+| Variant | Standard-home flags not flagged in the variant | Flags only in the variant |
+|---|---|---|
+| Glazing x0.5 | 12 | 0 |
+| Glazing x2 | 15 | 3 |
+| Plan seed 8 | 18 | 0 |
+| Mirrored | 0 | 0 |
+
+By kind, the share of automations flagged in all five homes:
+- divergence kind: time_spread 93.2 % of 725; fires_somewhere_only 93.3 % of 194; night_light and flaps 100 %;
+- environment kind: sun 609 of 610; humidity 36 of 37; weather 8 of 8; illuminance 15 of 16; **temperature 102 of 130
+  (78.5 %)**.
+
+The home-dependent flags are the temperature-reading automations. The sun-driven majority does not depend on the
+plan, which is expected: the sun's times do not depend on the house.
+
+**The orientation witnesses.** An automation has an orientation witness when two of its environments differing only
+in plan north have different outcome classes. In this oracle "has an orientation witness" and "minimal witness is
+orientation" are the same count, because orientation is tried first.
+
+| Home | Automations with an orientation witness |
+|---|---|
+| Standard | 129 |
+| Glazing x0.5 | 111 |
+| Glazing x2 | 117 |
+| Plan seed 8 | 112 |
+| Mirrored | 128 |
+
+How the standard home's 129 fare in each variant:
+
+| Variant | Keep an orientation witness | Flagged, but only on another axis | Not flagged | Jaccard (witnessed sets) |
+|---|---|---|---|---|
+| Glazing x0.5 | 109 | 8 | 12 | 0.83 |
+| Glazing x2 | 113 | 1 | 15 | 0.85 |
+| Plan seed 8 | 109 | 2 | 18 | 0.83 |
+| Mirrored | 126 | 3 | 0 | 0.96 |
+
+Across all four variants, the 129 split as follows:
+
+| Keep an orientation witness in | All 4 variants | 3 | 2 | 0 or 1 |
+|---|---|---|---|---|
+| Standard-home witnessed automations | **88 (68 %)** | 23 | 18 | none |
+
+Over all five homes, 135 automations have an orientation witness somewhere: 88 in all five, 131 (97 %) in at least
+three, 3 in only one.
+
+By kind, of the standard home's 129, these keep the witness in all four variants:
+- temperature: 54 of 90;
+- humidity: 29 of 32;
+- sun: 3 of 3;
+- illuminance: 3 of 3.
+
+Reading it (as Addendum 5 said it would be read):
+- The flags are robust to the home: 96 % of the standard home's flagged automations are flagged in every variant,
+  and almost all of the rest are flagged in three or four homes.
+- The orientation findings are the most home-dependent result, as the paper says, but most are not one plan's
+  artifact. Two thirds (88 of 129) keep an orientation witness in every variant, and every one keeps it in at least
+  two.
+- Mirroring the plan east-west changes almost nothing: the same 797 flagged, 126 of 129 witnesses kept. So the
+  orientation sensitivity is not owed to the bedroom's window facing west rather than east.
+- What does move the orientation findings is how much glass the home has and which rooms have which façade (glazing,
+  the other plan). That moves the temperature-reading automations (54 of 90 stable) more than the humidity ones (29 of
+  32).
+- Five homes are a small sample of synthetic plans, not a population of real homes.

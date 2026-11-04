@@ -1,0 +1,550 @@
+{
+ "protocol": "docs/experiments/edt-protocol.md, Addendum 5 (descriptive; no pass/fail threshold)",
+ "rung": 4,
+ "base": {
+  "home": "standard",
+  "sweep": "rung 4 at 120f4ca"
+ },
+ "variants": {
+  "glazing-x0.5": {
+   "parameter": {
+    "glazing": 0.5
+   },
+   "sweep": "rung 4 at 6d22cf0"
+  },
+  "glazing-x2": {
+   "parameter": {
+    "glazing": 2.0
+   },
+   "sweep": "rung 4 at 6d22cf0"
+  },
+  "plan-seed8": {
+   "parameter": {
+    "seed": 8
+   },
+   "sweep": "rung 4 at 6d22cf0"
+  },
+  "mirror-ew": {
+   "parameter": {
+    "mirror": true
+   },
+   "sweep": "rung 4 at 6d22cf0"
+  }
+ },
+ "halted": [],
+ "homes": {
+  "standard": {
+   "home_variant": null,
+   "rung": 4,
+   "environments": 48,
+   "failed_envs": 0,
+   "yield": {
+    "bound": 9524,
+    "parsed": 43280,
+    "run": 5934
+   },
+   "negative_control": {
+    "n": 3466,
+    "fired": 1247,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   },
+   "flagged": 797,
+   "flagged_by_divergence_kind": {
+    "time_spread": 716,
+    "fires_somewhere_only": 192,
+    "night_light": 30,
+    "flaps": 9,
+    "night_cover": 0
+   },
+   "flagged_by_environment_kind": {
+    "sun": 609,
+    "illuminance": 15,
+    "temperature": 128,
+    "humidity": 37,
+    "weather": 8,
+    "none_as_written": 19
+   },
+   "minimal_witness_axis": {
+    "north_deg": 129,
+    "date": 667,
+    "city": 1,
+    "none": 0
+   },
+   "orientation_witnessed": 129,
+   "static": 353
+  },
+  "glazing-x0.5": {
+   "home_variant": "glazing-x0.5",
+   "rung": 4,
+   "environments": 48,
+   "failed_envs": 0,
+   "yield": {
+    "bound": 9524,
+    "parsed": 43280,
+    "run": 5934
+   },
+   "negative_control": {
+    "n": 3466,
+    "fired": 1247,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   },
+   "flagged": 785,
+   "flagged_by_divergence_kind": {
+    "time_spread": 698,
+    "fires_somewhere_only": 182,
+    "night_light": 30,
+    "flaps": 9,
+    "night_cover": 0
+   },
+   "flagged_by_environment_kind": {
+    "sun": 609,
+    "illuminance": 15,
+    "temperature": 117,
+    "humidity": 37,
+    "weather": 8,
+    "none_as_written": 18
+   },
+   "minimal_witness_axis": {
+    "north_deg": 111,
+    "date": 673,
+    "city": 1,
+    "none": 0
+   },
+   "orientation_witnessed": 111,
+   "static": 353
+  },
+  "glazing-x2": {
+   "home_variant": "glazing-x2",
+   "rung": 4,
+   "environments": 48,
+   "failed_envs": 0,
+   "yield": {
+    "bound": 9524,
+    "parsed": 43280,
+    "run": 5934
+   },
+   "negative_control": {
+    "n": 3466,
+    "fired": 1247,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   },
+   "flagged": 785,
+   "flagged_by_divergence_kind": {
+    "time_spread": 700,
+    "fires_somewhere_only": 193,
+    "night_light": 30,
+    "flaps": 9,
+    "night_cover": 0
+   },
+   "flagged_by_environment_kind": {
+    "sun": 610,
+    "illuminance": 16,
+    "temperature": 117,
+    "humidity": 36,
+    "weather": 8,
+    "none_as_written": 18
+   },
+   "minimal_witness_axis": {
+    "north_deg": 117,
+    "date": 667,
+    "city": 1,
+    "none": 0
+   },
+   "orientation_witnessed": 117,
+   "static": 353
+  },
+  "plan-seed8": {
+   "home_variant": "plan-seed8",
+   "rung": 4,
+   "environments": 48,
+   "failed_envs": 0,
+   "yield": {
+    "bound": 9524,
+    "parsed": 43280,
+    "run": 5934
+   },
+   "negative_control": {
+    "n": 3466,
+    "fired": 1247,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   },
+   "flagged": 779,
+   "flagged_by_divergence_kind": {
+    "time_spread": 704,
+    "fires_somewhere_only": 189,
+    "night_light": 30,
+    "flaps": 9,
+    "night_cover": 0
+   },
+   "flagged_by_environment_kind": {
+    "sun": 609,
+    "illuminance": 15,
+    "temperature": 111,
+    "humidity": 37,
+    "weather": 8,
+    "none_as_written": 18
+   },
+   "minimal_witness_axis": {
+    "north_deg": 112,
+    "date": 666,
+    "city": 1,
+    "none": 0
+   },
+   "orientation_witnessed": 112,
+   "static": 353
+  },
+  "mirror-ew": {
+   "home_variant": "mirror-ew",
+   "rung": 4,
+   "environments": 48,
+   "failed_envs": 0,
+   "yield": {
+    "bound": 9524,
+    "parsed": 43280,
+    "run": 5934
+   },
+   "negative_control": {
+    "n": 3466,
+    "fired": 1247,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   },
+   "flagged": 797,
+   "flagged_by_divergence_kind": {
+    "time_spread": 719,
+    "fires_somewhere_only": 192,
+    "night_light": 30,
+    "flaps": 9,
+    "night_cover": 0
+   },
+   "flagged_by_environment_kind": {
+    "sun": 609,
+    "illuminance": 15,
+    "temperature": 128,
+    "humidity": 37,
+    "weather": 8,
+    "none_as_written": 19
+   },
+   "minimal_witness_axis": {
+    "north_deg": 128,
+    "date": 668,
+    "city": 1,
+    "none": 0
+   },
+   "orientation_witnessed": 128,
+   "static": 353
+  }
+ },
+ "across_homes": {
+  "ran_in_every_home": 5934,
+  "flagged": {
+   "in_at_least_one": 800,
+   "by_number_of_homes": {
+    "1": 3,
+    "2": 0,
+    "3": 16,
+    "4": 13,
+    "5": 768
+   },
+   "in_all": 768,
+   "in_all_share": 0.96,
+   "in_at_least_3": 797,
+   "in_at_least_3_share": 0.9962,
+   "in_only_1": 3,
+   "in_only_1_share": 0.0037
+  },
+  "standard_flagged_flagged_in_every_variant": {
+   "n": 797,
+   "k": 768,
+   "share": 0.9636
+  },
+  "per_variant_vs_standard": {
+   "glazing-x0.5": {
+    "flagged_both": 785,
+    "only_variant": 0,
+    "only_standard": 12,
+    "jaccard": 0.9849
+   },
+   "glazing-x2": {
+    "flagged_both": 782,
+    "only_variant": 3,
+    "only_standard": 15,
+    "jaccard": 0.9775
+   },
+   "plan-seed8": {
+    "flagged_both": 779,
+    "only_variant": 0,
+    "only_standard": 18,
+    "jaccard": 0.9774
+   },
+   "mirror-ew": {
+    "flagged_both": 797,
+    "only_variant": 0,
+    "only_standard": 0,
+    "jaccard": 1.0
+   }
+  },
+  "by_divergence_kind": {
+   "time_spread": {
+    "in_at_least_one": 725,
+    "by_number_of_homes": {
+     "1": 5,
+     "2": 2,
+     "3": 20,
+     "4": 22,
+     "5": 676
+    },
+    "in_all": 676,
+    "in_all_share": 0.9324,
+    "in_at_least_3": 718,
+    "in_at_least_3_share": 0.9903,
+    "in_only_1": 5,
+    "in_only_1_share": 0.0069
+   },
+   "fires_somewhere_only": {
+    "in_at_least_one": 194,
+    "by_number_of_homes": {
+     "1": 2,
+     "2": 0,
+     "3": 3,
+     "4": 8,
+     "5": 181
+    },
+    "in_all": 181,
+    "in_all_share": 0.933,
+    "in_at_least_3": 192,
+    "in_at_least_3_share": 0.9897,
+    "in_only_1": 2,
+    "in_only_1_share": 0.0103
+   },
+   "night_light": {
+    "in_at_least_one": 30,
+    "by_number_of_homes": {
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 30
+    },
+    "in_all": 30,
+    "in_all_share": 1.0,
+    "in_at_least_3": 30,
+    "in_at_least_3_share": 1.0,
+    "in_only_1": 0,
+    "in_only_1_share": 0.0
+   },
+   "flaps": {
+    "in_at_least_one": 9,
+    "by_number_of_homes": {
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 9
+    },
+    "in_all": 9,
+    "in_all_share": 1.0,
+    "in_at_least_3": 9,
+    "in_at_least_3_share": 1.0,
+    "in_only_1": 0,
+    "in_only_1_share": 0.0
+   }
+  },
+  "by_environment_kind": {
+   "sun": {
+    "in_at_least_one": 610,
+    "by_number_of_homes": {
+     "1": 1,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 609
+    },
+    "in_all": 609,
+    "in_all_share": 0.9984,
+    "in_at_least_3": 609,
+    "in_at_least_3_share": 0.9984,
+    "in_only_1": 1,
+    "in_only_1_share": 0.0016
+   },
+   "illuminance": {
+    "in_at_least_one": 16,
+    "by_number_of_homes": {
+     "1": 1,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 15
+    },
+    "in_all": 15,
+    "in_all_share": 0.9375,
+    "in_at_least_3": 15,
+    "in_at_least_3_share": 0.9375,
+    "in_only_1": 1,
+    "in_only_1_share": 0.0625
+   },
+   "temperature": {
+    "in_at_least_one": 130,
+    "by_number_of_homes": {
+     "1": 2,
+     "2": 0,
+     "3": 15,
+     "4": 11,
+     "5": 102
+    },
+    "in_all": 102,
+    "in_all_share": 0.7846,
+    "in_at_least_3": 128,
+    "in_at_least_3_share": 0.9846,
+    "in_only_1": 2,
+    "in_only_1_share": 0.0154
+   },
+   "humidity": {
+    "in_at_least_one": 37,
+    "by_number_of_homes": {
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 1,
+     "5": 36
+    },
+    "in_all": 36,
+    "in_all_share": 0.973,
+    "in_at_least_3": 37,
+    "in_at_least_3_share": 1.0,
+    "in_only_1": 0,
+    "in_only_1_share": 0.0
+   },
+   "weather": {
+    "in_at_least_one": 8,
+    "by_number_of_homes": {
+     "1": 0,
+     "2": 0,
+     "3": 0,
+     "4": 0,
+     "5": 8
+    },
+    "in_all": 8,
+    "in_all_share": 1.0,
+    "in_at_least_3": 8,
+    "in_at_least_3_share": 1.0,
+    "in_only_1": 0,
+    "in_only_1_share": 0.0
+   }
+  },
+  "orientation": {
+   "witnessed_per_home": {
+    "standard": 129,
+    "glazing-x0.5": 111,
+    "glazing-x2": 117,
+    "plan-seed8": 112,
+    "mirror-ew": 128
+   },
+   "standard_witnessed": 129,
+   "standard_witnessed_per_variant": {
+    "glazing-x0.5": {
+     "orientation_witness": 109,
+     "flagged_other_axis_only": 8,
+     "not_flagged": 12,
+     "jaccard_witnessed_sets": 0.8321
+    },
+    "glazing-x2": {
+     "orientation_witness": 113,
+     "flagged_other_axis_only": 1,
+     "not_flagged": 15,
+     "jaccard_witnessed_sets": 0.8496
+    },
+    "plan-seed8": {
+     "orientation_witness": 109,
+     "flagged_other_axis_only": 2,
+     "not_flagged": 18,
+     "jaccard_witnessed_sets": 0.8258
+    },
+    "mirror-ew": {
+     "orientation_witness": 126,
+     "flagged_other_axis_only": 3,
+     "not_flagged": 0,
+     "jaccard_witnessed_sets": 0.9618
+    }
+   },
+   "standard_witnessed_in_number_of_variants": {
+    "0": 0,
+    "1": 0,
+    "2": 18,
+    "3": 23,
+    "4": 88
+   },
+   "standard_witnessed_in_all_variants": 88,
+   "standard_witnessed_in_no_variant": 0,
+   "witnessed": {
+    "in_at_least_one": 135,
+    "by_number_of_homes": {
+     "1": 3,
+     "2": 1,
+     "3": 20,
+     "4": 23,
+     "5": 88
+    },
+    "in_all": 88,
+    "in_all_share": 0.6519,
+    "in_at_least_3": 131,
+    "in_at_least_3_share": 0.9704,
+    "in_only_1": 3,
+    "in_only_1_share": 0.0222
+   },
+   "standard_witnessed_by_environment_kind": {
+    "sun": {
+     "n": 3,
+     "in_all_variants": 3
+    },
+    "illuminance": {
+     "n": 3,
+     "in_all_variants": 3
+    },
+    "temperature": {
+     "n": 90,
+     "in_all_variants": 54
+    },
+    "humidity": {
+     "n": 32,
+     "in_all_variants": 29
+    },
+    "weather": {
+     "n": 0,
+     "in_all_variants": 0
+    }
+   },
+   "standard_witnessed_by_divergence_kind": {
+    "time_spread": {
+     "n": 110,
+     "in_all_variants": 80
+    },
+    "fires_somewhere_only": {
+     "n": 105,
+     "in_all_variants": 82
+    },
+    "night_light": {
+     "n": 7,
+     "in_all_variants": 7
+    },
+    "flaps": {
+     "n": 8,
+     "in_all_variants": 8
+    },
+    "night_cover": {
+     "n": 0,
+     "in_all_variants": 0
+    }
+   }
+  }
+ }
+}
