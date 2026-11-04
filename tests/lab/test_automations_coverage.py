@@ -683,3 +683,20 @@ def test_a_service_template_is_refused_in_strict_mode_and_rendered_in_permissive
     e._apply([e._set(lamp_motion(ids)[1], "on")])
     s.clock.advance(1.5 * H)
     assert [c[2] for c in calls] == ["light.turn_on", "notify.phone"]
+
+
+def test_home_assistants_math_functions_fail_without_a_default_like_its_other_filters(tmp_path):
+    _, s, e, _ = setup(tmp_path, [auto([], conditions=[
+        "{{ (cos(0) * 2) | round == 2 and sqrt(16) == 4 and log(100, 10) == 2 and pi > 3 }}",
+        "{{ sin('a') == 0 }}", "{{ sin('a', default=1) == 1 }}"])])
+    assert [e._holds(c, {}) for c in e.automations[0].conditions] == [True, False, True]
+
+
+def test_a_repeat_count_may_be_a_template_rendered_when_the_repeat_starts(tmp_path):
+    def autos(ids):
+        lamp = lamp_motion(ids)[0]
+        return [auto([{"repeat": {"count": "{{ 1 + 1 }}", "sequence": [
+            {"action": "light.toggle", "target": {"entity_id": lamp}}]}}])]
+    _, s, e, calls = setup(tmp_path, autos)
+    s.clock.advance(1.5 * H)
+    assert services(calls) == ["light.toggle", "light.toggle"]

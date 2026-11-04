@@ -220,6 +220,7 @@ class _Run:
     why: str
     context: dict
     frames: list[_Frame]
+    counts: dict = field(default_factory=dict)  # a repeat whose count is a template -> its count this run
 
 
 @dataclass
@@ -856,7 +857,9 @@ class Engine:
         if len(loops) != 1:
             raise AutomationError(f"{where}: one of count, while, until and for_each is required")
         out = {"kind": "repeat", "steps": self._actions(r["sequence"]), "loop": loops[0]}
-        if loops[0] == "count":
+        if loops[0] == "count" and isinstance(r["count"], str) and "{" in r["count"]:
+            out["count"], out["count_template"] = 0, self._template(r["count"], f"{where}: count")
+        elif loops[0] == "count":
             count = _coerced(r["count"], f"{where}: count")
             if count != int(count):
                 raise AutomationError(f"{where}: count {r['count']!r} is not a whole number")
@@ -1595,8 +1598,17 @@ class Engine:
     def _iterate(self, run: _Run, x: dict, index: int) -> None:
         """Start iteration `index` (from 1) of a repeat if its loop says so: count/for_each up to the count, while
         its conditions hold (checked before), until they hold (checked after the previous iteration)."""
+        if x.get("count_template") is not None and index == 1:  # rendered when the repeat starts
+            from vesper.lab.ha_template import TemplateFailed, parse_result
+            try:
+                count = parse_result(self.templates.render(x["count_template"], run.context)[0])
+                run.counts[id(x)] = int(_coerced(count, "repeat count"))
+            except (TemplateFailed, AutomationError):
+                run.frames.clear()  # Home Assistant: the run stops with an error
+                return
+        count = run.counts.get(id(x), x.get("count"))
         if x["loop"] in ("count", "for_each"):
-            go = index <= x["count"]
+            go = index <= count
         elif index > REPEAT_LIMIT:
             run.frames.clear()  # Home Assistant aborts the script
             return
@@ -1607,7 +1619,7 @@ class Engine:
         if go:
             run.context["repeat"] = {"index": index, "first": index == 1}
             if x["loop"] in ("count", "for_each"):
-                run.context["repeat"]["last"] = index == x["count"]
+                run.context["repeat"]["last"] = index == count
             if x["loop"] == "for_each":
                 run.context["repeat"]["item"] = x["items"][index - 1]
             run.frames.append(_Frame(list(x["steps"]), x, index))

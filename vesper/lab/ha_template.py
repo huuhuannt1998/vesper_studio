@@ -10,7 +10,8 @@ is refused whole:
 - time: `now()`, `utcnow()`, `today_at()`, `as_timestamp`, `as_datetime`, `as_local`, `timedelta`, `strptime`,
   `timestamp_custom/local/utc` (the home's site gives the date and time zone);
 - Home Assistant's forgiving filters: `float`, `int`, `round`, `bool` raise without a default (a template condition
-  is then false, a template trigger does not fire), `is_number`, `iif`, `min`, `max`, `regex_*`, `contains`;
+  is then false, a template trigger does not fire), `is_number`, `iif`, `min`, `max`, `regex_*`, `contains`,
+  the math functions (`sin` ... `sqrt`, `log`, `pi`, `e`);
 - Jinja's own safe filters and tests (`default`, `lower`, `selectattr`, `map`, `join`, ... `defined`, `in`, ...).
 A render records what it read (entities, domains, all states, the time), as Home Assistant's RenderInfo does, so a
 template trigger re-renders when one of them changes (all states at most once a minute, a domain once a second, the
@@ -277,7 +278,9 @@ class Templates:
                  utcnow=lambda: v.now().astimezone(dt.UTC), today_at=templates._today_at,
                  as_timestamp=_as_timestamp, as_datetime=templates._as_datetime, as_local=templates._as_local,
                  timedelta=dt.timedelta, strptime=_strptime, float=_float, int=_int, bool=_bool, iif=_iif,
-                 min=_min, max=_max, is_number=_is_number)
+                 min=_min, max=_max, is_number=_is_number, pi=math.pi, e=math.e, tau=math.tau, inf=math.inf,
+                 **MATH)
+        f.update(MATH)
         f.update(float=_float, int=_int, round=_round, bool=_bool, iif=_iif, is_number=_is_number, min=_min,
                  max=_max, as_timestamp=_as_timestamp, as_datetime=templates._as_datetime,
                  as_local=templates._as_local, timestamp_custom=templates._timestamp_custom,
@@ -420,6 +423,23 @@ class Templates:
 
 
 # ---- Home Assistant's forgiving filters and functions (helpers/template.py) ----------------------------------------
+
+def _math(name, fn):
+    """Home Assistant's forgiving math function (sin, cos, ... log): fails without a default."""
+    def forgiving(value, *args, default=_SENTINEL):
+        try:
+            return fn(float(value), *(float(a) for a in args))
+        except (ValueError, TypeError):
+            if default is _SENTINEL:
+                _no_default(name, value)
+            return default
+    return forgiving
+
+
+MATH = {name: _math(name, getattr(math, name)) for name in ("sin", "cos", "tan", "asin", "acos", "atan", "sqrt")}
+MATH["log"] = _math("log", lambda value, base=math.e: math.log(value, base))
+MATH["atan2"] = _math("atan2", math.atan2)
+
 
 def _float(value, default=_SENTINEL):
     try:
