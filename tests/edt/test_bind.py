@@ -103,6 +103,10 @@ def test_the_starter_devices_fill_the_roles_without_product_variants(edt):
     ("sensor.hallway_lux", ("illuminance", "corridor")),
     ("binary_sensor.front_door", ("door", "living")),
     ("sensor.xyz_1", None),
+    ("sensor.hallway_light", ("illuminance", "corridor")),
+    ("sensor.bedroom_2_temperature", ("temperature", "bedroom_2")),
+    ("sensor.bedroom2_temp", ("temperature", "bedroom_2")),
+    ("sensor.bedroom_temperature", ("temperature", "bedroom_1")),
     ("sensor.temp_lux", ("illuminance", "living")),
     ("sensor.kitchen_temperature", ("temperature", "kitchen")),
     ("sensor.bathroom_humidity", ("humidity", "bathroom")),
@@ -168,3 +172,74 @@ def test_a_role_the_home_lacks_is_named(edt):
     assert isinstance(bind(raw, roles, 0), Unbindable)
     raw = {"alias": "w", "triggers": [{"trigger": "state", "entity_id": "sensor.xyz_1"}], "actions": []}
     assert isinstance(bind(raw, roles, 0), Unbindable)
+
+
+def one(entity_id, **rest):
+    return {"alias": "t", "triggers": [{"trigger": "state", "entity_id": entity_id, **rest}], "actions": []}
+
+
+def test_a_comma_separated_entity_id_string_is_bound_one_by_one(edt):
+    _, roles, _, _ = edt
+    bound = bind(one("light.kitchen, light.office"), roles, 0)
+    assert bound["triggers"][0]["entity_id"] == f"{roles[('light', 'kitchen', 0)]}, {roles[('light', 'office', 0)]}"
+    assert isinstance(bind(one("light.kitchen, weather.home"), roles, 0), Unbindable)
+
+
+def test_an_entity_id_string_that_is_no_entity_is_unbindable_but_all_none_and_templates_pass(edt):
+    _, roles, _, _ = edt
+    assert isinstance(bind(one("kitchen lamp"), roles, 0), Unbindable)
+    assert bind(one("all"), roles, 0)["triggers"][0]["entity_id"] == "all"
+    assert bind(one("none"), roles, 0)["triggers"][0]["entity_id"] == "none"
+    assert bind(one("{{ 'sun.sun' }}"), roles, 0)["triggers"][0]["entity_id"] == "{{ 'sun.sun' }}"
+
+
+def test_unquoted_template_access_to_states_is_rewritten(edt):
+    _, roles, _, _ = edt
+    raw = one("sun.sun", value_template="{{ states.light.kitchen.state == 'on' and states.sensor.hall_lux.state }}")
+    text = bind(raw, roles, 0)["triggers"][0]["value_template"]
+    assert f"states.{roles[('light', 'kitchen', 0)]}.state" in text
+    assert f"states.{roles[('illuminance', 'corridor', 0)]}.state" in text
+    assert "light.kitchen" not in text
+    assert isinstance(bind(one("sun.sun", value_template="{{ states.weather.home.state }}"), roles, 0), Unbindable)
+
+
+@pytest.mark.parametrize("raw", [
+    {"alias": "d", "triggers": [{"trigger": "device", "device_id": "abc123", "type": "turned_on"}], "actions": []},
+    {"alias": "a", "triggers": [], "actions": [{"action": "light.turn_on", "target": {"area_id": "kitchen"}}]},
+    {"alias": "c", "triggers": [], "conditions": [{"condition": "device", "device_id": "abc"}], "actions": []},
+])
+def test_device_and_area_handles_are_not_modelled(edt, raw):
+    _, roles, _, _ = edt
+    assert bind(raw, roles, 0) == Unbindable("device_id/area_id not modelled")
+
+
+def test_an_entity_in_above_or_below_is_bound_like_any_other(edt):
+    _, roles, _, _ = edt
+    raw = one("sensor.kitchen_temperature", above="sensor.bedroom_temperature", below=30)
+    t = bind(raw, roles, 0)["triggers"][0]
+    assert t["above"] == roles[("temperature", "bedroom_1", 0)] and t["below"] == 30
+    assert isinstance(bind(one("sensor.kitchen_temperature", below="sensor.outdoor_temperature"), roles, 0),
+                      Unbindable)
+
+
+@pytest.mark.parametrize("template", ["{{ is_state('person.me', 'home') }}", "{{ states('group.lamps') }}",
+                                      "{{ is_state('input_boolean.guests', 'on') }}"])
+def test_a_quoted_id_of_an_unmodelled_domain_in_a_template_is_unbindable(edt, template):
+    _, roles, _, _ = edt
+    r = bind(one("sun.sun", value_template=template), roles, 0)
+    assert isinstance(r, Unbindable) and template.split("'")[1] in r.reason
+
+
+def test_sun_and_service_names_in_templates_are_left_alone(edt):
+    _, roles, _, _ = edt
+    t = "{{ is_state('sun.sun', 'below_horizon') and 'light.turn_on' in x }}"
+    assert bind(one("sun.sun", value_template=t), roles, 0)["triggers"][0]["value_template"] == t
+
+
+@pytest.mark.parametrize("entity_id", ["sensor.outdoor_temperature", "sensor.outside_humidity", "light.garden",
+                                       "binary_sensor.garage_door", "sensor.porch_lux", "binary_sensor.yard_motion",
+                                       "light.balcony"])
+def test_outdoor_entities_are_not_modelled(edt, entity_id):
+    _, roles, _, _ = edt
+    assert bind(one(entity_id), roles, 0) == Unbindable("outdoor entities are not modelled")
+    assert infer_role(entity_id) is None
