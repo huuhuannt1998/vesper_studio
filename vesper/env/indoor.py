@@ -8,7 +8,9 @@
   average. Lamps add LAMP_LUX each (vesper.lab.rules). Shades cut both.
 - Heat: one node per room, C dT/dt = H (T_out - T) + solar + heating + people, with H = U A of its outside walls
   and windows plus ventilation, C by floor area (EN ISO 13790's "medium" class, 165 kJ/K per m²), integrated
-  exactly over each step. Rooms do not exchange heat with each other (assumed).
+  exactly over each step; plus what passes through the interior walls a room shares with its neighbours, U_INTERIOR
+  each (assumed; added 2026-11-04: with rooms isolated, a small sunny room overheated, see
+  docs/experiments/results-2026-11-04-environment.md). The validation's standard room has no neighbours.
 - Humidity: the outdoor air's water vapour, plus what people add, at the room's temperature (Magnus formula).
 """
 from __future__ import annotations
@@ -32,6 +34,8 @@ C_PER_M2 = 165_000.0  # J/K per m² of floor (EN ISO 13790 "medium")
 HEAT_W_PER_M2 = 100.0  # a room's heating at full output (assumed)
 PERSON_W, PERSON_VAPOUR_KPA = 80.0, 0.15  # what a person adds: sensible heat, and to the room's vapour (assumed)
 START_C = 20.5  # every room's temperature when a run begins (assumed)
+U_INTERIOR = 2.0  # W/m²K, an interior partition with its doorway (assumed; plasterboard or block, 1.5-2.5)
+NEIGHBOUR_GAP_M = 0.35  # rooms whose facing edges are at most this apart share a wall (a wall's thickness)
 
 
 def e_sat(t_c: float) -> float:
@@ -51,6 +55,7 @@ class RoomModel:
     outside_wall_m2: float  # opaque outside wall
     windows: list[dict] = field(default_factory=list)
     temperature: float = START_C
+    neighbours: dict[str, float] = field(default_factory=dict)  # neighbour room id -> shared wall area, m²
 
     @property
     def volume(self) -> float:
@@ -80,7 +85,25 @@ def room_models(world_map, windows: list[dict]) -> dict[str, RoomModel]:
                        if outside(world_map, room, s, (x0, z0, x1, z1))) * CEILING_M
         glass = sum(x["width"] * x["height"] for x in mine)
         out[room.id] = RoomModel(room.id, w * d, 2 * (w + d), max(0.0, outer_m2 - glass), mine)
+    boxes = {r.id: room_box(r) for r in world_map.rooms if not r.outdoor}
+    for a, ba in boxes.items():
+        for b, bb in boxes.items():
+            if a != b and (shared := _shared_wall_m(ba, bb)) > 0:
+                out[a].neighbours[b] = shared * CEILING_M
     return out
+
+
+def _shared_wall_m(a: tuple, b: tuple) -> float:
+    """The length of wall two rooms' boxes share: facing edges at most NEIGHBOUR_GAP_M apart, overlapping."""
+    ax0, az0, ax1, az1 = a
+    bx0, bz0, bx1, bz1 = b
+    along_z = min(az1, bz1) - max(az0, bz0)  # overlap for a wall running along z (rooms side by side in x)
+    along_x = min(ax1, bx1) - max(ax0, bx0)
+    if along_z > 0 and min(abs(bx0 - ax1), abs(ax0 - bx1)) <= NEIGHBOUR_GAP_M:
+        return along_z
+    if along_x > 0 and min(abs(bz0 - az1), abs(az0 - bz1)) <= NEIGHBOUR_GAP_M:
+        return along_x
+    return 0.0
 
 
 class HomeEnvironment:
@@ -151,13 +174,16 @@ class HomeEnvironment:
         self._t, self.last = seconds, state
         e_out = state.humidity_pct / 100 * e_sat(state.temperature_c)
         out = {}
+        before = {rid: r.temperature for rid, r in self.rooms.items()}  # the walls pass heat from the last step's
         for rid, r in self.rooms.items():
             if dt_s > 0:
-                h = r.h_w_per_k
+                inner = {n: U_INTERIOR * a for n, a in r.neighbours.items() if n in before}
+                h = r.h_w_per_k + sum(inner.values())
                 q = self._solar_w(r, state) + heating.get(rid, 0.0) * HEAT_W_PER_M2 * r.floor_m2 + \
                     people.get(rid, 0) * PERSON_W
-                eq = state.temperature_c + q / h
-                r.temperature = eq + (r.temperature - eq) * math.exp(-h * dt_s / (C_PER_M2 * r.floor_m2))
+                # the equilibrium with the outdoor air and the neighbours' temperatures, each through its own wall
+                eq = (r.h_w_per_k * state.temperature_c + sum(g * before[n] for n, g in inner.items()) + q) / h
+                r.temperature = eq + (before[rid] - eq) * math.exp(-h * dt_s / (C_PER_M2 * r.floor_m2))
             e_in = e_out + PERSON_VAPOUR_KPA * min(people.get(rid, 0), 4)
             rh = min(85.0, max(15.0, 100 * e_in / e_sat(r.temperature)))
             out[rid] = {"temperature": round(r.temperature, 1), "humidity": round(rh),
@@ -174,5 +200,5 @@ class HomeEnvironment:
             "T_glass": T_GLASS, "sky_angle_deg": SKY_ANGLE, "reflectance": REFLECT, "sun_share": SUN_SHARE,
             "thermal": "one node per room (EN ISO 13790 medium mass), no exchange between rooms",
             "U_wall": U_WALL, "U_window": U_WINDOW, "ach": ACH, "solar_to_air": SOLAR_TO_AIR,
-            "heat_w_per_m2": HEAT_W_PER_M2,
+            "heat_w_per_m2": HEAT_W_PER_M2, "u_interior": U_INTERIOR,
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}

@@ -373,6 +373,25 @@ def _validate_sun(args) -> int:
     return 0
 
 
+def _validate_crosssite(args) -> int:
+    """RQ3: the same home and automations across places, seasons and orientations."""
+    from vesper.validation.crosssite import crosssite_report
+    report = crosssite_report(None, Path(args.work), args.catalog, fetch=not args.no_fetch)
+    out = args.out or Path("results/environment") / f"crosssite-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+    path = _write_report(str(out), "crosssite", report, args)
+    print(f"{'place':<22} {'date':<10} {'N':>4} {'heat min':>8} {'dark min':>8} {'dark at':>7} {'outdoor C':>11}")
+    for r in report["runs"]:
+        dark = r["automations_first_fired_h"].get("living lamp when it gets dark")
+        o = r.get("outdoor") or {}
+        print(f"{(r['city'] or 'no site (assumed)')[:22]:<22} {r['date'] or '-':<10} "
+              f"{'-' if r['north_deg'] is None else int(r['north_deg']):>4} {r['heating_min'] or '-':>8} "
+              f"{r['living_dark_min'] if isinstance(r['living_dark_min'], int) else '-':>8} "
+              f"{'-' if dark is None else f'{dark:.2f}':>7} "
+              f"{(str(o.get('min_c')) + '..' + str(o.get('max_c'))) if o else '-':>11}")
+    print(f"report {path}")
+    return 0
+
+
 def _validate_environment(args) -> int:
     """Phase 6: W, T, H and D of docs/experiments/environment-validation.md."""
     try:
@@ -1717,6 +1736,12 @@ def main(argv: list[str] | None = None) -> int:
     envv.add_argument("--fit", action="store_true", help="addendum 1: fit ACH and solar-to-air on dataset A, judge "
                                                          "the chosen pair once on dataset B")
     envv.add_argument("--out")
+    xs = checks.add_parser("crosssite", help="RQ3: one home, the same automations, across cities, seasons and "
+                                             "orientations (logical clock)")
+    xs.add_argument("--work", default=".vesper/crosssite", help="where the homes and their weather go")
+    xs.add_argument("--catalog", default="catalog/vds")
+    xs.add_argument("--no-fetch", action="store_true", help="do not fetch weather (clear sky, assumed temperature)")
+    xs.add_argument("--out")
     disc = checks.add_parser("discovery", help="Home Assistant's own schemas over every discovery message")
     disc.add_argument("--catalog", default="catalog/vds")
     disc.add_argument("--root", default=".vesper")
@@ -2201,6 +2226,8 @@ def _dispatch(args) -> int:
         return _validate_sun(args)
     if args.action == "environment":
         return _validate_environment(args)
+    if args.action == "crosssite":
+        return _validate_crosssite(args)
     if args.action == "rules":
         return _validate_rules(args)
     if args.action == "latency":

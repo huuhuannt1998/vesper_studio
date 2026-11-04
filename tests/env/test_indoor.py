@@ -98,3 +98,25 @@ def test_only_solar_to_air_of_the_sun_through_the_glass_warms_the_room(monkeypat
     assert indoor.SOLAR_TO_AIR == 1.0 and full > 0  # the default: all of it (the first validation run's model)
     monkeypatch.setattr(indoor, "SOLAR_TO_AIR", 0.25)
     assert e._solar_w(e.rooms["bedroom"], state()) == pytest.approx(0.25 * full)
+
+
+def test_rooms_know_the_walls_they_share_with_their_neighbours():
+    rooms = env().rooms
+    assert rooms["kitchen"].neighbours == pytest.approx({"hall": 2.9 * 2.5, "bedroom": 3.9 * 2.5})
+    assert rooms["hall"].neighbours == pytest.approx({"kitchen": 2.9 * 2.5, "bedroom": 2.9 * 2.5})
+    assert "porch" not in rooms["hall"].neighbours  # an outdoor space is not a room's neighbour
+
+
+def test_heat_passes_through_an_interior_wall_from_the_warm_room_to_the_cool_one():
+    """A sunny or heated room shares its heat with the rooms beside it (found 2026-11-04: with rooms isolated, a
+    small south kitchen reached 28 degrees in a Seattle January)."""
+    e = env()
+    for t in range(0, 3 * 3600 + 1, 60):
+        e.step(2 * 3600 + t, {}, {"bedroom": 1.0}, {}, 200)
+    alone = env()
+    for r in alone.rooms.values():
+        r.neighbours = {}
+    for t in range(0, 3 * 3600 + 1, 60):
+        alone.step(2 * 3600 + t, {}, {"bedroom": 1.0}, {}, 200)
+    assert e.rooms["bedroom"].temperature < alone.rooms["bedroom"].temperature  # it gave heat away
+    assert e.rooms["kitchen"].temperature > alone.rooms["kitchen"].temperature  # and its neighbour took it
