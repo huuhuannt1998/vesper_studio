@@ -6,11 +6,12 @@ import pytest
 import yaml
 
 from vesper.edt.bind import ROLE_PRIORITY, Unbindable, bind, infer_role
-from vesper.edt.home import PRODUCTS, build_edt_home
+from vesper.edt.home import OUTDOOR_LIGHT, OUTDOOR_PLUG, PLUG, PRODUCTS, build_edt_home
 
 pytestmark = pytest.mark.skipif(not Path("catalog/vds/zigbee.json").is_file(), reason="needs catalog/vds")
 
 ROOMS = ("living", "bedroom_1", "bedroom_2", "kitchen", "bathroom", "office", "corridor")
+SITES = (*ROOMS, "porch")  # the rooms and the outdoor porch at the entrance
 
 
 @pytest.fixture(scope="module")
@@ -49,12 +50,12 @@ def test_the_home_has_one_sensor_per_product_in_every_room(edt):
     path, roles, catalog, home = edt
     devices = yaml.safe_load(path.read_text())["devices"]
     by_name = {d["name"]: d for d in devices}
-    for room in ROOMS:
+    for room in SITES:
         d = by_name[f"{room}_lux0"]
         assert d["product"] == PRODUCTS["illuminance"][0] and d["at"]["room"] == room and d["at"]["mount"] == "ceiling"
         assert by_name[f"{room}_temp0"]["product"] == PRODUCTS["temperature"][0]
         assert f"{room}_lux1" not in by_name and f"{room}_temp1" not in by_name
-    assert {k for k in roles if k[0] == "illuminance"} == {("illuminance", r, 0) for r in ROOMS}
+    assert {k for k in roles if k[0] == "illuminance"} == {("illuminance", r, 0) for r in SITES}
     assert roles[("illuminance", "kitchen", 0)].startswith("sensor.") and roles[("humidity", "kitchen", 0)]
     sensors = [v for k, v in roles.items() if k[0] in ("illuminance", "temperature")]
     assert len(set(sensors)) == len(sensors)
@@ -96,7 +97,46 @@ def test_the_starter_devices_fill_the_roles_without_product_variants(edt):
     assert roles[("door", "living", 0)].startswith("binary_sensor.")
     assert roles[("lock", "living", 0)].startswith("lock.")
     assert roles[("climate", "bedroom_1", 0)].startswith("climate.")
-    assert not any(k[0] in ("cover", "switch") for k in roles)
+    assert not any(k[0] == "cover" for k in roles)
+
+
+def test_the_porch_has_outdoor_sensors_an_outdoor_light_and_an_outdoor_plug(edt):
+    """The porch (the outdoor room at the entrance) answers the outdoor entities: its sensors read the outdoor air and
+    light (vesper.lab.rules drives a device outdoors with them)."""
+    path, roles, catalog, _ = edt
+    by_name = {d["name"]: d for d in yaml.safe_load(path.read_text())["devices"]}
+    assert by_name["porch_light"]["product"] == OUTDOOR_LIGHT and by_name["porch_plug"]["product"] == OUTDOOR_PLUG
+    assert "outdoor" in catalog[OUTDOOR_LIGHT]["identity"]["description"].lower()
+    assert "outdoor" in catalog[OUTDOOR_PLUG]["identity"]["description"].lower()
+    assert all(by_name[n]["at"]["room"] == "porch" for n in ("porch_lux0", "porch_temp0", "porch_light", "porch_plug"))
+    for role, domain in (("illuminance", "sensor."), ("temperature", "sensor."), ("humidity", "sensor."),
+                         ("motion", "binary_sensor."), ("light", "light."), ("switch", "switch."),
+                         ("door", "binary_sensor."), ("lock", "lock.")):
+        assert roles[(role, "porch", 0)].startswith(domain), role
+    assert roles[("door", "porch", 0)] == roles[("door", "living", 0)]  # the front door opens onto the porch
+    assert ("climate", "porch", 0) not in roles and ("cover", "porch", 0) not in roles
+
+
+def test_every_room_with_a_light_has_a_smart_plug(edt):
+    path, roles, catalog, _ = edt
+    devices = yaml.safe_load(path.read_text())["devices"]
+    lit = {d["at"]["room"] for d in devices if catalog[d["product"]]["identity"]["category"] == "light"}
+    assert lit == set(SITES)
+    plugs = {d["at"]["room"]: d for d in devices if d["name"].endswith("_plug")}
+    assert set(plugs) == lit
+    assert all(d["product"] == PLUG for r, d in plugs.items() if r != "porch")
+    assert catalog[PLUG]["identity"]["category"] == "plug" and catalog[PLUG]["fidelity"]["reached"]["L1"]
+    assert {k[1] for k in roles if k[0] == "switch"} == lit
+    assert len({roles[("switch", r, 0)] for r in lit}) == len(lit)
+
+
+def test_a_room_without_a_motion_sensor_uses_its_illuminance_sensors_occupancy(edt):
+    """The illuminance product is a motion sensor with a light sensor: the bathroom (no starter motion sensor) and the
+    porch answer motion with it."""
+    _, roles, _, _ = edt
+    assert roles[("motion", "bathroom", 0)].startswith("binary_sensor.")
+    assert roles[("motion", "bathroom", 0)].endswith("_occupancy")
+    assert roles[("motion", "kitchen", 0)] != roles[("motion", "bathroom", 0)]
 
 
 @pytest.mark.parametrize("entity_id,expected", [
@@ -112,15 +152,34 @@ def test_the_starter_devices_fill_the_roles_without_product_variants(edt):
     ("binary_sensor.kitchen_motion_battery_low", None),
     ("binary_sensor.kitchen_window_battery", None),
     ("binary_sensor.kitchen_motion", ("motion", "kitchen")),
-    ("binary_sensor.backyard_motion", None),
-    ("light.courtyard", None),
-    ("light.patio", None),
-    ("light.driveway", None),
-    ("light.terrace", None),
-    ("light.deck", None),
-    ("light.carport", None),
-    ("light.shed", None),
-    ("switch.pool_pump", None),
+    ("binary_sensor.backyard_motion", ("motion", "porch")),
+    ("light.courtyard", ("light", "porch")),
+    ("light.patio", ("light", "porch")),
+    ("light.driveway", ("light", "porch")),
+    ("light.terrace", ("light", "porch")),
+    ("light.deck", ("light", "porch")),
+    ("light.carport", ("light", "porch")),
+    ("light.shed", ("light", "porch")),
+    ("switch.pool_pump", ("switch", "porch")),
+    ("light.veranda", ("light", "porch")),
+    ("sensor.aussenbereich_wetterstation_helligkeit", ("illuminance", "porch")),
+    ("sensor.patio_luminance_hue", ("illuminance", "porch")),
+    ("sensor.outside_light_sensor_illuminance_lux", ("illuminance", "porch")),
+    ("sensor.openweathermap_temperature", ("temperature", "porch")),
+    ("sensor.dark_sky_humidity", ("humidity", "porch")),
+    ("sensor.weather_temperature", ("temperature", "porch")),
+    ("sensor.openweathermap_condition", None),
+    ("sensor.fuerth_bayern_temperatur", ("temperature", "living")),
+    ("sensor.wohnzimmer_luftfeuchtigkeit", ("humidity", "living")),
+    ("sensor.current_temperature", ("temperature", "living")),
+    ("sensor.heating_current_temperature", ("temperature", "living")),
+    ("sensor.kitchen_current", None),
+    ("sensor.fuerth_bayern_absolute_luftfeuchtigkeit", None),
+    ("sensor.terrace_dew_point", None),
+    ("sensor.garden_soil_moisture", None),
+    ("sensor.time", None),
+    ("sensor.sun_next_rising", None),
+    ("sensor.sun_room_temperature", ("temperature", "living")),
     ("sensor.bedroom_2_temperature", ("temperature", "bedroom_2")),
     ("sensor.bedroom2_temp", ("temperature", "bedroom_2")),
     ("sensor.bedroom_temperature", ("temperature", "bedroom_1")),
@@ -220,13 +279,113 @@ def test_unquoted_template_access_to_states_is_rewritten(edt):
     assert isinstance(bind(one("sun.sun", value_template="{{ states.weather.home.state }}"), roles, 0), Unbindable)
 
 
-@pytest.mark.parametrize("raw", [
-    {"alias": "d", "triggers": [{"trigger": "device", "device_id": "abc123", "type": "turned_on"}], "actions": []},
-    {"alias": "a", "triggers": [], "actions": [{"action": "light.turn_on", "target": {"area_id": "kitchen"}}]},
-    {"alias": "c", "triggers": [], "conditions": [{"condition": "device", "device_id": "abc"}], "actions": []},
-])
-def test_device_and_area_handles_are_not_modelled(edt, raw):
+DEV = "2d64bb7cb97f1dc111fa719568f708a2"  # a device registry id: opaque
+REG = "625f8971694496a43da3bd153b1c235f"  # an entity registry id: opaque
+
+
+def act(**step):
+    return {"alias": "a", "triggers": [{"trigger": "time", "at": "07:00"}], "actions": [step]}
+
+
+def test_an_area_target_binds_to_the_rooms_device_of_the_actions_domain(edt):
     _, roles, _, _ = edt
+    bound = bind(act(action="light.turn_on", target={"area_id": "kitchen"}), roles, 0)
+    assert bound["actions"][0]["target"] == {"entity_id": [roles[("light", "kitchen", 0)]]}
+    bound = bind(act(service="switch.turn_off", target={"area_id": ["bathroom", "living_room"]}), roles, 0)
+    assert bound["actions"][0]["target"] == {"entity_id": [roles[("switch", "bathroom", 0)],
+                                                           roles[("switch", "living", 0)]]}
+    bound = bind(act(action="light.turn_on", target={"area_id": "outdoors", "entity_id": "light.office"}), roles, 0)
+    assert bound["actions"][0]["target"] == {"entity_id": [roles[("light", "office", 0)],
+                                                           roles[("light", "porch", 0)]]}
+    bound = bind(act(action="light.turn_off", area_id="hallway"), roles, 0)  # the old style, beside the action
+    assert bound["actions"][0] == {"action": "light.turn_off",
+                                   "target": {"entity_id": [roles[("light", "corridor", 0)]]}}
+
+
+def test_an_area_the_home_has_no_room_for_or_an_unmodelled_area_action_is_named(edt):
+    _, roles, _, _ = edt
+    r = bind(act(action="light.turn_on", target={"area_id": "dining_room"}), roles, 0)
+    assert r == Unbindable("no room of the standard home for the area (for dining_room)")
+    from vesper.edt.sweep import reason_class
+    assert reason_class(r.reason) == "no room of the standard home for the area"
+    r = bind(act(action="homeassistant.turn_off", target={"area_id": "kitchen"}), roles, 0)
+    assert r == Unbindable("area targets of homeassistant actions are not modelled")
+    r = bind(act(action="cover.close_cover", target={"area_id": "kitchen"}), roles, 0)
+    assert r == Unbindable("the standard home has no cover in the kitchen (for area kitchen)")
+
+
+def test_empty_handles_are_dropped_and_a_device_only_target_is_named(edt):
+    _, roles, _, _ = edt
+    bound = bind(act(action="light.turn_on", target={"area_id": [], "device_id": [], "entity_id": ["light.office"]}),
+                 roles, 0)
+    assert bound["actions"][0]["target"] == {"entity_id": [roles[("light", "office", 0)]]}
+    assert bind(act(action="light.turn_on", target={"device_id": DEV}), roles, 0) == Unbindable(
+        "device_id targets name no entity")
+    bound = bind(act(action="switch.turn_on", target={"device_id": [DEV], "entity_id": "switch.plug13"}), roles, 0)
+    assert bound["actions"][0]["target"] == {"entity_id": roles[("switch", "living", 0)]}
+
+
+def test_device_triggers_conditions_and_actions_bind_through_their_entity_or_role(edt):
+    _, roles, _, home = edt
+    from vesper.lab.automations import Engine
+    from vesper.lab.session import Session
+    from vesper.twins.clock import LogicalClock
+    raw = {"alias": "dev", "triggers": [
+        {"trigger": "device", "device_id": DEV, "domain": "binary_sensor", "entity_id": REG, "type": "no_motion",
+         "id": "clear"},
+        {"platform": "device", "device_id": DEV, "domain": "sensor", "entity_id": "sensor.anna_temperature",
+         "type": "temperature", "below": 23, "for": {"minutes": 2}},
+        {"trigger": "device", "device_id": DEV, "domain": "sensor", "entity_id": REG, "type": "illuminance",
+         "above": 300}],
+        "conditions": [{"condition": "device", "device_id": DEV, "domain": "light", "entity_id": REG, "type": "is_on"},
+                       {"condition": "device", "device_id": DEV, "domain": "sensor", "entity_id": REG,
+                        "type": "is_humidity", "below": 60}],
+        "actions": [{"device_id": DEV, "domain": "light", "entity_id": "light.kitchen_ceiling", "type": "turn_on",
+                     "brightness_pct": 40},
+                    {"device_id": DEV, "domain": "switch", "entity_id": REG, "type": "toggle"},
+                    {"device_id": DEV, "domain": "climate", "entity_id": "climate.thermostat", "type": "set_hvac_mode",
+                     "hvac_mode": "heat"}]}
+    b = bind(raw, roles, 0)
+    assert b["triggers"] == [
+        {"trigger": "state", "entity_id": roles[("motion", "living", 0)], "to": "off", "id": "clear"},
+        {"platform": "numeric_state", "entity_id": roles[("temperature", "living", 0)], "below": 23,
+         "for": {"minutes": 2}},
+        {"trigger": "numeric_state", "entity_id": roles[("illuminance", "living", 0)], "above": 300}]
+    assert b["conditions"] == [
+        {"condition": "state", "entity_id": roles[("light", "living", 0)], "state": "on"},
+        {"condition": "numeric_state", "entity_id": roles[("humidity", "living", 0)], "below": 60}]
+    assert b["actions"] == [
+        {"action": "light.turn_on", "target": {"entity_id": roles[("light", "kitchen", 0)]},
+         "data": {"brightness_pct": 40}},
+        {"action": "switch.toggle", "target": {"entity_id": roles[("switch", "living", 0)]}},
+        {"action": "climate.set_hvac_mode", "target": {"entity_id": roles[("climate", "living", 0)]},
+         "data": {"hvac_mode": "heat"}}]
+    engine = Engine(Session(home, clock=LogicalClock()), permissive=True, automations=[b])
+    assert engine.refused == [] and len(engine.automations) == 1
+
+
+@pytest.mark.parametrize("step,reason", [
+    ({"trigger": "device", "device_id": DEV, "domain": "mqtt", "type": "action", "subtype": "scene_1"},
+     "device triggers of remotes are not modelled"),
+    ({"trigger": "device", "device_id": DEV, "domain": "zha", "type": "remote_button_short_press",
+      "subtype": "turn_on"}, "device triggers of remotes are not modelled"),
+    ({"trigger": "device", "device_id": DEV, "domain": "media_player", "entity_id": REG, "type": "turned_off"},
+     "media_player entities are not modelled"),
+    ({"trigger": "device", "device_id": DEV, "domain": "cover", "entity_id": "cover.wohnzimmer", "type": "position",
+      "above": 25}, "cover device triggers are not modelled (for position)"),
+    ({"trigger": "device", "device_id": DEV, "domain": "sensor", "entity_id": REG, "type": "value", "above": 3},
+     "sensor device triggers are not modelled (for value)"),
+    ({"trigger": "device", "device_id": DEV}, "device triggers of remotes are not modelled"),
+])
+def test_device_steps_the_home_cannot_answer_are_named(edt, step, reason):
+    _, roles, _, _ = edt
+    assert bind({"alias": "d", "triggers": [step], "actions": []}, roles, 0) == Unbindable(reason)
+
+
+def test_a_handle_outside_a_target_or_device_step_is_still_refused(edt):
+    _, roles, _, _ = edt
+    raw = {"alias": "x", "triggers": [{"trigger": "state", "entity_id": "light.kitchen"}],
+           "actions": [{"action": "notify.me", "data": {"device_id": DEV, "message": "hi"}}]}
     assert bind(raw, roles, 0) == Unbindable("device_id/area_id not modelled")
 
 
@@ -235,8 +394,7 @@ def test_an_entity_in_above_or_below_is_bound_like_any_other(edt):
     raw = one("sensor.kitchen_temperature", above="sensor.bedroom_temperature", below=30)
     t = bind(raw, roles, 0)["triggers"][0]
     assert t["above"] == roles[("temperature", "bedroom_1", 0)] and t["below"] == 30
-    assert isinstance(bind(one("sensor.kitchen_temperature", below="sensor.outdoor_temperature"), roles, 0),
-                      Unbindable)
+    assert isinstance(bind(one("sensor.kitchen_temperature", below="sensor.xyz_1"), roles, 0), Unbindable)
 
 
 @pytest.mark.parametrize("template", ["{{ is_state('person.me', 'home') }}", "{{ states('group.lamps') }}",
@@ -253,13 +411,38 @@ def test_sun_and_service_names_in_templates_are_left_alone(edt):
     assert bind(one("sun.sun", value_template=t), roles, 0)["triggers"][0]["value_template"] == t
 
 
-@pytest.mark.parametrize("entity_id", ["sensor.outdoor_temperature", "sensor.outside_humidity", "light.garden",
-                                       "binary_sensor.garage_door", "sensor.porch_lux", "binary_sensor.yard_motion",
-                                       "light.balcony"])
-def test_outdoor_entities_are_not_modelled(edt, entity_id):
+@pytest.mark.parametrize("entity_id,role", [
+    ("sensor.outdoor_temperature", "temperature"), ("sensor.outside_humidity", "humidity"), ("light.garden", "light"),
+    ("binary_sensor.garage_door", "door"), ("sensor.porch_lux", "illuminance"), ("binary_sensor.yard_motion", "motion"),
+    ("light.balcony", "light"), ("switch.garden_lights", "switch"), ("lock.patio_door", "lock")])
+def test_outdoor_entities_bind_to_the_porch(edt, entity_id, role):
     _, roles, _, _ = edt
-    assert bind(one(entity_id), roles, 0) == Unbindable("outdoor entities are not modelled")
-    assert infer_role(entity_id) is None
+    assert bind(one(entity_id), roles, 0)["triggers"][0]["entity_id"] == roles[(role, "porch", 0)]
+    assert infer_role(entity_id) == (role, "porch")
+
+
+@pytest.mark.parametrize("entity_id,role", [("cover.garage_door", "cover"), ("climate.garage", "climate")])
+def test_an_outdoor_actuator_the_porch_lacks_is_named(edt, entity_id, role):
+    _, roles, _, _ = edt
+    reason = f"the standard home has no {role} in the porch (for {entity_id})"
+    assert bind(one(entity_id), roles, 0) == Unbindable(reason)
+
+
+@pytest.mark.parametrize("entity_id,reason", [
+    ("sensor.time", "time sensors are not modelled; use time triggers"),
+    ("sensor.date", "time sensors are not modelled; use time triggers"),
+    ("sensor.date_time", "time sensors are not modelled; use time triggers"),
+    ("sensor.sun_next_rising", "sun sensors are not modelled; use sun.sun"),
+    ("sensor.sun_solar_elevation", "sun sensors are not modelled; use sun.sun"),
+    ("sensor.sun_elevation", "sun sensors are not modelled; use sun.sun"),
+    ("sensor.openweathermap_condition", "weather service sensors other than temperature, humidity and illuminance "
+                                        "are not modelled"),
+    ("sensor.dark_sky_wind_speed", "weather service sensors other than temperature, humidity and illuminance "
+                                   "are not modelled"),
+])
+def test_time_sun_and_weather_service_sensors_have_their_own_reasons(edt, entity_id, reason):
+    _, roles, _, _ = edt
+    assert bind(one(entity_id), roles, 0) == Unbindable(reason)
 
 
 def test_an_entity_id_in_variables_or_data_is_bound(edt):
@@ -280,7 +463,8 @@ def test_service_keys_and_sun_are_never_entities(edt):
     assert bind(raw, roles, 0) == raw
 
 
-@pytest.mark.parametrize("value", ["person.me", "light.garden", "weather.home", "cover.kitchen_blind", "sensor.xyz_1"])
+@pytest.mark.parametrize("value", ["person.me", "cover.garage_door", "weather.home", "cover.kitchen_blind",
+                                   "sensor.xyz_1"])
 def test_an_unbindable_entity_id_anywhere_makes_the_automation_unbindable(edt, value):
     _, roles, _, _ = edt
     raw = {"alias": "v", "variables": {"x": value}, "triggers": [], "actions": []}
@@ -302,3 +486,21 @@ def test_an_unmodelled_domain_is_refused_in_variables_and_templates(domain, edt)
                 {"triggers": [{"trigger": "template", "value_template": f"{{{{ is_state('{domain}.front', 'on') }}}}"}],
                  "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.kitchen"}}]}):
         assert isinstance(bind(raw, roles, 0), Unbindable), (domain, raw)
+
+
+def test_a_mixed_case_entity_id_is_lowercased_as_home_assistant_does(edt):
+    """Home Assistant's config validation lowercases an entity id (cv.entity_id)."""
+    _, roles, _, _ = edt
+    assert bind(one("switch.Kitchen_Plug"), roles, 0)["triggers"][0]["entity_id"] == roles[("switch", "kitchen", 0)]
+    assert bind(one(["light.Office", "light.kitchen"]), roles, 0)["triggers"][0]["entity_id"] == [
+        roles[("light", "office", 0)], roles[("light", "kitchen", 0)]]
+
+
+@pytest.mark.parametrize("value,reason", [
+    ("!input motion_entity", "blueprint inputs are not expanded"),
+    ("!include ../devices.yaml", "YAML tags are not resolved (for !include)"),
+    ("!secret lamp", "YAML tags are not resolved (for !secret)"),
+])
+def test_an_unresolved_tag_under_entity_id_has_its_own_reason(edt, value, reason):
+    _, roles, _, _ = edt
+    assert bind(one(value), roles, 0) == Unbindable(reason)

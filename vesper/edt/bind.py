@@ -4,13 +4,19 @@ standard EDT home's devices, by role.
 A role is what the entity measures or does (illuminance, motion, light, ...) and a room is where its name says it is.
 Both are read from the entity id alone, so they are guesses: the domain says what kind of thing it is, and the words
 of its name pick the role among those the domain allows (ROLE_PRIORITY orders the readings: `sensor.temp_lux` is an
-illuminance sensor). An entity id that names no role, a role the home has no device for, an outdoor entity, a device or
-area handle, or an entity the experiment does not model makes the whole automation `Unbindable`: a half-bound
+illuminance sensor). An outdoor name (garden, patio, ...) or a weather service's sensor is on the porch, the home's
+outdoor room. An entity id that names no role, a role the home has no device for, a device or area handle that cannot
+be resolved, or an entity the experiment does not model makes the whole automation `Unbindable`: a half-bound
 automation would test something else.
 
 Entity ids are found where an automation puts them: under `entity_id` (one id, a comma-separated string or a list),
 under `above`/`below` (a numeric_state compared against an entity), and inside templates, quoted (`states('x.y')`) or
 as attribute access (`states.x.y.state`).
+
+Handles: an action's `area_id` target becomes the room's device of the action's domain (`light.turn_on` on the
+kitchen: the kitchen's light); a `device_id` beside an `entity_id` is dropped (the entity says what is meant); a device
+trigger, condition or action (`domain` + `type`) becomes the state, numeric_state or service step Home Assistant's
+device automation stands for, on its entity, or on the role its type names (an opaque registry id: the living room's).
 """
 from __future__ import annotations
 
@@ -26,23 +32,37 @@ DOMAINS = {  # the domains each role's entity can have
     "motion": ("binary_sensor",), "door": ("binary_sensor",), "light": ("light",), "switch": ("switch",),
     "lock": ("lock",), "climate": ("climate",), "cover": ("cover",),
 }
-WORDS = {  # the name tokens that say a sensor's role (an actuator's domain says its own)
-    "illuminance": {"lux", "illuminance", "illumination", "luminosity", "lightlevel", "brightness", "light"},
-    "temperature": {"temp", "temperature"},
-    "humidity": {"humidity", "humid", "rh"},
-    "motion": {"motion", "occupancy", "presence", "pir", "movement"},
-    "door": {"door", "window", "contact", "opening"},
+WORDS = {  # the name tokens that say a sensor's role (an actuator's domain says its own); a few in other languages
+    "illuminance": {"lux", "illuminance", "illumination", "luminosity", "luminance", "lightlevel", "brightness",
+                    "light", "helligkeit", "luminosite", "helderheid"},
+    "temperature": {"temp", "temperature", "temperatur", "temperatuur", "temperatura"},
+    "humidity": {"humidity", "humid", "rh", "luftfeuchtigkeit", "luftfeuchte", "feuchtigkeit", "feuchte", "humidite",
+                 "humedad", "umidita", "vochtigheid", "luchtvochtigheid", "fuktighet", "luftfuktighet"},
+    "motion": {"motion", "occupancy", "presence", "pir", "movement", "bewegung", "beweging", "mouvement",
+               "movimiento", "movimento"},
+    "door": {"door", "window", "contact", "opening", "tuer", "deur", "porte", "puerta", "porta", "fenster", "fenetre",
+             "ventana", "finestra", "raam"},
 }
+ROLE_WORDS = set().union(*WORDS.values())
 OTHER_MEASURE = {"power", "energy", "current", "voltage", "watt", "watts", "kwh", "battery", "signal", "linkquality",
-                 "rssi", "status", "state"}  # a sensor with one of these measures something the home has no role for
+                 "rssi", "status", "state", "dew", "dewpoint", "absolute", "soil", "moisture", "target", "setpoint",
+                 "forecast", "feels", "apparent"}  # a sensor with one of these measures something the home has no
+# role for (`current` before a role word is the adjective: current_temperature)
 ROOMS = (  # (name token prefix, room id): the first that matches; no match is the living room
     ("living", "living"), ("lounge", "living"), ("kitchen", "kitchen"), ("bedroom", "bedroom_1"), ("bath", "bathroom"),
     ("hall", "corridor"), ("corridor", "corridor"), ("office", "office"), ("study", "office"),
 )
+OUTDOOR_ROOM = "porch"  # the home's outdoor room (vesper.edt.home.OUTDOOR_ROOM)
 BEDROOM_2 = re.compile(r"(?<![a-z])(bed|bedroom)_?(2|two)(?![0-9a-z])|(?<![a-z])guest")
 OUTDOOR = ("outdoor", "outside", "garden", "garage", "porch", "balcony", "patio", "driveway", "terrace", "deck",
-           "carport", "shed", "pool")  # name-token prefixes
+           "carport", "shed", "pool", "veranda", "lawn", "aussen", "buiten", "exterior", "exterieur", "garten",
+           "jardin", "terrass", "balkon")  # name-token prefixes
 OUTDOOR_ANYWHERE = ("yard",)  # and inside a token (backyard, courtyard)
+WEATHER_SERVICES = ("weather", "openweathermap", "owm", "darksky", "pirateweather", "accuweather", "buienradar",
+                    "wetter", "meteo", "weatherbit", "climacell", "wunderground")  # name-token prefixes: outdoors
+TIME_WORDS = {"time", "date", "utc", "iso", "beat", "internet", "local"}  # `sensor.time`, `sensor.date_time`
+SUN_SENSOR_WORDS = {"next", "solar", "elevation", "azimuth", "rising", "setting", "dawn", "dusk", "noon", "midnight",
+                    "adjusted"}  # the sun integration's sensors: sensor.sun_next_rising, sensor.sun_solar_elevation
 ENTITY = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 QUOTED = re.compile(r"""(['"])([a-z_]+\.[a-z0-9_]+)\1""")  # an entity id inside a template string
 STATES = re.compile(r"\bstates\.([a-z_]+)\.([a-z0-9_]+)")  # `states.light.kitchen.state` in a template
@@ -60,6 +80,42 @@ SERVICES = {"turn_on", "turn_off", "toggle", "lock", "unlock", "open", "close", 
             "set_temperature", "set_hvac_mode", "set_humidity"}  # a quoted `light.turn_on` is a service, not an entity
 HANDLES = ("device_id", "area_id")
 MODELLED_ELSEWHERE = {"sun.sun"}  # the engine provides it at the home's site
+AREA_ROLES = {"light": "light", "switch": "switch", "lock": "lock", "climate": "climate", "cover": "cover"}
+REMOTE_DOMAINS = {"mqtt", "zha", "deconz", "hue", "tradfri", "lutron_caseta", "homekit_controller", "shelly",
+                  "zwave_js", "tasmota", "esphome", "xiaomi_aqara"}  # integrations whose device triggers are buttons
+REMOTE_TYPES = ("remote_button", "button", "action", "click", "press")  # type prefixes of a button's device trigger
+NUMERIC = "numeric"  # a device step's value: compared with above/below
+# Home Assistant's device automations: (domain, type) -> (role, state). Role None: the entity's name says it.
+DEVICE_TRIGGERS = {
+    **{(d, t): (d, s) for d in ("light", "switch") for t, s in (("turned_on", "on"), ("turned_off", "off"),
+                                                                ("changed_states", None))},
+    **{("binary_sensor", t): (r, s) for t, r, s in (
+        ("motion", "motion", "on"), ("no_motion", "motion", "off"), ("occupied", "motion", "on"),
+        ("not_occupied", "motion", "off"), ("present", "motion", "on"), ("not_present", "motion", "off"),
+        ("opened", "door", "on"), ("not_opened", "door", "off"), ("turned_on", None, "on"),
+        ("turned_off", None, "off"))},
+    ("lock", "locked"): ("lock", "locked"), ("lock", "unlocked"): ("lock", "unlocked"),
+    **{("sensor", t): (t, NUMERIC) for t in ("temperature", "humidity", "illuminance")},
+    ("sensor", "value"): (None, NUMERIC),
+}
+DEVICE_CONDITIONS = {
+    **{(d, t): (d, s) for d in ("light", "switch") for t, s in (("is_on", "on"), ("is_off", "off"))},
+    **{("binary_sensor", t): (r, s) for t, r, s in (
+        ("is_motion", "motion", "on"), ("is_no_motion", "motion", "off"), ("is_occupied", "motion", "on"),
+        ("is_not_occupied", "motion", "off"), ("is_present", "motion", "on"), ("is_not_present", "motion", "off"),
+        ("is_open", "door", "on"), ("is_not_open", "door", "off"), ("is_on", None, "on"), ("is_off", None, "off"))},
+    ("lock", "is_locked"): ("lock", "locked"), ("lock", "is_unlocked"): ("lock", "unlocked"),
+    **{("sensor", f"is_{t}"): (t, NUMERIC) for t in ("temperature", "humidity", "illuminance")},
+    ("sensor", "is_value"): (None, NUMERIC),
+}
+DEVICE_ACTIONS = {  # (domain, type) -> (role, service)
+    **{(d, t): (d, t) for d in ("light", "switch") for t in ("turn_on", "turn_off", "toggle")},
+    **{("lock", t): ("lock", t) for t in ("lock", "unlock", "open")},
+    ("climate", "set_hvac_mode"): ("climate", "set_hvac_mode"),
+}
+DEVICE_STEP_KEYS = {"device_id", "domain", "entity_id", "type", "trigger", "platform", "condition", "metadata",
+                    "subtype"}  # what a device step's translation consumes; the rest passes on
+STEP_KEYS = {"id", "alias", "enabled", "for", "continue_on_error", "variables", "above", "below"}  # kept on the step
 
 
 @dataclass(frozen=True)
@@ -69,52 +125,85 @@ class Unbindable:
 
 def _outdoor(tokens) -> bool:
     return any(t.startswith(prefix) for t in tokens for prefix in OUTDOOR) or any(
-        s in t for t in tokens for s in OUTDOOR_ANYWHERE)
+        s in t for t in tokens for s in OUTDOOR_ANYWHERE) or _weather_service(tokens)
+
+
+def _weather_service(tokens) -> bool:
+    name = "_".join(tokens)
+    return any(t.startswith(p) for t in tokens for p in WEATHER_SERVICES) or "dark_sky" in name or \
+        "pirate_weather" in name
+
+
+def _other_measure(tokens) -> bool:
+    other = OTHER_MEASURE & set(tokens)
+    if "current" in other and all(i + 1 < len(tokens) and tokens[i + 1] in ROLE_WORDS
+                                  for i, t in enumerate(tokens) if t == "current"):
+        other.discard("current")
+    return bool(other)
+
+
+def _room(tokens, default: str | None = "living") -> str | None:
+    """The room a name's tokens say: the porch if outdoors, else ROOMS' first match, else `default`."""
+    if _outdoor(tokens):
+        return OUTDOOR_ROOM
+    room = next((rid for prefix, rid in ROOMS if any(t.startswith(prefix) for t in tokens)), None)
+    if room in (None, "bedroom_1") and BEDROOM_2.search("_".join(tokens)):
+        room = "bedroom_2"
+    return room or default
 
 
 def infer_role(entity_id: str) -> tuple[str, str] | None:
-    """(role, room) an entity id stands for, or None if its name says no role (or it is outdoors)."""
+    """(role, room) an entity id stands for (room "porch" outdoors), or None if its name says no role."""
     domain, _, name = entity_id.partition(".")
     tokens = name.split("_")
-    if _outdoor(tokens):
-        return None
     role = None
     for r in ROLE_PRIORITY:
         if domain not in DOMAINS[r]:
             continue
-        if r in WORDS and OTHER_MEASURE & set(tokens):  # `light_power`, `motion_battery_low` are not the role
+        if r in WORDS and _other_measure(tokens):  # `light_power`, `motion_battery_low` are not the role
             continue
         if r not in WORDS or WORDS[r] & set(tokens):
             role = r
             break
     if role is None:
         return None
-    room = next((rid for prefix, rid in ROOMS if any(t.startswith(prefix) for t in tokens)), None)
-    if room in (None, "bedroom_1") and BEDROOM_2.search(name):
-        room = "bedroom_2"
-    return role, room or "living"
+    return role, _room(tokens)
+
+
+def _no_role(entity_id: str) -> Unbindable:
+    """Why an entity id's name names no role: time, sun and weather service sensors have their own reasons."""
+    domain, _, name = entity_id.partition(".")
+    tokens = name.split("_")
+    if domain == "sensor" and set(tokens) <= TIME_WORDS and {"time", "date"} & set(tokens):
+        return Unbindable("time sensors are not modelled; use time triggers")
+    if domain == "sensor" and tokens[0] == "sun" and len(tokens) > 1 and tokens[1] in SUN_SENSOR_WORDS:
+        return Unbindable("sun sensors are not modelled; use sun.sun")
+    if domain in ("sensor", "binary_sensor") and _weather_service(tokens):
+        return Unbindable("weather service sensors other than temperature, humidity and illuminance are not modelled")
+    return Unbindable(f"{entity_id}: its name names no role the standard home has")
+
+
+def _lookup(role: str, room: str, roles: dict, variant: int, what: str) -> str | Unbindable:
+    if role in VARIANT_ROLES and variant and (role, room, variant) not in roles:
+        return Unbindable(f"no variant {variant} for {role} (the home has one product per sensor role)")
+    bound = roles.get((role, room, variant if role in VARIANT_ROLES else 0))
+    if bound is None:
+        return Unbindable(f"the standard home has no {role} in the {room} (for {what})")
+    return bound
 
 
 def _roles_for(entity_id: str, roles: dict, variant: int) -> str | Unbindable:
     if entity_id in MODELLED_ELSEWHERE:
         return entity_id
-    domain, _, name = entity_id.partition(".")
+    domain = entity_id.partition(".")[0]
     if domain == "weather":
         return Unbindable("weather entities are not modelled")
     if domain not in BOUND_DOMAINS:
         return Unbindable(f"{entity_id}: {domain} entities are not modelled")
-    if _outdoor(name.split("_")):
-        return Unbindable("outdoor entities are not modelled")
     found = infer_role(entity_id)
     if found is None:
-        return Unbindable(f"{entity_id}: its name names no role the standard home has")
-    role, room = found
-    if role in VARIANT_ROLES and variant and (role, room, variant) not in roles:
-        return Unbindable(f"no variant {variant} for {role} (the home has one product per sensor role)")
-    bound = roles.get((role, room, variant if role in VARIANT_ROLES else 0))
-    if bound is None:
-        return Unbindable(f"the standard home has no {role} in the {room} (for {entity_id})")
-    return bound
+        return _no_role(entity_id)
+    return _lookup(*found, roles, variant, entity_id)
 
 
 def _in_template(entity_id: str, roles: dict, variant: int) -> str | Unbindable:
@@ -157,7 +246,11 @@ def _reference(text: str, roles: dict, variant: int, strict: bool) -> str | Unbi
         return _template(text, roles, variant)
     if strict and s in ("all", "none"):
         return text
-    parts = [p.strip() for p in s.split(",")]
+    if strict and s.startswith("!"):  # the corpus loader keeps a local tag as "!tag value"
+        tag = s.split()[0]
+        return Unbindable("blueprint inputs are not expanded" if tag == "!input" else
+                          f"YAML tags are not resolved (for {tag})")
+    parts = [p.strip().lower() if strict else p.strip() for p in s.split(",")]  # cv.entity_id lowercases
     if all(ENTITY.match(p) for p in parts):
         bound = [_roles_for(p, roles, variant) for p in parts]
         failed = next((b for b in bound if isinstance(b, Unbindable)), None)
@@ -167,11 +260,131 @@ def _reference(text: str, roles: dict, variant: int, strict: bool) -> str | Unbi
     return text
 
 
+def _empty(value) -> bool:
+    return value is None or value == "" or value == [] or value == {}
+
+
+def _listed(value) -> list:
+    return value if isinstance(value, list) else [value]
+
+
+def _area_room(area) -> str | None:
+    """The room an area's name says, or None (an area the home has no room for, or a registry id)."""
+    if not isinstance(area, str):
+        return None
+    tokens = [t for t in re.split(r"[^a-z0-9]+", area.lower()) if t]
+    return _room(tokens, None) if tokens else None
+
+
+def _target(node: dict, roles: dict, variant: int) -> dict | Unbindable | None:
+    """The bound target of an action whose target (or the action itself, the old style) names an area or a device;
+    None if it names neither."""
+    target = node.get("target")
+    if target is not None and not isinstance(target, dict):
+        return None
+    target = dict(target or {})
+    for k in HANDLES + ("entity_id",):  # the old style: beside the action
+        if k in node and not (k == "entity_id" and "target" in node):
+            target[k] = node[k]
+    target = {k: v for k, v in target.items() if not (k in HANDLES and _empty(v))}
+    if not any(k in target for k in HANDLES):
+        return None
+    areas = _listed(target.pop("area_id", []))
+    devices = _listed(target.pop("device_id", []))
+    entities = target.get("entity_id")
+    if devices and _empty(entities):
+        return Unbindable("device_id targets name no entity")
+    if not _empty(entities):
+        entities = _rewrite(entities, roles, variant, "entity_id")
+        if isinstance(entities, Unbindable):
+            return entities
+    if areas:
+        domain = str(node.get("action") or node.get("service")).partition(".")[0]
+        role = AREA_ROLES.get(domain)
+        if role is None:
+            return Unbindable(f"area targets of {domain} actions are not modelled")
+        found = []
+        for area in areas:
+            room = _area_room(area)
+            if room is None:
+                return Unbindable(f"no room of the standard home for the area (for {area})")
+            bound = _lookup(role, room, roles, 0, f"area {area}")
+            if isinstance(bound, Unbindable):
+                return bound
+            found.append(bound)
+        entities = ([] if _empty(entities) else _listed(entities)) + found
+    out = {k: v for k, v in target.items() if k != "entity_id"}
+    out["entity_id"] = entities
+    return out
+
+
+def _device_entity(node: dict, domain: str, role: str | None, roles: dict, variant: int, what: str):
+    """The home entity a device step acts on: its entity id's binding, else the role its type names (in the room its
+    entity id's name says; an opaque registry id: the living room). None: neither says a role."""
+    eid = node.get("entity_id")
+    if isinstance(eid, str) and ENTITY.match(eid):
+        if infer_role(eid) is not None or role is None or eid.partition(".")[0] not in BOUND_DOMAINS:
+            return _roles_for(eid, roles, variant)
+        tokens = eid.partition(".")[2].split("_")
+        if _other_measure(tokens):
+            return _roles_for(eid, roles, variant)
+        return _lookup(role, _room(tokens), roles, variant, what)
+    if role is None:
+        return None
+    return _lookup(role, "living", roles, variant, what)
+
+
+def _device_step(node: dict, roles: dict, variant: int) -> dict | Unbindable:
+    """A device trigger, condition or action as the entity step it stands for, on the home's entity."""
+    kind = "trigger" if "device" in (node.get("trigger"), node.get("platform")) else \
+        "condition" if node.get("condition") == "device" else "action"
+    domain, typ = node.get("domain"), node.get("type")
+    if kind == "trigger" and ("subtype" in node or not domain or not typ or domain in REMOTE_DOMAINS
+                              or str(typ).startswith(REMOTE_TYPES)):
+        return Unbindable("device triggers of remotes are not modelled")
+    if not domain or not typ:
+        return Unbindable(f"device {kind}s with no domain or type are not modelled")
+    if domain in UNMODELLED_DOMAINS or domain == "weather":
+        return Unbindable(f"{domain} entities are not modelled")
+    table = {"trigger": DEVICE_TRIGGERS, "condition": DEVICE_CONDITIONS, "action": DEVICE_ACTIONS}[kind]
+    spec = table.get((domain, typ))
+    what = f"device {domain} {typ}"
+    entity = None if spec is None else _device_entity(node, domain, spec[0], roles, variant, what)
+    if entity is None:
+        return Unbindable(f"{domain} device {kind}s are not modelled (for {typ})")
+    if isinstance(entity, Unbindable):
+        return entity
+    kept = {k: v for k, v in node.items() if k in STEP_KEYS}
+    if kind == "action":
+        data = {k: v for k, v in node.items() if k not in DEVICE_STEP_KEYS | STEP_KEYS}
+        out = {"action": f"{domain}.{spec[1]}", "target": {"entity_id": entity}}
+        return {**out, **({"data": data} if data else {}), **kept}
+    value = spec[1]
+    if kind == "trigger":
+        key = "platform" if "platform" in node else "trigger"
+        head = {key: "numeric_state" if value == NUMERIC else "state", "entity_id": entity}
+        return {**head, **({"to": value} if value not in (None, NUMERIC) else {}), **kept}
+    head = {"condition": "numeric_state" if value == NUMERIC else "state", "entity_id": entity}
+    return {**head, **({"state": value} if value != NUMERIC else {}), **kept}
+
+
 def _rewrite(node, roles: dict, variant: int, key: str | None = None):
     """The node with every entity id rewritten, or the Unbindable the first one that cannot be."""
     if isinstance(node, dict):
+        node = {k: v for k, v in node.items() if not (k in HANDLES and _empty(v))}  # an empty handle names nothing
+        if any(k in node for k in HANDLES) and ({"domain", "type"} <= set(node) or "device" in (
+                node.get("trigger"), node.get("platform"), node.get("condition"))):
+            return _device_step(node, roles, variant)
+        target = None
+        if isinstance(node.get("action") or node.get("service"), str):
+            target = _target(node, roles, variant)
+            if isinstance(target, Unbindable):
+                return target
+        moved = {*HANDLES, "target", *(() if "target" in node else ("entity_id",))}  # now in the bound target
         out = {}
         for k, v in node.items():
+            if target is not None and k in moved:
+                continue
             if k in HANDLES:
                 return Unbindable("device_id/area_id not modelled")
             if k == "use_blueprint":
@@ -180,6 +393,8 @@ def _rewrite(node, roles: dict, variant: int, key: str | None = None):
             if isinstance(v, Unbindable):
                 return v
             out[k] = v
+        if target is not None:
+            out["target"] = target
         return out
     if isinstance(node, list):
         out = []
