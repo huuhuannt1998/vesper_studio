@@ -913,4 +913,3 @@ def check_house(plan_m: dict) -> list[str]:
     problems.extend(f"room {r['id']!r} is not reachable from the entrance through doors"
                     for r in rooms if r["id"] not in seen)
     return problems
-
