@@ -66,3 +66,8 @@ the experiment was rerun as `results/environment/crosssite-20261104T162257Z.json
 field (heating, cooling, room temperatures, dark minutes, first firings, outdoors): the catalog gives both products
 the same illuminance reporting rule (at most every 10 s, at least every hour, any change), and the environment writes
 the same physical value to either.
+
+Disclosure (2026-11-04, final review): `crosssite-20261104T162257Z.json` was produced from a dirty tree. Its `run`
+block records commit 084a0e7 with `git_dirty: true`: the checkout held uncommitted work of other tasks at the time,
+so the exact code of that run is 084a0e7 plus changes that are not identified commit by commit. Its `work`
+parameter, a scratchpad path, is recorded as `<work dir>`.

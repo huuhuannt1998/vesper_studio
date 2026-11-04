@@ -81,6 +81,11 @@ and committed; the bounds were set to the registered ones (a test now pins them)
 once, with the corrected code (a8e22d8, sha256 of `thermal_ladder.py` in the report's `run`). The first JSON is kept.
 Everything below is from the second.
 
+Disclosure (2026-11-04, final review): the superseded first run (`thermal-ladder-20261104T162908Z.json`) was
+produced from a dirty tree. Its `run` block records commit 084a0e7 with `git_dirty: true`: the checkout held the
+ladder's own code before it was committed as e3da446, and uncommitted work of other tasks. The same holds for the
+cross-site rerun of the same afternoon (`crosssite-20261104T162257Z.json`; see results-2026-11-04-crosssite.md).
+
 Four grey-box orders fitted on each of dataset A's eight rooms (3,241 scored hours each, 10-minute steps, heater held
 at 1600 W, the room's own 10th-percentile setpoint rule on the model's own state), then handed A's median parameters
 for B's two rooms (nothing fitted on B for the held-out column). Medians over rooms:
