@@ -57,3 +57,16 @@ constant, its old and new value and the reason go into the indoor model's docstr
         --sml2010 .vesper/datasets/uci-sml2010
 
 Results go to `results/environment/`.
+
+## Addendum 1 (2026-11-04, after the first run, before any fit)
+
+What may be fitted after the first run (results-2026-11-04-environment.md), and how; committed before the fit runs.
+
+- Constants: `ACH` (air changes per hour, now 0.5) over {0.5, 1, 1.5, 2, 3, 4}, and a new `SOLAR_TO_AIR` (the share
+  of solar gain that warms the room, the rest going into the rest of the house and its mass; now 1.0) over
+  {1.0, 0.75, 0.5, 0.35, 0.25}: 30 pairs.
+- Fitted on dataset A only, by T's median RMSE (ties by H's median RMSE). Nothing else changes: the standard room,
+  the setpoint rule, the criteria.
+- The chosen pair is then run once on dataset B and reported as the held-out result, pass or fail. If the best pair
+  is the current one (0.5, 1.0), the model stays as it is and that is the result.
+- The fitted values become VESPER's defaults only if B's T RMSE does not get worse than in the first run (7.79 °C).
