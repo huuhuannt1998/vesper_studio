@@ -1,0 +1,2235 @@
+{
+ "binding_audit": {
+  "pass_1": {
+   "ambient_sensor_names": 63,
+   "classes": 5,
+   "mis_binds_found_and_fixed": 11
+  },
+  "pass_2": {
+   "ambient_sensor_names": 54,
+   "correct": 47,
+   "correct_by_convention": 9,
+   "residual": 6,
+   "uncertain": 1
+  },
+  "source": "protocol addendum 2, A2.5 (the audit itself names corpus entities and stays local)"
+ },
+ "closed_loop": {
+  "agreement": {
+   "flagged": 0.9376558603491272,
+   "overall": 0.9429046563192904,
+   "unflagged": 0.985
+  },
+  "automations": {
+   "flagged": 200,
+   "unflagged": 200
+  },
+  "by_group": {
+   "flagged": {
+    "agree": 3008,
+    "rate": 0.9376558603491272,
+    "runs": 3208
+   },
+   "unflagged": {
+    "agree": 394,
+    "rate": 0.985,
+    "runs": 400
+   }
+  },
+  "days": 3,
+  "disagreeing_automations": {
+   "flagged": 11,
+   "unflagged": 3
+  },
+  "disagreeing_automations_share_of_their_runs": [
+   0.9,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0
+  ],
+  "disagreeing_repositories": 12,
+  "disagreeing_runs": 206,
+  "disagreeing_runs_by_city": {
+   "Minneapolis, MN, USA": 31,
+   "Phoenix, AZ, USA": 35,
+   "Seattle, WA, USA": 41,
+   "Singapore": 3,
+   "Stockholm, Sweden": 56,
+   "Sydney, Australia": 40
+  },
+  "disagreeing_runs_one_firing": {
+   "automations": 8,
+   "runs": 142,
+   "runs_of_sun_triggered_automations": 122
+  },
+  "disagreeing_runs_total_firings": {
+   "1": 142,
+   "27": 22,
+   "33": 4,
+   "4": 2,
+   "5": 16,
+   "65": 20
+  },
+  "disagreement_field_combinations": {
+   "fired+first_tod_h": 62,
+   "fired+first_tod_h+night_light": 102,
+   "first_tod_h": 16,
+   "flaps": 26
+  },
+  "disagreement_fields": {
+   "fired": 164,
+   "first_tod_h": 180,
+   "flaps": 26,
+   "night_light": 102
+  },
+  "envelope": {
+   "automations_with_climate_targets": 22,
+   "breached_above_30_automations": 13,
+   "breached_above_30_room_cells": 236,
+   "breached_above_30_room_cells_by_city": {
+    "Minneapolis, MN, USA": 28,
+    "Phoenix, AZ, USA": 56,
+    "Singapore": 105,
+    "Stockholm, Sweden": 39,
+    "Sydney, Australia": 8
+   },
+   "breached_above_30_runs": 47,
+   "breached_above_30_with_baseline_above_30": 236,
+   "breached_below_10_room_cells": 108,
+   "caused_above_30_room_cells": 0,
+   "caused_below_10_automations": 7,
+   "caused_below_10_automations_flagged": 7,
+   "caused_below_10_baseline_min_c_lowest": 15.6,
+   "caused_below_10_by_date": {
+    "2026-01-14": 108
+   },
+   "caused_below_10_delta_min_c": {
+    "max": -6.7,
+    "min": -13.2
+   },
+   "caused_below_10_min_c": {
+    "max": 9.9,
+    "median": 8.4,
+    "min": 5.3
+   },
+   "caused_below_10_repositories": 1,
+   "caused_below_10_room_cells": 108,
+   "caused_below_10_room_cells_by_city": {
+    "Minneapolis, MN, USA": 72,
+    "Stockholm, Sweden": 36
+   },
+   "caused_below_10_runs": 20,
+   "caused_below_10_runs_by_city": {
+    "Minneapolis, MN, USA": 14,
+    "Stockholm, Sweden": 6
+   },
+   "caveat": "indoor temperature carries the thermal model's validation error (sunny rooms overheat; see results-2026-11-04-environment.md); runs without cached weather use the assumed outdoor curve",
+   "room_cells": 1463,
+   "runs_with_climate_targets": 209
+  },
+  "refused_runs": 0,
+  "runs": 3608,
+  "sample_per_group": 200,
+  "seed": 0
+ },
+ "commit": "dc119cd",
+ "corpus": "45,208 automations from 1,186 public Home Assistant repositories; counts are over automations de-duplicated by canonical hash (results/edt/census-20261104.json)",
+ "cover": {
+  "baselines": {
+   "random_5": {
+    "coverage_all": 0.655995,
+    "coverage_held_out": 0.647081,
+    "draws": 100,
+    "seed": 0,
+    "set_coverage_all": 0.534606,
+    "set_coverage_held_out": 0.525486,
+    "size": 5
+   },
+   "six_city_grid": {
+    "coverage_all": 0.967459,
+    "coverage_held_out": 0.959459,
+    "envs": [
+     "Phoenix, AZ, USA, 2026-01-14, north 0",
+     "Phoenix, AZ, USA, 2026-07-15, north 0",
+     "Seattle, WA, USA, 2026-01-14, north 0",
+     "Seattle, WA, USA, 2026-07-15, north 0",
+     "Minneapolis, MN, USA, 2026-01-14, north 0",
+     "Minneapolis, MN, USA, 2026-07-15, north 0",
+     "Stockholm, Sweden, 2026-01-14, north 0",
+     "Stockholm, Sweden, 2026-07-15, north 0",
+     "Singapore, 2026-01-14, north 0",
+     "Singapore, 2026-07-15, north 0",
+     "Sydney, Australia, 2026-01-14, north 0",
+     "Sydney, Australia, 2026-07-15, north 0"
+    ],
+    "set_coverage_all": 0.967459,
+    "set_coverage_held_out": 0.959459,
+    "size": 12
+   }
+  },
+  "cover": {
+   "coverage_all": 0.813517,
+   "coverage_held_out": 0.808108,
+   "coverage_train": 0.818182,
+   "envs": [
+    "Stockholm, Sweden, 2026-01-14, north 0"
+   ],
+   "set_coverage_all": 0.0,
+   "set_coverage_held_out": 0.0,
+   "set_coverage_train": 0.0,
+   "size": 1,
+   "target": 0.8,
+   "target_size": 5
+  },
+  "flagged": {
+   "all": 799,
+   "held_out": 370,
+   "train": 429
+  },
+  "no_witness": 0,
+  "non_degeneracy": {
+   "env": "Stockholm, Sweden, 2026-07-15, north 180",
+   "max_share": 0.8297872340425532,
+   "ok": false,
+   "threshold": 0.5
+  },
+  "post_hoc_set_based_cover": {
+   "method": "greedy on set-based coverage (A1.3) over the training half until >= 0.8, ties to the earlier environment in the sweep's order; a single environment covers nothing by itself (a divergence needs two outcomes), so the first step is a tie broken by order",
+   "pre_registered": false,
+   "steps": [
+    {
+     "added": "Phoenix, AZ, USA, 2026-01-14, north 0",
+     "set_coverage_held_out": 0.0,
+     "set_coverage_train": 0.0,
+     "size": 1
+    },
+    {
+     "added": "Stockholm, Sweden, 2026-07-15, north 180",
+     "set_coverage_held_out": 0.878,
+     "set_coverage_train": 0.846,
+     "size": 2
+    }
+   ]
+  },
+  "single_env_share": [
+   {
+    "env": "Stockholm, Sweden, 2026-07-15, north 180",
+    "share": 0.829787
+   },
+   {
+    "env": "Stockholm, Sweden, 2026-07-15, north 0",
+    "share": 0.818523
+   },
+   {
+    "env": "Stockholm, Sweden, 2026-01-14, north 0",
+    "share": 0.813517
+   },
+   {
+    "env": "Stockholm, Sweden, 2026-01-14, north 180",
+    "share": 0.813517
+   },
+   {
+    "env": "Minneapolis, MN, USA, 2026-01-14, north 0",
+    "share": 0.525657
+   },
+   {
+    "env": "Minneapolis, MN, USA, 2026-01-14, north 180",
+    "share": 0.520651
+   },
+   {
+    "env": "Seattle, WA, USA, 2026-01-14, north 180",
+    "share": 0.515645
+   },
+   {
+    "env": "Minneapolis, MN, USA, 2026-07-15, north 0",
+    "share": 0.503129
+   },
+   {
+    "env": "Seattle, WA, USA, 2026-01-14, north 0",
+    "share": 0.501877
+   },
+   {
+    "env": "Minneapolis, MN, USA, 2026-07-15, north 180",
+    "share": 0.500626
+   },
+   {
+    "env": "Seattle, WA, USA, 2026-07-15, north 0",
+    "share": 0.500626
+   },
+   {
+    "env": "Seattle, WA, USA, 2026-07-15, north 180",
+    "share": 0.500626
+   },
+   {
+    "env": "Sydney, Australia, 2026-07-15, north 180",
+    "share": 0.496871
+   },
+   {
+    "env": "Sydney, Australia, 2026-07-15, north 0",
+    "share": 0.490613
+   },
+   {
+    "env": "Singapore, 2026-10-14, north 0",
+    "share": 0.125156
+   },
+   {
+    "env": "Phoenix, AZ, USA, 2026-01-14, north 180",
+    "share": 0.122653
+   },
+   {
+    "env": "Sydney, Australia, 2026-01-14, north 0",
+    "share": 0.117647
+   },
+   {
+    "env": "Minneapolis, MN, USA, 2026-04-15, north 180",
+    "share": 0.116395
+   },
+   {
+    "env": "Sydney, Australia, 2026-01-14, north 180",
+    "share": 0.116395
+   },
+   {
+    "env": "Sydney, Australia, 2026-04-15, north 180",
+    "share": 0.112641
+   },
+   {
+    "env": "Phoenix, AZ, USA, 2026-04-15, north 180",
+    "share": 0.111389
+   },
+   {
+    "env": "Singapore, 2026-01-14, north 0",
+    "share": 0.108886
+   },
+   {
+    "env": "Singapore, 2026-07-15, north 0",
+    "share": 0.108886
+   },
+   {
+    "env": "Minneapolis, MN, USA, 2026-10-14, north 180",
+    "share": 0.107635
+   },
+   {
+    "env": "Seattle, WA, USA, 2026-04-15, north 180",
+    "share": 0.107635
+   },
+   {
+    "env": "Singapore, 2026-01-14, north 180",
+    "share": 0.106383
+   },
+   {
+    "env": "Sydney, Australia, 2026-04-15, north 0",
+    "share": 0.105131
+   },
+   {
+    "env": "Minneapolis, MN, USA, 2026-04-15, north 0",
+    "share": 0.10388
+   },
+   {
+    "env": "Seattle, WA, USA, 2026-10-14, north 180",
+    "share": 0.10388
+   },
+   {
+    "env": "Singapore, 2026-10-14, north 180",
+    "share": 0.10388
+   },
+   {
+    "env": "Singapore, 2026-04-15, north 0",
+    "share": 0.101377
+   },
+   {
+    "env": "Minneapolis, MN, USA, 2026-10-14, north 0",
+    "share": 0.100125
+   },
+   {
+    "env": "Phoenix, AZ, USA, 2026-01-14, north 0",
+    "share": 0.100125
+   },
+   {
+    "env": "Singapore, 2026-07-15, north 180",
+    "share": 0.100125
+   },
+   {
+    "env": "Singapore, 2026-04-15, north 180",
+    "share": 0.098874
+   },
+   {
+    "env": "Sydney, Australia, 2026-10-14, north 0",
+    "share": 0.097622
+   },
+   {
+    "env": "Phoenix, AZ, USA, 2026-04-15, north 0",
+    "share": 0.09637
+   },
+   {
+    "env": "Phoenix, AZ, USA, 2026-10-14, north 180",
+    "share": 0.09637
+   },
+   {
+    "env": "Phoenix, AZ, USA, 2026-07-15, north 0",
+    "share": 0.095119
+   },
+   {
+    "env": "Seattle, WA, USA, 2026-04-15, north 0",
+    "share": 0.095119
+   },
+   {
+    "env": "Stockholm, Sweden, 2026-04-15, north 180",
+    "share": 0.093867
+   },
+   {
+    "env": "Phoenix, AZ, USA, 2026-10-14, north 0",
+    "share": 0.091364
+   },
+   {
+    "env": "Stockholm, Sweden, 2026-04-15, north 0",
+    "share": 0.091364
+   },
+   {
+    "env": "Sydney, Australia, 2026-10-14, north 180",
+    "share": 0.091364
+   },
+   {
+    "env": "Phoenix, AZ, USA, 2026-07-15, north 180",
+    "share": 0.08761
+   },
+   {
+    "env": "Seattle, WA, USA, 2026-10-14, north 0",
+    "share": 0.08761
+   },
+   {
+    "env": "Stockholm, Sweden, 2026-10-14, north 0",
+    "share": 0.086358
+   },
+   {
+    "env": "Stockholm, Sweden, 2026-10-14, north 180",
+    "share": 0.081352
+   }
+  ],
+  "split": "sha256 parity of the repository name; even = train, odd = held_out",
+  "witness_pairs_top": [
+   {
+    "a": "Minneapolis, MN, USA, 2026-01-14, north 0",
+    "axis": "date",
+    "b": "Minneapolis, MN, USA, 2026-04-15, north 0",
+    "n": 370
+   },
+   {
+    "a": "Stockholm, Sweden, 2026-01-14, north 0",
+    "axis": "date",
+    "b": "Stockholm, Sweden, 2026-07-15, north 0",
+    "n": 239
+   },
+   {
+    "a": "Minneapolis, MN, USA, 2026-01-14, north 0",
+    "axis": "date",
+    "b": "Minneapolis, MN, USA, 2026-07-15, north 0",
+    "n": 32
+   },
+   {
+    "a": "Minneapolis, MN, USA, 2026-04-15, north 0",
+    "axis": "north_deg",
+    "b": "Minneapolis, MN, USA, 2026-04-15, north 180",
+    "n": 28
+   },
+   {
+    "a": "Minneapolis, MN, USA, 2026-01-14, north 0",
+    "axis": "north_deg",
+    "b": "Minneapolis, MN, USA, 2026-01-14, north 180",
+    "n": 25
+   },
+   {
+    "a": "Singapore, 2026-10-14, north 0",
+    "axis": "north_deg",
+    "b": "Singapore, 2026-10-14, north 180",
+    "n": 16
+   },
+   {
+    "a": "Stockholm, Sweden, 2026-01-14, north 0",
+    "axis": "date",
+    "b": "Stockholm, Sweden, 2026-04-15, north 0",
+    "n": 15
+   },
+   {
+    "a": "Phoenix, AZ, USA, 2026-01-14, north 0",
+    "axis": "north_deg",
+    "b": "Phoenix, AZ, USA, 2026-01-14, north 180",
+    "n": 14
+   },
+   {
+    "a": "Phoenix, AZ, USA, 2026-04-15, north 0",
+    "axis": "north_deg",
+    "b": "Phoenix, AZ, USA, 2026-04-15, north 180",
+    "n": 10
+   },
+   {
+    "a": "Minneapolis, MN, USA, 2026-07-15, north 0",
+    "axis": "north_deg",
+    "b": "Minneapolis, MN, USA, 2026-07-15, north 180",
+    "n": 8
+   }
+  ],
+  "witnesses_by_axis": {
+   "city": 1,
+   "date": 669,
+   "north_deg": 129
+  },
+  "witnesses_by_axis_and_environment_kind": {
+   "city / sun": 1,
+   "date / (none)": 14,
+   "date / humidity": 3,
+   "date / humidity+weather": 2,
+   "date / illuminance": 7,
+   "date / illuminance+sun": 5,
+   "date / sun": 598,
+   "date / sun+temperature": 2,
+   "date / temperature": 32,
+   "date / temperature+weather": 6,
+   "north_deg / (none)": 5,
+   "north_deg / humidity": 31,
+   "north_deg / humidity+temperature": 1,
+   "north_deg / illuminance+sun": 3,
+   "north_deg / temperature": 89
+  }
+ },
+ "environments": {
+  "cities": [
+   "Minneapolis, MN, USA",
+   "Phoenix, AZ, USA",
+   "Seattle, WA, USA",
+   "Singapore",
+   "Stockholm, Sweden",
+   "Sydney, Australia"
+  ],
+  "dates": [
+   "2026-01-14",
+   "2026-04-15",
+   "2026-07-15",
+   "2026-10-14"
+  ],
+  "n": 48,
+  "north_deg": [
+   0.0,
+   180.0
+  ]
+ },
+ "ladder": {
+  "flagged": "a non-empty list of divergences",
+  "n_automations_rung4": 43280,
+  "rung0": {
+   "auc": 0.9385061556171576,
+   "auc_ci95": [
+    0.9171222077219351,
+    0.9560068559045465
+   ],
+   "auc_ci95_n": 1000,
+   "auc_random_folds": 0.9472259378664591,
+   "base_rate": 0.08389332213355732,
+   "cv": "5-fold, whole repos per fold, stratified as well as repos allow",
+   "degenerate_folds": 0,
+   "features": [
+    "sun_trigger",
+    "sun_condition",
+    "numeric_state_illuminance",
+    "numeric_state_temperature",
+    "numeric_state_humidity",
+    "numeric_state_weather",
+    "time_trigger",
+    "n_conditions"
+   ],
+   "folds": 5,
+   "folds_random": 5,
+   "model": "logistic regression, L2 1.0, standardised features",
+   "n": 9524,
+   "n_excluded": 0,
+   "n_flagged": 799,
+   "n_repos": 821,
+   "null": null,
+   "recall_at_precision_0.55": {
+    "base_rate": 0.08389332213355732,
+    "degenerate_folds": 0,
+    "n_predicted_positive": 1145,
+    "precision": 0.6462882096069869,
+    "recall": 0.9261576971214017,
+    "thresholds": [
+     -2.9439711186704924,
+     -2.981587514081083,
+     -3.0181067842720384,
+     -3.7336284614926076,
+     -2.327532661499993
+    ]
+   },
+   "seed": 0
+  },
+  "rungs": {
+   "1": {
+    "mae_hours": 0.04282923202315196,
+    "n_bound_both": 9524,
+    "n_envs_matched": 48,
+    "n_flagged_both": 0,
+    "n_flagged_rung4": 799,
+    "n_flagged_rung4_total": 799,
+    "n_flagged_rung_only": 0,
+    "n_spread": 79,
+    "n_spread_both": 1381,
+    "n_time_pairs": 65538,
+    "n_unbound_at_rung": 0,
+    "null": null,
+    "reproduced_share": 0.0,
+    "spearman_time_spread": -0.8310156436379724
+   },
+   "2": {
+    "mae_hours": 0.02999467619378699,
+    "n_bound_both": 9524,
+    "n_envs_matched": 48,
+    "n_flagged_both": 615,
+    "n_flagged_rung4": 799,
+    "n_flagged_rung4_total": 799,
+    "n_flagged_rung_only": 0,
+    "n_spread": 689,
+    "n_spread_both": 2226,
+    "n_time_pairs": 105331,
+    "n_unbound_at_rung": 0,
+    "null": null,
+    "reproduced_share": 0.769712140175219,
+    "spearman_time_spread": 0.7207709090031578
+   },
+   "3": {
+    "mae_hours": 0.004296364818033261,
+    "n_bound_both": 9524,
+    "n_envs_matched": 48,
+    "n_flagged_both": 798,
+    "n_flagged_rung4": 799,
+    "n_flagged_rung4_total": 799,
+    "n_flagged_rung_only": 0,
+    "n_spread": 772,
+    "n_spread_both": 2340,
+    "n_time_pairs": 107022,
+    "n_unbound_at_rung": 0,
+    "null": null,
+    "reproduced_share": 0.9987484355444305,
+    "spearman_time_spread": 0.9920041519478785
+   }
+  }
+ },
+ "protocol": "docs/experiments/edt-protocol.md (sections 1-7, addenda 1-3)",
+ "rungs": {
+  "1": {
+   "bound_with_assumptions": 1038,
+   "by_environment_kind": {
+    "humidity": {
+     "bound": 74,
+     "bound_share": 0.2126,
+     "flagged": 0,
+     "flagged_share_of_run": 0.0,
+     "parsed": 348,
+     "run": 63,
+     "run_share_of_bound": 0.8514
+    },
+    "illuminance": {
+     "bound": 79,
+     "bound_share": 0.171,
+     "flagged": 0,
+     "flagged_share_of_run": 0.0,
+     "parsed": 462,
+     "run": 48,
+     "run_share_of_bound": 0.6076
+    },
+    "sun": {
+     "bound": 1013,
+     "bound_share": 0.3483,
+     "flagged": 0,
+     "flagged_share_of_run": 0.0,
+     "parsed": 2908,
+     "run": 3,
+     "run_share_of_bound": 0.003
+    },
+    "temperature": {
+     "bound": 231,
+     "bound_share": 0.1674,
+     "flagged": 0,
+     "flagged_share_of_run": 0.0,
+     "parsed": 1380,
+     "run": 199,
+     "run_share_of_bound": 0.8615
+    },
+    "weather": {
+     "bound": 9,
+     "bound_share": 0.0336,
+     "flagged": 0,
+     "flagged_share_of_run": 0.0,
+     "parsed": 268,
+     "run": 9,
+     "run_share_of_bound": 1.0
+    }
+   },
+   "environment_coupled": {
+    "bound": 1367,
+    "bound_share": 0.2743,
+    "flagged": 0,
+    "flagged_share_of_run": 0.0,
+    "parsed": 4984,
+    "run": 306,
+    "run_share_of_bound": 0.2238
+   },
+   "environment_coupled_assumption_free": {
+    "bound": 1102,
+    "bound_share": 0.2335,
+    "flagged": 0,
+    "flagged_share_of_run": 0.0,
+    "parsed": 4719,
+    "run": 256,
+    "run_share_of_bound": 0.2323
+   },
+   "failed_envs": 0,
+   "flagged": {
+    "by_kind": {},
+    "n": 0
+   },
+   "flagged_assumption_free": {
+    "by_kind": {},
+    "n": 0
+   },
+   "flagged_by_environment_and_divergence_kinds": {},
+   "flagged_by_environment_kind": {},
+   "flagged_reading_a_sensed_quantity": 0,
+   "flagged_reading_a_sensed_quantity_without_sun": 0,
+   "flagged_reading_the_clock_in_a_template": 0,
+   "flagged_triggered_on_every_sensor_change": 0,
+   "flagged_triggered_on_every_sensor_change_time_spread_only": 0,
+   "flagged_with_assumptions": 0,
+   "flagged_with_no_environment_kind": 0,
+   "flagged_with_no_environment_kind_reading_the_clock": 0,
+   "n_envs": 48,
+   "negative_control": {
+    "fired": 1106,
+    "flagged": 0,
+    "halt": false,
+    "n": 3209,
+    "rate": 0.0,
+    "rate_over": "control automations that fire somewhere",
+    "threshold": 0.05,
+    "uninformative": false
+   },
+   "not_environment_coupled": {
+    "bound": 8157,
+    "bound_share": 0.213,
+    "flagged": 0,
+    "flagged_share_of_run": 0.0,
+    "parsed": 38296,
+    "run": 4268,
+    "run_share_of_bound": 0.5232
+   },
+   "partially_refused": 0,
+   "refused_reasons": {
+    "n_classes": 28,
+    "rest": 62,
+    "top": [
+     {
+      "class": "it has no trigger",
+      "n": 1036
+     },
+     {
+      "class": "a sun trigger or condition with no site (rung 1)",
+      "n": 745
+     },
+     {
+      "class": "trigger event is not supported (a device's button or remote event)",
+      "n": 362
+     },
+     {
+      "class": "trigger mqtt is not supported (it needs an MQTT message)",
+      "n": 355
+     },
+     {
+      "class": "a weekday trigger or condition with no site, so no date (rung 1)",
+      "n": 321
+     },
+     {
+      "class": "an entity (templated or unbound) that is not one of this home's",
+      "n": 317
+     },
+     {
+      "class": "trigger event is not supported (a phone app's event)",
+      "n": 301
+     },
+     {
+      "class": "trigger event is not supported (a custom event another automation or script fires)",
+      "n": 256
+     },
+     {
+      "class": "trigger event is not supported (a messaging or web service's event)",
+      "n": 244
+     },
+     {
+      "class": "an automation made from a blueprint",
+      "n": 165
+     },
+     {
+      "class": "trigger webhook is not supported (it needs an HTTP request)",
+      "n": 157
+     },
+     {
+      "class": "trigger event is not supported (a Home Assistant internal event)",
+      "n": 143
+     },
+     {
+      "class": "a template reading the date with no site (rung 1)",
+      "n": 142
+     },
+     {
+      "class": "another unsupported trigger or condition",
+      "n": 75
+     },
+     {
+      "class": "trigger tag is not supported (it needs an NFC tag scan)",
+      "n": 72
+     },
+     {
+      "class": "a template feature the engine does not support",
+      "n": 64
+     },
+     {
+      "class": "a delay or duration that is a template or malformed",
+      "n": 37
+     },
+     {
+      "class": "another unsupported action",
+      "n": 36
+     },
+     {
+      "class": "trigger conversation is not supported (it needs a voice or text command)",
+      "n": 36
+     },
+     {
+      "class": "action parallel is not supported (parallel branches)",
+      "n": 24
+     }
+    ],
+    "total": 4950
+   },
+   "repositories": {
+    "flagged": 0,
+    "run": 675
+   },
+   "rung": 1,
+   "static": {
+    "by_kind": {
+     "flaps": 115,
+     "night_light": 60
+    },
+    "n": 173
+   },
+   "static_and_flagged": 0,
+   "timing": {
+    "evaluations": 457152,
+    "evaluations_per_minute": 78684,
+    "per_env_s": {
+     "max": 48.9,
+     "median": 41.95,
+     "min": 40.4
+    },
+    "replay_s": 348.6,
+    "wall_s": 425,
+    "workers": 6
+   },
+   "unbindable_reasons": {
+    "n_classes": 24,
+    "rest": 61,
+    "top": [
+     {
+      "class": "an entity's name names no role the standard home has",
+      "n": 9547
+     },
+     {
+      "class": "a helper or presence entity in a trigger",
+      "n": 7257
+     },
+     {
+      "class": "an entity domain the standard home does not model",
+      "n": 6386
+     },
+     {
+      "class": "a helper or presence entity in a template or an action",
+      "n": 4418
+     },
+     {
+      "class": "device triggers of remotes are not modelled",
+      "n": 942
+     },
+     {
+      "class": "a helper or presence entity elsewhere (inside or/not, beside a device, as a threshold, in a zone or device condition)",
+      "n": 814
+     },
+     {
+      "class": "blueprint inputs are not expanded",
+      "n": 794
+     },
+     {
+      "class": "distinct entities collapse onto one device",
+      "n": 778
+     },
+     {
+      "class": "the standard home has no cover or climate in that room",
+      "n": 616
+     },
+     {
+      "class": "a device trigger, condition or action of an unmodelled integration",
+      "n": 366
+     },
+     {
+      "class": "semi-outdoor spaces are not modelled",
+      "n": 338
+     },
+     {
+      "class": "device_id/area_id not modelled",
+      "n": 337
+     },
+     {
+      "class": "device_id targets name no entity",
+      "n": 270
+     },
+     {
+      "class": "device groups are not modelled",
+      "n": 223
+     },
+     {
+      "class": "time sensors are not modelled",
+      "n": 152
+     },
+     {
+      "class": "threshold looks Fahrenheit or non-ambient",
+      "n": 147
+     },
+     {
+      "class": "weather service sensors other than temperature, humidity and illuminance are not modelled",
+      "n": 146
+     },
+     {
+      "class": "a value given as an entity id is not one",
+      "n": 64
+     },
+     {
+      "class": "device steps on a registry id name no room",
+      "n": 54
+     },
+     {
+      "class": "YAML tags are not resolved",
+      "n": 46
+     }
+    ],
+    "total": 33756
+   },
+   "unmodelled_domains": [
+    {
+     "domain": "media_player",
+     "n": 1402
+    },
+    {
+     "domain": "alarm_control_panel",
+     "n": 853
+    },
+    {
+     "domain": "automation",
+     "n": 482
+    },
+    {
+     "domain": "input_datetime",
+     "n": 418
+    },
+    {
+     "domain": "script",
+     "n": 359
+    },
+    {
+     "domain": "scene",
+     "n": 358
+    },
+    {
+     "domain": "vacuum",
+     "n": 263
+    },
+    {
+     "domain": "(other integrations)",
+     "n": 202
+    },
+    {
+     "domain": "input_text",
+     "n": 194
+    },
+    {
+     "domain": "calendar",
+     "n": 188
+    },
+    {
+     "domain": "fan",
+     "n": 180
+    },
+    {
+     "domain": "notify",
+     "n": 159
+    },
+    {
+     "domain": "event",
+     "n": 157
+    },
+    {
+     "domain": "input_button",
+     "n": 152
+    },
+    {
+     "domain": "weather",
+     "n": 134
+    }
+   ],
+   "yield": {
+    "bound": 9524,
+    "parsed": 43280,
+    "run": 4574
+   },
+   "yield_assumption_free": {
+    "bound": 8486,
+    "parsed": 43280,
+    "run": 3975
+   }
+  },
+  "2": {
+   "bound_with_assumptions": 1038,
+   "by_environment_kind": {
+    "humidity": {
+     "bound": 74,
+     "bound_share": 0.2126,
+     "flagged": 0,
+     "flagged_share_of_run": 0.0,
+     "parsed": 348,
+     "run": 63,
+     "run_share_of_bound": 0.8514
+    },
+    "illuminance": {
+     "bound": 79,
+     "bound_share": 0.171,
+     "flagged": 2,
+     "flagged_share_of_run": 0.0299,
+     "parsed": 462,
+     "run": 67,
+     "run_share_of_bound": 0.8481
+    },
+    "sun": {
+     "bound": 1013,
+     "bound_share": 0.3483,
+     "flagged": 602,
+     "flagged_share_of_run": 0.6726,
+     "parsed": 2908,
+     "run": 895,
+     "run_share_of_bound": 0.8835
+    },
+    "temperature": {
+     "bound": 231,
+     "bound_share": 0.1674,
+     "flagged": 1,
+     "flagged_share_of_run": 0.0047,
+     "parsed": 1380,
+     "run": 214,
+     "run_share_of_bound": 0.9264
+    },
+    "weather": {
+     "bound": 9,
+     "bound_share": 0.0336,
+     "flagged": 0,
+     "flagged_share_of_run": 0.0,
+     "parsed": 268,
+     "run": 9,
+     "run_share_of_bound": 1.0
+    }
+   },
+   "environment_coupled": {
+    "bound": 1367,
+    "bound_share": 0.2743,
+    "flagged": 602,
+    "flagged_share_of_run": 0.4963,
+    "parsed": 4984,
+    "run": 1213,
+    "run_share_of_bound": 0.8873
+   },
+   "environment_coupled_assumption_free": {
+    "bound": 1102,
+    "bound_share": 0.2335,
+    "flagged": 491,
+    "flagged_share_of_run": 0.5026,
+    "parsed": 4719,
+    "run": 977,
+    "run_share_of_bound": 0.8866
+   },
+   "failed_envs": 0,
+   "flagged": {
+    "by_kind": {
+     "fires_somewhere_only": 42,
+     "flaps": 1,
+     "night_light": 20,
+     "time_spread": 584
+    },
+    "n": 615
+   },
+   "flagged_assumption_free": {
+    "by_kind": {
+     "fires_somewhere_only": 34,
+     "flaps": 1,
+     "night_light": 15,
+     "time_spread": 477
+    },
+    "n": 502
+   },
+   "flagged_by_environment_and_divergence_kinds": {
+    "(none) / fires_somewhere_only": 11,
+    "(none) / fires_somewhere_only+flaps": 1,
+    "(none) / time_spread": 1,
+    "illuminance+sun / fires_somewhere_only": 1,
+    "illuminance+sun / time_spread": 1,
+    "sun / fires_somewhere_only": 4,
+    "sun / fires_somewhere_only+night_light": 13,
+    "sun / fires_somewhere_only+night_light+time_spread": 4,
+    "sun / fires_somewhere_only+time_spread": 8,
+    "sun / night_light": 1,
+    "sun / night_light+time_spread": 2,
+    "sun / time_spread": 567,
+    "sun+temperature / time_spread": 1
+   },
+   "flagged_by_environment_kind": {
+    "illuminance": 2,
+    "sun": 602,
+    "temperature": 1
+   },
+   "flagged_reading_a_sensed_quantity": 3,
+   "flagged_reading_a_sensed_quantity_without_sun": 0,
+   "flagged_reading_the_clock_in_a_template": 16,
+   "flagged_triggered_on_every_sensor_change": 0,
+   "flagged_triggered_on_every_sensor_change_time_spread_only": 0,
+   "flagged_with_assumptions": 113,
+   "flagged_with_no_environment_kind": 13,
+   "flagged_with_no_environment_kind_reading_the_clock": 12,
+   "n_envs": 48,
+   "negative_control": {
+    "fired": 1247,
+    "flagged": 0,
+    "halt": false,
+    "n": 3466,
+    "rate": 0.0,
+    "rate_over": "control automations that fire somewhere",
+    "threshold": 0.05,
+    "uninformative": false
+   },
+   "not_environment_coupled": {
+    "bound": 8157,
+    "bound_share": 0.213,
+    "flagged": 13,
+    "flagged_share_of_run": 0.0028,
+    "parsed": 38296,
+    "run": 4721,
+    "run_share_of_bound": 0.5788
+   },
+   "partially_refused": 0,
+   "refused_reasons": {
+    "n_classes": 25,
+    "rest": 32,
+    "top": [
+     {
+      "class": "it has no trigger",
+      "n": 1036
+     },
+     {
+      "class": "trigger event is not supported (a device's button or remote event)",
+      "n": 363
+     },
+     {
+      "class": "trigger mqtt is not supported (it needs an MQTT message)",
+      "n": 355
+     },
+     {
+      "class": "trigger event is not supported (a phone app's event)",
+      "n": 302
+     },
+     {
+      "class": "trigger event is not supported (a custom event another automation or script fires)",
+      "n": 256
+     },
+     {
+      "class": "trigger event is not supported (a messaging or web service's event)",
+      "n": 244
+     },
+     {
+      "class": "an automation made from a blueprint",
+      "n": 165
+     },
+     {
+      "class": "trigger webhook is not supported (it needs an HTTP request)",
+      "n": 157
+     },
+     {
+      "class": "trigger event is not supported (a Home Assistant internal event)",
+      "n": 147
+     },
+     {
+      "class": "another unsupported trigger or condition",
+      "n": 85
+     },
+     {
+      "class": "a template feature the engine does not support",
+      "n": 76
+     },
+     {
+      "class": "trigger tag is not supported (it needs an NFC tag scan)",
+      "n": 72
+     },
+     {
+      "class": "an entity (templated or unbound) that is not one of this home's",
+      "n": 66
+     },
+     {
+      "class": "a value_template in a numeric_state trigger or condition",
+      "n": 58
+     },
+     {
+      "class": "a delay or duration that is a template or malformed",
+      "n": 48
+     },
+     {
+      "class": "another unsupported action",
+      "n": 41
+     },
+     {
+      "class": "trigger conversation is not supported (it needs a voice or text command)",
+      "n": 36
+     },
+     {
+      "class": "action parallel is not supported (parallel branches)",
+      "n": 25
+     },
+     {
+      "class": "action wait_template is not supported (a template wait)",
+      "n": 18
+     },
+     {
+      "class": "a label_id target",
+      "n": 8
+     }
+    ],
+    "total": 3590
+   },
+   "repositories": {
+    "flagged": 266,
+    "run": 722
+   },
+   "rung": 2,
+   "static": {
+    "by_kind": {
+     "flaps": 131,
+     "night_light": 229
+    },
+    "n": 357
+   },
+   "static_and_flagged": 147,
+   "timing": {
+    "evaluations": 457152,
+    "evaluations_per_minute": 40349,
+    "per_env_s": {
+     "max": 87.3,
+     "median": 84.35,
+     "min": 82.2
+    },
+    "replay_s": 679.8,
+    "wall_s": 756,
+    "workers": 6
+   },
+   "unbindable_reasons": {
+    "n_classes": 24,
+    "rest": 61,
+    "top": [
+     {
+      "class": "an entity's name names no role the standard home has",
+      "n": 9547
+     },
+     {
+      "class": "a helper or presence entity in a trigger",
+      "n": 7257
+     },
+     {
+      "class": "an entity domain the standard home does not model",
+      "n": 6386
+     },
+     {
+      "class": "a helper or presence entity in a template or an action",
+      "n": 4418
+     },
+     {
+      "class": "device triggers of remotes are not modelled",
+      "n": 942
+     },
+     {
+      "class": "a helper or presence entity elsewhere (inside or/not, beside a device, as a threshold, in a zone or device condition)",
+      "n": 814
+     },
+     {
+      "class": "blueprint inputs are not expanded",
+      "n": 794
+     },
+     {
+      "class": "distinct entities collapse onto one device",
+      "n": 778
+     },
+     {
+      "class": "the standard home has no cover or climate in that room",
+      "n": 616
+     },
+     {
+      "class": "a device trigger, condition or action of an unmodelled integration",
+      "n": 366
+     },
+     {
+      "class": "semi-outdoor spaces are not modelled",
+      "n": 338
+     },
+     {
+      "class": "device_id/area_id not modelled",
+      "n": 337
+     },
+     {
+      "class": "device_id targets name no entity",
+      "n": 270
+     },
+     {
+      "class": "device groups are not modelled",
+      "n": 223
+     },
+     {
+      "class": "time sensors are not modelled",
+      "n": 152
+     },
+     {
+      "class": "threshold looks Fahrenheit or non-ambient",
+      "n": 147
+     },
+     {
+      "class": "weather service sensors other than temperature, humidity and illuminance are not modelled",
+      "n": 146
+     },
+     {
+      "class": "a value given as an entity id is not one",
+      "n": 64
+     },
+     {
+      "class": "device steps on a registry id name no room",
+      "n": 54
+     },
+     {
+      "class": "YAML tags are not resolved",
+      "n": 46
+     }
+    ],
+    "total": 33756
+   },
+   "unmodelled_domains": [
+    {
+     "domain": "media_player",
+     "n": 1402
+    },
+    {
+     "domain": "alarm_control_panel",
+     "n": 853
+    },
+    {
+     "domain": "automation",
+     "n": 482
+    },
+    {
+     "domain": "input_datetime",
+     "n": 418
+    },
+    {
+     "domain": "script",
+     "n": 359
+    },
+    {
+     "domain": "scene",
+     "n": 358
+    },
+    {
+     "domain": "vacuum",
+     "n": 263
+    },
+    {
+     "domain": "(other integrations)",
+     "n": 202
+    },
+    {
+     "domain": "input_text",
+     "n": 194
+    },
+    {
+     "domain": "calendar",
+     "n": 188
+    },
+    {
+     "domain": "fan",
+     "n": 180
+    },
+    {
+     "domain": "notify",
+     "n": 159
+    },
+    {
+     "domain": "event",
+     "n": 157
+    },
+    {
+     "domain": "input_button",
+     "n": 152
+    },
+    {
+     "domain": "weather",
+     "n": 134
+    }
+   ],
+   "yield": {
+    "bound": 9524,
+    "parsed": 43280,
+    "run": 5934
+   },
+   "yield_assumption_free": {
+    "bound": 8486,
+    "parsed": 43280,
+    "run": 5067
+   }
+  },
+  "3": {
+   "bound_with_assumptions": 1038,
+   "by_environment_kind": {
+    "humidity": {
+     "bound": 74,
+     "bound_share": 0.2126,
+     "flagged": 37,
+     "flagged_share_of_run": 0.5873,
+     "parsed": 348,
+     "run": 63,
+     "run_share_of_bound": 0.8514
+    },
+    "illuminance": {
+     "bound": 79,
+     "bound_share": 0.171,
+     "flagged": 14,
+     "flagged_share_of_run": 0.209,
+     "parsed": 462,
+     "run": 67,
+     "run_share_of_bound": 0.8481
+    },
+    "sun": {
+     "bound": 1013,
+     "bound_share": 0.3483,
+     "flagged": 608,
+     "flagged_share_of_run": 0.6793,
+     "parsed": 2908,
+     "run": 895,
+     "run_share_of_bound": 0.8835
+    },
+    "temperature": {
+     "bound": 231,
+     "bound_share": 0.1674,
+     "flagged": 130,
+     "flagged_share_of_run": 0.6075,
+     "parsed": 1380,
+     "run": 214,
+     "run_share_of_bound": 0.9264
+    },
+    "weather": {
+     "bound": 9,
+     "bound_share": 0.0336,
+     "flagged": 8,
+     "flagged_share_of_run": 0.8889,
+     "parsed": 268,
+     "run": 9,
+     "run_share_of_bound": 1.0
+    }
+   },
+   "environment_coupled": {
+    "bound": 1367,
+    "bound_share": 0.2743,
+    "flagged": 779,
+    "flagged_share_of_run": 0.6422,
+    "parsed": 4984,
+    "run": 1213,
+    "run_share_of_bound": 0.8873
+   },
+   "environment_coupled_assumption_free": {
+    "bound": 1102,
+    "bound_share": 0.2335,
+    "flagged": 632,
+    "flagged_share_of_run": 0.6469,
+    "parsed": 4719,
+    "run": 977,
+    "run_share_of_bound": 0.8866
+   },
+   "failed_envs": 0,
+   "flagged": {
+    "by_kind": {
+     "fires_somewhere_only": 193,
+     "flaps": 9,
+     "night_light": 29,
+     "time_spread": 715
+    },
+    "n": 798
+   },
+   "flagged_assumption_free": {
+    "by_kind": {
+     "fires_somewhere_only": 150,
+     "flaps": 9,
+     "night_light": 24,
+     "time_spread": 596
+    },
+    "n": 649
+   },
+   "flagged_by_environment_and_divergence_kinds": {
+    "(none) / fires_somewhere_only": 12,
+    "(none) / time_spread": 4,
+    "humidity / fires_somewhere_only+time_spread": 26,
+    "humidity / flaps+time_spread": 3,
+    "illuminance+sun / time_spread": 3,
+    "sun / fires_somewhere_only": 4,
+    "sun / fires_somewhere_only+night_light": 13,
+    "sun / fires_somewhere_only+night_light+time_spread": 4,
+    "sun / fires_somewhere_only+time_spread": 8,
+    "sun / time_spread": 567,
+    "temperature / fires_somewhere_only": 42,
+    "temperature / fires_somewhere_only+night_light+time_spread": 7,
+    "temperature / fires_somewhere_only+time_spread": 53,
+    "temperature / time_spread": 18,
+    "temperature+weather / fires_somewhere_only+time_spread": 5
+   },
+   "flagged_by_environment_kind": {
+    "humidity": 37,
+    "illuminance": 14,
+    "sun": 608,
+    "temperature": 130,
+    "weather": 8
+   },
+   "flagged_reading_a_sensed_quantity": 180,
+   "flagged_reading_a_sensed_quantity_without_sun": 171,
+   "flagged_reading_the_clock_in_a_template": 18,
+   "flagged_triggered_on_every_sensor_change": 30,
+   "flagged_triggered_on_every_sensor_change_time_spread_only": 20,
+   "flagged_with_assumptions": 149,
+   "flagged_with_no_environment_kind": 19,
+   "flagged_with_no_environment_kind_reading_the_clock": 12,
+   "n_envs": 48,
+   "negative_control": {
+    "fired": 1247,
+    "flagged": 0,
+    "halt": false,
+    "n": 3466,
+    "rate": 0.0,
+    "rate_over": "control automations that fire somewhere",
+    "threshold": 0.05,
+    "uninformative": false
+   },
+   "not_environment_coupled": {
+    "bound": 8157,
+    "bound_share": 0.213,
+    "flagged": 19,
+    "flagged_share_of_run": 0.004,
+    "parsed": 38296,
+    "run": 4721,
+    "run_share_of_bound": 0.5788
+   },
+   "partially_refused": 0,
+   "refused_reasons": {
+    "n_classes": 25,
+    "rest": 33,
+    "top": [
+     {
+      "class": "it has no trigger",
+      "n": 1036
+     },
+     {
+      "class": "trigger event is not supported (a device's button or remote event)",
+      "n": 363
+     },
+     {
+      "class": "trigger mqtt is not supported (it needs an MQTT message)",
+      "n": 355
+     },
+     {
+      "class": "trigger event is not supported (a phone app's event)",
+      "n": 302
+     },
+     {
+      "class": "trigger event is not supported (a custom event another automation or script fires)",
+      "n": 256
+     },
+     {
+      "class": "trigger event is not supported (a messaging or web service's event)",
+      "n": 244
+     },
+     {
+      "class": "an automation made from a blueprint",
+      "n": 165
+     },
+     {
+      "class": "trigger webhook is not supported (it needs an HTTP request)",
+      "n": 157
+     },
+     {
+      "class": "trigger event is not supported (a Home Assistant internal event)",
+      "n": 147
+     },
+     {
+      "class": "another unsupported trigger or condition",
+      "n": 85
+     },
+     {
+      "class": "a template feature the engine does not support",
+      "n": 76
+     },
+     {
+      "class": "trigger tag is not supported (it needs an NFC tag scan)",
+      "n": 72
+     },
+     {
+      "class": "an entity (templated or unbound) that is not one of this home's",
+      "n": 66
+     },
+     {
+      "class": "a value_template in a numeric_state trigger or condition",
+      "n": 58
+     },
+     {
+      "class": "a delay or duration that is a template or malformed",
+      "n": 48
+     },
+     {
+      "class": "another unsupported action",
+      "n": 41
+     },
+     {
+      "class": "trigger conversation is not supported (it needs a voice or text command)",
+      "n": 36
+     },
+     {
+      "class": "action parallel is not supported (parallel branches)",
+      "n": 25
+     },
+     {
+      "class": "action wait_template is not supported (a template wait)",
+      "n": 18
+     },
+     {
+      "class": "a label_id target",
+      "n": 8
+     }
+    ],
+    "total": 3591
+   },
+   "repositories": {
+    "flagged": 302,
+    "run": 722
+   },
+   "rung": 3,
+   "static": {
+    "by_kind": {
+     "flaps": 130,
+     "night_light": 226
+    },
+    "n": 353
+   },
+   "static_and_flagged": 150,
+   "timing": {
+    "evaluations": 457152,
+    "evaluations_per_minute": 44542,
+    "per_env_s": {
+     "max": 81.8,
+     "median": 76.5,
+     "min": 66.3
+    },
+    "replay_s": 615.8,
+    "wall_s": 689,
+    "workers": 6
+   },
+   "unbindable_reasons": {
+    "n_classes": 24,
+    "rest": 61,
+    "top": [
+     {
+      "class": "an entity's name names no role the standard home has",
+      "n": 9547
+     },
+     {
+      "class": "a helper or presence entity in a trigger",
+      "n": 7257
+     },
+     {
+      "class": "an entity domain the standard home does not model",
+      "n": 6386
+     },
+     {
+      "class": "a helper or presence entity in a template or an action",
+      "n": 4418
+     },
+     {
+      "class": "device triggers of remotes are not modelled",
+      "n": 942
+     },
+     {
+      "class": "a helper or presence entity elsewhere (inside or/not, beside a device, as a threshold, in a zone or device condition)",
+      "n": 814
+     },
+     {
+      "class": "blueprint inputs are not expanded",
+      "n": 794
+     },
+     {
+      "class": "distinct entities collapse onto one device",
+      "n": 778
+     },
+     {
+      "class": "the standard home has no cover or climate in that room",
+      "n": 616
+     },
+     {
+      "class": "a device trigger, condition or action of an unmodelled integration",
+      "n": 366
+     },
+     {
+      "class": "semi-outdoor spaces are not modelled",
+      "n": 338
+     },
+     {
+      "class": "device_id/area_id not modelled",
+      "n": 337
+     },
+     {
+      "class": "device_id targets name no entity",
+      "n": 270
+     },
+     {
+      "class": "device groups are not modelled",
+      "n": 223
+     },
+     {
+      "class": "time sensors are not modelled",
+      "n": 152
+     },
+     {
+      "class": "threshold looks Fahrenheit or non-ambient",
+      "n": 147
+     },
+     {
+      "class": "weather service sensors other than temperature, humidity and illuminance are not modelled",
+      "n": 146
+     },
+     {
+      "class": "a value given as an entity id is not one",
+      "n": 64
+     },
+     {
+      "class": "device steps on a registry id name no room",
+      "n": 54
+     },
+     {
+      "class": "YAML tags are not resolved",
+      "n": 46
+     }
+    ],
+    "total": 33756
+   },
+   "unmodelled_domains": [
+    {
+     "domain": "media_player",
+     "n": 1402
+    },
+    {
+     "domain": "alarm_control_panel",
+     "n": 853
+    },
+    {
+     "domain": "automation",
+     "n": 482
+    },
+    {
+     "domain": "input_datetime",
+     "n": 418
+    },
+    {
+     "domain": "script",
+     "n": 359
+    },
+    {
+     "domain": "scene",
+     "n": 358
+    },
+    {
+     "domain": "vacuum",
+     "n": 263
+    },
+    {
+     "domain": "(other integrations)",
+     "n": 202
+    },
+    {
+     "domain": "input_text",
+     "n": 194
+    },
+    {
+     "domain": "calendar",
+     "n": 188
+    },
+    {
+     "domain": "fan",
+     "n": 180
+    },
+    {
+     "domain": "notify",
+     "n": 159
+    },
+    {
+     "domain": "event",
+     "n": 157
+    },
+    {
+     "domain": "input_button",
+     "n": 152
+    },
+    {
+     "domain": "weather",
+     "n": 134
+    }
+   ],
+   "yield": {
+    "bound": 9524,
+    "parsed": 43280,
+    "run": 5934
+   },
+   "yield_assumption_free": {
+    "bound": 8486,
+    "parsed": 43280,
+    "run": 5067
+   }
+  },
+  "4": {
+   "bound_with_assumptions": 1038,
+   "by_environment_kind": {
+    "humidity": {
+     "bound": 74,
+     "bound_share": 0.2126,
+     "flagged": 37,
+     "flagged_share_of_run": 0.5873,
+     "parsed": 348,
+     "run": 63,
+     "run_share_of_bound": 0.8514
+    },
+    "illuminance": {
+     "bound": 79,
+     "bound_share": 0.171,
+     "flagged": 15,
+     "flagged_share_of_run": 0.2239,
+     "parsed": 462,
+     "run": 67,
+     "run_share_of_bound": 0.8481
+    },
+    "sun": {
+     "bound": 1013,
+     "bound_share": 0.3483,
+     "flagged": 609,
+     "flagged_share_of_run": 0.6804,
+     "parsed": 2908,
+     "run": 895,
+     "run_share_of_bound": 0.8835
+    },
+    "temperature": {
+     "bound": 231,
+     "bound_share": 0.1674,
+     "flagged": 130,
+     "flagged_share_of_run": 0.6075,
+     "parsed": 1380,
+     "run": 214,
+     "run_share_of_bound": 0.9264
+    },
+    "weather": {
+     "bound": 9,
+     "bound_share": 0.0336,
+     "flagged": 8,
+     "flagged_share_of_run": 0.8889,
+     "parsed": 268,
+     "run": 9,
+     "run_share_of_bound": 1.0
+    }
+   },
+   "environment_coupled": {
+    "bound": 1367,
+    "bound_share": 0.2743,
+    "flagged": 780,
+    "flagged_share_of_run": 0.643,
+    "parsed": 4984,
+    "run": 1213,
+    "run_share_of_bound": 0.8873
+   },
+   "environment_coupled_assumption_free": {
+    "bound": 1102,
+    "bound_share": 0.2335,
+    "flagged": 633,
+    "flagged_share_of_run": 0.6479,
+    "parsed": 4719,
+    "run": 977,
+    "run_share_of_bound": 0.8866
+   },
+   "failed_envs": 0,
+   "flagged": {
+    "by_kind": {
+     "fires_somewhere_only": 192,
+     "flaps": 10,
+     "night_light": 30,
+     "time_spread": 716
+    },
+    "n": 799
+   },
+   "flagged_assumption_free": {
+    "by_kind": {
+     "fires_somewhere_only": 150,
+     "flaps": 10,
+     "night_light": 25,
+     "time_spread": 597
+    },
+    "n": 650
+   },
+   "flagged_by_environment_and_divergence_kinds": {
+    "(none) / fires_somewhere_only": 12,
+    "humidity / fires_somewhere_only+time_spread": 26,
+    "humidity / flaps+time_spread": 3,
+    "illuminance / time_spread": 4,
+    "illuminance+sun / time_spread": 4,
+    "sun / fires_somewhere_only": 4,
+    "sun / fires_somewhere_only+night_light": 13,
+    "sun / fires_somewhere_only+night_light+time_spread": 4,
+    "sun / fires_somewhere_only+time_spread": 8,
+    "sun / time_spread": 567,
+    "temperature / fires_somewhere_only": 42,
+    "temperature / fires_somewhere_only+night_light+time_spread": 7,
+    "temperature / fires_somewhere_only+time_spread": 53,
+    "temperature / time_spread": 18,
+    "temperature+weather / fires_somewhere_only+time_spread": 5
+   },
+   "flagged_by_environment_kind": {
+    "humidity": 37,
+    "illuminance": 15,
+    "sun": 609,
+    "temperature": 130,
+    "weather": 8
+   },
+   "flagged_reading_a_sensed_quantity": 181,
+   "flagged_reading_a_sensed_quantity_without_sun": 171,
+   "flagged_reading_the_clock_in_a_template": 18,
+   "flagged_triggered_on_every_sensor_change": 30,
+   "flagged_triggered_on_every_sensor_change_time_spread_only": 19,
+   "flagged_with_assumptions": 149,
+   "flagged_with_no_environment_kind": 19,
+   "flagged_with_no_environment_kind_reading_the_clock": 12,
+   "n_envs": 48,
+   "negative_control": {
+    "fired": 1247,
+    "flagged": 0,
+    "halt": false,
+    "n": 3466,
+    "rate": 0.0,
+    "rate_over": "control automations that fire somewhere",
+    "threshold": 0.05,
+    "uninformative": false
+   },
+   "not_environment_coupled": {
+    "bound": 8157,
+    "bound_share": 0.213,
+    "flagged": 19,
+    "flagged_share_of_run": 0.004,
+    "parsed": 38296,
+    "run": 4721,
+    "run_share_of_bound": 0.5788
+   },
+   "partially_refused": 0,
+   "refused_reasons": {
+    "n_classes": 25,
+    "rest": 32,
+    "top": [
+     {
+      "class": "it has no trigger",
+      "n": 1036
+     },
+     {
+      "class": "trigger event is not supported (a device's button or remote event)",
+      "n": 363
+     },
+     {
+      "class": "trigger mqtt is not supported (it needs an MQTT message)",
+      "n": 355
+     },
+     {
+      "class": "trigger event is not supported (a phone app's event)",
+      "n": 302
+     },
+     {
+      "class": "trigger event is not supported (a custom event another automation or script fires)",
+      "n": 256
+     },
+     {
+      "class": "trigger event is not supported (a messaging or web service's event)",
+      "n": 244
+     },
+     {
+      "class": "an automation made from a blueprint",
+      "n": 165
+     },
+     {
+      "class": "trigger webhook is not supported (it needs an HTTP request)",
+      "n": 157
+     },
+     {
+      "class": "trigger event is not supported (a Home Assistant internal event)",
+      "n": 147
+     },
+     {
+      "class": "another unsupported trigger or condition",
+      "n": 85
+     },
+     {
+      "class": "a template feature the engine does not support",
+      "n": 76
+     },
+     {
+      "class": "trigger tag is not supported (it needs an NFC tag scan)",
+      "n": 72
+     },
+     {
+      "class": "an entity (templated or unbound) that is not one of this home's",
+      "n": 66
+     },
+     {
+      "class": "a value_template in a numeric_state trigger or condition",
+      "n": 58
+     },
+     {
+      "class": "a delay or duration that is a template or malformed",
+      "n": 48
+     },
+     {
+      "class": "another unsupported action",
+      "n": 41
+     },
+     {
+      "class": "trigger conversation is not supported (it needs a voice or text command)",
+      "n": 36
+     },
+     {
+      "class": "action parallel is not supported (parallel branches)",
+      "n": 25
+     },
+     {
+      "class": "action wait_template is not supported (a template wait)",
+      "n": 18
+     },
+     {
+      "class": "a label_id target",
+      "n": 8
+     }
+    ],
+    "total": 3590
+   },
+   "repositories": {
+    "flagged": 303,
+    "run": 722
+   },
+   "rung": 4,
+   "static": {
+    "by_kind": {
+     "flaps": 129,
+     "night_light": 226
+    },
+    "n": 353
+   },
+   "static_and_flagged": 150,
+   "timing": {
+    "evaluations": 457152,
+    "evaluations_per_minute": 46831,
+    "per_env_s": {
+     "max": 81.2,
+     "median": 71.9,
+     "min": 63.5
+    },
+    "replay_s": 585.7,
+    "wall_s": 672,
+    "workers": 6
+   },
+   "unbindable_reasons": {
+    "n_classes": 24,
+    "rest": 61,
+    "top": [
+     {
+      "class": "an entity's name names no role the standard home has",
+      "n": 9547
+     },
+     {
+      "class": "a helper or presence entity in a trigger",
+      "n": 7257
+     },
+     {
+      "class": "an entity domain the standard home does not model",
+      "n": 6386
+     },
+     {
+      "class": "a helper or presence entity in a template or an action",
+      "n": 4418
+     },
+     {
+      "class": "device triggers of remotes are not modelled",
+      "n": 942
+     },
+     {
+      "class": "a helper or presence entity elsewhere (inside or/not, beside a device, as a threshold, in a zone or device condition)",
+      "n": 814
+     },
+     {
+      "class": "blueprint inputs are not expanded",
+      "n": 794
+     },
+     {
+      "class": "distinct entities collapse onto one device",
+      "n": 778
+     },
+     {
+      "class": "the standard home has no cover or climate in that room",
+      "n": 616
+     },
+     {
+      "class": "a device trigger, condition or action of an unmodelled integration",
+      "n": 366
+     },
+     {
+      "class": "semi-outdoor spaces are not modelled",
+      "n": 338
+     },
+     {
+      "class": "device_id/area_id not modelled",
+      "n": 337
+     },
+     {
+      "class": "device_id targets name no entity",
+      "n": 270
+     },
+     {
+      "class": "device groups are not modelled",
+      "n": 223
+     },
+     {
+      "class": "time sensors are not modelled",
+      "n": 152
+     },
+     {
+      "class": "threshold looks Fahrenheit or non-ambient",
+      "n": 147
+     },
+     {
+      "class": "weather service sensors other than temperature, humidity and illuminance are not modelled",
+      "n": 146
+     },
+     {
+      "class": "a value given as an entity id is not one",
+      "n": 64
+     },
+     {
+      "class": "device steps on a registry id name no room",
+      "n": 54
+     },
+     {
+      "class": "YAML tags are not resolved",
+      "n": 46
+     }
+    ],
+    "total": 33756
+   },
+   "unmodelled_domains": [
+    {
+     "domain": "media_player",
+     "n": 1402
+    },
+    {
+     "domain": "alarm_control_panel",
+     "n": 853
+    },
+    {
+     "domain": "automation",
+     "n": 482
+    },
+    {
+     "domain": "input_datetime",
+     "n": 418
+    },
+    {
+     "domain": "script",
+     "n": 359
+    },
+    {
+     "domain": "scene",
+     "n": 358
+    },
+    {
+     "domain": "vacuum",
+     "n": 263
+    },
+    {
+     "domain": "(other integrations)",
+     "n": 202
+    },
+    {
+     "domain": "input_text",
+     "n": 194
+    },
+    {
+     "domain": "calendar",
+     "n": 188
+    },
+    {
+     "domain": "fan",
+     "n": 180
+    },
+    {
+     "domain": "notify",
+     "n": 159
+    },
+    {
+     "domain": "event",
+     "n": 157
+    },
+    {
+     "domain": "input_button",
+     "n": 152
+    },
+    {
+     "domain": "weather",
+     "n": 134
+    }
+   ],
+   "yield": {
+    "bound": 9524,
+    "parsed": 43280,
+    "run": 5934
+   },
+   "yield_assumption_free": {
+    "bound": 8486,
+    "parsed": 43280,
+    "run": 5067
+   }
+  }
+ }
+}
