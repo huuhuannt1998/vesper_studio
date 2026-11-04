@@ -67,7 +67,7 @@ def test_a_template_condition_is_still_refused(tmp_path):
 
 def test_something_that_is_not_a_service_is_still_refused(tmp_path):
     _, s = home_session(tmp_path)
-    e = Engine(s, permissive=True, automations=[auto([{"choose": []}]), auto([{"action": "{{ svc }}"}])])
+    e = Engine(s, permissive=True, automations=[auto([{"wait_template": "{{ x }}"}]), auto([{"action": "{{ svc }}"}])])
     assert e.automations == [] and len(e.refused) == 2
 
 

@@ -1,6 +1,8 @@
 """The engine's coverage of Home Assistant's common automation features (EDT task 12): each one with Home Assistant's
 documented semantics; strict mode refuses what it cannot do faithfully, permissive mode records it."""
 
+import pytest
+
 from tests.lab.test_automations import lab
 from vesper.lab.automations import Engine
 
@@ -123,3 +125,153 @@ def test_homeassistant_turn_on_skips_an_entity_whose_domain_has_no_turn_on_as_ho
     assert e.refused == []
     s.clock.advance(1.5 * H)
     assert services(calls) == ["light.turn_on"]
+
+
+# ---- conditions ----------------------------------------------------------------------------------------------------
+
+def lamp_motion(ids):
+    return ids["bedroom_lamp"]["state"], ids["hall_motion"]["occupancy"]
+
+
+def test_and_or_not_nest_and_the_shorthand_forms_are_home_assistants(tmp_path):
+    """`not` holds when none of its conditions holds; `- or: [...]` is the shorthand of `condition: or`; a
+    condition's `conditions` may be one condition."""
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        on = {"condition": "state", "entity_id": lamp, "state": "on"}
+        moving = {"condition": "state", "entity_id": motion, "state": "on"}
+        return [auto([], conditions=[{"or": [on, {"condition": "not", "conditions": moving}]}]),
+                auto([], conditions={"condition": "and", "conditions": [on, {"and": [moving]}]})]
+    ids, s, e, _ = setup(tmp_path, autos)
+    lamp, motion = lamp_motion(ids)
+    either, both = (a.conditions[0] for a in e.automations)
+    table = []
+    for lamp_state in ("off", "on"):
+        for motion_state in ("off", "on"):
+            e._state[lamp], e._state[motion] = lamp_state, motion_state
+            table.append((e._holds(either, {}), e._holds(both, {})))
+    assert table == [(True, False), (False, False), (True, False), (True, True)]
+
+
+def test_a_trigger_condition_tells_which_trigger_fired_by_id_or_by_index(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        return [auto([{"choose": [{"conditions": [{"condition": "trigger", "id": "moved"}],
+                                   "sequence": [{"action": "light.turn_on", "target": {"entity_id": lamp}}]},
+                                  {"conditions": {"condition": "trigger", "id": ["1"]},
+                                   "sequence": [{"action": "light.turn_off", "target": {"entity_id": lamp}}]}]}],
+                     triggers=[{"trigger": "state", "entity_id": motion, "to": "on", "id": "moved"},
+                               {"trigger": "time", "at": "08:00"}])]
+    ids, s, e, calls = setup(tmp_path, autos)
+    _, motion = lamp_motion(ids)
+    e._apply([e._set(motion, "on")])
+    s.clock.advance(1.5 * H)  # 08:00 passes: trigger index 1
+    assert services(calls) == ["light.turn_on", "light.turn_off"]
+
+
+# ---- actions -------------------------------------------------------------------------------------------------------
+
+def test_if_then_else_and_a_failed_condition_step_ends_only_its_own_sequence(tmp_path):
+    """A condition step that fails ends the sequence it is in (a sub-script in Home Assistant), and the run goes on;
+    at the top level it ends the run."""
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        moving = {"condition": "state", "entity_id": motion, "state": "on"}
+        on = {"action": "light.turn_on", "target": {"entity_id": lamp}}
+        off = {"action": "light.turn_off", "target": {"entity_id": lamp}}
+        return [auto([{"if": [moving], "then": [on], "else": [off]},
+                      {"sequence": [moving, on]},
+                      {"choose": [], "default": [moving, on]},
+                      off, moving, on])]
+    _, s, e, calls = setup(tmp_path, autos)
+    s.clock.advance(1.5 * H)
+    assert services(calls) == ["light.turn_off", "light.turn_off"]
+
+
+def test_stop_ends_the_whole_run_from_inside_a_sequence(tmp_path):
+    def autos(ids):
+        lamp, _ = lamp_motion(ids)
+        on = {"action": "light.turn_on", "target": {"entity_id": lamp}}
+        return [auto([on, {"if": [{"condition": "time", "after": "07:30"}], "then": [{"stop": "done"}]}, on])]
+    _, s, e, calls = setup(tmp_path, autos)
+    s.clock.advance(1.5 * H)
+    assert services(calls) == ["light.turn_on"] and not e.automations[0].running
+
+
+def test_repeat_count_while_and_until_loop_as_home_assistants_repeat(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        toggle = {"action": "light.toggle", "target": {"entity_id": lamp}}
+        morning = {"condition": "time", "after": "08:30"}  # false at 08:00, true at 09:00
+        return [auto([{"repeat": {"count": 3, "sequence": [toggle]}}]),
+                auto([{"repeat": {"while": [morning], "sequence": [toggle]}}]),
+                auto([{"repeat": {"until": [morning], "sequence": [toggle]}}], triggers=at("09:00"))]
+    ids, s, e, calls = setup(tmp_path, autos)
+    s.clock.advance(3.5 * H)
+    # count: 3; while: its condition is false before the first iteration, 0; until: checked after, so 1
+    assert [c[0] for c in calls] == ["a"] * 4
+
+
+def test_a_repeat_without_end_is_stopped_as_home_assistant_stops_it(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        return [auto([{"repeat": {"while": [{"condition": "state", "entity_id": motion, "state": "off"}],
+                                  "sequence": [{"action": "light.toggle", "target": {"entity_id": lamp}}]}}])]
+    _, s, e, calls = setup(tmp_path, autos)
+    s.clock.advance(1.5 * H)
+    assert len(calls) == 10000 and not e.automations[0].running
+
+
+def test_wait_for_trigger_resumes_on_the_trigger_or_at_the_timeout(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        on = {"action": "light.turn_on", "target": {"entity_id": lamp}}
+        moved = [{"trigger": "state", "entity_id": motion, "to": "on"}]
+        return [auto([{"wait_for_trigger": moved, "timeout": "00:10:00"}, on]),
+                auto([{"wait_for_trigger": moved, "timeout": 60, "continue_on_timeout": False}, on],
+                     triggers=at("08:30")),
+                auto([{"wait_for_trigger": moved}, on], triggers=at("09:00"))]
+    ids, s, e, calls = setup(tmp_path, autos)
+    _, motion = lamp_motion(ids)
+    s.clock.advance(H + 5 * 60)  # 08:05: the first waits
+    assert calls == []
+    e._apply([e._set(motion, "on")])
+    s.clock.advance(1)
+    assert [c[1] for c in calls] == ["time 28800"]  # resumed by the motion
+    s.clock.advance(2.5 * H)  # 08:30: times out and stops; 09:00: waits for good
+    assert len(calls) == 1 and e.automations[2].running
+    e._apply([e._set(motion, "off")])
+    e._apply([e._set(motion, "on")])
+    s.clock.advance(1)
+    assert len(calls) == 2
+
+
+def test_a_wait_for_a_time_resumes_at_that_time(tmp_path):
+    def autos(ids):
+        lamp, _ = lamp_motion(ids)
+        return [auto([{"wait_for_trigger": [{"trigger": "time", "at": "09:00"}]},
+                      {"action": "light.turn_on", "target": {"entity_id": lamp}}])]
+    _, s, e, calls = setup(tmp_path, autos)
+    s.clock.advance(1.9 * H)
+    assert calls == []
+    s.clock.advance(0.2 * H)
+    assert services(calls) == ["light.turn_on"]
+
+
+@pytest.mark.parametrize("step, reason", [
+    ({"wait_template": "{{ is_state('sun.sun', 'above_horizon') }}"},
+     "action wait_template is not supported (a template wait)"),
+    ({"parallel": []}, "action parallel is not supported (parallel branches)"),
+    ({"event": "my_event"}, "action event is not supported (it fires an event, which only Home Assistant's other "
+                            "listeners see)"),
+    ({"device_id": "abc", "domain": "light", "type": "turn_on"},
+     "action device_id is not supported (a device action needs Home Assistant's device registry)"),
+])
+def test_what_the_engine_cannot_run_faithfully_is_refused_precisely(tmp_path, step, reason):
+    assert refusal(tmp_path, [auto([step])]) == reason
+
+
+def test_a_fired_event_is_recorded_in_permissive_mode(tmp_path):
+    _, s, e, calls = setup(tmp_path, [auto([{"event": "my_event", "event_data": {"x": 1}}])], permissive=True)
+    s.clock.advance(1.5 * H)
+    assert services(calls) == ["event.my_event"]

@@ -56,6 +56,8 @@ TRIGGER_KEYS = {"state": {"entity_id", "to", "from", "for"}, "numeric_state": {"
 CONDITION_KEYS = {"state": {"entity_id", "state"}, "numeric_state": {"entity_id", "above", "below"},
                   "time": {"after", "before"}, "sun": {"after", "before", "after_offset", "before_offset"}}
 SUN_EVENTS = ("sunrise", "sunset")
+LOGIC = ("and", "or", "not")  # Home Assistant's `not`: none of its conditions holds
+REPEAT_LIMIT = 10000  # Home Assistant stops a repeat after this many iterations
 SERVICE_NAME = re.compile(r"[a-z0-9_]+\.[a-z0-9_]+")
 ACTION_KEYS = {"action", "service", "target", "entity_id", "data", "data_template", "metadata", "alias",
                "continue_on_error"}
@@ -72,6 +74,12 @@ UNMODELLED = {"transition": "the twin has no fade", "flash": "the twin does not 
               "brightness_step": "a relative brightness is not modelled",
               "brightness_step_pct": "a relative brightness is not modelled"}
 HOMEASSISTANT_VERBS = ("turn_on", "turn_off", "toggle")  # homeassistant.<verb>: each entity's own <domain>.<verb>
+STEP_KEYS = {"alias", "continue_on_error", "enabled"}  # any action step may have them
+UNSUPPORTED_STEPS = {
+    "wait_template": "a template wait", "parallel": "parallel branches", "variables": "variables are templates",
+    "event": "it fires an event, which only Home Assistant's other listeners see",
+    "scene": "scenes are Home Assistant's", "device_id": "a device action needs Home Assistant's device registry",
+    "set_conversation_response": "conversations are Home Assistant's"}
 
 
 class AutomationError(ValueError):
@@ -103,6 +111,31 @@ class _Held:
     """A `for:` under way: it lasts while `still(state)` holds for the entity's new states."""
     still: Callable[[str], bool]
     alive: bool = True
+
+
+@dataclass
+class _Frame:
+    """A sequence under way: its remaining steps; for a repeat's iteration, the repeat and the iteration (from 1)."""
+    steps: list
+    repeat: dict | None = None
+    index: int = 0
+
+
+@dataclass
+class _Run:
+    """One run of an automation: why it fired, its variables (`trigger`, `wait`) and the sequences under way."""
+    automation: Automation
+    why: str
+    context: dict
+    frames: list[_Frame]
+
+
+@dataclass
+class _Wait:
+    """A wait_for_trigger under way: its triggers, and `done(why, trigger variables)` to resume the run."""
+    triggers: list
+    active: bool = True
+    done: Callable = field(default=lambda why, tvars: None)
 
 
 def _discovered(home):
@@ -275,6 +308,7 @@ class Engine:
         self.refused: list[dict] = []
         self._state: dict[str, str] = {}
         self._held: dict[str, list[_Held]] = {}  # entity -> the `for:` timers waiting on it
+        self._waits: list[_Wait] = []  # the wait_for_trigger steps under way
         self._burst: tuple[float, dict] = (-1.0, {})  # (instant, automation -> firings at it): the loop guard
         self._load()
 
@@ -317,14 +351,37 @@ class Engine:
                 raise AutomationError(f"mode {mode!r} is not supported (single only)")
             approximations.append(f"mode {mode} run as single")
         self._notes = []  # what permissive mode records instead of running, for `approximations`
-        triggers = [self._trigger(t) for t in _enabled(_list(a.get("triggers", a.get("trigger")), "triggers"))]
-        if not triggers and not _list(a.get("triggers", a.get("trigger")), "triggers"):
+        raw_triggers = _list(a.get("triggers", a.get("trigger")), "triggers")
+        if not raw_triggers:
             raise AutomationError("it has no trigger")
-        conditions = [self._condition(c)
-                      for c in _enabled(_list(a.get("conditions", a.get("condition")), "conditions"))]
-        actions = [self._action(x) for x in _enabled(_list(a.get("actions", a.get("action")), "actions"))]
+        triggers = self._triggers(raw_triggers)
+        conditions = self._conditions(a.get("conditions", a.get("condition")), "conditions")
+        actions = self._actions(a.get("actions", a.get("action")))
         approximations += self._notes
         return Automation(label, triggers, conditions, actions, approximations=approximations)
+
+    def _triggers(self, raw: list) -> list[dict]:
+        """The enabled triggers, each with its id: its `id`, else its index among all the triggers (Home
+        Assistant's `trigger.id`, disabled ones counted)."""
+        out = []
+        for idx, t in enumerate(raw):
+            if isinstance(t, dict) and t.get("enabled") is False:
+                continue
+            parsed = self._trigger(t)
+            tid = t.get("id", idx)
+            if isinstance(tid, bool) or not isinstance(tid, str | int):
+                raise AutomationError(f"trigger id: {tid!r} is not a string")
+            out.append({**parsed, "id": str(tid), "idx": str(idx)})
+        return out
+
+    def _conditions(self, raw, where: str) -> list[dict]:
+        """A list of conditions (one condition alone is a list of one), the disabled ones left out."""
+        if isinstance(raw, str | dict):
+            raw = [raw]
+        return [self._condition(c) for c in _enabled(_list(raw, where))]
+
+    def _actions(self, raw) -> list[dict]:
+        return [self._action(x) for x in _enabled(_list(raw, "actions"))]
 
     def _entity(self, entity_id) -> Entity:
         e = self.entities.get(entity_id) if isinstance(entity_id, str) else None
@@ -337,7 +394,7 @@ class Engine:
         if kind not in TRIGGER_KEYS:
             raise AutomationError(f"trigger {kind!r} is not supported")
         where = f"trigger {kind}"
-        _keys(t, TRIGGER_KEYS[kind] | {"trigger", "platform", "id"}, where)
+        _keys(t, TRIGGER_KEYS[kind] | {"trigger", "platform", "id", "alias"}, where)
         if kind == "sun":
             self._needs_site(where)
             if t.get("event") not in SUN_EVENTS:
@@ -363,7 +420,22 @@ class Engine:
         return out
 
     def _condition(self, c) -> dict:
+        if isinstance(c, dict) and "condition" not in c and len(set(c) - {"alias", "enabled"}) == 1 and \
+                next(iter(set(c) - {"alias", "enabled"})) in LOGIC:  # Home Assistant's shorthand: `- or: [...]`
+            kind = next(iter(set(c) - {"alias", "enabled"}))
+            c = {"condition": kind, "conditions": c[kind]}
         kind = c.get("condition") if isinstance(c, dict) else None
+        if isinstance(kind, list):  # `condition: [...]` is not Home Assistant's
+            raise AutomationError("condition: a list is not a condition type")
+        if kind in LOGIC:
+            _keys(c, {"condition", "conditions", "alias"}, f"condition {kind}")
+            return {"kind": kind, "conditions": self._conditions(c.get("conditions"), f"condition {kind}")}
+        if kind == "trigger":
+            _keys(c, {"condition", "id", "alias"}, "condition trigger")
+            ids = c.get("id") if isinstance(c.get("id"), list) else [c.get("id")]
+            if not ids or not all(isinstance(i, str | int) and not isinstance(i, bool) for i in ids):
+                raise AutomationError(f"condition trigger: id {c.get('id')!r} is not a trigger id")
+            return {"kind": "trigger", "ids": [str(i) for i in ids]}
         if kind not in CONDITION_KEYS:
             raise AutomationError(f"condition {kind!r} is not supported")
         where = f"condition {kind}"
@@ -401,9 +473,51 @@ class Engine:
     def _action(self, x) -> dict:
         if not isinstance(x, dict):
             raise AutomationError("an action is a mapping")
-        if "delay" in x:
-            _keys(x, {"delay", "alias"}, "action delay")
+        step = {k: v for k, v in x.items() if k not in STEP_KEYS}  # alias, continue_on_error, enabled
+        if "delay" in step:
+            _keys(step, {"delay"}, "action delay")
             return {"kind": "delay", "seconds": _seconds(x["delay"], "delay")}
+        if "condition" in step or (len(step) == 1 and next(iter(step)) in LOGIC):  # a test: false ends the sequence
+            return {"kind": "check", "condition": self._condition(step)}
+        if "choose" in step:
+            _keys(step, {"choose", "default"}, "action choose")
+            options = []
+            for o in _list(step["choose"], "action choose"):
+                if not isinstance(o, dict) or "sequence" not in o:
+                    raise AutomationError("action choose: an option is a mapping with conditions and a sequence")
+                _keys(o, {"conditions", "sequence", "alias"}, "action choose")
+                options.append((self._conditions(o.get("conditions"), "action choose: conditions"),
+                                self._actions(o["sequence"])))
+            return {"kind": "choose", "options": options, "default": self._actions(step.get("default"))}
+        if "if" in step:
+            _keys(step, {"if", "then", "else"}, "action if")
+            if "then" not in step:
+                raise AutomationError("action if: then is required")
+            return {"kind": "choose", "options": [(self._conditions(step["if"], "action if"),
+                                                   self._actions(step["then"]))],
+                    "default": self._actions(step.get("else"))}
+        if "sequence" in step:
+            _keys(step, {"sequence"}, "action sequence")
+            return {"kind": "sequence", "steps": self._actions(step["sequence"])}
+        if "stop" in step:
+            _keys(step, {"stop", "error", "response_variable"}, "action stop")
+            return {"kind": "stop", "error": step.get("error") is True}
+        if "repeat" in step:
+            return self._repeat(step)
+        if "wait_for_trigger" in step:
+            _keys(step, {"wait_for_trigger", "timeout", "continue_on_timeout"}, "action wait_for_trigger")
+            return {"kind": "wait", "triggers": self._triggers(_list(step["wait_for_trigger"], "wait_for_trigger")),
+                    "timeout": _seconds(step["timeout"], "action wait_for_trigger: timeout") if "timeout" in step
+                    else None, "continue": step.get("continue_on_timeout", True) is not False}
+        for key, why in UNSUPPORTED_STEPS.items():
+            if key in step:
+                if self.permissive and key in ("event", "scene"):
+                    name = step[key]
+                    if not isinstance(name, str):
+                        raise AutomationError(f"action {key}: {name!r} is not a name")
+                    return {"kind": "record", "service": f"event.{name}" if key == "event" else "scene.turn_on",
+                            "targets": [] if key == "event" else [name]}
+                raise AutomationError(f"action {key} is not supported ({why})")
         service = x.get("action", x.get("service"))
         domain, _, verb = str(service).partition(".")
         if domain == "homeassistant" and verb in HOMEASSISTANT_VERBS:
@@ -428,6 +542,32 @@ class Engine:
         return {"kind": "call", "service": service, "entities": ents,
                 "brightness": self._light_data(service, ents, data, where) if domain == "light" else
                 self._no_data(data, where)}
+
+    def _repeat(self, step: dict) -> dict:
+        """repeat: count (a number), while (checked before each iteration), until (after each) or for_each (a
+        literal list); each iteration is a sequence of its own, as in Home Assistant."""
+        where = "action repeat"
+        _keys(step, {"repeat"}, where)
+        r = step["repeat"]
+        if not isinstance(r, dict) or "sequence" not in r:
+            raise AutomationError(f"{where}: a mapping with a sequence")
+        _keys(r, {"count", "while", "until", "for_each", "sequence"}, where)
+        loops = [k for k in ("count", "while", "until", "for_each") if k in r]
+        if len(loops) != 1:
+            raise AutomationError(f"{where}: one of count, while, until and for_each is required")
+        out = {"kind": "repeat", "steps": self._actions(r["sequence"]), "loop": loops[0]}
+        if loops[0] == "count":
+            count = _coerced(r["count"], f"{where}: count")
+            if count != int(count):
+                raise AutomationError(f"{where}: count {r['count']!r} is not a whole number")
+            out["count"] = int(count)
+        elif loops[0] == "for_each":
+            if not isinstance(r["for_each"], list):
+                raise AutomationError(f"{where}: for_each {r['for_each']!r} is not a list")
+            out["count"] = len(r["for_each"])
+        else:
+            out["conditions"] = self._conditions(r[loops[0]], f"{where}: {loops[0]}")
+        return out
 
     def _call_parts(self, x: dict, where: str, domain: str) -> tuple[list[str], dict]:
         """(target entity ids, data) of a service call, as Home Assistant's script assembles them: `target`, a
@@ -615,14 +755,16 @@ class Engine:
                         when = self._midnight + events[t["event"]] + t["offset"]
                         if when >= now:
                             self.session.clock.call_at(when, lambda a=a, t=t: self._fire(
-                                a, f"sun {t['event']}{t['offset']:+g} s"))
+                                a, f"sun {t['event']}{t['offset']:+g} s",
+                                _tvars(t, event=t["event"], offset=t["offset"])))
         for a in self.automations:
             for t in a.triggers:
                 if t["kind"] == "time":
                     for at in t["at"]:
                         when = self._midnight + day * DAY_S + at
                         if when >= now:
-                            self.session.clock.call_at(when, lambda a=a, at=at: self._fire(a, f"time {at:g}"))
+                            self.session.clock.call_at(when, lambda a=a, t=t, at=at: self._fire(
+                                a, f"time {at:g}", _tvars(t)))
 
     def _next_day(self, day: int) -> None:
         self._schedule_day(day)
@@ -677,7 +819,11 @@ class Engine:
             for a in self.automations:
                 for t in a.triggers:
                     if entity in t.get("entities", ()) and self._matches(t, old, new):
-                        self._triggered(a, t, entity, old, new)
+                        self._triggered(t, entity, old, new, lambda why, tv, a=a: self._fire(a, why, tv))
+            for w in list(self._waits):
+                for t in w.triggers:
+                    if w.active and entity in t.get("entities", ()) and self._matches(t, old, new):
+                        self._triggered(t, entity, old, new, w.done)
 
     def _matches(self, t: dict, old: str, new: str) -> bool:
         if t["kind"] == "state":
@@ -692,10 +838,12 @@ class Engine:
             return False
         return (t.get("above") is None or v > t["above"]) and (t.get("below") is None or v < t["below"])
 
-    def _triggered(self, a: Automation, t: dict, entity: str, old: str, new: str) -> None:
+    def _triggered(self, t: dict, entity: str, old: str, new: str, fire: Callable) -> None:
+        """A trigger matched a change: `fire(why, trigger variables)` now, or once its `for:` has held."""
         why, clock = f"{t['kind']} {entity} {old} -> {new}", self.session.clock
+        tvars = _tvars(t, entity_id=entity, from_state=old, to_state=new, **{"for": t["for"] or None})
         if not t["for"]:
-            clock.call_at(clock.now(), lambda: self._fire(a, why))
+            clock.call_at(clock.now(), lambda: fire(why, tvars))
             return
         if t["kind"] == "numeric_state":
             still = lambda s: self._in_range(t, s)  # noqa: E731 - Home Assistant: while the value stays in range
@@ -710,11 +858,12 @@ class Engine:
             if h.alive:
                 h.alive = False
                 self._held[entity] = [x for x in self._held.get(entity, ()) if x is not h]
-                self._fire(a, f"{why} for {t['for']:g} s")
+                fire(f"{why} for {t['for']:g} s", tvars)
         clock.call_at(clock.now() + t["for"], held)
 
-    def _fire(self, a: Automation, why: str) -> None:
-        if not all(self._holds(c) for c in a.conditions):
+    def _fire(self, a: Automation, why: str, trigger: dict | None = None) -> None:
+        context = {"trigger": trigger or {}}
+        if not all(self._holds(c, context) for c in a.conditions):
             return
         if a.running:  # Home Assistant: "Already running" (mode single), and the trigger is dropped
             self.session.automation_skipped(a.name, why, "already running (mode single)")
@@ -728,14 +877,23 @@ class Engine:
                 self.session.automation_skipped(a.name, why, f"it fired {LOOP_LIMIT} times at this instant: a loop")
             return
         a.running = True
-        self._run(a, list(a.actions), why)
+        self._run(_Run(a, why, context, [_Frame(list(a.actions))]))
 
-    def _holds(self, c: dict) -> bool:
-        if c["kind"] == "state":
+    def _holds(self, c: dict, context: dict) -> bool:
+        kind = c["kind"]
+        if kind == "and":
+            return all(self._holds(x, context) for x in c["conditions"])
+        if kind == "or":
+            return any(self._holds(x, context) for x in c["conditions"])
+        if kind == "not":
+            return not any(self._holds(x, context) for x in c["conditions"])
+        if kind == "trigger":
+            return context.get("trigger", {}).get("id") in c["ids"]
+        if kind == "state":
             return all(self._state.get(e) in c["state"] for e in c["entities"])
-        if c["kind"] == "numeric_state":
+        if kind == "numeric_state":
             return all(self._in_range(c, self._state.get(e, "")) for e in c["entities"])
-        if c["kind"] == "sun":
+        if kind == "sun":
             since = self.session.clock.now() - self._midnight
             events = self._sun_events(int(since // DAY_S))
             after = None if c["after"] is None else events[c["after"]]
@@ -753,29 +911,116 @@ class Engine:
             return now >= after or now < before
         return (after is None or now >= after) and (before is None or now < before)
 
-    def _run(self, a: Automation, actions: list, why: str) -> None:
-        while actions:
-            x = actions.pop(0)
-            if x["kind"] == "sequence":
-                actions[:0] = x["steps"]
+    def _run(self, run: _Run) -> None:
+        """Run the steps until a delay or a wait (which resume it) or the end. Each frame is a sequence of its own
+        (choose, if, sequence, a repeat's iteration): a condition step that fails ends that sequence, as Home
+        Assistant's sub-scripts end, and `stop` ends the run."""
+        a, clock = run.automation, self.session.clock
+        while run.frames:
+            f = run.frames[-1]
+            if not f.steps:
+                self._end_frame(run)
                 continue
-            if x["kind"] == "delay":
-                clock = self.session.clock
-                clock.call_at(clock.now() + x["seconds"], lambda: self._run(a, actions, why))
+            x = f.steps.pop(0)
+            kind = x["kind"]
+            if kind == "delay":
+                clock.call_at(clock.now() + x["seconds"], lambda: self._run(run))
                 return
-            if x["kind"] == "record":  # no twin: the session writes down the call and sends nothing
+            if kind == "wait":
+                self._wait(run, x)
+                return
+            if kind == "stop":
+                run.frames.clear()
+            elif kind == "check":
+                if not self._holds(x["condition"], run.context):
+                    self._end_frame(run)
+            elif kind == "choose":
+                steps = next((seq for conditions, seq in x["options"]
+                              if all(self._holds(c, run.context) for c in conditions)), x["default"])
+                run.frames.append(_Frame(list(steps)))
+            elif kind == "sequence":
+                if x.get("group"):  # one action that is several calls (homeassistant.turn_on): not a sequence
+                    f.steps[:0] = x["steps"]
+                else:
+                    run.frames.append(_Frame(list(x["steps"])))
+            elif kind == "repeat":
+                self._iterate(run, x, 1)
+            elif kind == "record":  # no twin: the session writes down the call and sends nothing
                 for target in x["targets"] or [""]:  # an action that names no entity (notify.notify) is kept too
-                    self.session.automation_command(a.name, why, x["service"], target, "", "", None)
-                continue
-            if x["kind"] == "climate":
+                    self.session.automation_command(a.name, run.why, x["service"], target, "", "", None)
+            elif kind == "climate":
                 for entity_id in x["entities"]:
                     for feature, value in x["commands"][entity_id]:
-                        self.session.automation_command(a.name, why, x["service"], entity_id,
+                        self.session.automation_command(a.name, run.why, x["service"], entity_id,
                                                         self.entities[entity_id].twin_id, feature, value)
-                continue
-            for entity_id in x["entities"]:
-                self._call(a, x, self.entities[entity_id], why)
+            else:
+                for entity_id in x["entities"]:
+                    self._call(a, x, self.entities[entity_id], run.why)
         a.running = False
+
+    def _end_frame(self, run: _Run) -> None:
+        f = run.frames.pop()
+        if f.repeat is not None:
+            self._iterate(run, f.repeat, f.index + 1)
+
+    def _iterate(self, run: _Run, x: dict, index: int) -> None:
+        """Start iteration `index` (from 1) of a repeat if its loop says so: count/for_each up to the count, while
+        its conditions hold (checked before), until they hold (checked after the previous iteration)."""
+        if x["loop"] in ("count", "for_each"):
+            go = index <= x["count"]
+        elif index > REPEAT_LIMIT:
+            run.frames.clear()  # Home Assistant aborts the script
+            return
+        elif x["loop"] == "while":
+            go = all(self._holds(c, run.context) for c in x["conditions"])
+        else:
+            go = index == 1 or not all(self._holds(c, run.context) for c in x["conditions"])
+        if go:
+            run.frames.append(_Frame(list(x["steps"]), x, index))
+
+    def _wait(self, run: _Run, x: dict) -> None:
+        """wait_for_trigger: the run resumes when one of the triggers fires (`wait.trigger`), or at the timeout
+        (then it ends unless continue_on_timeout); with no timeout it waits as long as it takes."""
+        clock = self.session.clock
+        w = _Wait(x["triggers"])
+
+        def done(why, tvars):
+            if w.active:
+                w.active = False
+                self._waits.remove(w)
+                run.context["wait"] = {"trigger": tvars, "remaining": None}
+                self._run(run)
+        w.done = done
+        self._waits.append(w)
+        for t in x["triggers"]:
+            when = self._next_time(t)
+            if when is not None:
+                clock.call_at(when, lambda t=t: done(f"{t['kind']} (wait)", _tvars(t)))
+        if x["timeout"] is not None:
+            def timeout():
+                if w.active:
+                    w.active = False
+                    self._waits.remove(w)
+                    run.context["wait"] = {"trigger": None, "remaining": 0}
+                    if not x["continue"]:
+                        run.frames.clear()
+                    self._run(run)
+            clock.call_at(clock.now() + x["timeout"], timeout)
+
+    def _next_time(self, t: dict) -> float | None:
+        """When a time or sun trigger next fires after now (None for the other triggers)."""
+        now = self.session.clock.now()
+        since = now - self._midnight
+        day = int(since // DAY_S)
+        if t["kind"] == "time":
+            return min(self._midnight + d * DAY_S + at for d in (day, day + 1) for at in t["at"]
+                       if self._midnight + d * DAY_S + at > now)
+        if t["kind"] == "sun":
+            for d in (day, day + 1, day + 2):
+                ev = self._sun_events(d)[t["event"]]
+                if ev is not None and self._midnight + ev + t["offset"] > now:
+                    return self._midnight + ev + t["offset"]
+        return None
 
     def _call(self, a: Automation, x: dict, e: Entity, why: str) -> None:
         domain, verb = x["service"].split(".")
@@ -807,6 +1052,12 @@ class Engine:
             command = json.loads(e.cfg["payload_lock" if verb == "lock" else "payload_unlock"])
         for feature, value in flatten(command):
             self.session.automation_command(a.name, why, x["service"], e.entity_id, e.twin_id, feature, value)
+
+
+def _tvars(t: dict, **extra) -> dict:
+    """Home Assistant's `trigger` variables of a trigger that fired: its platform, id and index, and what else it
+    says (an entity's from_state/to_state, a sun event)."""
+    return {"platform": t["kind"], "id": t["id"], "idx": t["idx"], **extra}
 
 
 def _list(value, where: str) -> list:
