@@ -39,16 +39,19 @@ The format (these keys exactly, no others):
 How to fill it:
 - Coordinates are image pixels, "units": "px". The image's y grows downward (the origin is the top-left corner);
   x grows to the right. Give every point as [x, y] numbers.
+- The plan is one storey: if several floors are drawn, read only the floor that has the main entrance (floors may
+  stand side by side in one image, or one per page) and leave the other floors out.
 - Every room in the plan gets an entry: a unique short "id" (such as "r1"), the "name" as the plan labels it, and a
-  "type" from the allowed list above (use "corridor" or "hall" for passages, "other" for a room that is none of the
-  types, such as a closet or a balcony). "polygon" is the room's floor outline along the INSIDE of its walls, one
-  [x, y] per corner, not repeating the first corner at the end. Walls are drawn thick: use the wall's inner face and
-  keep two neighbouring rooms' shared wall at the same position. Rooms must not overlap.
+  "type" from the allowed list above (use "corridor" or "hall" for passages, "balcony" for an outdoor space of the
+  home (a balcony, terrace, patio or loggia), "other" for a room that is none of the types, such as a closet or a
+  storage room). "polygon" is the room's floor outline along the INSIDE of its walls, one [x, y] per corner, not
+  repeating the first corner at the end. Walls are drawn thick: use the wall's inner face and keep two neighbouring
+  rooms' shared wall at the same position. Rooms must not overlap.
 - Every door: "at" is the middle of the doorway in the wall, "width" its opening in pixels, "rooms" the two rooms it
   joins, or a room and "outside" for a door to the outdoors (a front door, a patio door). Do not leave out a door that
   joins two rooms; the rooms must be joined so that every room can be reached from the entrance.
-- Every window: "at" its middle in the wall, "width" in pixels, "room" the room it lights. Leave "windows" empty if
-  the plan shows none.
+- Every window: "at" its middle in the wall, "width" in pixels, "room" the room it lights (a window between a room
+  and a balcony lights the room). Leave "windows" empty if the plan shows none.
 - "entrance" is the index (counting from 0) of the main door to the outdoors in your "doors" list. If no outside
   door is drawn, do not refuse: add a door to "outside" at the most plausible front-door position (on an outside wall
   of the hall, living room or corridor, whichever a visitor would enter by) and make that the entrance.

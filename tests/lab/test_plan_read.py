@@ -158,6 +158,18 @@ def test_the_prompt_places_a_missing_entrance_at_the_likeliest_front_door():
     assert "If no outside door is drawn, do not refuse" in flat and "most plausible front-door position" in flat
 
 
+def test_the_prompt_reads_one_storey_the_one_with_the_main_entrance():
+    flat = " ".join(PROMPT.split())
+    assert "if several floors are drawn, read only the floor that has the main entrance" in flat
+
+
+def test_the_prompt_types_outdoor_spaces_as_balconies_and_their_windows_light_the_room():
+    flat = " ".join(PROMPT.split())
+    assert '"balcony" for an outdoor space of the home (a balcony, terrace, patio or loggia)' in flat
+    assert "a window between a room and a balcony lights the room" in flat
+    assert "balcony" in PROMPT.split("one of", 1)[1].split("\n", 1)[0]  # in the type list itself
+
+
 def test_the_prompt_names_the_schema_the_types_and_the_things_to_read():
     for needle in ('"vesper-plan/1"', '"units": "px"', "m_per_px", "length_m", "area_m2", "polygon", "entrance",
                    "outside", "living", "kitchen", "laundry", "corridor", "hall", "other", "windows", "doors",
