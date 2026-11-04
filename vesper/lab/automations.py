@@ -9,21 +9,37 @@ would see and acts as Home Assistant would:
 - a service call sends the command that entity's MQTT config sends (a light's JSON `state`, a switch's
   `payload_on`, a lock's `payload_lock`), applied as the bridge applies a command.
 - an event entity's state (a button's `action`) is the time of its last event, so every press is a change.
-Supported: triggers `state` (to, from, for; `to: ~` is any change), `numeric_state` (above, below, for) and `time`
-(at); conditions `state`, `numeric_state` and `time` (after, before); for a home with a site (vesper.env), trigger
-`sun` (event sunrise or sunset, offset), condition `sun` (after and before sunrise or sunset, with offsets; after
-and before across midnight is either), and the entity `sun.sun` (above_horizon, below_horizon), all from the same
-astral sun as Home Assistant's at the site and the run's date; actions `light.*` (brightness,
-brightness_pct), `switch.*` (turn_on, turn_off, toggle), `lock.lock`/`lock.unlock`, `climate.set_temperature`
-(temperature and hvac_mode; no target temperature range, the discovered entity has none),
-`climate.set_hvac_mode`, `climate.turn_on`/`climate.turn_off` on the home's thermostats (the climate entity of
-Home Assistant's MQTT discovery: the setpoint and `system_mode` it exposes, within its range and its modes) and
-`delay`; `enabled: false`
-anywhere; mode `single`. An automation using anything else (a template, an option, a key the engine does not
-know, an unquoted on/off that Home Assistant itself refuses) is refused by name when the file is loaded, never run
-in part; the others run.
+Supported, with Home Assistant's semantics (each in tests/lab/test_automations*.py):
+- triggers `state` (to, from, not_to, not_from, attribute, for; with none of to/from/not_to/not_from an attribute
+  change fires too, `to: ~` is any change of the state), `numeric_state` (above, below as numbers or a threshold
+  entity, attribute, for), `time` (at, weekday), `time_pattern` (hours/minutes/seconds, '*', '/n'),
+  `homeassistant` (start fires as the engine starts; shutdown never fires in a run), `template` (for; fires when
+  its result turns true, re-rendered on the states it read and each minute if it read the time) and, for a home with
+  a site (vesper.env), `sun` (event, offset); a trigger's id (else its index) is `trigger.id`;
+- conditions `state` (attribute, for, match), `numeric_state` (attribute), `time` (after, before, weekday),
+  `sun` (after and before sunrise or sunset, with offsets; across midnight is either), `trigger` (id), `template`
+  (also a bare template string), `and`/`or`/`not` (nested, and their `- or: [...]` shorthand);
+- entities as Home Assistant's integrations make them: `sun.sun` (above_horizon/below_horizon, elevation,
+  azimuth, next_rising, ... on Home Assistant's update schedule, from the same astral sun at the site and date), a
+  climate (its hvac mode, with temperature, current_temperature and hvac_action), a JSON light's brightness;
+- actions `light.*` (brightness, brightness_pct; a colour the light has no mode for is dropped, as Home
+  Assistant drops it), `switch.*`, `lock.lock`/`lock.unlock`, `homeassistant.turn_on/turn_off/toggle`,
+  `climate.set_temperature` (temperature and hvac_mode; no target temperature range, the discovered entity has
+  none), `climate.set_hvac_mode`, `climate.turn_on`/`climate.turn_off` on the home's thermostats (the climate
+  entity of Home Assistant's MQTT discovery: the setpoint and `system_mode` it exposes, within its range and its
+  modes), targets in `target`, `entity_id` or the legacy data/data_template entity_id (`all` too); `delay`,
+  `choose`, `if`/`then`/`else`, `sequence`, a condition step (false ends its own sequence), `stop`, `repeat`
+  (count, while, until, for_each), `wait_for_trigger` (timeout, continue_on_timeout) and `variables` (and an
+  automation's variables and trigger_variables);
+- templates: the subset of vesper.lab.ha_template (states, is_state, state_attr, now, Home Assistant's forgiving
+  filters, ...), each refused by name outside it;
+- `enabled: false` anywhere; mode `single` (`max`, `max_exceeded` accepted).
+An automation using anything else (a template outside the subset, wait_template, parallel, an event, webhook or
+other trigger no simulated home fires, a key the engine does not know, an unquoted on/off that Home Assistant itself
+refuses) is refused by name when the file is loaded, never run in part; the others run.
 `Engine(permissive=True)` is for replaying public automations: an action it cannot execute is recorded (the service
-and its targets, which need not be the home's) and a mode other than single runs as single, both said in the
+and its targets, which need not be the home's), a light parameter the twin cannot apply (a transition) is dropped, and a
+mode other than single runs as single, all said in the
 automation's `approximations`; a condition or trigger it cannot evaluate is still refused.
 As in Home Assistant, every trigger of a state change is evaluated before any action runs, a `for:` lasts while
 the state still matches (a numeric value, while it stays in range), and conditions are checked before mode
@@ -52,12 +68,13 @@ SERVICES = {"light": ("turn_on", "turn_off", "toggle"), "switch": ("turn_on", "t
 TURN_ON_MODES = ("heat_cool", "heat", "cool")  # Home Assistant's climate.turn_on: the first of these the entity has
 SET_TEMPERATURE_KEYS = {"temperature", "target_temp_low", "target_temp_high", "hvac_mode"}
 AUTOMATION_KEYS = {"id", "alias", "description", "mode", "max", "max_exceeded", "initial_state", "trace", "hide_entity",
-                   "triggers", "trigger", "conditions", "condition", "actions", "action"}
+                   "triggers", "trigger", "conditions", "condition", "actions", "action", "variables",
+                   "trigger_variables"}
 TRIGGER_KEYS = {"state": {"entity_id", "to", "from", "not_to", "not_from", "attribute", "for"},
                 "numeric_state": {"entity_id", "above", "below", "attribute", "value_template", "for"},
                 "time": {"at", "weekday"}, "sun": {"event", "offset"}, "time_pattern": {"hours", "minutes", "seconds"},
-                "homeassistant": {"event"}}
-CONDITION_KEYS = {"state": {"entity_id", "state", "attribute", "for", "match"},
+                "homeassistant": {"event"}, "template": {"value_template", "for"}}
+CONDITION_KEYS = {"state": {"entity_id", "state", "attribute", "for", "match"}, "template": {"value_template"},
                   "numeric_state": {"entity_id", "above", "below", "attribute", "value_template"},
                   "time": {"after", "before", "weekday"}, "sun": {"after", "before", "after_offset", "before_offset"}}
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
@@ -112,7 +129,7 @@ UNMODELLED = {"transition": "the twin has no fade", "flash": "the twin does not 
 HOMEASSISTANT_VERBS = ("turn_on", "turn_off", "toggle")  # homeassistant.<verb>: each entity's own <domain>.<verb>
 STEP_KEYS = {"alias", "continue_on_error", "enabled"}  # any action step may have them
 UNSUPPORTED_STEPS = {
-    "wait_template": "a template wait", "parallel": "parallel branches", "variables": "variables are templates",
+    "wait_template": "a template wait", "parallel": "parallel branches",
     "event": "it fires an event, which only Home Assistant's other listeners see",
     "scene": "scenes are Home Assistant's", "device_id": "a device action needs Home Assistant's device registry",
     "set_conversation_response": "conversations are Home Assistant's"}
@@ -171,6 +188,14 @@ class Automation:
     actions: list
     running: bool = field(default=False)
     approximations: list[str] = field(default_factory=list)  # what permissive mode ran differently from the file
+    variables: dict = field(default_factory=dict)  # rendered when it fires, before its conditions
+    trigger_variables: dict = field(default_factory=dict)  # rendered when it loads, for its trigger templates
+
+
+@dataclass
+class _Tpl:
+    """A compiled template inside a value (a variable, service data)."""
+    template: object
 
 
 @dataclass
@@ -195,6 +220,23 @@ class _Run:
     why: str
     context: dict
     frames: list[_Frame]
+
+
+@dataclass
+class _Watch:
+    """A template trigger under way (Home Assistant's template trigger over track_template_result): `fire(why,
+    trigger variables)` when its result turns true after it was false (armed), at once or after `for`."""
+    trigger: dict
+    fire: Callable
+    variables: dict
+    armed: bool = False
+    last: object = None  # the last rendered result (a TemplateFailed is a result too)
+    info: object = None  # what the last render read
+    rendered_at: float = float("-inf")
+    pending: bool = False  # a rate-limited render is scheduled
+    minute: bool = False  # the per-minute render is scheduled
+    delay: list = field(default_factory=list)  # [alive] of the `for` timer under way
+    active: bool = True
 
 
 @dataclass
@@ -380,6 +422,9 @@ class Engine:
         self._feat: dict[tuple[str, str], object] = {}  # (twin, feature) -> its last reported value
         self._changed: dict[str, float] = {}  # entity -> when its state last changed (Home Assistant's last_changed)
         self._sun_phase, self._sun_change = None, None
+        self._templates = None  # vesper.lab.ha_template.Templates, on first use
+        self._varnames: set[str] = set()
+        self._watches: list[_Watch] = []  # the template triggers under way
         self._held: dict[str, list[_Held]] = {}  # entity -> the `for:` timers waiting on it
         self._waits: list[_Wait] = []  # the wait_for_trigger steps under way
         self._burst: tuple[float, dict] = (-1.0, {})  # (instant, automation -> firings at it): the loop guard
@@ -424,6 +469,9 @@ class Engine:
                 raise AutomationError(f"mode {mode!r} is not supported (single only)")
             approximations.append(f"mode {mode} run as single")
         self._notes = []  # what permissive mode records instead of running, for `approximations`
+        self._varnames = set(_variable_names(a))  # what templates may read besides trigger, wait and repeat
+        trigger_variables = self._variables(a.get("trigger_variables"), "trigger_variables")
+        variables = self._variables(a.get("variables"), "variables")
         raw_triggers = _list(a.get("triggers", a.get("trigger")), "triggers")
         if not raw_triggers:
             raise AutomationError("it has no trigger")
@@ -431,7 +479,79 @@ class Engine:
         conditions = self._conditions(a.get("conditions", a.get("condition")), "conditions")
         actions = self._actions(a.get("actions", a.get("action")))
         approximations += self._notes
-        return Automation(label, triggers, conditions, actions, approximations=approximations)
+        return Automation(label, triggers, conditions, actions, approximations=approximations,
+                          variables=variables, trigger_variables=trigger_variables)
+
+    # -- templates ----------------------------------------------------------------------------------
+    @property
+    def templates(self):
+        """The template renderer (vesper.lab.ha_template), made on first use; without jinja2 every template is
+        refused."""
+        if self._templates is None:
+            try:
+                from vesper.lab.ha_template import Templates
+                self._templates = Templates(self)
+            except ImportError:
+                raise AutomationError("templates are not supported (jinja2 is not installed)") from None
+        return self._templates
+
+    def _template(self, source: str, where: str):
+        from vesper.lab.ha_template import TemplateRefused
+        try:
+            return self.templates.compile(source, {"trigger", "wait", "repeat"} | self._varnames,
+                                          set(self.entities), where)
+        except TemplateRefused as e:
+            raise AutomationError(str(e)) from None
+
+    def _complex(self, value, where: str):
+        """A value that may hold templates (a variable, Home Assistant's render_complex): templates compiled."""
+        from vesper.lab.ha_template import is_template
+        if is_template(value):
+            return _Tpl(self._template(value, where))
+        if isinstance(value, dict):
+            return {k: self._complex(v, where) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._complex(v, where) for v in value]
+        return value
+
+    def _variables(self, raw, where: str) -> dict:
+        if raw is None:
+            return {}
+        if not isinstance(raw, dict) or not all(isinstance(k, str) for k in raw):
+            raise AutomationError(f"{where}: a mapping of names")
+        return {k: self._complex(v, f"{where}: {k}") for k, v in raw.items()}
+
+    def _rendered(self, value, context: dict):
+        """A complex value rendered as Home Assistant's render_complex renders it (each template's result parsed
+        as the literal it spells); a failed render raises TemplateFailed."""
+        from vesper.lab.ha_template import parse_result
+        if isinstance(value, _Tpl):
+            return parse_result(self.templates.render(value.template, context)[0])
+        if isinstance(value, dict):
+            return {k: self._rendered(v, context) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._rendered(v, context) for v in value]
+        return value
+
+    def _render_variables(self, variables: dict, context: dict) -> bool:
+        """Render variables into the context, in order (each sees the ones before); False if one fails."""
+        from vesper.lab.ha_template import TemplateFailed
+        for k, v in variables.items():
+            try:
+                context[k] = self._rendered(v, context)
+            except TemplateFailed:
+                return False
+        return True
+
+    def _datetime_of(self, t: float):
+        from vesper.lab.ha_template import TemplateFailed
+        if self.site is None:
+            raise TemplateFailed("the home has no site, so it has no date")
+        return self.site.utc(t - self._midnight)
+
+    def _snapshot(self, entity: str, state, attrs: dict, changed: float):
+        from vesper.lab.ha_template import FixedState
+        return FixedState(entity, state, attrs, changed, self._datetime_of)
 
     def _triggers(self, raw: list) -> list[dict]:
         """The enabled triggers, each with its id: its `id`, else its index among all the triggers (Home
@@ -491,6 +611,11 @@ class Engine:
             if "seconds" not in given and "minutes" in given:
                 given["seconds"] = {0}
             return {"kind": "time_pattern", **{k: sorted(given.get(k, range(PATTERN_MAX[k] + 1))) for k in PATTERN_MAX}}
+        if kind == "template":
+            if not isinstance(t.get("value_template"), str):
+                raise AutomationError(f"{where}: value_template is required")
+            return {"kind": "template", "template": self._template(t["value_template"], where),
+                    "for": _seconds(t["for"], f"{where}: for") if "for" in t else 0.0}
         if kind == "homeassistant":
             if t.get("event") not in ("start", "shutdown"):
                 raise AutomationError(f"{where}: event {t.get('event')!r} is not start or shutdown")
@@ -537,6 +662,13 @@ class Engine:
         return _coerced(value, f"{where}: {key}")
 
     def _condition(self, c) -> dict:
+        if isinstance(c, str):  # Home Assistant's shorthand template condition
+            return {"kind": "template", "template": self._template(c, "condition template")}
+        if isinstance(c, dict) and c.get("condition") == "template":
+            _keys(c, {"condition", "value_template", "alias"}, "condition template")
+            if not isinstance(c.get("value_template"), str):
+                raise AutomationError("condition template: value_template is required")
+            return {"kind": "template", "template": self._template(c["value_template"], "condition template")}
         if isinstance(c, dict) and "condition" not in c and len(set(c) - {"alias", "enabled"}) == 1 and \
                 next(iter(set(c) - {"alias", "enabled"})) in LOGIC:  # Home Assistant's shorthand: `- or: [...]`
             kind = next(iter(set(c) - {"alias", "enabled"}))
@@ -651,6 +783,9 @@ class Engine:
             return {"kind": "stop", "error": step.get("error") is True}
         if "repeat" in step:
             return self._repeat(step)
+        if "variables" in step:
+            _keys(step, {"variables"}, "action variables")
+            return {"kind": "variables", "variables": self._variables(step["variables"], "action variables")}
         if "wait_for_trigger" in step:
             _keys(step, {"wait_for_trigger", "timeout", "continue_on_timeout"}, "action wait_for_trigger")
             return {"kind": "wait", "triggers": self._triggers(_list(step["wait_for_trigger"], "wait_for_trigger")),
@@ -711,7 +846,7 @@ class Engine:
         elif loops[0] == "for_each":
             if not isinstance(r["for_each"], list):
                 raise AutomationError(f"{where}: for_each {r['for_each']!r} is not a list")
-            out["count"] = len(r["for_each"])
+            out["count"], out["items"] = len(r["for_each"]), r["for_each"]
         else:
             out["conditions"] = self._conditions(r[loops[0]], f"{where}: {loops[0]}")
         return out
@@ -895,6 +1030,8 @@ class Engine:
                 elif t["kind"] == "homeassistant" and t["event"] == "start":  # Home Assistant has just started
                     clock.call_at(clock.now(), lambda a=a, t=t: self._fire(a, "homeassistant start",
                                                                            _tvars(t, event="start")))
+                elif t["kind"] == "template":
+                    self._watch(t, lambda why, tv, a=a: self._fire(a, why, tv), a.trigger_variables)
 
     def _schedule_day(self, day: int) -> None:
         now = self.session.clock.now()
@@ -1108,6 +1245,13 @@ class Engine:
                 for t in w.triggers:
                     if w.active and entity in t.get("entities", ()) and self._matches(t, change):
                         self._triggered(t, change, w.done)
+        if changes and self._watches:
+            self._watches = [w for w in self._watches if w.active]
+            for w in list(self._watches):
+                info = w.info
+                if info is not None and (info.all_states or any(
+                        c[0] in info.entities or c[0].split(".")[0] in info.domains for c in changes)):
+                    self._render_watch(w, changes[-1])
 
     @staticmethod
     def _value(t: dict, state, attrs: dict):
@@ -1153,7 +1297,9 @@ class Engine:
         value stays what it became, in range, or, with from and no to, not what it was)."""
         entity, old, new, old_attrs, new_attrs = change
         why, clock = f"{t['kind']} {entity} {old} -> {new}", self.session.clock
-        tvars = _tvars(t, entity_id=entity, from_state=old, to_state=new, attribute=t.get("attribute"),
+        changed = self._changed.get(entity, clock.now())
+        tvars = _tvars(t, entity_id=entity, from_state=self._snapshot(entity, old, old_attrs, changed),
+                       to_state=self._snapshot(entity, new, new_attrs, changed), attribute=t.get("attribute"),
                        **{"for": t["for"] or None})
         if not t["for"]:
             clock.call_at(clock.now(), lambda: fire(why, tvars))
@@ -1175,8 +1321,99 @@ class Engine:
                 fire(f"{why} for {t['for']:g} s", tvars)
         clock.call_at(clock.now() + t["for"], held)
 
+    # -- template triggers -------------------------------------------------------------------------
+    def _watch(self, t: dict, fire: Callable, variables: dict) -> _Watch:
+        """Start a template trigger: rendered now, armed if false (Home Assistant arms it at setup only then)."""
+        rendered = {}
+        self._render_variables(variables, rendered)
+        w = _Watch(t, fire, rendered)
+        result = self._watch_render(w)
+        w.armed = not isinstance(result, tuple) and not self._truthy(result)
+        self._watches.append(w)
+        return w
+
+    @staticmethod
+    def _truthy(result) -> bool:
+        from vesper.lab.ha_template import result_as_boolean
+        return result_as_boolean(result)
+
+    def _watch_render(self, w: _Watch):
+        """Render a watched template; a failure is the result ('error', message). The result is kept, and the
+        render scheduled again at the next minute if it read the time."""
+        from vesper.lab.ha_template import TemplateFailed
+        clock = self.session.clock
+        try:
+            result, w.info = self.templates.render(w.trigger["template"], w.variables)
+        except TemplateFailed as e:
+            result = ("error", str(e))
+            w.info = self.templates.view.info
+        w.rendered_at, w.last = clock.now(), result
+        if w.info.time and not w.minute:  # Home Assistant re-renders a template that reads the time each minute
+            w.minute = True
+            since = clock.now() - self._midnight
+
+            def minute():
+                w.minute = False
+                if w.active:
+                    self._render_watch(w, None)
+            clock.call_at(self._midnight + (since // 60 + 1) * 60, minute)
+        return result
+
+    def _render_watch(self, w: _Watch, change: tuple | None) -> None:
+        """Home Assistant's template trigger listener, on a new result: a failure is logged and ignored; a change
+        cancels a `for` under way; false arms it; true fires it if it was armed. A template reading all the states
+        renders at most once a minute, one reading a domain at most once a second."""
+        clock = self.session.clock
+        limit = 60.0 if w.info.all_states else 1.0 if w.info.domains else 0.0
+        if clock.now() - w.rendered_at < limit:
+            if not w.pending:
+                w.pending = True
+
+                def later():
+                    w.pending = False
+                    if w.active:
+                        self._render_watch(w, None)
+                clock.call_at(w.rendered_at + limit, later)
+            return
+        before = w.last
+        result = self._watch_render(w)
+        if result == before or isinstance(result, tuple):
+            return
+        for alive in w.delay:
+            alive[0] = False
+        w.delay = []
+        if not self._truthy(result):
+            w.armed = True
+            return
+        if not w.armed:
+            return
+        w.armed = False
+        t = w.trigger
+        extra = {}
+        if change is not None:
+            entity, old, new, old_attrs, new_attrs = change
+            changed = self._changed.get(entity, clock.now())
+            extra = {"entity_id": entity, "from_state": self._snapshot(entity, old, old_attrs, changed),
+                     "to_state": self._snapshot(entity, new, new_attrs, changed)}
+        tvars = _tvars(t, **extra, **{"for": t["for"] or None})
+        why = f"template {result}"
+        if not t["for"]:
+            clock.call_at(clock.now(), lambda: w.fire(why, tvars))
+            return
+        alive = [True]
+        w.delay.append(alive)
+
+        def held():
+            if alive[0] and w.active:
+                w.fire(f"{why} for {t['for']:g} s", tvars)
+        clock.call_at(clock.now() + t["for"], held)
+
     def _fire(self, a: Automation, why: str, trigger: dict | None = None) -> None:
         context = {"trigger": trigger or {}}
+        if (a.variables or a.trigger_variables) and not (
+                self._render_variables(a.trigger_variables, context) and self._render_variables(a.variables, context)):
+            self.session.automation_skipped(a.name, why, "a variable's template failed")
+            return
         if not all(self._holds(c, context) for c in a.conditions):
             return
         if a.running:  # Home Assistant: "Already running" (mode single), and the trigger is dropped
@@ -1203,6 +1440,12 @@ class Engine:
             return not any(self._holds(x, context) for x in c["conditions"])
         if kind == "trigger":
             return context.get("trigger", {}).get("id") in c["ids"]
+        if kind == "template":  # Home Assistant: an error in the template is a failed condition
+            from vesper.lab.ha_template import TemplateFailed
+            try:
+                return self._truthy(self.templates.render(c["template"], context)[0])
+            except TemplateFailed:
+                return False
         if kind == "state":  # Home Assistant: `for` is how long the state has been unchanged (last_changed)
             now = self.session.clock.now()
             each = (self._value(c, self._state.get(e), self._attrs.get(e)) in c["state"]
@@ -1267,6 +1510,9 @@ class Engine:
                     run.frames.append(_Frame(list(x["steps"])))
             elif kind == "repeat":
                 self._iterate(run, x, 1)
+            elif kind == "variables":  # a template that fails stops the run, as in Home Assistant
+                if not self._render_variables(x["variables"], run.context):
+                    run.frames.clear()
             elif kind == "record":  # no twin: the session writes down the call and sends nothing
                 for target in x["targets"] or [""]:  # an action that names no entity (notify.notify) is kept too
                     self.session.automation_command(a.name, run.why, x["service"], target, "", "", None)
@@ -1298,6 +1544,11 @@ class Engine:
         else:
             go = index == 1 or not all(self._holds(c, run.context) for c in x["conditions"])
         if go:
+            run.context["repeat"] = {"index": index, "first": index == 1}
+            if x["loop"] in ("count", "for_each"):
+                run.context["repeat"]["last"] = index == x["count"]
+            if x["loop"] == "for_each":
+                run.context["repeat"]["item"] = x["items"][index - 1]
             run.frames.append(_Frame(list(x["steps"]), x, index))
 
     def _wait(self, run: _Run, x: dict) -> None:
@@ -1306,10 +1557,17 @@ class Engine:
         clock = self.session.clock
         w = _Wait(x["triggers"])
 
+        watches = []
+
+        def end():
+            w.active = False
+            self._waits.remove(w)
+            for watch in watches:
+                watch.active = False
+
         def done(why, tvars):
             if w.active:
-                w.active = False
-                self._waits.remove(w)
+                end()
                 run.context["wait"] = {"trigger": tvars, "remaining": None}
                 self._run(run)
         w.done = done
@@ -1318,11 +1576,12 @@ class Engine:
             when = self._next_time(t)
             if when is not None:
                 clock.call_at(when, lambda t=t: done(f"{t['kind']} (wait)", _tvars(t)))
+            if t["kind"] == "template":
+                watches.append(self._watch(t, done, {}))
         if x["timeout"] is not None:
             def timeout():
                 if w.active:
-                    w.active = False
-                    self._waits.remove(w)
+                    end()
                     run.context["wait"] = {"trigger": None, "remaining": 0}
                     if not x["continue"]:
                         run.frames.clear()
@@ -1377,6 +1636,21 @@ class Engine:
             command = json.loads(e.cfg["payload_lock" if verb == "lock" else "payload_unlock"])
         for feature, value in flatten(command):
             self.session.automation_command(a.name, why, x["service"], e.entity_id, e.twin_id, feature, value)
+
+
+def _variable_names(node) -> list[str]:
+    """Every variable an automation defines (its variables, trigger_variables and variables steps)."""
+    out = []
+    if isinstance(node, dict):
+        for key in ("variables", "trigger_variables"):
+            if isinstance(node.get(key), dict):
+                out += [k for k in node[key] if isinstance(k, str)]
+        for v in node.values():
+            out += _variable_names(v)
+    elif isinstance(node, list):
+        for v in node:
+            out += _variable_names(v)
+    return out
 
 
 def _pattern(value, maximum: int, where: str) -> set[int]:

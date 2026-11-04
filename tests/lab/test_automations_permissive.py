@@ -57,12 +57,12 @@ def test_a_mode_other_than_single_loads_as_single_and_says_so(tmp_path):
     assert [a.approximations for a in e.automations] == [["mode restart run as single"], [], []]
 
 
-def test_a_template_condition_is_still_refused(tmp_path):
+def test_a_template_outside_the_engines_subset_is_still_refused(tmp_path):
     _, s = home_session(tmp_path)
     e = Engine(s, permissive=True, automations=[auto([], condition=[{"condition": "template",
-                                                                      "value_template": "{{ true }}"}])])
+                                                                      "value_template": "{{ expand('x') }}"}])])
     assert e.automations == []
-    assert e.refused == [{"automation": "a", "reason": "condition 'template' is not supported"}]
+    assert e.refused == [{"automation": "a", "reason": "condition template: template name 'expand' is not supported"}]
 
 
 def test_something_that_is_not_a_service_is_still_refused(tmp_path):

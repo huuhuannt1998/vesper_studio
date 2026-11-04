@@ -529,3 +529,116 @@ def test_a_trvs_hvac_action_follows_its_running_state_through_the_discovery_temp
         e._on_report(type("R", (), {"twin_id": twin, "feature": "running_state", "value": running,
                                      "observed_t": 0})())
         assert e._attrs[climate]["hvac_action"] == action
+
+
+# ---- templates -----------------------------------------------------------------------------------------------------
+
+def template_condition(tmp_path, template, text_home=None):
+    """(engine, the parsed condition, ids)."""
+    _, s, e, _ = setup(tmp_path, [auto([], conditions=[template])], text_home=text_home)
+    assert e.refused == [], e.refused
+    return e, e.automations[0].conditions[0]
+
+
+def test_a_template_condition_reads_states_with_home_assistants_functions_and_filters(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        temp = ids["kitchen_climate"]["temperature"]
+        return [auto([], conditions=[
+            {"condition": "template", "value_template":
+                f"{{{{ is_state('{lamp}', 'on') and states('{temp}') | float > 20 }}}}"},
+            f"{{{{ states.{motion}.state == 'on' or state_attr('{lamp}', 'brightness') | int(0) > 100 }}}}",
+            f"{{{{ states('{temp}') | float > 20 }}}}",
+            f"{{{{ states('{temp}') | float(0) > 20 }}}}"])]
+    ids, s, e, _ = setup(tmp_path, autos)
+    lamp, motion = lamp_motion(ids)
+    temp = ids["kitchen_climate"]["temperature"]
+    both, either, strict, forgiving = e.automations[0].conditions
+    e._state[lamp], e._attrs[lamp], e._state[temp], e._state[motion] = "on", {"brightness": 150}, "21.5", "off"
+    assert [e._holds(c, {}) for c in (both, either, strict, forgiving)] == [True, True, True, True]
+    e._state[temp], e._attrs[lamp] = "unknown", {"brightness": None}
+    # float without a default fails on 'unknown': Home Assistant's condition error, so the condition is false
+    assert [e._holds(c, {}) for c in (both, either, strict, forgiving)] == [False, False, False, False]
+
+
+@pytest.mark.parametrize("text, holds", [("{{ 'on' }}", True), ("{{ 'yes' }}", True), ("{{ 1 }}", True),
+                                         ("{{ 2 }}", False), ("{{ 'x' }}", False), ("{{ true }}", True),
+                                         (" {{ 'True' }} ", True), ("{{ none }}", False)])
+def test_a_template_conditions_result_is_read_as_home_assistants_result_as_boolean(tmp_path, text, holds):
+    e, c = template_condition(tmp_path, {"condition": "template", "value_template": text})
+    assert e._holds(c, {}) is holds
+
+
+def test_trigger_variables_and_variables_are_rendered_for_the_conditions_and_actions(tmp_path):
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        return [auto([{"variables": {"twice": "{{ limit * 2 }}"}},
+                      {"condition": "template", "value_template": "{{ twice == 6 and trigger.id == 'moved' }}"},
+                      {"repeat": {"count": "{{ 2 }}" if False else 2, "sequence": [
+                          {"if": "{{ repeat.index == 2 and trigger.to_state.state == 'on' }}",
+                           "then": [{"action": "light.turn_on", "target": {"entity_id": lamp}}]}]}}],
+                     [{"trigger": "state", "entity_id": motion, "to": "on", "id": "moved"}],
+                     variables={"limit": 3, "who": "{{ trigger.entity_id }}"},
+                     conditions=[f"{{{{ who == '{motion}' }}}}"])]
+    ids, s, e, calls = setup(tmp_path, autos)
+    assert e.refused == []
+    e._apply([e._set(lamp_motion(ids)[1], "on")])
+    s.clock.advance(1)
+    assert services(calls) == ["light.turn_on"]
+
+
+def test_a_template_trigger_fires_when_its_result_turns_true_after_it_was_false(tmp_path):
+    """Home Assistant arms a template trigger at setup only if it is false; it fires once per false -> true."""
+    def autos(ids):
+        lamp, motion = lamp_motion(ids)
+        on = {"action": "light.turn_on", "target": {"entity_id": lamp}}
+        return [auto([on], [{"trigger": "template", "value_template": f"{{{{ is_state('{motion}', 'on') }}}}"}],
+                     alias="motion"),
+                auto([on], [{"trigger": "template", "value_template": f"{{{{ is_state('{lamp}', 'off') }}}}"}],
+                     alias="already true"),
+                auto([on], [{"platform": "template", "value_template": f"{{{{ is_state('{motion}', 'on') }}}}",
+                             "for": 60}], alias="held")]
+    ids, s, e, calls = setup(tmp_path, autos)
+    lamp, motion = lamp_motion(ids)
+    e._apply([e._set(lamp, "off")])  # already off at setup: true, not armed
+    for state in ("on", "on", "off", "on"):
+        e._apply([e._set(motion, state)])
+        s.clock.advance(20)
+    s.clock.advance(60)
+    assert fired_by(calls) == ["motion", "motion", "held"]  # the first `held` was cut short by the off
+
+
+def test_a_template_reading_the_time_renders_again_at_each_minute(tmp_path):
+    def autos(ids):
+        return [auto([{"action": "light.turn_on", "target": {"entity_id": lamp_motion(ids)[0]}}],
+                     [{"trigger": "template", "value_template": "{{ now().hour == 8 and now().minute == 30 }}"}])]
+    _, s, e, calls = setup(tmp_path, autos, text_home=sited_home)
+    times = []
+    s.automation_command = lambda *args: times.append(s.clock.now())
+    s.clock.advance(24 * H)
+    assert times == [H]  # the site's session starts at 07:30: 08:30:00 exactly
+
+
+@pytest.mark.parametrize("template, reason", [
+    ("{{ expand('group.all') | count }}", "condition template: template name 'expand' is not supported"),
+    ("{{ area_entities('kitchen') }}", "condition template: template name 'area_entities' is not supported"),
+    ("{{ 'x' | slugify }}", "condition template: template filter 'slugify' is not supported"),
+    ("{{ ''.__class__ }}", None),
+    ("{{ 'a'.encode() }}", "condition template: template method 'encode' is not supported"),
+    ("{% import 'x' as y %}{{ y }}", "condition template: template statement 'import' is not supported"),
+    ("{{ states('sensor.nowhere') }}", "entity sensor.nowhere is not one of this home's"),
+    ("{{ states.light.nowhere.state }}", "entity light.nowhere is not one of this home's"),
+    ("{{ x ", "condition template: template syntax error: unexpected end of template, expected 'end of print "
+              "statement'."),
+])
+def test_a_template_outside_the_subset_is_refused_by_name(tmp_path, template, reason):
+    _, s, e, _ = setup(tmp_path, [auto([], conditions=[template])])
+    if reason is None:  # the sandbox: compiles, but rendering it fails, so the condition is false
+        assert e._holds(e.automations[0].conditions[0], {}) is False
+    else:
+        assert e.refused[0]["reason"] == reason
+
+
+def test_a_template_needing_a_date_needs_a_site(tmp_path):
+    assert refusal(tmp_path, [auto([], conditions=["{{ now().hour > 7 }}"])]) == (
+        "condition template: template now(): the home has no site, so it has no date")

@@ -298,7 +298,7 @@ REFUSED = [
     ("triggers: [{trigger: time, at: \"07:00\"}]\n  actions: [{action: light.turn_on, target: {entity_id: LAMP}, "
      + REFUSED[1][0] + "}]", REFUSED[1][1]),
     ("use_blueprint: {path: homeassistant/motion_light.yaml}", "blueprint automations are not supported"),
-    ("triggers: [{trigger: time, at: \"07:00\"}]\n  variables: {x: 1}\n  actions: []", "'variables' is not supported"),
+    ("triggers: [{trigger: time, at: \"07:00\"}]\n  variables: [x]\n  actions: []", "variables: a mapping of names"),
 ])
 def test_what_the_engine_cannot_run_is_refused_as_a_whole_and_the_day_goes_on(tmp_path, automation, reason):
     _, ids, s = lab(tmp_path, "")

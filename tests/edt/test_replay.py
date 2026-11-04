@@ -168,7 +168,7 @@ def test_one_firing_per_action_and_target_even_when_a_command_has_several_parts(
 
 def test_every_given_automation_has_an_entry_even_one_that_is_refused(edt, trace4):
     _, roles = edt
-    bad = {"alias": "bad", "triggers": [{"trigger": "template", "value_template": "{{ true }}"}], "actions": []}
+    bad = {"alias": "bad", "triggers": [{"trigger": "webhook", "webhook_id": "x"}], "actions": []}  # never simulated
     got = replay_detailed(edt[0], trace4, {"lamp": lamp(roles), "bad": bad})
     assert set(got.firings) == {"lamp", "bad"} and got.firings["bad"] == [] and "bad" in got.refused
 
@@ -304,7 +304,7 @@ def test_keys_that_are_falsy_work(edt, trace4):
 
 def test_a_refusal_is_mapped_back_by_position_not_by_label(edt, trace4):
     _, roles = edt
-    bad = {"alias": "bad", "triggers": [{"trigger": "template", "value_template": "{{ true }}"}], "actions": []}
+    bad = {"alias": "bad", "triggers": [{"trigger": "webhook", "webhook_id": "x"}], "actions": []}  # never simulated
     got = replay_detailed(edt[0], trace4, {"automation 2": lamp(roles), "automation 1": bad})
     assert list(got.refused) == ["automation 1"] and got.firings["automation 1"] == []
     assert got.firings["automation 2"]
