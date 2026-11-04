@@ -128,7 +128,7 @@ def _fetch_weather(site, cache: Path, get) -> None:
     from vesper.env import weather
     from vesper.env.outdoor import RUN_DAYS
     days = weather.utc_days(site.utc(0), site.utc(RUN_DAYS * 86400))
-    if all(weather.cache_path(cache, site.lat, site.lon, d).is_file() for d in days):
+    if all(weather.cached(cache, site.lat, site.lon, d) is not None for d in days):  # pre-pin days: refetched
         return
     weather.fetch(site.lat, site.lon, days[0], days[-1], cache, get=get)
 

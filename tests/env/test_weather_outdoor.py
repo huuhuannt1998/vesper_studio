@@ -42,7 +42,7 @@ def test_fetch_writes_one_cached_file_per_utc_day_with_its_attribution(tmp_path)
         return Answer(archive())
 
     paths = fetch(35.2271, -80.8431, dt.date(2026, 1, 15), dt.date(2026, 1, 16), tmp_path, get=get)
-    assert [p.name for p in paths] == ["35.2271_-80.8431_2026-01-15.json", "35.2271_-80.8431_2026-01-16.json"]
+    assert [p.name for p in paths] == ["35.2271_-80.8431_2026-01-15_era5.json", "35.2271_-80.8431_2026-01-16_era5.json"]
     data = json.loads(paths[0].read_text())
     assert data["attribution"] == ATTRIBUTION and data["cell"]["lat"] == 35.25 and len(data["hourly"]["time"]) == 24
     assert asked["timezone"] == "GMT" and "shortwave_radiation" in asked["hourly"] and "archive" in asked["url"]
@@ -100,7 +100,50 @@ def test_without_a_record_the_outdoors_is_clear_sky_and_an_assumed_curve_and_say
 def test_a_run_s_utc_days_cover_its_local_span():
     site = parse_site(SITE)
     assert utc_days(site.utc(0), site.utc(86400)) == [dt.date(2026, 1, 15), dt.date(2026, 1, 16)]
-    assert cache_path("x", 1.5, -2.25, dt.date(2026, 1, 1)).name == "1.5000_-2.2500_2026-01-01.json"
+    assert cache_path("x", 1.5, -2.25, dt.date(2026, 1, 1)).name == "1.5000_-2.2500_2026-01-01_era5.json"
+
+
+def test_the_archive_is_asked_for_era5_and_the_forecast_for_its_best_match_each_named_in_the_source(tmp_path):
+    """Revision R-A: without models= the archive answers with its default blend (ERA5, ERA5-Land, ECMWF IFS), not
+    ERA5; the product is pinned and named in the cache file and in the weather's source."""
+    from vesper.env.weather import ARCHIVE_URL, FORECAST_URL
+    asked = []
+
+    def get(url, params=None, timeout=None):
+        asked.append((url, dict(params)))
+        return Answer(archive(("2026-11-01", "2026-11-02")) if url == FORECAST_URL else archive())
+    today = dt.date(2026, 11, 4)
+    old = fetch(35.2271, -80.8431, dt.date(2026, 1, 15), dt.date(2026, 1, 16), tmp_path, get=get, today=today)
+    recent = fetch(35.2271, -80.8431, dt.date(2026, 11, 1), dt.date(2026, 11, 2), tmp_path, get=get, today=today)
+    assert asked[0][0] == ARCHIVE_URL and asked[0][1]["models"] == "era5"
+    assert asked[1][0] == FORECAST_URL and asked[1][1]["models"] == "best_match"
+    assert json.loads(old[0].read_text())["model"] == "era5"
+    assert recent[0].name.endswith("_best_match.json") and json.loads(recent[0].read_text())["model"] == "best_match"
+    w = load(35.2271, -80.8431, [dt.date(2026, 1, 15)], tmp_path)
+    assert w.source.startswith("Open-Meteo archive, ERA5 (models=era5)")
+    w = load(35.2271, -80.8431, [dt.date(2026, 11, 1)], tmp_path)
+    assert w.source.startswith("Open-Meteo forecast, best_match")
+
+
+def test_an_old_cache_without_a_model_is_never_read_as_era5(tmp_path):
+    """A day cached before the pin (no models=, no model in its name) is the archive's default blend: still read, so
+    an old home keeps its weather, but named as the blend; an ERA5 file of the same day wins over it."""
+    from vesper.env.weather import cached
+    p = fetch(35.2271, -80.8431, dt.date(2026, 1, 15), dt.date(2026, 1, 15), tmp_path,
+              get=lambda *a, **k: Answer(archive(("2026-01-15",))))[0]
+    data = json.loads(p.read_text())
+    data.pop("model")
+    legacy = tmp_path / "35.2271_-80.8431_2026-01-15.json"
+    legacy.write_text(json.dumps(data))
+    p.unlink()
+    assert cached(tmp_path, 35.2271, -80.8431, dt.date(2026, 1, 15)) is None  # so a fetch replaces it with ERA5
+    w = load(35.2271, -80.8431, [dt.date(2026, 1, 15)], tmp_path)
+    assert "default blend" in w.source and "ERA5 (models=era5)" not in w.source
+    fetch(35.2271, -80.8431, dt.date(2026, 1, 15), dt.date(2026, 1, 15), tmp_path,
+          get=lambda *a, **k: Answer(archive(("2026-01-15",))))
+    assert legacy.is_file()  # never deleted
+    assert cached(tmp_path, 35.2271, -80.8431, dt.date(2026, 1, 15)).name.endswith("_era5.json")
+    assert load(35.2271, -80.8431, [dt.date(2026, 1, 15)], tmp_path).source.startswith("Open-Meteo archive, ERA5")
 
 
 

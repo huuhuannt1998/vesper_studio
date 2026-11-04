@@ -35,7 +35,7 @@ def test_fetch_caches_the_weather_beside_the_home(tmp_path, capsys, monkeypatch)
     monkeypatch.setattr(weather, "fetch", lambda lat, lon, a, b, cache, get=None: real(
         lat, lon, a, b, cache, get=lambda *x, **k: Answer(archive(days))))
     assert cli.main(["lab", "env", str(out / "home.yaml"), "--fetch", "--catalog", str(cat)]) == 0
-    assert list((out / "weather").glob("*_2026-01-15.json"))
+    assert list((out / "weather").glob("*_2026-01-15_era5.json"))
     assert "Open-Meteo archive" in capsys.readouterr().out
 
 

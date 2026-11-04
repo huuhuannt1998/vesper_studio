@@ -1,8 +1,15 @@
 """The recorded weather of a site's dates: hourly outdoor temperature, relative humidity, cloud cover and shortwave
-(global horizontal) radiation from the Open-Meteo historical archive (ERA5 reanalysis; data CC BY 4.0, Open-Meteo
-asks for attribution and free use is non-commercial; https://open-meteo.com/en/terms). A day within the last
-ARCHIVE_LAG_DAYS (the archive is about five days behind) comes from Open-Meteo's forecast service instead, which
-keeps the past days of its weather models; both are free and need no key.
+(global horizontal) radiation from the Open-Meteo historical archive, pinned to the ERA5 reanalysis (`models=era5`,
+0.25 degree grid; without it the archive answers with its default blend of ERA5, ERA5-Land and ECMWF IFS; data CC BY
+4.0, Open-Meteo asks for attribution and free use is non-commercial; https://open-meteo.com/en/terms). A day within
+the last ARCHIVE_LAG_DAYS (the archive is about five days behind) comes from Open-Meteo's forecast service instead,
+which keeps the past days of its weather models (`models=best_match`, a different product: forecast models, not a
+reanalysis); both are free and need no key. Each cached day names its product (`model`, and in its file name), and a
+loaded record's `source` names every product it read.
+
+A day cached before the pin (2026-11-04, revision R-A: no `models=`, no model in its file name) is the archive's
+default blend: it is still read when nothing newer is cached, so an old home keeps its weather, but its source says
+"default blend", never ERA5; a fetch writes the ERA5 file beside it (old files are never deleted) and that wins.
 
 `vesper env fetch` downloads days into `.vesper/weather/` once; runs only read that cache, so a logical run is
 reproducible and needs no network. A day with no recorded weather leaves the outdoor values to the clear-sky
@@ -24,7 +31,14 @@ FORECAST_URL = "https://api.open-meteo.com/v1/forecast"  # recent days (the arch
 ARCHIVE_LAG_DAYS = 6  # a day this recent comes from the forecast service's past days, not the archive
 VARIABLES = ("temperature_2m", "relative_humidity_2m", "cloud_cover", "shortwave_radiation")
 FORMAT = "vesper-weather/1"
-ATTRIBUTION = "Weather data by Open-Meteo.com (ERA5 reanalysis), CC BY 4.0"
+ATTRIBUTION = "Weather data by Open-Meteo.com, CC BY 4.0 (ERA5: Copernicus Climate Change Service)"
+ARCHIVE_MODEL = "era5"  # the archive's product, pinned (revision R-A)
+FORECAST_MODEL = "best_match"  # the forecast service's default product, named explicitly
+PRODUCTS = {  # a cached day's model -> its product, as a record's source names it
+    ARCHIVE_MODEL: "Open-Meteo archive, ERA5 (models=era5)",
+    FORECAST_MODEL: "Open-Meteo forecast, best_match (models' past days)",
+}
+LEGACY_ARCHIVE = "Open-Meteo archive, default blend (no models=: ERA5, ERA5-Land, ECMWF IFS; cached before the pin)"
 
 
 class WeatherError(RuntimeError):
@@ -69,8 +83,23 @@ def _interp(times: list[dt.datetime], series: list[float | None], when: dt.datet
     return round(a + (b - a) * f, 3)
 
 
-def cache_path(cache_dir: Path, lat: float, lon: float, day: dt.date) -> Path:
+def cache_path(cache_dir: Path, lat: float, lon: float, day: dt.date, model: str = ARCHIVE_MODEL) -> Path:
+    """A day's cache file for one product (`model`): the product is part of the name."""
+    return Path(cache_dir) / f"{lat:.4f}_{lon:.4f}_{day.isoformat()}_{model}.json"
+
+
+def legacy_cache_path(cache_dir: Path, lat: float, lon: float, day: dt.date) -> Path:
+    """A day cached before the pin: no product in its name (the archive's default blend, or the forecast's)."""
     return Path(cache_dir) / f"{lat:.4f}_{lon:.4f}_{day.isoformat()}.json"
+
+
+def cached(cache_dir: Path, lat: float, lon: float, day: dt.date) -> Path | None:
+    """The day's product-named cache file (ERA5 first, then the forecast's), or None: a day cached only before the
+    pin counts as not cached, so a fetch replaces it."""
+    for model in (ARCHIVE_MODEL, FORECAST_MODEL):
+        if (p := cache_path(cache_dir, lat, lon, day, model)).is_file():
+            return p
+    return None
 
 
 def fetch(lat: float, lon: float, start: dt.date, end: dt.date, cache_dir: Path, *, get=None,
@@ -85,7 +114,8 @@ def fetch(lat: float, lon: float, start: dt.date, end: dt.date, cache_dir: Path,
         get = httpx.get
     today = today or dt.datetime.now(dt.UTC).date()
     url = FORECAST_URL if end > today - dt.timedelta(days=ARCHIVE_LAG_DAYS) else ARCHIVE_URL
-    params = {"latitude": lat, "longitude": lon, "hourly": ",".join(VARIABLES), "timezone": "GMT"}
+    model = ARCHIVE_MODEL if url == ARCHIVE_URL else FORECAST_MODEL
+    params = {"latitude": lat, "longitude": lon, "hourly": ",".join(VARIABLES), "timezone": "GMT", "models": model}
     if url == ARCHIVE_URL:
         params |= {"start_date": start.isoformat(), "end_date": end.isoformat()}
     else:  # the forecast service counts days back from today and ahead of it
@@ -111,8 +141,9 @@ def fetch(lat: float, lon: float, start: dt.date, end: dt.date, cache_dir: Path,
     for day, series in sorted(by_day.items()):
         if not start <= dt.date.fromisoformat(day) <= end:
             continue  # the forecast service answers whole ranges around today
-        p = cache_path(cache_dir, lat, lon, dt.date.fromisoformat(day))
-        p.write_text(json.dumps({"format": FORMAT, "attribution": ATTRIBUTION, "url": url,
+        p = cache_path(cache_dir, lat, lon, dt.date.fromisoformat(day), model)
+        p.write_text(json.dumps({"format": FORMAT, "attribution": ATTRIBUTION, "url": url, "model": model,
+                                 "product": PRODUCTS[model],
                                  "site": {"lat": lat, "lon": lon},
                                  "cell": {"lat": data.get("latitude"), "lon": data.get("longitude"),
                                           "elevation": data.get("elevation")},
@@ -125,14 +156,15 @@ def load(lat: float, lon: float, days: list[dt.date], cache_dir: Path) -> Weathe
     """The cached weather of these UTC days, from the first up to the first one missing (a run longer than its
     cache keeps the recorded days; past them the outdoors is assumed), or None when the first is missing. Never
     fetches."""
-    times, values, cell, urls = [], {v: [] for v in VARIABLES}, None, set()
+    times, values, cell, products = [], {v: [] for v in VARIABLES}, None, []
     for day in sorted(set(days)):
-        p = cache_path(cache_dir, lat, lon, day)
+        p = cached(cache_dir, lat, lon, day) or legacy_cache_path(cache_dir, lat, lon, day)
         data = json.loads(p.read_text()) if p.is_file() else {}
         if data.get("format") != FORMAT:
             break
         cell = data.get("cell") or {}
-        urls.add(data.get("url", ARCHIVE_URL))
+        if (product := _product(data)) not in products:
+            products.append(product)
         h = data["hourly"]
         times += [dt.datetime.fromisoformat(t).replace(tzinfo=dt.UTC) for t in h["time"]]
         for v in VARIABLES:
@@ -140,9 +172,14 @@ def load(lat: float, lon: float, days: list[dt.date], cache_dir: Path) -> Weathe
     if not times:
         return None
     return Weather(lat=cell.get("lat") or lat, lon=cell.get("lon") or lon, times=times, values=values,
-                   source=("Open-Meteo forecast (models' past days)" if urls == {FORECAST_URL} else
-                           "Open-Meteo archive (ERA5) and forecast" if FORECAST_URL in urls else
-                           "Open-Meteo archive (ERA5)") + f", cell {cell.get('lat')}, {cell.get('lon')}")
+                   source=" + ".join(products) + f", cell {cell.get('lat')}, {cell.get('lon')}")
+
+
+def _product(data: dict) -> str:
+    """A cached day's product: its model's, or for a day cached before the pin, by the service it came from."""
+    if data.get("model") in PRODUCTS:
+        return PRODUCTS[data["model"]]
+    return PRODUCTS[FORECAST_MODEL] if data.get("url") == FORECAST_URL else LEGACY_ARCHIVE
 
 
 def utc_days(first: dt.datetime, last: dt.datetime) -> list[dt.date]:
