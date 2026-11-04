@@ -2034,6 +2034,18 @@ def main(argv: list[str] | None = None) -> int:
     edt_ladder.add_argument("--sweep", action="append", required=True,
                             help="a sweep result (JSON; its rung is read from it); repeat per rung")
     edt_ladder.add_argument("--out", required=True, help="the ladder report (JSON)")
+    edt_run = edt_actions.add_parser("run", help="sweep a corpus's automations across the environments (the screen)")
+    edt_run.add_argument("--corpus", required=True, help="the corpus directory (its raw/ holds the YAML files)")
+    edt_run.add_argument("--work", required=True, help="the EDT home and trace cache (one per catalog version)")
+    edt_run.add_argument("--out", required=True, help="the sweep result (JSON)")
+    edt_run.add_argument("--workers", type=int, default=2, help="processes over the environments (default 2)")
+    edt_run.add_argument("--rung", type=int, default=4, choices=(1, 2, 3, 4), help="environment-model rung")
+    edt_run.add_argument("--limit", type=int, help="only the first N de-duplicated automations")
+    edt_run.add_argument("--no-fetch", action="store_true", help="fetch no weather (cached, else clear sky)")
+    edt_run.add_argument("--catalog", default="catalog/vds")
+    edt_cover = edt_actions.add_parser("cover", help="the environment cover, witnesses and baselines of a sweep")
+    edt_cover.add_argument("--sweep", required=True, help="a sweep result from `vesper edt run`")
+    edt_cover.add_argument("--out", required=True, help="the cover report (JSON)")
     args = parser.parse_args(argv)
     _configured_defaults(args)
     if args.command in ("setup", "twins", "validate", "lab"):
@@ -2326,7 +2338,49 @@ def _edt_ladder(args) -> int:
     return 0
 
 
-_EDT_ACTIONS = {"census": _edt_census, "ladder": _edt_ladder}  # one entry per `vesper edt` subcommand
+def _edt_run(args) -> int:
+    """`vesper edt run`: the sweep; the result records the corpus's own file and repository names, never its path."""
+    import time
+
+    from vesper.edt.sweep import sweep
+    corpus = Path(args.corpus)
+    if not corpus.is_dir():
+        print(f"FAILED edt run: {corpus} is not a directory", file=sys.stderr)
+        return 1
+    t0 = time.monotonic()
+    result = sweep(corpus, Path(args.work), rung=args.rung, workers=args.workers, limit=args.limit,
+                   fetch=not args.no_fetch, catalog_dir=args.catalog,
+                   log=lambda msg: print(msg, file=sys.stderr, flush=True))
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name(out.name + ".tmp")
+    tmp.write_text(json.dumps(result, sort_keys=True) + "\n")
+    tmp.replace(out)
+    y, nc = result["yield"], result["negative_control"]
+    rate = result["negative_control_rate"]
+    print(f"{y['parsed']} automations, {y['bound']} bound, {y['run']} run in {len(result['envs'])} environments "
+          f"(rung {result['rung']}) in {time.monotonic() - t0:.0f} s; flagged {result['flagged']['n']}; "
+          f"negative control {nc['flagged']}/{nc['n']}"
+          + (f" ({rate:.1%})" if rate is not None else "") + f"; result {out}")
+    return 0
+
+
+def _edt_cover(args) -> int:
+    """`vesper edt cover`: the cover, witnesses, baselines and non-degeneracy check of a sweep result."""
+    from vesper.edt.cover import cover_report
+    report = cover_report(json.loads(Path(args.sweep).read_text()))
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    c, nd = report["cover"], report["non_degeneracy"]
+    print(f"{report['flagged']['all']} flagged; cover {c['size']} environments, training {c['coverage_train']}, "
+          f"held-out {c['coverage_held_out']}; max single-environment share {nd['max_share']:.2f} "
+          f"({'ok' if nd['ok'] else 'DEGENERATE'}); report {out}")
+    return 0
+
+
+_EDT_ACTIONS = {"census": _edt_census, "ladder": _edt_ladder, "run": _edt_run,
+                "cover": _edt_cover}  # one entry per `vesper edt` subcommand
 
 
 def _dispatch(args) -> int:
