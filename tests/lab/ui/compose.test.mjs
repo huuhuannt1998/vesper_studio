@@ -115,3 +115,104 @@ test("a home with a place asks for its city, day and orientation; without one, n
   assert.deepEqual(buildRequest({ ...base, site: { city: "Phoenix, AZ, USA", date: "", north: 0 } }).problems,
     ["place: choose the home's date"]);
 });
+
+// -- importing a floor plan (floor-plan import, task A4) -------------------------------------------------------
+import { READING_TEXT, drawOverlay, importNote, overlayShapes, problemRooms, setRoom, toImage }
+  from "../../../vesper/lab/ui/compose.js";
+
+const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+// three rooms as Claude reads them from a 900 x 800 px image (pixels; y grows downward)
+const PLAN = {
+  format: "vesper-plan/1", units: "px", scale: null,
+  rooms: [{ id: "lr", name: "Living room", type: "living", polygon: rect(40, 60, 540, 560) },
+          { id: "k", name: "Kitchen", type: "kitchen", polygon: rect(540, 60, 890, 360) },
+          { id: "b", name: "<img src=x onerror=alert(1)>", type: "bedroom", polygon: rect(540, 360, 890, 760) }],
+  doors: [{ at: [40, 310], width: 90, rooms: ["outside", "lr"] }, { at: [540, 210], width: 90, rooms: ["lr", "k"] },
+          { at: [540, 480], width: 90, rooms: ["lr", "b"] }],
+  windows: [], entrance: 0,
+};
+
+// a stand-in for the page's SVG elements: what was made, with its attributes, text and children
+function fakeMake() {
+  const made = [];
+  const make = (tag, attrs = {}, text) => {
+    const node = { tag, attrs: { ...attrs }, textContent: text ?? "", children: [],
+                   append(...kids) { this.children.push(...kids); }, setAttribute(k, v) { this.attrs[k] = v; } };
+    made.push(node);
+    return node;
+  };
+  return { made, make };
+}
+
+test("the overlay draws one outline per room in the image's own pixels, each named by its text", () => {
+  const shapes = overlayShapes(PLAN, { size: { w: 900, h: 800 } });
+  assert.deepEqual(shapes.view, [0, 0, 900, 800]); // the image's coordinates: no scaling, no turning
+  assert.equal(shapes.rooms.length, 3);
+  assert.deepEqual(shapes.rooms[0].points, rect(40, 60, 540, 560));
+  assert.deepEqual(shapes.rooms[0].label, [290, 310]); // the middle of the room
+  const { made, make } = fakeMake();
+  const svg = make("svg");
+  drawOverlay(svg, shapes, make, { image: "/api/import/0123456789abcdef/image" });
+  const outlines = made.filter((n) => n.tag === "polygon" && n.attrs.class.split(" ").includes("room"));
+  assert.equal(outlines.length, 3);
+  assert.equal(outlines[0].attrs.points, "40,60 540,60 540,560 40,560");
+  assert.equal(svg.attrs.viewBox, "0 0 900 800");
+  const image = made.find((n) => n.tag === "image");
+  assert.deepEqual([image.attrs.href, image.attrs.width, image.attrs.height],
+                   ["/api/import/0123456789abcdef/image", 900, 800]);
+  const names = made.filter((n) => n.tag === "text" && n.attrs.class === "room-name").map((n) => n.textContent);
+  assert.deepEqual(names, ["Living room", "Kitchen", "<img src=x onerror=alert(1)>"]); // text, never markup
+  const doors = made.filter((n) => n.tag === "circle");
+  assert.equal(doors.length, 3);
+  assert.equal(doors.filter((n) => n.attrs.class.includes("entrance")).length, 1);
+  assert.equal(doors[0].children[0].textContent, "Entrance: outside – Living room");
+  assert.equal(new Set(doors.map((n) => n.attrs.r)).size, 1); // one size of mark, whatever the door's width
+});
+
+test("without an image the overlay frames the plan itself, and a room with a problem is marked", () => {
+  const shapes = overlayShapes(PLAN, { problems: ["room 'b' (bathroom): 14.0 m² is outside the plausible 2.0 to 10.5 m²"] });
+  const [x, y, w, h] = shapes.view;
+  assert.ok(x < 40 && y < 60 && x + w > 890 && y + h > 760);
+  assert.deepEqual(shapes.rooms.map((r) => r.bad), [false, false, true]);
+  assert.deepEqual([...problemRooms(["rooms 'lr' and 'k' overlap by 1.20 m²"], ["lr", "k", "b"])], ["lr", "k"]);
+  assert.deepEqual([...problemRooms(["no entrance: the plan names no door as the entrance"], ["lr", "k"])], []);
+});
+
+test("the plan as VESPER will build it goes back onto the image: turned back and divided by the scale", () => {
+  const t = { angle_deg: 0, centre: [2.5, 2.5], m_per_px: 0.01 };
+  assert.deepEqual(toImage([5, 5], t), [500, 500]);
+  const turned = toImage([0, 1], { angle_deg: 90, centre: [0, 0], m_per_px: 1 });
+  assert.ok(Math.abs(turned[0] - 1) < 1e-9 && Math.abs(turned[1]) < 1e-9); // rectify turned (1, 0) to (0, 1)
+  const shapes = overlayShapes(PLAN, { size: { w: 900, h: 800 }, transform: t,
+                                       straight: [{ id: "lr", polygon: rect(0.4, 0.6, 5.4, 5.6) }] });
+  assert.equal(shapes.straight.length, 1);
+  shapes.straight[0].points.flat().forEach((v, k) => assert.ok(Math.abs(v - rect(40, 60, 540, 560).flat()[k]) < 1e-9));
+});
+
+test("editing a room's name or type changes the plan the request sends, not the plan as read", () => {
+  const model = { rooms: { mode: "plan" }, seed: 2, rows: [{ category: "light", where: { kind: "per_room", except: [] } }],
+                  plan: { plan: PLAN, scale: "area 95", source: "flat.png" } };
+  const before = buildRequest(model);
+  assert.deepEqual(before.problems, []);
+  assert.equal(before.request.plan.rooms[2].type, "bedroom");
+  assert.equal(before.request.scale, "area 95");
+  assert.equal(before.request.source, "flat.png");
+  assert.equal(before.request.rooms, undefined);
+  assert.deepEqual(before.request.devices, [{ category: "light", per: "room" }]);
+  model.plan.plan = setRoom(setRoom(model.plan.plan, "b", "type", "office"), "b", "name", "Study");
+  const after = buildRequest(model).request;
+  assert.deepEqual([after.plan.rooms[2].type, after.plan.rooms[2].name], ["office", "Study"]);
+  assert.equal(PLAN.rooms[2].type, "bedroom"); // the reading itself is kept
+  assert.throws(() => setRoom(PLAN, "b", "type", "garage"), /garage/);
+  assert.deepEqual(buildRequest({ ...model, plan: { plan: null } }).problems, ["plan: import a floor plan first"]);
+  assert.equal(buildRequest({ ...model, plan: { ...model.plan, scale: "  " } }).request.scale, undefined);
+});
+
+test("while Claude reads, the page says so and for how long; then what came of it", () => {
+  assert.equal(READING_TEXT, "Claude is reading the plan — several minutes; it uses your Claude Code quota");
+  assert.equal(importNote({ state: "reading" }, 125), `${READING_TEXT} (2 min 5 s so far)`);
+  assert.equal(importNote({ state: "failed", error: "Claude could not read a floor plan in plan.png: a cat" }),
+               "Not read: Claude could not read a floor plan in plan.png: a cat");
+  assert.match(importNote({ state: "done", kind: "png", plan: PLAN }), /^Claude read 3 rooms\. /);
+  assert.match(importNote({ state: "done", kind: "json", plan: PLAN }), /^3 rooms from the plan file\. /);
+});

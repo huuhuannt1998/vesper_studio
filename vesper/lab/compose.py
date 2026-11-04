@@ -4,10 +4,16 @@ The page sets the rooms and picks real catalog products, reading each one's evid
 the server turns its rows into a `vesper-request/1` file and generates the home (plan W9), then plays it. A level
 shows only with its evidence: L0 and L1 come from the catalog, L2 from the latest acceptance runs (what
 `vesper report` credits), L4 from a firmware anchor (an `anchors-*.json` results file). Loopback only.
+
+Import a plan (floor-plan import, task A4): POST /api/import takes a floor-plan image (Claude reads it in the
+background: GET /api/import/<job> follows it) or a vesper-plan/1 file; POST /api/import/check checks the plan as
+the user edited it with their scale; /api/generate with a `plan` builds it (`generate_from_plan`).
 """
 from __future__ import annotations
 
 import json
+import math
+import re
 from pathlib import Path
 
 import yaml
@@ -121,21 +127,104 @@ def product_card(record: dict, ev: dict) -> dict:
             "config": config, "firmware": {"anchor": anchor, "text": text}}
 
 
+_AREA_TEXT = re.compile(r"^\s*(?:area\s*)?(\d+(?:\.\d+)?)\s*(?:m²|m2|sq\.?\s*m)?\s*$", re.I)
+
+
+def scale_args(text: str | None) -> tuple[str | None, float | None]:
+    """The page's scale field as `scale_plan`'s two arguments: "area 95" (or a bare number, m² optional) is the home's
+    floor area; anything else a room's size ("kitchen width 3.2 m"); empty is neither (the plan's own scale)."""
+    text = "" if text is None else str(text).strip()
+    if not text:
+        return None, None
+    m = _AREA_TEXT.match(text)
+    return (None, float(m.group(1))) if m else (text, None)
+
+
+def _page_words(problem: str) -> str:
+    """A PlanError worded for the command line, worded for the page's scale field."""
+    if problem.startswith("no scale:"):
+        return ("No scale: write a room's size in Scale (like 'kitchen width 3.2 m') or the home's floor area "
+                "('area 95')")
+    return problem.replace("give --scale or --area, not both", "give a room's size or the area, not both")
+
+
+def import_check(plan: dict, scale: str | None = None) -> dict:
+    """What the page shows for a plan as read (or as the user edited it) and the user's scale: {problems (every
+    reason VESPER would not build it, empty when it would), summary (plan_read.summary: each room, door and the
+    entrance), transform (plan_transform of the scaled plan, with m_per_px: a straightened point (x, z) goes back
+    to the image by turning it -angle_deg about centre and dividing by m_per_px), rooms (the rooms as VESPER would
+    build them, in metres; None when it cannot straighten the plan)}."""
+    from vesper.lab.geometry import polygon_area
+    from vesper.lab.plan import PlanError, check_house, load_plan, plan_transform, rectify, scale_plan
+    from vesper.lab.plan_read import summary
+    out = {"problems": [], "summary": None, "transform": None, "rooms": None}
+    try:
+        load_plan(plan)
+    except PlanError as e:
+        out["problems"] = [str(e)]
+        return out
+    out["summary"] = summary(plan)
+    try:
+        room_size, area = scale_args(scale)
+        scaled = scale_plan(plan, room_size, area)
+        drawn = sum(polygon_area([tuple(p) for p in r["polygon"]]) for r in plan["rooms"])
+        real = sum(polygon_area([tuple(p) for p in r["polygon"]]) for r in scaled["rooms"])
+        out["transform"] = {**plan_transform(scaled), "m_per_px": math.sqrt(real / drawn) if drawn > 0 else 1.0}
+        straight = rectify(scaled)
+        out["summary"] = summary(straight)
+        out["rooms"] = [{"id": r["id"], "polygon": r["polygon"]} for r in straight["rooms"]]
+        out["problems"] = check_house(straight)
+    except PlanError as e:
+        out["problems"] = [_page_words(str(e))]
+    return out
+
+
+def _plan_home(request: dict) -> tuple[dict, dict, str]:
+    """A page request that carries a plan (as read, as edited) -> (the request without it, the plan straightened in
+    metres, the plan's file name for the home's scene). ComposeError lists every problem."""
+    from vesper.lab.plan import PlanError, rectify, scale_plan
+    spec = {k: v for k, v in request.items() if k not in ("plan", "scale", "source")}
+    if any(spec.get(k) is not None for k in ("rooms", "program", "scene")):
+        raise ComposeError("an imported home's rooms come from the plan: its request names no rooms, program or scene")
+    checked = import_check(request["plan"], request.get("scale"))
+    if checked["problems"]:
+        raise ComposeError("the plan is not a house VESPER can build: " + "; ".join(checked["problems"]))
+    room_size, area = scale_args(request.get("scale"))
+    try:
+        plan_m = rectify(scale_plan(request["plan"], room_size, area))
+    except PlanError as e:  # checked above: only a plan that changed under us
+        raise ComposeError(str(e)) from None
+    name = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(str(request.get("source") or "plan.json")).name).strip(".") or "plan"
+    return spec, plan_m, name
+
+
 def compose_home(request: dict, catalog: dict, out: Path) -> dict:
-    """Write the page's request beside the home and generate it (plan W9). ComposeError says what is wrong."""
+    """Write the page's request beside the home and generate it (plan W9). A request with a `plan` (a vesper-plan/1
+    as read and edited, with its `scale` text and `source` file name) builds that plan (`generate_from_plan`); the
+    request beside it keeps its devices, seed and site, and the home keeps the plan (plan.json). ComposeError says
+    what is wrong."""
+    import dataclasses
     import shutil
     from datetime import UTC, datetime
 
-    from vesper.lab.generate import GenerateError, generate_home, load_request, summary_row
+    from vesper.lab.generate import GenerateError, generate_from_plan, generate_home, load_request, summary_row
     from vesper.lab.home import HomeError, load_lab_home
     out = Path(out)
+    plan_m = None
+    if request.get("plan") is not None:
+        request, plan_m, source = _plan_home(request)
     out.mkdir(parents=True, exist_ok=True)
     scratch = out / f".compose-{datetime.now(UTC):%Y%m%dT%H%M%S%fZ}"
     try:
         scratch.mkdir()
         (scratch / "request.yaml").write_text(yaml.safe_dump(request, sort_keys=False))
         try:
-            generate_home(load_request(scratch / "request.yaml"), catalog, scratch / "home")
+            req = load_request(scratch / "request.yaml")
+            if plan_m is None:
+                generate_home(req, catalog, scratch / "home")
+            else:
+                req = dataclasses.replace(req, program=[r["type"] for r in plan_m["rooms"]])
+                generate_from_plan(plan_m, req, catalog, scratch / "home", source=source)
             load_lab_home(scratch / "home" / "home.yaml", catalog)
         except (GenerateError, HomeError) as e:
             raise ComposeError(str(e)) from e
@@ -155,10 +244,21 @@ def compose_home(request: dict, catalog: dict, out: Path) -> dict:
 
 
 HOME_FILES = ("home.yaml", "map.json", "request.yaml", "scene.glb", "map.original.json", "dress", "render.json",
-              "openings.json", "furniture.json", "windows.json")
+              "openings.json", "furniture.json", "windows.json", "plan.json")
 
 
-MOSQUITTO_PATHS = ("/opt/homebrew/sbin/mosquitto", "/usr/local/sbin/mosquitto", "/usr/sbin/mosquitto")
+def _file_name(name: str | None) -> str | None:
+    """The file name the page sent with an import (URL-encoded): its last part, printable, at most 120 characters."""
+    from urllib.parse import unquote
+    if not name:
+        return None
+    text = "".join(c for c in Path(unquote(name).replace("\\", "/")).name if c.isprintable())[:120]
+    return text or None
+
+
+IMPORT_PATH = re.compile(r"^/api/import/([0-9a-f]{16})(/image)?$")  # a reading, by its job id; its image
+
+MOSQUITTO_PATHS =("/opt/homebrew/sbin/mosquitto", "/usr/local/sbin/mosquitto", "/usr/sbin/mosquitto")
 
 
 def hub_ready(root: Path, which=None, known=MOSQUITTO_PATHS) -> bool:
@@ -228,7 +328,7 @@ class ComposeServer:
 
     def __init__(self, catalog: dict, catalog_dir: Path, results_dir: Path, out: Path, *, port: int = 18081,
                  ui_dir: Path | None = None, launch=None, play_port: int = 18082, wait_for_play=None,
-                 stack_root: Path | None = None):
+                 stack_root: Path | None = None, reader=None):
         from vesper.lab.play import UI_DIR
         self.catalog, self.catalog_dir, self.out = catalog, Path(catalog_dir), Path(out)
         self.ui_dir = Path(ui_dir or UI_DIR)
@@ -245,6 +345,106 @@ class ComposeServer:
         self.port: int | None = None
         import threading
         self.lock = threading.Lock()  # one generate or play at a time: they replace the same home and child
+        self._reader = reader  # path -> a vesper-plan/1 in pixels (plan_read.read_plan_image), or a test's stand-in
+        self._imports: dict[str, dict] = {}  # the latest readings, by job id, oldest first
+        self._import_lock = threading.RLock()  # start_import holds it while it keeps the new job
+
+    # -- importing a floor plan (floor-plan import, task A4) ------------------------------------------------
+    IMPORTS_KEPT = 4  # the readings (and their images) the server remembers
+
+    def _public(self, job: dict) -> dict:
+        with self._import_lock:  # a reading's thread updates its job
+            return {k: v for k, v in job.items() if k != "image"}
+
+    def start_import(self, data: bytes, name: str | None = None) -> dict:
+        """A floor-plan image (PNG, JPEG or PDF by its first bytes) read by Claude in the background, or a
+        vesper-plan/1 file (JSON) checked at once. -> the job: {job, kind, name (the file's, as the page gave it),
+        started (Unix time), state: reading | done | failed, ...}; a done one carries the plan as read (pixels) and
+        import_check's problems, summary, transform and rooms; a failed one its error."""
+        import secrets
+        import threading
+        import time
+
+        from vesper.lab.plan import PlanError, load_plan
+        from vesper.lab.plan_read import MAGIC, MAX_BYTES
+        if len(data) > MAX_BYTES:
+            raise ComposeError(f"the file is larger than {MAX_BYTES // 2**20} MB")
+        kind = next((ext for magic, ext in MAGIC if data.startswith(magic)), None)
+        head = {"job": secrets.token_hex(8), "name": _file_name(name), "started": time.time()}
+        if kind is None:
+            if not data.lstrip().startswith(b"{"):
+                raise ComposeError("not a PNG, JPEG or PDF image, nor a vesper-plan/1 file (.json)")
+            try:
+                plan = load_plan(json.loads(data))
+            except (ValueError, PlanError) as e:  # a JSONDecodeError is a ValueError
+                raise ComposeError(f"not a vesper-plan/1 file: {e}") from None
+            return self._public(self._keep({**head, "kind": "json", "state": "done", "plan": plan,
+                                            **import_check(plan)}))
+        with self._import_lock:
+            if any(j["state"] == "reading" for j in self._imports.values()):
+                raise ComposeError("Claude is reading a plan already: wait for it (each reading uses your quota)")
+            job = self._keep({**head, "kind": kind, "state": "reading", "image": data})
+        threading.Thread(target=self._read, args=(job,), name="vesper-plan-read", daemon=True).start()
+        return self._public(job)
+
+    def _keep(self, job: dict) -> dict:
+        with self._import_lock:
+            self._imports[job["job"]] = job
+            for old in list(self._imports)[:-self.IMPORTS_KEPT]:
+                if self._imports[old]["state"] != "reading":
+                    del self._imports[old]
+        return job
+
+    def _read(self, job: dict) -> None:
+        import shutil
+        import tempfile
+
+        from vesper.lab.plan import PlanError
+        tmp = Path(tempfile.mkdtemp(prefix="vesper-import-"))
+        try:
+            path = tmp / f"plan.{job['kind']}"
+            path.write_bytes(job["image"])
+            read = self._reader
+            if read is None:
+                from vesper.lab.plan_read import read_plan_image as read
+            plan = read(path)
+            result = {"plan": plan, **import_check(plan)}
+            saved = self._save_reading(job["job"], plan)
+            end = {**result, **({"saved": saved} if saved else {}), "state": "done"}
+        except PlanError as e:
+            end = {"state": "failed", "error": str(e)}
+        except Exception as e:  # noqa: BLE001 - said to the page, never a silent thread
+            end = {"state": "failed", "error": f"{type(e).__name__}: {e}"}
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        with self._import_lock:
+            job.update(end)
+
+    def _save_reading(self, job_id: str, plan: dict) -> str | None:
+        """A paid reading kept in the stack's folder (imports/<job>.plan.json), to import again with no Claude."""
+        try:
+            folder = self.stack_root / "imports"
+            folder.mkdir(parents=True, exist_ok=True)
+            path = folder / f"{job_id}.plan.json"
+            with open(path, "x") as f:
+                json.dump(plan, f, indent=1)
+            return str(path)
+        except OSError:
+            return None  # the page still has the plan; nothing else depends on the copy
+
+    def import_status(self, job_id: str | None = None) -> dict | None:
+        """One job, or the latest ({"state": "none"} when there is none); None for an unknown id."""
+        with self._import_lock:
+            if job_id is None:
+                return self._public(next(reversed(self._imports.values()))) if self._imports else {"state": "none"}
+            job = self._imports.get(job_id)
+            return self._public(job) if job is not None else None
+
+    def import_image(self, job_id: str) -> tuple[bytes, str] | None:
+        job = self._imports.get(job_id)
+        if job is None or "image" not in job:
+            return None
+        return job["image"], {"png": "image/png", "jpg": "image/jpeg", "pdf": "application/pdf"}[job["kind"]]
 
     def hub(self) -> bool:
         """A played home gets Home Assistant (set up here)."""
@@ -404,6 +604,7 @@ class ComposeServer:
                 self.send_response(status)
                 self.send_header("Content-Type", ctype)
                 self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")  # an imported image is served as its type only
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
@@ -431,6 +632,18 @@ class ComposeServer:
                     return self._json(404, {"error": "not found"})
                 if u.path == "/api/meta":
                     return self._json(200, server.meta())
+                if u.path == "/api/import":
+                    return self._json(200, server.import_status())
+                job = IMPORT_PATH.match(u.path)
+                if job and job.group(2):
+                    found = server.import_image(job.group(1))
+                    if found is None:
+                        return self._json(404, {"error": "no such reading"})
+                    return self._send(200, found[0], found[1])
+                if job:
+                    status = server.import_status(job.group(1))
+                    return self._json(200, status) if status is not None else self._json(404, {"error":
+                                                                                               "no such reading"})
                 if u.path == "/api/furnish":
                     return self._json(200, server.furnish_status())
                 if u.path == "/api/scenes":
@@ -451,9 +664,29 @@ class ComposeServer:
                     return self._json(200, product_card(r, server.ev))
                 return self._json(404, {"error": "not found"})
 
+            def _import(self):
+                """The import's body is the file itself (an image, or a plan's JSON), up to 50 MB, its size checked
+                before it is read and its first bytes before anything else."""
+                from vesper.lab.plan_read import MAX_BYTES
+                try:
+                    n = int(self.headers.get("Content-Length") or 0)
+                except ValueError:
+                    n = -1
+                if n > MAX_BYTES:
+                    self.close_connection = True  # the body is not read
+                    return self._json(413, {"error": f"the file is larger than {MAX_BYTES // 2**20} MB"})
+                if n <= 0:
+                    return self._json(400, {"error": "no file (or no length)"})
+                try:
+                    return self._json(200, server.start_import(self.rfile.read(n), self.headers.get("X-Vesper-Name")))
+                except ComposeError as e:
+                    return self._json(400, {"error": str(e)})
+
             def do_POST(self):  # noqa: N802
                 if not self._loopback():
                     return self._json(403, {"error": "another site's page"})
+                if self.path == "/api/import":
+                    return self._import()
                 try:
                     n = int(self.headers.get("Content-Length") or 0)
                     if not 0 <= n <= 1_000_000:
@@ -470,6 +703,10 @@ class ComposeServer:
                         return self._json(200, server.furnish(body))
                     if self.path == "/api/furnish/stop":
                         return self._json(200, server.stop_furnish())
+                    if self.path == "/api/import/check":
+                        if not isinstance(body, dict) or not isinstance(body.get("plan"), dict):
+                            raise ComposeError("a check is {plan, scale}: the plan as edited and the scale text")
+                        return self._json(200, import_check(body["plan"], body.get("scale")))
                 except ComposeError as e:
                     return self._json(400, {"error": str(e)})
                 except Exception as e:  # noqa: BLE001 - said to the page, never a dropped connection

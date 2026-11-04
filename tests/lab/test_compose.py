@@ -115,7 +115,8 @@ def server(tmp_path, monkeypatch):
     (ui / "compose.js").write_text("// compose")
     launch = Launched()
     s = ComposeServer(catalog(), tmp_path / "vds", tmp_path / "results", tmp_path / "out", port=0, ui_dir=ui,
-                      launch=launch, play_port=18999, wait_for_play=lambda port, **kw: True)
+                      launch=launch, play_port=18999, wait_for_play=lambda port, **kw: True,
+                      stack_root=tmp_path / "stack")
     s.start()
     yield s, launch
     s.stop()
@@ -413,3 +414,198 @@ def test_the_page_is_told_whether_claude_and_blender_are_here(server):
     s, _ = server
     meta = json.loads(call(s, "/api/meta")[1])
     assert set(meta["furnish"]) == {"claude", "blender"}
+
+
+# -- importing a floor plan (floor-plan import, task A4) ------------------------------------------------------------
+
+def px_plan(**kw) -> dict:
+    """tests/lab/test_import.py's three rooms drawn at 100 px a metre, as Claude returns a plan read from an image
+    (in pixels, no scale read): a living room 5 x 5 m with the front door, a kitchen and a bedroom east of it."""
+    from tests.lab.test_import import three_rooms
+    plan = three_rooms()
+    for r in plan["rooms"]:
+        r["polygon"] = [[x * 100, z * 100] for x, z in r["polygon"]]
+    for item in (*plan["doors"], *plan["windows"]):
+        item["at"] = [item["at"][0] * 100, item["at"][1] * 100]
+        item["width"] *= 100
+    plan.update(units="px", scale=None, **kw)
+    return plan
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 64  # what the magic-byte check reads; the fake reader never looks further
+
+
+class FakeReader:
+    """read_plan_image's stand-in: it returns `plan` once `go` is set (a reading takes minutes), or raises."""
+
+    def __init__(self, plan=None, error=None):
+        import threading
+        self.plan, self.error, self.calls, self.go = plan, error, [], threading.Event()
+
+    def __call__(self, path):
+        from pathlib import Path
+        self.calls.append(Path(path).read_bytes())
+        assert self.go.wait(5)
+        if self.error:
+            raise self.error
+        return self.plan
+
+
+def post_bytes(s, path, data, ctype, origin=None, name=None):
+    import urllib.request
+    req = urllib.request.Request(f"{s.url}{path.lstrip('/')}", data=data,
+                                 headers={"Content-Type": ctype, **({"Origin": origin} if origin else {}),
+                                          **({"X-Vesper-Name": name} if name else {})})
+    try:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req, timeout=5) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
+
+
+def wait_for(s, job, state="reading"):
+    import time
+    for _ in range(100):
+        got = json.loads(call(s, f"/api/import/{job}")[1])
+        if got["state"] != state:
+            return got
+        time.sleep(0.05)
+    raise AssertionError(f"still {state}")
+
+
+def test_an_imported_image_is_read_in_the_background_and_its_plan_and_problems_come_back(server):
+    s, _ = server
+    s._reader = reader = FakeReader(px_plan())
+    assert json.loads(call(s, "/api/import")[1]) == {"state": "none"}
+    status, body = post_bytes(s, "/api/import", PNG, "image/png", origin=s.url.rstrip("/"),
+                              name="..%2Fmy%20flat%0A.png")
+    started = json.loads(body)
+    assert status == 200 and started["state"] == "reading" and started["kind"] == "png"
+    assert started["name"] == "my flat.png" and started["started"] > 0  # its last part, printable
+    assert json.loads(call(s, "/api/meta")[1])["out"]  # the server answers the page while Claude reads
+    assert json.loads(call(s, f"/api/import/{started['job']}")[1])["state"] == "reading"
+    assert json.loads(call(s, "/api/import")[1])["job"] == started["job"]  # the latest reading, for a page reopened
+    reader.go.set()
+    done = wait_for(s, started["job"])
+    assert done["state"] == "done" and reader.calls == [PNG]
+    assert done["plan"] == px_plan()  # as read, in pixels: the page draws it over the image
+    assert done["problems"] and done["problems"][0].startswith("No scale")  # none read, none given yet
+    assert "Claude read 3 rooms and 3 doors" in done["summary"]
+    assert done["transform"] is None and done["rooms"] is None  # nothing to straighten without a scale
+    status, image = call(s, f"/api/import/{started['job']}/image")
+    assert status == 200 and image == PNG
+    assert json.loads(open(done["saved"]).read()) == px_plan()  # the paid reading is kept
+
+
+def test_a_reading_that_fails_says_claude_s_reason_and_a_second_reading_waits_for_the_first(server):
+    from vesper.lab.plan import PlanError
+    s, _ = server
+    s._reader = reader = FakeReader(error=PlanError("Claude could not read a floor plan in plan.png: a cat"))
+    job = json.loads(post_bytes(s, "/api/import", PNG, "image/png")[1])["job"]
+    status, body = post_bytes(s, "/api/import", PNG, "image/png")
+    assert status == 400 and "reading a plan already" in json.loads(body)["error"]
+    reader.go.set()
+    failed = wait_for(s, job)
+    assert failed["state"] == "failed" and "a cat" in failed["error"] and "plan" not in failed
+
+
+def test_a_file_that_is_no_image_is_refused_before_claude_and_a_huge_one_before_it_is_read(server):
+    import http.client
+    s, _ = server
+    s._reader = reader = FakeReader(px_plan())
+    status, body = post_bytes(s, "/api/import", b"GIF89a not a plan", "image/png")
+    assert status == 400 and "not a PNG, JPEG or PDF" in json.loads(body)["error"] and reader.calls == []
+    c = http.client.HTTPConnection("127.0.0.1", s.port, timeout=5)
+    c.putrequest("POST", "/api/import")
+    c.putheader("Content-Type", "image/png")
+    c.putheader("Content-Length", str(50 * 2**20 + 1))
+    c.endheaders()
+    r = c.getresponse()
+    assert r.status == 413 and "50 MB" in json.loads(r.read())["error"]
+    assert call(s, "/api/import/0123456789abcdef")[0] == 404
+    assert post_bytes(s, "/api/import", PNG, "image/png", origin="https://evil.example")[0] == 403
+    assert reader.calls == []
+
+
+def test_a_plan_file_is_imported_at_once_with_no_claude(server):
+    s, _ = server
+    s._reader = reader = FakeReader(px_plan())
+    status, body = post_bytes(s, "/api/import", json.dumps(px_plan()).encode(), "application/json")
+    got = json.loads(body)
+    assert status == 200 and got["state"] == "done" and got["kind"] == "json" and reader.calls == []
+    assert got["plan"] == px_plan() and "saved" not in got
+    status, body = post_bytes(s, "/api/import", b'{"format": "vesper-plan/1"}', "application/json")
+    assert status == 400 and "missing key 'rooms'" in json.loads(body)["error"]
+
+
+def test_the_check_scales_straightens_and_lists_problems_for_the_plan_as_the_user_edited_it(server):
+    s, _ = server
+    status, body = call(s, "/api/import/check", {"plan": px_plan(), "scale": "living width 5 m"})
+    ok = json.loads(body)
+    assert status == 200 and ok["problems"] == []
+    assert ok["transform"]["m_per_px"] == pytest.approx(0.01) and ok["transform"]["angle_deg"] == 0.0
+    assert [r["id"] for r in ok["rooms"]] == ["lr", "k", "b"]  # as VESPER will build them, in metres
+    assert ok["rooms"][0]["polygon"][2] == pytest.approx([5.0, 5.0])
+    assert "check them against your image" in ok["summary"]
+    assert json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "area 49.5"})[1])["problems"] == []
+    edited = px_plan()
+    edited["rooms"][2]["type"] = "bathroom"  # 14 m²: too big for a bathroom
+    bad = json.loads(call(s, "/api/import/check", {"plan": edited, "scale": "living width 5 m"})[1])
+    assert len(bad["problems"]) == 1 and "room 'b' (bathroom)" in bad["problems"][0]
+    nope = json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "garage width 3 m"})[1])
+    assert "matches no room" in nope["problems"][0] and nope["rooms"] is None
+    assert call(s, "/api/import/check", {"scale": "area 50"})[0] == 400
+
+
+def test_generate_builds_the_edited_plan_as_the_composed_home(server, tmp_path):
+    s, _ = server
+    edited = px_plan()
+    edited["rooms"][2]["type"] = "office"  # the user's edit is what is built
+    req = {"format": "vesper-request/1", "seed": 3, "devices": [{"category": "light", "per": "room"}],
+           "plan": edited, "scale": "area 49.5", "source": "my flat (1).png"}
+    status, body = call(s, "/api/generate", req, origin=s.url.rstrip("/"))
+    assert status == 200, body
+    made = json.loads(body)
+    assert made["summary"]["rooms"] == 3 and made["summary"]["devices"] >= 3
+    out = tmp_path / "out"
+    text = (out / "home.yaml").read_text()
+    assert text.startswith("# Imported from my-flat-1-.png") and "scene: imported/my-flat-1-" in text
+    assert "office_light" in text and "bedroom_light" not in text
+    assert (out / "plan.json").is_file() and "plan" not in (out / "request.yaml").read_text()
+    status, body = call(s, "/api/generate", {**req, "plan": px_plan(), "scale": None})
+    assert status == 400 and "No scale" in json.loads(body)["error"]
+    bad = px_plan()
+    bad["rooms"][1]["type"] = "laundry"
+    status, body = call(s, "/api/generate", {**req, "plan": bad})
+    assert status == 400 and "not a house" in json.loads(body)["error"]
+    assert "'k' (laundry)" in json.loads(body)["error"]
+    assert call(s, "/api/generate", {**req, "rooms": 4})[0] == 400  # the plan's rooms, not a count
+    # a generated home after an imported one sets the plan aside with the rest
+    assert call(s, "/api/generate", {"format": "vesper-request/1", "rooms": 2, "devices": []})[0] == 200
+    assert not (out / "plan.json").exists()
+
+
+def test_scale_text_is_a_room_s_size_or_the_home_s_area():
+    from vesper.lab.compose import scale_args
+    assert scale_args("") == (None, None) and scale_args(None) == (None, None)
+    assert scale_args("area 95") == (None, 95.0) and scale_args(" 95 m² ") == (None, 95.0)
+    assert scale_args("Area 80.5 m2") == (None, 80.5)
+    assert scale_args("kitchen width 3.2 m") == ("kitchen width 3.2 m", None)
+
+
+def test_the_page_offers_every_type_a_plan_s_room_may_have():
+    import re
+
+    from vesper.lab.play import UI_DIR
+    from vesper.lab.plan import ROOM_TYPES
+    js = re.search(r"export const PLAN_TYPES = \[(.*?)\];", (UI_DIR / "compose.js").read_text(), re.S).group(1)
+    assert re.findall(r'"(\w+)"', js) == list(ROOM_TYPES)
+
+
+def test_every_element_the_compose_script_looks_up_is_on_its_page():
+    import re
+
+    from vesper.lab.play import UI_DIR
+    page, js = (UI_DIR / "compose.html").read_text(), (UI_DIR / "compose.js").read_text()
+    for name in set(re.findall(r'\$\("([\w-]+)"\)', js)):
+        assert f'id="{name}"' in page, f"compose.js looks up #{name}, which compose.html does not have"

@@ -22,6 +22,14 @@ export function buildRequest(model) {
   if (model.rooms.mode === "house") {
     if (!model.rooms.scene) problems.push("house: choose one of the houses");
     request.scene = model.rooms.scene;
+  } else if (model.rooms.mode === "plan") { // the plan as read and edited, built as it is (generate_from_plan)
+    const p = model.plan || {};
+    if (!p.plan) problems.push("plan: import a floor plan first");
+    else {
+      request.plan = structuredClone(p.plan);
+      if (p.scale && p.scale.trim()) request.scale = p.scale.trim();
+      if (p.source) request.source = p.source;
+    }
   } else if (model.rooms.mode === "list") {
     if (!model.rooms.program.length) problems.push("rooms: add at least one room");
     request.program = [...model.rooms.program];
@@ -94,6 +102,122 @@ export function furnishView(st) {
   return { steps, lines: st.lines || [], note, running: st.state === "running" };
 }
 
+// -- importing a floor plan (floor-plan import, task A4) -------------------------------------------------------
+// The room types a plan's room may have: vesper.lab.plan.ROOM_TYPES (tests/lab/test_compose.py keeps them equal).
+export const PLAN_TYPES = ["living", "kitchen", "bedroom", "bathroom", "office", "dining", "laundry", "corridor",
+                           "hall", "other"];
+export const READING_TEXT = "Claude is reading the plan — several minutes; it uses your Claude Code quota";
+
+// The plan with one room's name or type changed (a copy: the plan as read stays as it was read).
+export function setRoom(plan, id, field, value) {
+  if (field !== "name" && field !== "type") throw new Error(`a room's ${field} is not edited here`);
+  if (field === "type" && !PLAN_TYPES.includes(value)) throw new Error(`${value} is not a room type`);
+  const out = structuredClone(plan);
+  const room = out.rooms.find((r) => r.id === id);
+  if (!room) throw new Error(`no room ${id}`);
+  room[field] = String(value);
+  return out;
+}
+
+// The middle of a polygon (its area's centroid; the mean of its corners when it has no area).
+export function centroid(poly) {
+  let a = 0, cx = 0, cy = 0;
+  poly.forEach(([x0, y0], k) => {
+    const [x1, y1] = poly[(k + 1) % poly.length];
+    const c = x0 * y1 - x1 * y0;
+    a += c; cx += (x0 + x1) * c; cy += (y0 + y1) * c;
+  });
+  if (Math.abs(a) < 1e-12) return [poly.reduce((s, p) => s + p[0], 0) / poly.length,
+                                   poly.reduce((s, p) => s + p[1], 0) / poly.length];
+  return [cx / (3 * a), cy / (3 * a)];
+}
+
+// A point of the plan as VESPER builds it (metres, turned square by rectify) back on the image: turned back by
+// -angle_deg about the centre (vesper.lab.plan.plan_transform), then divided by the metres per pixel.
+export function toImage([x, z], t) {
+  const a = (-t.angle_deg * Math.PI) / 180, [cx, cz] = t.centre;
+  const dx = x - cx, dz = z - cz;
+  return [(cx + dx * Math.cos(a) - dz * Math.sin(a)) / t.m_per_px, (cz + dx * Math.sin(a) + dz * Math.cos(a)) / t.m_per_px];
+}
+
+// The rooms a problem names ('id', as vesper.lab.plan quotes them).
+export function problemRooms(problems, ids) {
+  return new Set(ids.filter((id) => (problems || []).some((p) => p.includes(`'${id}'`))));
+}
+
+// What the overlay draws, in the image's own coordinates (the plan's pixels; y grows downward): one outline per
+// room as read, its name at its middle, a mark per door (the entrance its own), and, once there is a scale, each
+// room as VESPER will build it (walls straightened), put back on the image. With no image (a plan file, a PDF),
+// the view frames the plan.
+export function overlayShapes(plan, { size = null, problems = [], straight = null, transform = null } = {}) {
+  const bad = problemRooms(problems, plan.rooms.map((r) => r.id));
+  let view;
+  if (size) view = [0, 0, size.w, size.h];
+  else {
+    const pts = plan.rooms.flatMap((r) => r.polygon);
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const m = 0.05 * Math.max(x1 - x0, y1 - y0, 1e-9);
+    view = [x0 - m, y0 - m, x1 - x0 + 2 * m, y1 - y0 + 2 * m];
+  }
+  const font = Math.max(view[2], view[3]) / 55;
+  const names = Object.fromEntries(plan.rooms.map((r) => [r.id, r.name || r.id]));
+  return {
+    view, font,
+    rooms: plan.rooms.map((r) => ({ id: r.id, name: r.name, type: r.type, points: r.polygon.map((p) => [p[0], p[1]]),
+                                    label: centroid(r.polygon), bad: bad.has(r.id) })),
+    straight: straight && transform ? straight.map((r) => ({ id: r.id, points: r.polygon.map((p) => toImage(p, transform)) }))
+      : [],
+    // a door is a mark of one size (a wide garage door must not hide the room it opens), its rooms in its title
+    doors: (plan.doors || []).map((d, k) => ({ at: d.at, r: font * 0.5, entrance: k === plan.entrance,
+      title: `${k === plan.entrance ? "Entrance: " : "Door: "}${d.rooms.map((s) => names[s] || s).join(" – ")}` })),
+  };
+}
+
+// The overlay into `svg`, made by `make(tag, attrs, text)` (the page's SVG elements; a test's stand-ins). Names are
+// the image's text: they go in as text, never as markup. `onRoom(id)` is called when a room is chosen.
+export function drawOverlay(svg, shapes, make, { image = null, onRoom = null, selected = null } = {}) {
+  const pts = (points) => points.map(([x, y]) => `${+x.toFixed(3)},${+y.toFixed(3)}`).join(" ");
+  svg.setAttribute("viewBox", shapes.view.join(" "));
+  if (image) svg.append(make("image", { href: image, x: 0, y: 0, width: shapes.view[2], height: shapes.view[3],
+                                         preserveAspectRatio: "none" }));
+  for (const s of shapes.straight) svg.append(make("polygon", { class: "straight", points: pts(s.points) }));
+  for (const r of shapes.rooms) {
+    const cls = `room${r.bad ? " bad" : ""}${selected === r.id ? " on" : ""}`;
+    const poly = make("polygon", { class: cls, points: pts(r.points), "data-room": r.id });
+    poly.append(make("title", {}, `${r.name} (${r.type})`));
+    if (onRoom) poly.onclick = () => onRoom(r.id);
+    svg.append(poly);
+  }
+  for (const d of shapes.doors) {
+    const mark = make("circle", { class: d.entrance ? "door entrance" : "door", cx: d.at[0], cy: d.at[1], r: d.r });
+    mark.append(make("title", {}, d.title));
+    svg.append(mark);
+    if (d.entrance) svg.append(make("text", { class: "door-name", x: d.at[0], y: d.at[1] - d.r - shapes.font * 0.4,
+                                              "font-size": shapes.font * 0.85 }, "entrance"));
+  }
+  for (const r of shapes.rooms) {
+    const [x, y] = r.label;
+    svg.append(make("text", { class: "room-name", x, y, "font-size": shapes.font }, r.name));
+    svg.append(make("text", { class: "room-type", x, y: y + shapes.font * 1.15, "font-size": shapes.font * 0.8 }, r.type));
+  }
+  return svg;
+}
+
+// The import's progress line: reading (and for how long), not read (Claude's reason), or what was read.
+export function importNote(job, seconds = 0) {
+  if (job.state === "reading") {
+    const m = Math.floor(seconds / 60), s = Math.floor(seconds % 60);
+    return `${READING_TEXT} (${m ? `${m} min ` : ""}${s} s so far)`;
+  }
+  if (job.state === "failed") return `Not read: ${job.error}`;
+  if (job.state !== "done") return "";
+  const n = job.plan.rooms.length, rooms = `${n} room${n === 1 ? "" : "s"}`;
+  return job.kind === "json"
+    ? `${rooms} from the plan file. Check them, set the scale if it is in pixels, then Generate home.`
+    : `Claude read ${rooms}. Check each one over the image, set the scale, then Generate home.`;
+}
+
 // -- the page ------------------------------------------------------------------------------------------------
 if (typeof document !== "undefined") {
   const $ = (id) => document.getElementById(id);
@@ -123,7 +247,10 @@ if (typeof document !== "undefined") {
   ];
   const today = new Date().toISOString().slice(0, 10);
   const model = { rooms: { mode: "count", count: 6, program: ["living", "kitchen", "bedroom"], scene: null }, seed: 0,
-                  rows: structuredClone(STARTER), site: { city: "", date: today, north: 0 } };
+                  rows: structuredClone(STARTER), site: { city: "", date: today, north: 0 },
+                  // the imported plan: the job reading it, the plan as edited, the scale text and what the check said
+                  plan: { job: null, state: "none", kind: null, plan: null, scale: "", source: "", problems: [],
+                          summary: "", transform: null, straight: null, size: null, image: null, saved: null } };
   let meta = null, chosenRow = null, shown = null;
   let houses = null; // the HSSD houses here ({scenes, habitat, error}), asked for when the house choice is first made
   const downloading = new Set();
@@ -148,7 +275,12 @@ if (typeof document !== "undefined") {
       el("input", { type: "radio", name: "rmode", checked: model.rooms.mode === "house",
                     onchange: () => { model.rooms.mode = "house"; drawRooms(); } }),
       " A real furnished house (HSSD, in 3D)");
-    box.append(count, list, house);
+    const imported = el("label", { className: "choice" },
+      el("input", { type: "radio", name: "rmode", checked: model.rooms.mode === "plan",
+                    onchange: () => { model.rooms.mode = "plan"; drawRooms(); } }),
+      " Import a plan (a floor-plan image Claude reads, or a vesper-plan/1 file)");
+    box.append(count, list, house, imported);
+    showImport(model.rooms.mode === "plan");
     if (model.rooms.mode === "house") box.append(houseList());
     if (model.rooms.mode === "list") {
       const chips = el("div", { className: "chips" });
@@ -160,7 +292,7 @@ if (typeof document !== "undefined") {
       add.onchange = () => { if (add.value) { model.rooms.program.push(add.value); drawRooms(); } };
       box.append(chips, add);
     }
-    box.append(el("label", { className: "seed" }, model.rooms.mode === "house" ? "Device seed " : "Layout seed ",
+    box.append(el("label", { className: "seed" }, ["house", "plan"].includes(model.rooms.mode) ? "Device seed " : "Layout seed ",
       el("input", { type: "number", min: 0, value: model.seed, oninput: (e) => { model.seed = Number(e.target.value); } })));
   }
 
@@ -253,6 +385,180 @@ if (typeof document !== "undefined") {
       houses = null; // asked again: the house is ready now
       drawRooms();
     }, 3000);
+  }
+
+  // -- importing a floor plan ---------------------------------------------------------------------------------
+  const svgMake = (tag, attrs = {}, text) => { // in the SVG namespace, as the page's own <svg> is
+    const e = document.createElementNS($("import-overlay").namespaceURI, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    if (text !== undefined) e.textContent = text; // the image's words, as text
+    return e;
+  };
+  const imp = model.plan;
+  let importTimer = 0, tickTimer = 0, checkTimer = 0, checkSeq = 0, selectedRoom = null;
+  let askedLatest = false;
+
+  function showImport(on) {
+    $("import").hidden = !on;
+    document.querySelector("main").classList.toggle("importing", on && Boolean(imp.plan));
+    if (on && !askedLatest) { // a reading this lobby already has (the page was opened again): show it
+      askedLatest = true;
+      api("/api/import").then((job) => { if (job.state !== "none" && !imp.job) takeJob(job); }).catch(() => {});
+    }
+  }
+
+  function progress(text, cls = "") {
+    $("import-progress").className = `import-progress${cls ? ` ${cls}` : ""}`;
+    $("import-progress").textContent = text;
+  }
+
+  async function upload(file) {
+    if (!file) return;
+    if (file.size > 50 * 2 ** 20) { progress("Not read: the file is larger than 50 MB.", "bad"); return; }
+    progress(`Sending ${file.name}…`);
+    try {
+      const r = await fetch("/api/import", { method: "POST", body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream",
+                   "X-Vesper-Name": encodeURIComponent(file.name) } });
+      const job = await r.json();
+      if (!r.ok) throw new Error(job.error || `${r.status}`);
+      takeJob(job);
+    } catch (e) {
+      progress(`Not read: ${e.message}`, "bad");
+    }
+  }
+
+  // A job from the server (a reading started, going, done or failed): follow it, or take what it read.
+  function takeJob(job) {
+    clearInterval(importTimer); clearInterval(tickTimer);
+    Object.assign(imp, { job: job.job, state: job.state, kind: job.kind, source: job.name || imp.source });
+    if (job.state === "reading") {
+      const since = job.started ? job.started * 1000 : Date.now(); // the server's clock: a reopened page counts on
+      const tick = () => progress(importNote(job, Math.max(0, Date.now() - since) / 1000), "now");
+      tick();
+      tickTimer = setInterval(tick, 1000);
+      importTimer = setInterval(async () => {
+        try {
+          const now = await api(`/api/import/${job.job}`);
+          if (now.state !== "reading") takeJob(now);
+        } catch (e) { /* the next poll tries again */ }
+      }, 3000);
+      return;
+    }
+    if (job.state === "failed") { progress(importNote(job), "bad"); return; }
+    Object.assign(imp, { plan: job.plan, problems: job.problems, summary: job.summary || "", transform: job.transform,
+                         straight: job.rooms, saved: job.saved || null, scale: "", size: null,
+                         image: job.kind === "png" || job.kind === "jpg" ? `/api/import/${job.job}/image` : null });
+    progress(importNote(job));
+    $("import-scale").value = "";
+    $("import-saved").textContent = imp.saved ? `The plan Claude read is kept at ${imp.saved}: import that file to ` +
+      "build from it again with no Claude." : "";
+    $("import-read").hidden = false;
+    showImport(model.rooms.mode === "plan");
+    drawImportRooms();
+    drawChecked();
+    if (imp.image) { // the image's own pixels are the overlay's coordinates
+      const img = new Image();
+      img.onload = () => { imp.size = { w: img.naturalWidth, h: img.naturalHeight }; drawOverlayNow(); };
+      img.onerror = () => { imp.image = null; drawOverlayNow(); };
+      img.src = imp.image;
+    }
+  }
+
+  const ringArea = (poly) => Math.abs(poly.reduce((s, [x0, y0], k) => {
+    const [x1, y1] = poly[(k + 1) % poly.length];
+    return s + x0 * y1 - x1 * y0;
+  }, 0)) / 2;
+
+  function areaText(room) {
+    const a = ringArea(room.polygon);
+    if (imp.plan.units === "m") return `${a.toFixed(1)} m²`;
+    return imp.transform ? `${(a * imp.transform.m_per_px ** 2).toFixed(1)} m²` : `${Math.round(a)} px²`;
+  }
+
+  // One row per room: its id (as the problems name it), its name and type to edit, its area.
+  function drawImportRooms() {
+    const body = $("import-rooms");
+    body.innerHTML = "";
+    for (const room of imp.plan.rooms) {
+      const name = el("input", { type: "text", value: room.name, "aria-label": `Name of room ${room.id}`,
+        "data-room": room.id,
+        oninput: (e) => { imp.plan = setRoom(imp.plan, room.id, "name", e.target.value); recheck(); } });
+      const type = el("select", { "aria-label": `Type of room ${room.id}`,
+        onchange: (e) => { imp.plan = setRoom(imp.plan, room.id, "type", e.target.value); recheck(0); } },
+        ...PLAN_TYPES.map((t) => el("option", { value: t, textContent: t, selected: room.type === t })));
+      const row = el("tr", { "data-room": room.id }, el("td", { textContent: room.id }), el("td", {}, name),
+        el("td", {}, type), el("td", { className: "area", textContent: "" }));
+      row.addEventListener("mouseenter", () => select(room.id));
+      row.addEventListener("focusin", () => select(room.id)); // there is no onfocusin property to set
+      body.append(row);
+    }
+  }
+
+  function select(id) {
+    if (selectedRoom === id) return;
+    selectedRoom = id;
+    for (const tr of $("import-rooms").children) tr.classList.toggle("on", tr.dataset.room === id);
+    drawOverlayNow();
+  }
+
+  function drawOverlayNow() {
+    if (!imp.plan) return;
+    const svg = $("import-overlay");
+    svg.replaceChildren();
+    if (imp.image && !imp.size) return; // drawn once the image has its size
+    const shapes = overlayShapes(imp.plan, { size: imp.image ? imp.size : null, problems: imp.problems,
+                                             straight: imp.straight, transform: imp.transform });
+    drawOverlay(svg, shapes, svgMake, { image: imp.image, selected: selectedRoom, onRoom: (id) => {
+      select(id);
+      const input = $("import-rooms").querySelector(`input[data-room="${CSS.escape(id)}"]`);
+      if (input) input.focus();
+    } });
+  }
+
+  // What the last check said: the problems (rooms named in them marked), the areas, the scale, the summary.
+  function drawChecked() {
+    const list = $("import-problems");
+    list.innerHTML = "";
+    if (!imp.problems.length) list.append(el("li", { className: "ok", textContent: "None: VESPER can build this house." }));
+    for (const p of imp.problems) list.append(el("li", { textContent: p }));
+    const bad = problemRooms(imp.problems, imp.plan.rooms.map((r) => r.id));
+    const byId = Object.fromEntries(imp.plan.rooms.map((r) => [r.id, r]));
+    for (const tr of $("import-rooms").children) {
+      tr.classList.toggle("bad", bad.has(tr.dataset.room));
+      tr.querySelector(".area").textContent = areaText(byId[tr.dataset.room]);
+    }
+    $("import-scale-note").textContent = imp.plan.units === "m" ? "The plan is in metres: it needs no scale."
+      : imp.plan.scale ? "Claude read the plan's own scale: leave Scale empty to use it, or write one to replace it."
+      : "No scale was read: give a room's width or length in metres, or the home's floor area in m².";
+    $("import-summary").textContent = imp.summary || "";
+    drawOverlayNow();
+  }
+
+  // The plan as edited and the scale, checked again (after a pause in typing); only the latest answer counts.
+  function recheck(wait = 400) {
+    clearTimeout(checkTimer);
+    checkTimer = setTimeout(async () => {
+      const mine = ++checkSeq;
+      try {
+        const got = await api("/api/import/check", { plan: imp.plan, scale: imp.scale });
+        if (mine !== checkSeq) return;
+        Object.assign(imp, { problems: got.problems, summary: got.summary, transform: got.transform, straight: got.rooms });
+      } catch (e) {
+        if (mine !== checkSeq) return;
+        imp.problems = [`Not checked: ${e.message}`];
+      }
+      drawChecked();
+    }, wait);
+  }
+
+  function wireImport() {
+    const drop = $("import-drop");
+    $("import-file").onchange = (e) => { upload(e.target.files[0]); e.target.value = ""; };
+    drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+    drop.ondragleave = () => drop.classList.remove("over");
+    drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files[0]); };
+    $("import-scale").oninput = (e) => { imp.scale = e.target.value; recheck(); };
   }
 
   function whereControl(row) {
@@ -399,7 +705,8 @@ if (typeof document !== "undefined") {
     const out = $("outcome");
     if (problems.length) { out.className = "outcome bad"; out.textContent = problems.join("; "); return; }
     out.className = "outcome";
-    out.textContent = request.scene ? "Making the house in Habitat (about 15 s)…" : "Generating…";
+    out.textContent = request.scene ? "Making the house in Habitat (about 15 s)…"
+      : request.plan ? "Building the home from the plan…" : "Generating…";
     $("play").disabled = true;
     $("generate").disabled = true;
     try {
@@ -490,6 +797,7 @@ if (typeof document !== "undefined") {
     $("generate").onclick = generate;
     $("play").onclick = play;
     $("furnish-start").onclick = furnish;
+    wireImport();
     $("furnish-stop").onclick = async () => drawFurnish(await api("/api/furnish/stop", {}));
     const st = await api("/api/furnish"); // a run the lobby started before this page was opened
     if (st.state !== "none") {

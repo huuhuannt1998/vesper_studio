@@ -87,7 +87,42 @@
     .furnish-lines { list-style: none; padding: 0; margin: 0; font-size: 12px; color: var(--muted); max-height: 180px;
                      overflow-y: auto; border-left: 2px solid var(--line); padding-left: 8px; }
     .furnish-lines li { margin: 3px 0; white-space: pre-wrap; }
-    @media (max-width: 1000px) { main { grid-template-columns: 1fr; } main > section { border-right: 0; } }
+    /* importing a floor plan: the plan needs the room, so its column widens while the panel is open */
+    main.importing { grid-template-columns: minmax(460px, 1.8fr) minmax(280px, 0.9fr) minmax(280px, 0.9fr); }
+    .import { margin: 4px 0 6px 22px; }
+    .drop { position: relative; display: grid; gap: 2px; justify-items: center; padding: 18px 12px; margin: 8px 0;
+            border: 1px dashed var(--muted); border-radius: 6px; background: var(--panel); font-size: 13px;
+            cursor: pointer; text-align: center; }
+    .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .drop:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .drop.over { border-color: var(--accent); background: rgba(31, 111, 120, .06); }
+    .import-progress { min-height: 1.45em; } .import-progress.bad { color: var(--bad); }
+    .import-progress.now::before { content: "● "; color: var(--accent); }
+    .plan-figure { margin: 8px 0; }
+    .plan-figure svg { display: block; width: 100%; height: auto; max-height: 62vh; background: var(--panel);
+                       border: 1px solid var(--line); border-radius: 4px; }
+    .plan-figure figcaption { font-size: 12px; margin-top: 4px; }
+    #import-overlay .room { fill: rgba(31, 111, 120, .10); stroke: var(--accent); stroke-width: 2;
+                            vector-effect: non-scaling-stroke; cursor: pointer; }
+    #import-overlay .room.bad { fill: rgba(194, 59, 46, .12); stroke: var(--alert); }
+    #import-overlay .room.on { fill: rgba(31, 111, 120, .26); stroke-width: 3; }
+    #import-overlay .straight { fill: none; stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 5 4;
+                                vector-effect: non-scaling-stroke; pointer-events: none; }
+    #import-overlay .door { fill: var(--panel); stroke: var(--held); stroke-width: 2; vector-effect: non-scaling-stroke; }
+    #import-overlay .door.entrance { fill: var(--held); }
+    #import-overlay text { text-anchor: middle; paint-order: stroke; stroke: var(--panel); stroke-width: 3px;
+                           stroke-linejoin: round; pointer-events: none; }
+    #import-overlay .room-name { fill: var(--ink); font-weight: 600; }
+    #import-overlay .room-type, #import-overlay .door-name { fill: var(--muted); }
+    .plan-rooms input { width: 100%; min-width: 90px; } .plan-rooms td:first-child { color: var(--muted); }
+    .plan-rooms td { vertical-align: middle; } .plan-rooms td.area { white-space: nowrap; }
+    .plan-rooms tr.on td { background: rgba(31, 111, 120, .07); }
+    .plan-rooms tr.bad td:first-child { color: var(--bad); font-weight: 600; }
+    .problems { margin: 0; padding-left: 18px; font-size: 13px; } .problems li { margin: 3px 0; color: var(--bad); }
+    .problems li.ok { color: var(--ok); list-style: none; margin-left: -18px; }
+    .read-summary { font-size: 12px; margin: 10px 0 4px; } .read-summary pre { white-space: pre-wrap; margin: 6px 0; }
+    @media (max-width: 1000px) { main { grid-template-columns: 1fr; } main > section { border-right: 0; }
+                                 main.importing { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -99,6 +134,38 @@
     <section aria-label="The home's rooms and devices">
       <h2>Rooms</h2>
       <div id="rooms"></div>
+      <div id="import" class="import" hidden>
+        <p class="muted">Claude reads the rooms, doors and entrance from a floor-plan image; check them over the image
+          here, then generate. The image goes to Anthropic through your Claude Code session. A
+          <code>vesper-plan/1</code> file is read here, with no Claude.</p>
+        <label id="import-drop" class="drop">
+          <input id="import-file" type="file"
+                 accept=".png,.jpg,.jpeg,.pdf,.json,image/png,image/jpeg,application/pdf,application/json">
+          <span><b>Drop a floor plan here</b>, or choose a file</span>
+          <span class="muted">PNG, JPEG or PDF up to 50 MB, or a vesper-plan/1 .json</span>
+        </label>
+        <p id="import-progress" class="import-progress" role="status" aria-live="polite"></p>
+        <div id="import-read" hidden>
+          <figure class="plan-figure">
+            <svg id="import-overlay" role="group"
+                 aria-labelledby="import-caption"></svg>
+            <figcaption id="import-caption" class="muted">Solid outlines: the rooms as read; dashed: as VESPER will
+              build them, walls straightened. A circle is a door, the filled one the entrance. Choose a room to edit
+              it.</figcaption>
+          </figure>
+          <label class="choice">Scale <input id="import-scale" type="text" size="28" autocomplete="off"
+            placeholder="kitchen width 3.2 m, or area 95" aria-describedby="import-scale-note"></label>
+          <p id="import-scale-note" class="muted"></p>
+          <table class="config plan-rooms">
+            <thead><tr><th>Room</th><th>Name</th><th>Type</th><th>Area</th></tr></thead>
+            <tbody id="import-rooms"></tbody>
+          </table>
+          <h3>Problems</h3>
+          <ul id="import-problems" class="problems" aria-live="polite"></ul>
+          <details class="read-summary"><summary>What was read</summary><pre id="import-summary"></pre></details>
+          <p id="import-saved" class="muted"></p>
+        </div>
+      </div>
       <h2 style="margin-top:18px">Place</h2>
       <div id="place"></div>
       <h2 style="margin-top:18px">Devices</h2>
