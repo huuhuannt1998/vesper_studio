@@ -131,7 +131,7 @@ def _fill(grid: Grid, x0: float, z0: float, x1: float, z1: float) -> None:
 # A plan's room types (vesper.lab.plan.ROOM_TYPES): the label each gets on the map (what the furnisher reads, so an
 # "other" room gets no furniture of a kind) and the stem of its id (what the device placer reads)
 PLAN_LABELS = {**LABELS, "corridor": "hallway", "hall": "hall", "other": "other"}
-PLAN_STEMS = {"other": "room"}
+PLAN_STEMS = {"other": "room", "corridor": "hallway"}  # a hallway gets a light; `at: hall` finds it
 PORCH_LABEL = "porch/terrace/deck/driveway"
 PORCH_TRIES = ((2.0, 3.0), (2.0, 2.0), (1.5, 2.0), (1.0, 1.5))  # (depth, width): the first that fits outside
 MARGIN = 0.3  # the map's floor grid reaches this far past the plan, so every outer wall has cells
@@ -163,7 +163,8 @@ def floor_plan_from(plan_m: dict, scene: str) -> WorldMap:
     """The map of a rectified plan in metres (vesper.lab.plan): its rooms keep their ids, each room's polygon is its
     outline taken in by half a wall (WALL), as a generated room's is, so a wall between two rooms is solid floor-less
     cells; each door opens the wall across its width; an outside door gets an outdoor room before it (the entrance's
-    `porch`, PORCH deep and wide when it fits, any other `porch_2`, ...). Rooms may be any simple polygon."""
+    `porch`, PORCH deep and wide when it fits, any other `porch_2`, ...; doors close together on one wall share one,
+    `_porch_for`). Rooms may be any simple polygon."""
     from vesper.lab.plan import PlanError, load_plan
     try:
         load_plan(plan_m)
@@ -181,7 +182,8 @@ def floor_plan_from(plan_m: dict, scene: str) -> WorldMap:
     doors = plan_m.get("doors") or []
     entrance = plan_m.get("entrance")
     order = ([entrance] if entrance is not None else []) + [k for k in range(len(doors)) if k != entrance]
-    openings, porches, joins = [], [], {}
+    openings, joins = [], {}
+    porches: list[dict] = []  # id, polygon, the wall line it stands on (origin, along, out), its span and depth
     taken = set(outlines)
     for k in order:
         d = doors[k]
@@ -191,20 +193,13 @@ def floor_plan_from(plan_m: dict, scene: str) -> WorldMap:
         openings.append((tuple(d["at"]), along, d["width"]))
         pair = set(sides)
         if "outside" in d["rooms"]:
-            pid = _unique("porch", taken)
-            taken.add(pid)
             inward = _inward(outlines[sides[0]], (a, b))
-            porch = _porch(tuple(d["at"]), along, (-inward[0], -inward[1]), d["width"],
-                           [*outlines.values(), *(p.polygon for p in porches)])
-            if porch is None:
-                raise GenerateError(f"door {k} (from {sides[0]!r} to the outside): another room stands where its "
-                                    "porch would be; check the plan")
-            porches.append(Room(pid, PORCH_LABEL, porch, outdoor=True))
-            pair.add(pid)
+            porch = _porch_for(k, d, sides[0], along, (-inward[0], -inward[1]), outlines, porches, taken)
+            pair.add(porch["id"])
         joins[k] = pair
-    every = [*rooms, *porches]
-    xs = [x for poly in [*outlines.values(), *(p.polygon for p in porches)] for x, _ in poly]
-    zs = [z for poly in [*outlines.values(), *(p.polygon for p in porches)] for _, z in poly]
+    every = [*rooms, *(Room(p["id"], PORCH_LABEL, p["polygon"], outdoor=True) for p in porches)]
+    polys = [*outlines.values(), *(p["polygon"] for p in porches)]
+    xs, zs = [x for poly in polys for x, _ in poly], [z for poly in polys for _, z in poly]
     ox, oz = (round(math.floor((v - MARGIN) / CELL + _TOL) * CELL, 6) for v in (min(xs), min(zs)))
     width, height = math.ceil((max(xs) + MARGIN - ox) / CELL), math.ceil((max(zs) + MARGIN - oz) / CELL)
     grid = Grid(origin=(ox, oz), cell=CELL, width=width, height=height, walkable=bytearray(width * height))
@@ -289,30 +284,76 @@ def _inset(ring, d: float):
     return out
 
 
-def _porch(at, along, out, door_w: float, others):
-    """An outdoor room before an outside door: from WALL to `depth` out from the wall, `width` along it, centred on
-    the door; the first of PORCH_TRIES that stands clear of every room."""
+def _porch_for(k: int, d: dict, room: str, along, out, outlines: dict, porches: list[dict], taken: set) -> dict:
+    """The outdoor room outside door `k` (from `room`), added to `porches` or grown there: a porch that already
+    covers the door's step; else a new one, from WALL to `depth` out from the wall and `width` along it, centred
+    on the door, the first of PORCH_TRIES that keeps WALL clear of every room and porch; else, when only porches
+    on the same wall are in the way, the nearest of them stretched along the wall to take this door too. A room
+    in the way is a GenerateError naming it."""
+    at, w = tuple(d["at"]), d["width"]
+    step = [(at[0] + s * along[0] + (WALL + 0.15) * out[0], at[1] + s * along[1] + (WALL + 0.15) * out[1])
+            for s in (-w / 2 + 0.05, 0.0, w / 2 - 0.05)]
+    for p in porches:
+        if all(point_in_polygon(q, p["polygon"]) for q in step):
+            return p
+    others = [(f"room {rid!r}", ring) for rid, ring in outlines.items()]
+    others += [(f"the porch of door {p['door']}", p["polygon"]) for p in porches]
+    first = None
     for depth, width in PORCH_TRIES:
-        width = max(width, door_w + 0.4)
-        corners = []
-        for s, t in ((-width / 2, WALL), (width / 2, WALL), (width / 2, depth), (-width / 2, depth)):
-            corners.append((round(at[0] + s * along[0] + t * out[0], 3), round(at[1] + s * along[1] + t * out[1], 3)))
-        if _clear(corners, others):
-            return tuple(corners)
-    return None
+        width = max(width, w + 0.4)
+        poly = _strip(at, along, out, -width / 2, width / 2, depth)
+        blockers = _blockers(poly, others)
+        if not blockers:
+            porch = {"id": _unique("porch", taken), "polygon": poly, "door": k, "origin": at, "along": along,
+                     "out": out, "lo": -width / 2, "hi": width / 2, "depth": depth}
+            taken.add(porch["id"])
+            porches.append(porch)
+            return porch
+        first = first or blockers
+    if all(b.startswith("the porch") for b in first):
+        for p in sorted(porches, key=lambda p: math.dist(p["origin"], at)):
+            same_wall = (sum(x * y for x, y in zip(p["out"], out, strict=True)) > 0.999
+                         and abs((at[0] - p["origin"][0]) * out[0] + (at[1] - p["origin"][1]) * out[1]) < 0.05)
+            if not same_wall:
+                continue
+            t = (at[0] - p["origin"][0]) * p["along"][0] + (at[1] - p["origin"][1]) * p["along"][1]
+            for _, width in PORCH_TRIES:
+                width = max(width, w + 0.4)
+                lo, hi = min(p["lo"], t - width / 2), max(p["hi"], t + width / 2)
+                poly = _strip(p["origin"], p["along"], p["out"], lo, hi, p["depth"])
+                if not _blockers(poly, [o for o in others if o[1] is not p["polygon"]]):
+                    p.update(polygon=poly, lo=lo, hi=hi)
+                    return p
+    names = ", ".join(first)
+    raise GenerateError(f"door {k} (from {room!r} to the outside): {names} {'stand' if len(first) > 1 else 'stands'} "
+                        "where its porch would be; check the plan")
 
 
-def _clear(poly, others) -> bool:
-    """Whether the polygon shares no floor with any of the others (sampled every 5 cm, just inside it)."""
+def _strip(origin, along, out, lo: float, hi: float, depth: float) -> tuple:
+    """The rectangle from `lo` to `hi` along a wall and from WALL to `depth` out from it."""
+    return tuple((round(origin[0] + s * along[0] + t * out[0], 3), round(origin[1] + s * along[1] + t * out[1], 3))
+                 for s, t in ((lo, WALL), (hi, WALL), (hi, depth), (lo, depth)))
+
+
+def _blockers(poly, others) -> list[str]:
+    """The names of the others (name, polygon) that share floor with the polygon or come within WALL of it (sampled
+    every 5 cm, just inside it)."""
     xs, zs = [x for x, _ in poly], [z for _, z in poly]
-    steps = 0.05
-    nx, nz = int((max(xs) - min(xs)) / steps), int((max(zs) - min(zs)) / steps)
-    for i in range(nx):
-        for j in range(nz):
-            p = (min(xs) + (i + 0.5) * steps, min(zs) + (j + 0.5) * steps)
-            if point_in_polygon(p, poly) and any(point_in_polygon(p, o) for o in others):
-                return False
-    return not any(point_in_polygon(c, poly) for o in others for c in o)
+    step = 0.05
+    nx, nz = int((max(xs) - min(xs)) / step), int((max(zs) - min(zs)) / step)
+    samples = [p for i in range(nx) for j in range(nz)
+               if point_in_polygon(p := (min(xs) + (i + 0.5) * step, min(zs) + (j + 0.5) * step), poly)]
+    out = []
+    for name, o in others:
+        oxs, ozs = [x for x, _ in o], [z for _, z in o]
+        if min(oxs) - WALL > max(xs) or max(oxs) + WALL < min(xs) or min(ozs) - WALL > max(zs) or \
+                max(ozs) + WALL < min(zs):
+            continue
+        edges = _edges(list(o))
+        if any(point_in_polygon(c, poly) for c in o) or any(
+                point_in_polygon(p, o) or min(_gap(e, p) for e in edges) < WALL for p in samples):
+            out.append(name)
+    return out
 
 
 def _fill_polygon(grid: Grid, poly) -> None:
@@ -479,11 +520,6 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
     world_map = floor_plan_from(plan, f"imported/{Path(source).stem}")
     devices = place_devices(world_map, request, catalog)
     windows = from_plan(plan, world_map)
-    out = Path(out)
-    out.mkdir(parents=True)
-    world_map.save(out / "map.json")
-    write_windows(out, windows)
-    (out / "plan.json").write_text(json.dumps(plan, indent=1) + "\n")
     indoor = [r.id for r in world_map.rooms if not r.outdoor]
     entrance = plan.get("entrance")
     inside = [s for s in plan["doors"][entrance]["rooms"] if s != "outside"] if entrance is not None else []
@@ -502,9 +538,19 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
     lines.append("devices:" if devices else "devices: []")
     lines += [f"  - {yaml.safe_dump(d, default_flow_style=True, sort_keys=False, width=1000).strip()}"
               for d in devices]
-    (out / "home.yaml").write_text("\n".join(lines) + "\n")
-    if request.furnish:
-        _furnish(out, catalog)
+    out = Path(out)
+    out.mkdir(parents=True)
+    try:  # a home half written is no home: anything failing from here takes the directory away again
+        world_map.save(out / "map.json")
+        write_windows(out, windows)
+        (out / "plan.json").write_text(json.dumps(plan, indent=1) + "\n")
+        (out / "home.yaml").write_text("\n".join(lines) + "\n")
+        if request.furnish:
+            _furnish(out, catalog)
+    except BaseException:
+        import shutil
+        shutil.rmtree(out, ignore_errors=True)
+        raise
 
 
 def _site_lines(request: Request) -> list[str]:

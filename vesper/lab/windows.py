@@ -121,17 +121,15 @@ def from_openings(world_map, openings: list[dict]) -> list[dict]:
     return out
 
 
-ON_WALL_M = 0.02  # a rule window lies on its room's outline within this
-
-
 def from_plan(plan_m: dict, world_map) -> list[dict]:
     """An imported home's windows (floor-plan import): each of the plan's windows where the plan puts it (on its
     room's outline, the wall's centre line) at the plan's width, the sill and height its room's kind has by RULES
-    (DEFAULT_PANE for a hall or another room), facing out of the wall it is on (source "plan"); then, in a room with
-    none, `plan_windows`' rule windows that lie on the room's outline (source "rule"). The map's room ids are the
-    plan's (vesper.lab.generate.floor_plan_from)."""
+    (DEFAULT_PANE for a hall or another room), facing out of the wall it is on (source "plan"); then, in a room of a
+    RULES kind with none, windows by rule (source "rule"): `plan_windows`' for a rectangle, else (or when those give
+    none) `_on_real_walls`', so every such room with an outside wall gets one. A hall, a corridor or another room
+    gets none by rule, as a generated hallway. The map's room ids are the plan's (generate.floor_plan_from)."""
     from vesper.lab.furnishing import room_kind
-    from vesper.lab.generate import _edges, _gap, _inward, _outline
+    from vesper.lab.generate import _edges, _gap, _outline
     outlines = {r["id"]: _outline(r["polygon"]) for r in plan_m["rooms"]}
     windows = plan_m.get("windows") or []
     count = {w["room"]: sum(1 for x in windows if x["room"] == w["room"]) for w in windows}
@@ -140,25 +138,76 @@ def from_plan(plan_m: dict, world_map) -> list[dict]:
     for w in windows:
         rid, at = w["room"], (float(w["at"][0]), float(w["at"][1]))
         ring = outlines[rid]
-        edge = min(_edges(ring), key=lambda e: _gap(e, at))
-        nx, nz = _inward(ring, edge)
-        facing = round(math.degrees(math.atan2(-nx, nz))) % 360  # out of the room, clockwise from the plan's top
-        side = min(FACING, key=lambda s: min(abs(FACING[s] - facing), 360 - abs(FACING[s] - facing)))
+        facing, side = _facing(ring, min(_edges(ring), key=lambda e: _gap(e, at)))
         kind = room_kind(world_map.room(rid))
         sill, height = RULES[kind][2:] if kind in RULES else DEFAULT_PANE[1:]
         seen[rid] = seen.get(rid, 0) + 1
         out.append({"id": f"{rid}_window{seen[rid] if count[rid] > 1 else ''}", "room": rid, "x": round(at[0], 3),
                     "z": round(at[1], 3), "width": round(float(w["width"]), 2), "sill": sill, "height": height,
                     "facing": facing, "side": side, "source": "plan"})
-    for r in plan_windows(world_map):
-        if r["room"] in count or r["room"] not in outlines:
+    by_rule = plan_windows(world_map)
+    for room in world_map.rooms:
+        rid = room.id
+        if rid in count or rid not in outlines or room.outdoor or room_kind(room) not in RULES:
             continue
-        half = r["width"] / 2
-        ends = ([(r["x"] - half, r["z"]), (r["x"] + half, r["z"])] if r["side"] in ("z0", "z1")
-                else [(r["x"], r["z"] - half), (r["x"], r["z"] + half)])
-        if any(all(_gap(e, p) <= ON_WALL_M for p in ends) for e in _edges(outlines[r["room"]])):
-            out.append(r)  # a room that is not a rectangle: only a window on one of its real walls
+        ring = outlines[rid]
+        boxed = len(ring) == 4 and all(min(abs(a[0] - b[0]), abs(a[1] - b[1])) < 1e-9 for a, b in _edges(ring))
+        mine = [r for r in by_rule if r["room"] == rid] if boxed else []
+        out += mine or _on_real_walls(world_map, room, ring)
     return out
+
+
+def _facing(ring, edge) -> tuple[int, str]:
+    """Out of the room through that edge of its outline: degrees clockwise from the plan's top, and the nearest of
+    z0, x1, z1, x0."""
+    from vesper.lab.generate import _inward
+    nx, nz = _inward(ring, edge)
+    facing = round(math.degrees(math.atan2(-nx, nz))) % 360
+    return facing, min(FACING, key=lambda s: min(abs(FACING[s] - facing), 360 - abs(FACING[s] - facing)))
+
+
+def _on_real_walls(world_map, room, ring) -> list[dict]:
+    """A room's rule windows on its own outline, for a room that is not a rectangle (its box's sides need not be
+    walls) or whose box gave none: the RULES count and size on the longest stretch of an outside wall, keeping
+    CORNER_M from its ends and DOOR_M past a doorway's side, a wall with no doorway first; fewer, or narrower down to
+    0.5 m, when the stretch is short. [] when the room has no outside wall."""
+    from vesper.lab.furnishing import room_kind
+    from vesper.lab.generate import _edges, _gap, _inward
+    count, width, sill, height = RULES[room_kind(room)]
+    stretches = []  # (no doorway on the wall, length, edge, lo, hi): lo/hi along the edge from its first corner
+    for edge in _edges(ring):
+        (ax, az), (bx, bz) = edge
+        length = math.hypot(bx - ax, bz - az)
+        ux, uz = (bx - ax) / length, (bz - az) / length
+        nx, nz = _inward(ring, edge)
+        probe = WALL + 0.15
+        if any((o := world_map.room_at(ax + f * length * ux - probe * nx, az + f * length * uz - probe * nz))
+               is not None and not o.outdoor for f in (0.15, 0.5, 0.85)):
+            continue  # another room (or this one) is behind that wall
+        free = [(WALL, length - WALL)]
+        doors = [d for d in world_map.doorways if room.id in d.rooms and _gap(edge, d.center) <= DOOR_M + WALL]
+        for d in doors:
+            t = (d.center[0] - ax) * ux + (d.center[1] - az) * uz
+            cut = (t - d.width / 2 - DOOR_M, t + d.width / 2 + DOOR_M)
+            free = [part for lo, hi in free for part in ((lo, min(hi, cut[0])), (max(lo, cut[1]), hi)) if
+                    part[1] - part[0] > 1e-9]
+        stretches += [(not doors, hi - lo, edge, lo, hi) for lo, hi in free]
+    for _, span, edge, lo, hi in sorted(stretches, key=lambda s: (s[0], round(s[1], 6)), reverse=True):
+        for n in range(count, 0, -1):
+            w = min(width, span / n - 2 * CORNER_M)
+            if w >= 0.5:
+                break
+        else:
+            continue
+        (ax, az), (bx, bz) = edge
+        length = math.hypot(bx - ax, bz - az)
+        facing, side = _facing(ring, edge)
+        spots = sorted((ax + (bx - ax) * t / length, az + (bz - az) * t / length)
+                       for t in (lo + span * (k + 1) / (n + 1) for k in range(n)))
+        return [{"id": f"{room.id}_window{k + 1 if n > 1 else ''}", "room": room.id, "x": round(x, 3),
+                 "z": round(z, 3), "width": round(w, 2), "sill": sill, "height": height, "facing": facing,
+                 "side": side, "source": "rule"} for k, (x, z) in enumerate(spots)]
+    return []
 
 
 def write_windows(home_dir: Path, items: list[dict]) -> Path:

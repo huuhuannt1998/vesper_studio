@@ -940,9 +940,13 @@ def _lab_import(args, catalog) -> int:
     from vesper.lab.home import load_lab_home
     from vesper.lab.plan import PlanError, check_house, load_plan, rectify, scale_plan
     src, out = Path(args.src), Path(args.dir)
+    if src.suffix.lower() in (".png", ".jpg", ".jpeg", ".pdf"):
+        print(f"vesper lab import: {src.name} is an image; reading images arrives in the next step (write the plan "
+              "as a vesper-plan/1 .json file meanwhile)", file=sys.stderr)
+        return 2
     if src.suffix.lower() != ".json":
-        print(f"vesper lab import: {src.name} is not a vesper-plan/1 .json file; reading images arrives in the next "
-              "step (write the plan as JSON meanwhile)", file=sys.stderr)
+        print(f"vesper lab import: {src.name}: expected a vesper-plan/1 .json file (or a floor-plan image)",
+              file=sys.stderr)
         return 2
     if out.exists():
         print(f"FAILED: {out} already exists", file=sys.stderr)

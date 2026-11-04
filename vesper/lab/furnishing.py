@@ -186,11 +186,21 @@ def _candidates(r, name, w, d, h, where, placed):
     """Where the piece could go, best first."""
     solid = name != "rug"
     if isinstance(where, tuple):
-        yield from _beside(r, name, w, d, h, where, placed, solid)
+        found = _beside(r, name, w, d, h, where, placed, solid)
         if where[0] in ("beside", "facing"):  # no room there: any wall
-            yield from _candidates(r, name, w, d, h, "wall", placed)
+            found = (*found, *_candidates(r, name, w, d, h, "wall", placed))
+        if where[0] == "facing" and placed.get(where[1]) is not None:  # a TV the sofa sees: not round a corner
+            found = (i for i in found if _in_sight(r.room.polygon, placed[where[1]], i))
+        yield from found
         return
     yield from _on_walls(r, name, w, d, h, where, solid)
+
+
+def _in_sight(polygon, a: dict, b: dict, step: float = 0.1) -> bool:
+    """Whether the line between two pieces' centres stays in the room (always, in a rectangular room)."""
+    n = max(1, int(distance((a["x"], a["z"]), (b["x"], b["z"])) / step))
+    return all(point_in_polygon((a["x"] + (b["x"] - a["x"]) * k / n, a["z"] + (b["z"] - a["z"]) * k / n), polygon)
+               for k in range(n + 1))
 
 
 def _beside(r, name, w, d, h, where, placed, solid):
