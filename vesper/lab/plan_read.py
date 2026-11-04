@@ -46,8 +46,9 @@ How to fill it:
 - "entrance" is the index (counting from 0) of the main door to the outdoors in your "doors" list.
 - The scale: if the image prints dimension text for rooms or walls, or a scale bar, or the home's total floor area,
   put it into "scale": a scale bar or a measured length as {{"length_m": metres, "from": [x, y], "to": [x, y]}} (the two
-  pixel points the length spans, along a straight line), a printed total area as {{"area_m2": number}}. If the plan
-  states none of these, answer "scale": null and do NOT guess one.
+  pixel points the length spans, along a straight line), a printed total area as {{"area_m2": number}}. Lengths are
+  in METRES: convert feet and inches (1 ft = 0.3048 m). Prefer the longest dimension line, measuring between the
+  points it spans. If the plan states none of these, answer "scale": null and do NOT guess one.
 
 Answer with ONLY the JSON object: no explanation before or after it, no comments. If the image is not a floor plan
 (a photograph, a drawing of something else, a plan too unclear to read), answer only {{"error": "<why>"}}.
