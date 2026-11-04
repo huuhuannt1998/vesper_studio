@@ -693,6 +693,18 @@ A picture has no scale unless it prints one. If the plan has none, VESPER does n
 --area". A plan written by hand can use metres (`"units": "m"`) and needs neither. Limit: a shared wall drawn wandering
 more than about 25 cm is refused ("the rooms do not touch"); redraw it straight.
 
+**One storey.** A home is one floor. When a picture draws several floors (side by side, or one per page), Claude reads
+only the floor with the main entrance; the other floors are not built. A balcony, terrace, patio or loggia is the room
+type `balcony`: an outdoor room built like the porch (no ceiling, no furniture, the outdoor air and light for a device
+on it), and a window onto it is a window of the room behind it.
+
+**What the walls cannot carry is left out or narrowed, never invented**, and each is printed as a `warning:` line after
+what was read (the lobby lists them under Problems as warnings; they do not stop Generate): a window on no outside wall
+of its room, or in a balcony, is left out; a door or window wider than its wall is narrowed to the wall's length less
+10 cm (a door's wall must be at least 60 cm long); two doors meeting end to end on one wall are narrowed to leave 10 cm
+of wall between them; a door between rooms that do not touch is left out when every room can still be reached from the
+entrance without it, and refused when a room needs it.
+
 ### Furniture
 
 A generated home comes furnished, in seconds and at no cost: each room gets what a home of its kind has (a sofa

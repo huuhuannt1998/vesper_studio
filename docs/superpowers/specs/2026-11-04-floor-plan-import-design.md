@@ -45,6 +45,13 @@ scaling, and the share of imports that pass the layout check with no error. Repo
 - The image goes to Anthropic through the user's Claude Code session; the README says so, and a hand-written
   `vesper-plan/1` file needs no network.
 - An unreadable plan fails with what was wrong; VESPER never invents a layout the image does not show.
+- Real plans (task A6, after the CubiCasa5K evaluation): a balcony, terrace, patio or loggia is the outdoor room type
+  `balcony`, built like a porch. What the walls cannot carry is left out or narrowed with a warning, never a refusal:
+  a window on no outside wall (or in a balcony) is left out; a door or window wider than its wall is narrowed to the
+  wall less 10 cm (a door's wall at least 60 cm); two doors meeting end to end on one wall keep 10 cm of wall between
+  them; a door between rooms that do not touch is left out when no room needs it to be reached, else refused. The
+  warnings follow the summary in the CLI and stand under Problems in the lobby, without blocking Generate. A plan
+  drawing several floors is read as its entrance floor only (the prompt asks for it).
 
 ## Files
 
