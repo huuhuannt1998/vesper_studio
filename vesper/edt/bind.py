@@ -207,12 +207,31 @@ def _no_role(entity_id: str) -> Unbindable:
 
 
 _SOURCES: dict[str, list[str]] | None = None  # during a bind: home entity -> the automation's names bound onto it
+_ORDER: dict[tuple[str, str], list[str]] | None = None  # during a bind: (role, room) -> names, in order of appearance
+COPY_ROLES = ("light", "switch")  # roles a room has several devices of (vesper.edt.home.COPIES): key 3 is the copy
+
+
+def _copies(role: str, room: str, roles: dict) -> list[str]:
+    out = []
+    while (role, room, len(out)) in roles:
+        out.append(roles[(role, room, len(out))])
+    return out
 
 
 def _lookup(role: str, room: str, roles: dict, variant: int, what: str, source: str | None = None) -> str | Unbindable:
+    """The home entity of `role` in `room`. A light or plug: the automation's distinct names of one role in one room
+    take the room's copies in order of first appearance; more names than copies collapse (refused)."""
     if role in VARIANT_ROLES and variant and (role, room, variant) not in roles:
         return Unbindable(f"no variant {variant} for {role} (the home has one product per sensor role)")
-    bound = roles.get((role, room, variant if role in VARIANT_ROLES else 0))
+    index = variant if role in VARIANT_ROLES else 0
+    if role in COPY_ROLES and _ORDER is not None and (role, room, 0) in roles:
+        order = _ORDER.setdefault((role, room), [])
+        if (source or what) not in order:
+            order.append(source or what)
+        index = order.index(source or what)
+        if (role, room, index) not in roles:
+            return Unbindable(f"distinct entities collapse onto one device (for {order[0]}, {source or what})")
+    bound = roles.get((role, room, index))
     if bound is None:
         return Unbindable(f"the standard home has no {role} in the {room} (for {what})")
     if _SOURCES is not None:
@@ -340,11 +359,11 @@ def _target(node: dict, roles: dict, variant: int) -> dict | Unbindable | None:
             room = _area_room(area)
             if room is None:
                 return Unbindable(f"no room of the standard home for the area (for {area})")
-            bound = _lookup(role, room, roles, 0, f"area {area}")
-            if isinstance(bound, Unbindable):
-                return bound
-            found.append(bound)
-        entities = ([] if _empty(entities) else _listed(entities)) + found
+            every = _copies(role, room, roles)  # Home Assistant expands an area to every entity of the domain in it
+            if not every:
+                return Unbindable(f"the standard home has no {role} in the {room} (for area {area})")
+            found += every
+        entities = list(dict.fromkeys(([] if _empty(entities) else _listed(entities)) + found))
     out = {k: v for k, v in target.items() if k != "entity_id"}
     out["entity_id"] = entities
     return out
@@ -750,13 +769,13 @@ def bind_with_assumptions(raw: dict, roles: dict, variant: int) -> tuple[dict, l
     refusal = _helper_refusal(read)
     if refusal:
         return refusal
-    global _SOURCES
-    _SOURCES = {}
+    global _SOURCES, _ORDER
+    _SOURCES, _ORDER = {}, {}
     try:
         bound = _rewrite(raw, roles, variant)
         sources = _SOURCES
     finally:
-        _SOURCES = None
+        _SOURCES, _ORDER = None, None
     if isinstance(bound, Unbindable):
         return bound
     collapsed = next((names for names in sources.values() if len(names) > 1), None)

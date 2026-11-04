@@ -117,17 +117,34 @@ def test_the_porch_has_outdoor_sensors_an_outdoor_light_and_an_outdoor_plug(edt)
     assert ("climate", "porch", 0) not in roles and ("cover", "porch", 0) not in roles
 
 
-def test_every_room_with_a_light_has_a_smart_plug(edt):
+def test_every_lit_room_has_three_lights_and_three_plugs_the_porch_two_of_each(edt):
+    """More than one light or plug per room, so an automation naming several binds them to several devices."""
     path, roles, catalog, _ = edt
     devices = yaml.safe_load(path.read_text())["devices"]
     lit = {d["at"]["room"] for d in devices if catalog[d["product"]]["identity"]["category"] == "light"}
     assert lit == set(SITES)
-    plugs = {d["at"]["room"]: d for d in devices if d["name"].endswith("_plug")}
-    assert set(plugs) == lit
-    assert all(d["product"] == PLUG for r, d in plugs.items() if r != "porch")
+    for room in lit:
+        n = 2 if room == "porch" else 3
+        for kind, role in (("light", "light"), ("plug", "switch")):
+            names = [f"{room}_{kind}"] + [f"{room}_{kind}_{i}" for i in range(2, n + 1)]
+            mine = [d for d in devices if d["name"] in names]
+            assert sorted(d["name"] for d in mine) == sorted(names), (room, kind)
+            assert len({d["product"] for d in mine}) == 1 and all(d["at"]["room"] == room for d in mine)
+            spots = [(d["at"].get("xy") and tuple(d["at"]["xy"])) for d in mine]
+            assert len(set(spots)) == n, (room, kind, spots)  # spread out, never on one spot
+            assert [k for k in roles if k[:2] == (role, room)] == [(role, room, i) for i in range(n)]
+            assert len({roles[(role, room, i)] for i in range(n)}) == n
+    assert all(d["product"] == PLUG for d in devices if d["name"].startswith("kitchen_plug"))
     assert catalog[PLUG]["identity"]["category"] == "plug" and catalog[PLUG]["fidelity"]["reached"]["L1"]
-    assert {k[1] for k in roles if k[0] == "switch"} == lit
-    assert len({roles[("switch", r, 0)] for r in lit}) == len(lit)
+    assert all(d["product"] == OUTDOOR_LIGHT for d in devices if d["name"].startswith("porch_light"))
+
+
+def test_lab_check_finds_no_placement_or_range_problem(edt, capsys):
+    path, _, _, _ = edt
+    from vesper import cli
+    assert cli.main(["lab", "check", str(path), "--catalog", "catalog/vds"]) == 0
+    out = capsys.readouterr().out
+    assert "devices" in out and "network:" not in out, out
 
 
 def test_a_room_without_a_motion_sensor_uses_its_illuminance_sensors_occupancy(edt):
@@ -310,17 +327,17 @@ def act(**step):
 
 def test_an_area_target_binds_to_the_rooms_device_of_the_actions_domain(edt):
     _, roles, _, _ = edt
+    def every(role, room):  # Home Assistant expands an area to every entity of the domain in it
+        return [roles[(role, room, i)] for i in range(2 if room == "porch" else 3)]
+
     bound = bind(act(action="light.turn_on", target={"area_id": "kitchen"}), roles, 0)
-    assert bound["actions"][0]["target"] == {"entity_id": [roles[("light", "kitchen", 0)]]}
+    assert bound["actions"][0]["target"] == {"entity_id": every("light", "kitchen")}
     bound = bind(act(service="switch.turn_off", target={"area_id": ["bathroom", "living_room"]}), roles, 0)
-    assert bound["actions"][0]["target"] == {"entity_id": [roles[("switch", "bathroom", 0)],
-                                                           roles[("switch", "living", 0)]]}
+    assert bound["actions"][0]["target"] == {"entity_id": every("switch", "bathroom") + every("switch", "living")}
     bound = bind(act(action="light.turn_on", target={"area_id": "outdoors", "entity_id": "light.office"}), roles, 0)
-    assert bound["actions"][0]["target"] == {"entity_id": [roles[("light", "office", 0)],
-                                                           roles[("light", "porch", 0)]]}
+    assert bound["actions"][0]["target"] == {"entity_id": [roles[("light", "office", 0)], *every("light", "porch")]}
     bound = bind(act(action="light.turn_off", area_id="hallway"), roles, 0)  # the old style, beside the action
-    assert bound["actions"][0] == {"action": "light.turn_off",
-                                   "target": {"entity_id": [roles[("light", "corridor", 0)]]}}
+    assert bound["actions"][0] == {"action": "light.turn_off", "target": {"entity_id": every("light", "corridor")}}
 
 
 def test_an_area_the_home_has_no_room_for_or_an_unmodelled_area_action_is_named(edt):
@@ -751,7 +768,7 @@ def test_a_temperature_threshold_out_of_the_ambient_range_is_refused(edt, thresh
     assert isinstance(bind(lux, roles, 0), dict)  # only temperatures
 
 
-@pytest.mark.parametrize("ids", [("light.kitchen_ceiling", "light.kitchen_spots"),
+@pytest.mark.parametrize("ids", [("sensor.kitchen_temperature", "sensor.kitchen_temp_2"),
                                  ("binary_sensor.front_door", "binary_sensor.back_door"),
                                  ("climate.living_room", "climate.bedroom")])
 def test_distinct_entities_that_collapse_onto_one_device_are_refused(edt, ids):
@@ -765,9 +782,25 @@ def test_distinct_entities_that_collapse_onto_one_device_are_refused(edt, ids):
     same = {"alias": "s", "triggers": [{"trigger": "state", "entity_id": ids[0]}],
             "actions": [{"action": "notify.me", "data": {"message": f"{{{{ states('{ids[0]}') }}}}"}}]}
     assert isinstance(bind(same, roles, 0), dict)  # one entity named twice is fine
+
+
+def test_distinct_lights_of_a_room_bind_to_distinct_lights_in_order_of_first_appearance(edt):
+    _, roles, _, _ = edt
+    names = ["light.kitchen_spots", "light.kitchen_ceiling", "light.kitchen_island"]
+    raw = {"alias": "k", "triggers": [{"trigger": "state", "entity_id": names[0], "to": "on"}],
+           "actions": [{"action": "light.turn_on", "target": {"entity_id": names[1:]}},
+                       {"action": "light.turn_off", "target": {"entity_id": names[0]}}]}
+    b = bind(raw, roles, 0)
+    lights = [roles[("light", "kitchen", i)] for i in range(3)]
+    assert b["triggers"][0]["entity_id"] == lights[0] and b["actions"][0]["target"]["entity_id"] == lights[1:]
+    assert b["actions"][1]["target"]["entity_id"] == lights[0] and bind(raw, roles, 0) == b  # deterministic
+    plugs = bind(act(action="switch.turn_on", target={"entity_id": ["switch.porch_a", "switch.garden_b"]}), roles, 0)
+    assert plugs["actions"][0]["target"]["entity_id"] == [roles[("switch", "porch", 0)], roles[("switch", "porch", 1)]]
+    four = act(action="light.turn_on", target={"entity_id": [*names, "light.kitchen_hood"]})
+    assert bind(four, roles, 0) == Unbindable(
+        "distinct entities collapse onto one device (for light.kitchen_spots, light.kitchen_hood)")
     area = act(action="light.turn_on", target={"area_id": "kitchen", "entity_id": "light.kitchen"})
-    reason = "distinct entities collapse onto one device (for light.kitchen, area kitchen)"
-    assert bind(area, roles, 0) == Unbindable(reason)
+    assert bind(area, roles, 0)["actions"][0]["target"]["entity_id"] == lights  # named, then the area, once each
 
 
 @pytest.mark.parametrize("cond,reason", [

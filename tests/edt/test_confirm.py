@@ -373,3 +373,16 @@ def test_a_light_turned_on_with_brightness_twice_is_two_firings_closed_loop(edt)
     r = cf.closed_loop(auto, Env(CITY, "2026-01-15", 0.0, 4), home_yaml, work / "cache", days=1)
     assert len(r["rows"]) == 4  # the session writes a row per part of the command (state, brightness)
     assert [(f.service, f.target) for f in r["firings"]] == [("light.turn_on", lamp)] * 2
+
+
+def test_a_copy_light_lifts_the_rooms_lux_only_once_turned_on(edt):
+    """The extra lights of a room are real lamps: the same pair on the living room's third light flaps closed loop
+    as on its first (its lamp lifts the lux), and the open loop, where no automation turns one on, does not."""
+    work, _, roles = edt
+    pair = toggle_pair(roles)
+    pair["actions"][0]["target"]["entity_id"] = roles[("light", "living", 2)]
+    s = sweep({"pair3": entry({ENV_A.key: out(fired=True, tod=14.0, flaps=False)}, ["flaps"]) | {"bound": pair}},
+              envs=(ENV_A,))
+    report = cf.confirm(s, work / "run3", sample=1, seed=0, cache=work / "cache", days=2)
+    [d] = report["disagreements"]
+    assert d["closed"]["flaps"] is True and d["open"]["flaps"] is False
