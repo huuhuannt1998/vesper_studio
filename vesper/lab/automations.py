@@ -14,7 +14,11 @@ Supported: triggers `state` (to, from, for; `to: ~` is any change), `numeric_sta
 `sun` (event sunrise or sunset, offset), condition `sun` (after and before sunrise or sunset, with offsets; after
 and before across midnight is either), and the entity `sun.sun` (above_horizon, below_horizon), all from the same
 astral sun as Home Assistant's at the site and the run's date; actions `light.*` (brightness,
-brightness_pct), `switch.*` (turn_on, turn_off, toggle), `lock.lock`/`lock.unlock` and `delay`; `enabled: false`
+brightness_pct), `switch.*` (turn_on, turn_off, toggle), `lock.lock`/`lock.unlock`, `climate.set_temperature`
+(temperature, or target_temp_low and target_temp_high on a twin with a heating and a cooling setpoint, and hvac_mode),
+`climate.set_hvac_mode`, `climate.turn_on`/`climate.turn_off` on the home's thermostats (the climate entity of
+Home Assistant's MQTT discovery: the setpoint and `system_mode` it exposes, within its range and its modes) and
+`delay`; `enabled: false`
 anywhere; mode `single`. An automation using anything else (a template, an option, a key the engine does not
 know, an unquoted on/off that Home Assistant itself refuses) is refused by name when the file is loaded, never run
 in part; the others run.
@@ -42,7 +46,9 @@ from vesper.exposure.z2m_bridge import flatten, ieee_address
 DAY_S = 86400
 LOOP_LIMIT = 100  # firings of one automation at one instant: more is a loop (it triggers itself), not a day
 SERVICES = {"light": ("turn_on", "turn_off", "toggle"), "switch": ("turn_on", "turn_off", "toggle"),
-            "lock": ("lock", "unlock")}
+            "lock": ("lock", "unlock"), "climate": ("set_temperature", "set_hvac_mode", "turn_on", "turn_off")}
+TURN_ON_MODES = ("heat_cool", "heat", "cool")  # Home Assistant's climate.turn_on: the first of these the entity has
+SET_TEMPERATURE_KEYS = {"temperature", "target_temp_low", "target_temp_high", "hvac_mode"}
 AUTOMATION_KEYS = {"id", "alias", "description", "mode", "max_exceeded", "initial_state", "trace",
                    "triggers", "trigger", "conditions", "condition", "actions", "action"}
 TRIGGER_KEYS = {"state": {"entity_id", "to", "from", "for"}, "numeric_state": {"entity_id", "above", "below", "for"},
@@ -277,12 +283,14 @@ class Engine:
             if not self.permissive:
                 raise AutomationError(f"mode {mode!r} is not supported (single only)")
             approximations.append(f"mode {mode} run as single")
+        self._notes = []  # what permissive mode records instead of running, for `approximations`
         triggers = [self._trigger(t) for t in _enabled(_list(a.get("triggers", a.get("trigger")), "triggers"))]
         if not triggers and not _list(a.get("triggers", a.get("trigger")), "triggers"):
             raise AutomationError("it has no trigger")
         conditions = [self._condition(c)
                       for c in _enabled(_list(a.get("conditions", a.get("condition")), "conditions"))]
         actions = [self._action(x) for x in _enabled(_list(a.get("actions", a.get("action")), "actions"))]
+        approximations += self._notes
         return Automation(label, triggers, conditions, actions, approximations=approximations)
 
     def _entity(self, entity_id) -> Entity:
@@ -365,6 +373,14 @@ class Engine:
             return {"kind": "delay", "seconds": _seconds(x["delay"], "delay")}
         service = x.get("action", x.get("service"))
         domain, _, verb = str(service).partition(".")
+        if domain == "climate" and verb in SERVICES["climate"]:
+            try:
+                return self._climate(x, service, verb)
+            except AutomationError as e:
+                if not self.permissive:
+                    raise
+                self._notes.append(f"{service} recorded, not run: {e}")
+                return self._record(x, service)
         if verb not in SERVICES.get(domain, ()):
             if self.permissive and isinstance(service, str) and SERVICE_NAME.fullmatch(service):
                 return self._record(x, service)
@@ -395,6 +411,73 @@ class Engine:
                 raise AutomationError(f"{where}: data {key}: {value!r} is not between 0 and {allowed[key]}")
             brightness = round(v * 255 / 100) if key == "brightness_pct" else v  # the light service's 0..255
         return {"kind": "call", "service": service, "entities": ents, "brightness": brightness}
+
+    def _climate(self, x: dict, service: str, verb: str) -> dict:
+        """A climate action on the home's thermostats: per entity, the (feature, value) commands the climate entity
+        sends (Home Assistant's MQTT climate: `temperature_command_template` and `mode_command_template`)."""
+        where = f"action {service}"
+        _keys(x, ACTION_KEYS, where)
+        target = x.get("target") or {}
+        if not isinstance(target, dict) or set(target) - {"entity_id"}:
+            raise AutomationError(f"{where}: target {target!r} is not an entity id list")
+        ents = _entities(target.get("entity_id") or x.get("entity_id"))
+        if not ents:
+            raise AutomationError(f"{where}: no target entity")
+        data = x.get("data") or {}
+        if not isinstance(data, dict):
+            raise AutomationError(f"{where}: data {data!r} is not a mapping")
+        commands = {}
+        for entity_id in ents:
+            e = self._entity(entity_id)
+            if e.platform != "climate":
+                raise AutomationError(f"{where}: {entity_id} is not a climate")
+            commands[entity_id] = self._climate_commands(e, verb, data, where)
+        return {"kind": "climate", "service": service, "entities": ents, "commands": commands}
+
+    def _climate_commands(self, e: Entity, verb: str, data: dict, where: str) -> list[tuple[str, object]]:
+        features = self.runtime.twins[e.twin_id].features
+        modes = e.cfg.get("modes") or []
+
+        def mode(name) -> tuple[str, str]:
+            if "mode_command_topic" not in e.cfg:
+                raise AutomationError(f"{where}: {e.entity_id} cannot change its mode")
+            if name not in modes:
+                raise AutomationError(f"{where}: {e.entity_id} has no mode {name!r} (it has {', '.join(modes)})")
+            return "system_mode", name
+
+        def temperature(feature: str, value, key: str) -> tuple[str, float]:
+            c = _number(value, f"{where}: {key}")
+            v = round(c * 9 / 5 + 32, 1) if e.cfg.get("temperature_unit") == "F" else c  # the entity's unit
+            lo, hi = features[feature].get("range") or (None, None)
+            if (lo is not None and v < lo) or (hi is not None and v > hi):
+                raise AutomationError(f"{where}: {key} {value!r} is outside {e.entity_id}'s range {lo}..{hi}")
+            return feature, v
+
+        if verb in ("turn_on", "turn_off"):
+            _keys(data, set(), f"{where}: data")
+            return [mode("off") if verb == "turn_off" else mode(next(
+                (m for m in TURN_ON_MODES if m in modes), TURN_ON_MODES[0]))]
+        if verb == "set_hvac_mode":
+            _keys(data, {"hvac_mode"}, f"{where}: data")
+            return [mode(data.get("hvac_mode"))]
+        _keys(data, SET_TEMPERATURE_KEYS, f"{where}: data")
+        out: list[tuple[str, object]] = []
+        if "temperature" in data:
+            if "target_temp_low" in data or "target_temp_high" in data:
+                raise AutomationError(f"{where}: temperature and target_temp_low/high together")
+            out.append(temperature(e.feature, data["temperature"], "temperature"))
+        elif "target_temp_low" in data and "target_temp_high" in data:
+            cooling = e.feature.replace("heating", "cooling")
+            if e.feature == cooling or cooling not in features or "set" not in features[cooling].get("access", ()):
+                raise AutomationError(f"{where}: {e.entity_id} has no heating and cooling setpoints for "
+                                      "target_temp_low/target_temp_high")
+            out += [temperature(e.feature, data["target_temp_low"], "target_temp_low"),
+                    temperature(cooling, data["target_temp_high"], "target_temp_high")]
+        else:
+            raise AutomationError(f"{where}: needs temperature, or target_temp_low and target_temp_high")
+        if "hvac_mode" in data:
+            out.append(mode(data["hvac_mode"]))
+        return out
 
     @staticmethod
     def _record(x: dict, service: str) -> dict:
@@ -590,6 +673,12 @@ class Engine:
             if x["kind"] == "record":  # no twin: the session writes down the call and sends nothing
                 for target in x["targets"] or [""]:  # an action that names no entity (notify.notify) is kept too
                     self.session.automation_command(a.name, why, x["service"], target, "", "", None)
+                continue
+            if x["kind"] == "climate":
+                for entity_id in x["entities"]:
+                    for feature, value in x["commands"][entity_id]:
+                        self.session.automation_command(a.name, why, x["service"], entity_id,
+                                                        self.entities[entity_id].twin_id, feature, value)
                 continue
             for entity_id in x["entities"]:
                 self._call(a, x, self.entities[entity_id], why)
