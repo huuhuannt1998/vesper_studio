@@ -2025,6 +2025,10 @@ def main(argv: list[str] | None = None) -> int:
     edt_census = edt_actions.add_parser("census", help="count a corpus's automations and the environment-coupled ones")
     edt_census.add_argument("--corpus", required=True, help="the corpus directory (its raw/ holds the YAML files)")
     edt_census.add_argument("--out", required=True, help="the census file (JSON)")
+    edt_ladder = edt_actions.add_parser("ladder", help="the necessity ladder: how much of rung 4 the cheaper rungs get")
+    edt_ladder.add_argument("--sweep", action="append", required=True,
+                            help="a sweep result (JSON; its rung is read from it); repeat per rung")
+    edt_ladder.add_argument("--out", required=True, help="the ladder report (JSON)")
     args = parser.parse_args(argv)
     _configured_defaults(args)
     if args.command in ("setup", "twins", "validate", "lab"):
@@ -2296,6 +2300,27 @@ def _edt_census(args) -> int:
     return 0
 
 
+def _edt_ladder(args) -> int:
+    """`vesper edt ladder`: rung 0's detector and rungs 1-3 against rung 4, from sweep result files."""
+    from vesper.edt.ladder import ladder_report
+    by_rung: dict[int, dict] = {}
+    for f in args.sweep:
+        result = json.loads(Path(f).read_text())
+        if int(result["rung"]) in by_rung:
+            print(f"FAILED edt ladder: rung {result['rung']} given twice ({f})", file=sys.stderr)
+            return 1
+        by_rung[int(result["rung"])] = result
+    if 4 not in by_rung:
+        print("FAILED edt ladder: no rung 4 sweep among --sweep", file=sys.stderr)
+        return 1
+    report = ladder_report(by_rung)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    print(f"rung 0 AUC {report['rung0']['auc']}; rungs {sorted(report['rungs'])}; report {out}")
+    return 0
+
+
 def _dispatch(args) -> int:
     if args.command == "catalog":
         if args.action in ("bundle", "fetch"):
@@ -2318,7 +2343,7 @@ def _dispatch(args) -> int:
     if args.command == "lab":
         return _lab(args)
     if args.command == "edt":
-        return _edt_census(args)
+        return _edt_ladder(args) if args.action == "ladder" else _edt_census(args)
     if args.action == "discovery":
         return _validate_discovery(args)
     if args.action == "sun":
