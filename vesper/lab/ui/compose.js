@@ -141,12 +141,18 @@ export function editedPlan(read, { edits = {}, left = [], entrance } = {}) {
   return { plan, notes };
 }
 
-// The reading's doors to the outside whose room is still in the plan: the doors that can be the entrance.
-export function outsideDoors(read, left = []) {
+// The reading's doors that can be the entrance: those to the outside whose room is still in the plan, and the
+// `current` entrance even when it is between two rooms (a reading's guess, shown as chosen and marked; the check
+// then says what is wrong with it).
+export function outsideDoors(read, left = [], current = null) {
   const gone = new Set(left);
   const names = Object.fromEntries(read.rooms.map((r) => [r.id, r.name || r.id]));
-  return (read.doors || []).flatMap((d, k) => (d.rooms.includes("outside") && !d.rooms.some((s) => gone.has(s))
-    ? [{ index: k, label: `door ${k + 1}: ${d.rooms.map((s) => names[s] || s).join(" – ")}` }] : []));
+  return (read.doors || []).flatMap((d, k) => {
+    const out = d.rooms.includes("outside");
+    if ((!out && k !== current) || d.rooms.some((s) => gone.has(s))) return [];
+    return [{ index: k, label: `door ${k + 1}: ${d.rooms.map((s) => names[s] || s).join(" – ")}` +
+                            (out ? "" : " (not to the outside)") }];
+  });
 }
 
 // The problems the page lists: its own notes first; a note about the entrance stands for the check's "no entrance".
@@ -248,11 +254,19 @@ export function importNote(job, seconds = 0) {
     return `${READING_TEXT} (${m ? `${m} min ` : ""}${s} s so far)`;
   }
   if (job.state === "failed") return `Not read: ${job.error}`;
+  if (job.state === "stopped") return "Stopped: Claude's reading was ended and nothing was read.";
   if (job.state !== "done") return "";
   const n = job.plan.rooms.length, rooms = `${n} room${n === 1 ? "" : "s"}`;
+  const builds = "Generate home builds this plan as edited here.";
   return job.kind === "json"
-    ? `${rooms} from the plan file. Check them, set the scale if it is in pixels, then Generate home.`
-    : `Claude read ${rooms}. Check each one over the image, set the scale, then Generate home.`;
+    ? `${rooms} from ${job.name || "the plan file"}. Check them and set the scale if it is in pixels: ${builds}`
+    : `Claude read ${rooms}${job.name ? ` from ${job.name}` : ""}. Check each one over the image and set the scale: ${builds}`;
+}
+
+// How long a reading may take at worst (the server's limit: an answer and its retry), and how to end it.
+export function readingLimit(job) {
+  return job.limit_s ? `A reading can take up to ${Math.round(job.limit_s / 60)} minutes at worst (an answer and ` +
+    "one retry); Stop reading ends it." : "Stop reading ends it.";
 }
 
 // -- the page ------------------------------------------------------------------------------------------------
@@ -437,10 +451,12 @@ if (typeof document !== "undefined") {
   const imp = model.plan;
   let importTimer = 0, tickTimer = 0, checkTimer = 0, checkSeq = 0, selectedRoom = null;
   let askedLatest = false;
+  let reading = null; // the reading going on (a job), followed whatever plan the panel shows
 
   function showImport(on) {
     $("import").hidden = !on;
     document.querySelector("main").classList.toggle("importing", on && Boolean(imp.plan));
+    syncGenerate();
     if (on && !askedLatest) { // a reading this lobby already has (the page was opened again): show it
       askedLatest = true;
       api("/api/import").then((job) => { if (job.state !== "none" && !imp.job) takeJob(job); }).catch(() => {});
@@ -468,24 +484,74 @@ if (typeof document !== "undefined") {
     }
   }
 
-  // A job from the server (a reading started, going, done or failed): follow it, or take what it read.
+  // A new job (a file sent, or the one a reopened page finds) is what the panel shows from now on: the plan shown
+  // before is cleared (Generate home waits for this one), a reading is followed until it ends.
   function takeJob(job) {
+    clearShown();
+    Object.assign(imp, { job: job.job, state: job.state, kind: job.kind, source: job.name || "" });
+    if (job.state === "reading") { progress(""); follow(job); return; }
+    showDone(job);
+  }
+
+  function clearShown() {
+    Object.assign(imp, { job: null, read: null, plan: null, notes: [], problems: [], straight: null, transform: null,
+                         image: null, size: null, saved: null });
+    $("import-read").hidden = true;
+    $("import-overlay").replaceChildren();
+    showImport(model.rooms.mode === "plan");
+  }
+
+  // The reading going on: its time so far, how long it may take, Stop reading; polled until it ends. A plan file
+  // imported meanwhile is shown (and is what Generate builds) while the reading goes on.
+  function follow(job) {
     clearInterval(importTimer); clearInterval(tickTimer);
-    Object.assign(imp, { job: job.job, state: job.state, kind: job.kind, source: job.name || imp.source });
-    if (job.state === "reading") {
-      const since = job.started ? job.started * 1000 : Date.now(); // the server's clock: a reopened page counts on
-      const tick = () => progress(importNote(job, Math.max(0, Date.now() - since) / 1000), "now");
-      tick();
-      tickTimer = setInterval(tick, 1000);
-      importTimer = setInterval(async () => {
-        try {
-          const now = await api(`/api/import/${job.job}`);
-          if (now.state !== "reading") takeJob(now);
-        } catch (e) { /* the next poll tries again */ }
-      }, 3000);
-      return;
+    reading = job;
+    $("import-reading").hidden = false;
+    $("import-reading-limit").textContent = readingLimit(job);
+    $("import-stop").hidden = false;
+    $("import-show").hidden = true;
+    const since = job.started ? job.started * 1000 : Date.now(); // the server's clock: a reopened page counts on
+    const tick = () => {
+      const other = imp.job !== job.job && imp.plan ? ` Meanwhile Generate home builds ${imp.source || "the plan shown"}.` : "";
+      $("import-reading-text").textContent = importNote(job, Math.max(0, Date.now() - since) / 1000) + other;
+    };
+    tick();
+    tickTimer = setInterval(tick, 1000);
+    importTimer = setInterval(async () => {
+      try {
+        const now = await api(`/api/import/${job.job}`);
+        if (now.state !== "reading") ended(now);
+      } catch (e) { /* the next poll tries again */ }
+    }, 3000);
+  }
+
+  // The reading ended (done, failed or stopped): shown if it is the panel's job, else offered.
+  function ended(job) {
+    clearInterval(importTimer); clearInterval(tickTimer);
+    reading = null;
+    if (imp.job === job.job) { $("import-reading").hidden = true; showDone(job); return; }
+    $("import-stop").hidden = true;
+    $("import-reading-limit").textContent = "";
+    $("import-reading-text").textContent = job.state === "done"
+      ? `The reading of ${job.name || "your image"} is done.` : importNote(job);
+    const show = $("import-show");
+    show.hidden = job.state !== "done";
+    show.onclick = () => { $("import-reading").hidden = true; takeJob(job); };
+  }
+
+  async function stopReading() {
+    if (!reading) return;
+    try {
+      ended(await api(`/api/import/${reading.job}/stop`, {}));
+    } catch (e) {
+      $("import-reading-text").textContent = `Not stopped: ${e.message}`;
     }
-    if (job.state === "failed") { progress(importNote(job), "bad"); return; }
+  }
+
+  // A job that is not reading: its plan shown to check and edit, or why there is none.
+  function showDone(job) {
+    imp.state = job.state;
+    if (job.state !== "done") { progress(importNote(job), "bad"); return; }
     Object.assign(imp, { read: job.plan, edits: {}, left: [], entrance: undefined, problems: job.problems,
                          summary: job.summary || "", transform: job.transform, straight: job.rooms,
                          saved: job.saved || null, scale: "", size: null,
@@ -496,7 +562,7 @@ if (typeof document !== "undefined") {
     $("import-saved").textContent = imp.saved ? `The plan Claude read is kept at ${imp.saved}: import that file to ` +
       "build from it again with no Claude." : "";
     $("import-read").hidden = false;
-    showImport(model.rooms.mode === "plan");
+    showImport(model.rooms.mode === "plan"); // and Generate home, which waited for a plan
     drawImportRooms();
     drawEntrance();
     drawChecked();
@@ -567,8 +633,8 @@ if (typeof document !== "undefined") {
   // The entrance: one of the reading's doors to the outside whose room is still in the plan.
   function drawEntrance() {
     const box = $("import-entrance");
-    const doors = outsideDoors(imp.read, imp.left);
     const now = imp.entrance === undefined ? imp.read.entrance : imp.entrance;
+    const doors = outsideDoors(imp.read, imp.left, now);
     const live = doors.some((d) => d.index === now);
     box.replaceChildren(el("option", { value: "", textContent: doors.length ? "Choose a door to the outside…"
       : "No door to the outside is left", selected: !live }),
@@ -641,6 +707,7 @@ if (typeof document !== "undefined") {
     drop.ondragleave = () => drop.classList.remove("over");
     drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files[0]); };
     $("import-scale").oninput = (e) => { imp.scale = e.target.value; recheck(); };
+    $("import-stop").onclick = stopReading;
     $("import-entrance").onchange = (e) => {
       imp.entrance = e.target.value === "" ? null : Number(e.target.value);
       rebuild();
@@ -810,8 +877,14 @@ if (typeof document !== "undefined") {
       out.className = "outcome bad";
       out.textContent = `Not generated: ${e.message}`;
     } finally {
-      $("generate").disabled = false;
+      syncGenerate();
     }
+  }
+
+  // Generate home waits while Claude furnishes the home, and, when the rooms come from a plan, for a plan to build.
+  let furnishRunning = false;
+  function syncGenerate() {
+    $("generate").disabled = furnishRunning || (model.rooms.mode === "plan" && !imp.plan);
   }
 
   // -- furnishing it in Blender with Claude --------------------------------------------------------------
@@ -837,7 +910,8 @@ if (typeof document !== "undefined") {
     $("furnish-note").textContent = v.note || why || "Ready: a Blender window of its own opens for this home, and stays open after.";
     $("furnish-start").disabled = v.running || Boolean(why);
     $("furnish-stop").hidden = !v.running;
-    $("generate").disabled = v.running;
+    furnishRunning = v.running;
+    syncGenerate();
     if (!v.running) clearInterval(furnishTimer);
   }
 

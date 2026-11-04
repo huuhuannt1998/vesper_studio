@@ -19,6 +19,7 @@ from pathlib import Path
 import yaml
 
 from vesper.catalog_search import LEVELS
+from vesper.lab.plan_read import TIMEOUT_S as READ_TIMEOUT_S
 from vesper.validation.report import build_report, twin_model
 
 PAGE = 50
@@ -257,6 +258,7 @@ def _file_name(name: str | None) -> str | None:
 
 
 IMPORT_PATH = re.compile(r"^/api/import/([0-9a-f]{16})(/image)?$")  # a reading, by its job id; its image
+STOP_PATH = re.compile(r"^/api/import/([0-9a-f]{16})/stop$")
 
 MOSQUITTO_PATHS =("/opt/homebrew/sbin/mosquitto", "/usr/local/sbin/mosquitto", "/usr/sbin/mosquitto")
 
@@ -351,10 +353,11 @@ class ComposeServer:
 
     # -- importing a floor plan (floor-plan import, task A4) ------------------------------------------------
     IMPORTS_KEPT = 4  # the readings (and their images) the server remembers
+    READING_LIMIT_S = 2 * READ_TIMEOUT_S  # the worst a reading takes: an answer and its one retry, each to the limit
 
     def _public(self, job: dict) -> dict:
         with self._import_lock:  # a reading's thread updates its job
-            return {k: v for k, v in job.items() if k != "image"}
+            return {k: v for k, v in job.items() if k not in ("image", "stop")}
 
     def start_import(self, data: bytes, name: str | None = None) -> dict:
         """A floor-plan image (PNG, JPEG or PDF by its first bytes) read by Claude in the background, or a
@@ -382,10 +385,25 @@ class ComposeServer:
                                             **import_check(plan)}))
         with self._import_lock:
             if any(j["state"] == "reading" for j in self._imports.values()):
-                raise ComposeError("Claude is reading a plan already: wait for it (each reading uses your quota)")
-            job = self._keep({**head, "kind": kind, "state": "reading", "image": data})
+                raise ComposeError("Claude is reading a plan already: wait for it, or stop it (each reading uses "
+                                   "your quota)")
+            job = self._keep({**head, "kind": kind, "state": "reading", "limit_s": self.READING_LIMIT_S,
+                              "image": data, "stop": threading.Event()})
         threading.Thread(target=self._read, args=(job,), name="vesper-plan-read", daemon=True).start()
         return self._public(job)
+
+    def stop_import(self, job_id: str) -> dict | None:
+        """Stop a reading (the page's Stop reading): Claude's process is killed and the job is "stopped" at once,
+        so another reading may start. None for an unknown id; ComposeError when it is not reading."""
+        with self._import_lock:
+            job = self._imports.get(job_id)
+            if job is None:
+                return None
+            if job["state"] != "reading":
+                raise ComposeError(f"that reading is {job['state']}: nothing to stop")
+            job["stop"].set()
+            job.update(state="stopped", error="stopped: Claude's reading was ended and nothing was read")
+            return self._public(job)
 
     def _keep(self, job: dict) -> dict:
         with self._import_lock:
@@ -406,10 +424,13 @@ class ComposeServer:
             path.write_bytes(job["image"])
             read = self._reader
             if read is None:
-                from vesper.lab.plan_read import read_plan_image as read
-            plan = read(path)
+                from vesper.lab.plan_read import read_plan_image
+
+                def read(p, stop):
+                    return read_plan_image(p, stop=stop)
+            plan = read(path, job["stop"])  # (path, stop): `stop` set ends the reading (vesper.lab.plan_read)
             result = {"plan": plan, **import_check(plan)}
-            saved = self._save_reading(job["job"], plan)
+            saved = None if job["stop"].is_set() else self._save_reading(job["job"], plan)
             end = {**result, **({"saved": saved} if saved else {}), "state": "done"}
         except PlanError as e:
             end = {"state": "failed", "error": str(e)}
@@ -418,7 +439,8 @@ class ComposeServer:
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         with self._import_lock:
-            job.update(end)
+            if job["state"] == "reading":  # a stopped job stays stopped
+                job.update(end)
 
     def _save_reading(self, job_id: str, plan: dict) -> str | None:
         """A paid reading kept in the stack's folder (imports/<job>.plan.json), to import again with no Claude."""
@@ -433,18 +455,23 @@ class ComposeServer:
             return None  # the page still has the plan; nothing else depends on the copy
 
     def import_status(self, job_id: str | None = None) -> dict | None:
-        """One job, or the latest ({"state": "none"} when there is none); None for an unknown id."""
+        """One job, or the one a reopened page follows: the reading going on, else the newest ({"state": "none"}
+        when there is none); None for an unknown id."""
         with self._import_lock:
             if job_id is None:
-                return self._public(next(reversed(self._imports.values()))) if self._imports else {"state": "none"}
+                jobs = list(self._imports.values())
+                follow = next((j for j in jobs if j["state"] == "reading"), jobs[-1] if jobs else None)
+                return self._public(follow) if follow is not None else {"state": "none"}
             job = self._imports.get(job_id)
             return self._public(job) if job is not None else None
 
     def import_image(self, job_id: str) -> tuple[bytes, str] | None:
-        job = self._imports.get(job_id)
-        if job is None or "image" not in job:
-            return None
-        return job["image"], {"png": "image/png", "jpg": "image/jpeg", "pdf": "application/pdf"}[job["kind"]]
+        """The image a job read, and its type, for the page to draw under the plan; None for a PDF (never drawn)."""
+        with self._import_lock:
+            job = self._imports.get(job_id)
+            if job is None or "image" not in job or job["kind"] not in ("png", "jpg"):
+                return None
+            return job["image"], {"png": "image/png", "jpg": "image/jpeg"}[job["kind"]]
 
     def hub(self) -> bool:
         """A played home gets Home Assistant (set up here)."""
@@ -597,6 +624,8 @@ class ComposeServer:
         server = self
 
         class Handler(BaseHTTPRequestHandler):
+            timeout = 60  # seconds a stalled client may hold its thread (a 50 MB upload on loopback takes far less)
+
             def log_message(self, *a):
                 pass
 
@@ -678,7 +707,14 @@ class ComposeServer:
                 if n <= 0:
                     return self._json(400, {"error": "no file (or no length)"})
                 try:
-                    return self._json(200, server.start_import(self.rfile.read(n), self.headers.get("X-Vesper-Name")))
+                    data = self.rfile.read(n)
+                except OSError:  # the socket's timeout: a client that stalled mid-upload
+                    data = b""
+                if len(data) != n:  # a body cut short is never read, by Claude or anyone
+                    self.close_connection = True
+                    return self._json(400, {"error": "the file arrived incomplete: send it again"})
+                try:
+                    return self._json(200, server.start_import(data, self.headers.get("X-Vesper-Name")))
                 except ComposeError as e:
                     return self._json(400, {"error": str(e)})
 
@@ -703,6 +739,10 @@ class ComposeServer:
                         return self._json(200, server.furnish(body))
                     if self.path == "/api/furnish/stop":
                         return self._json(200, server.stop_furnish())
+                    if stop := STOP_PATH.match(self.path):
+                        stopped = server.stop_import(stop.group(1))
+                        return self._json(200, stopped) if stopped is not None else self._json(
+                            404, {"error": "no such reading"})
                     if self.path == "/api/import/check":
                         if not isinstance(body, dict) or not isinstance(body.get("plan"), dict):
                             raise ComposeError("a check is {plan, scale}: the plan as edited and the scale text")

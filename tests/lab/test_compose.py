@@ -442,10 +442,18 @@ class FakeReader:
         import threading
         self.plan, self.error, self.calls, self.go = plan, error, [], threading.Event()
 
-    def __call__(self, path):
+    def __call__(self, path, stop):
+        import time
         from pathlib import Path
+
+        from vesper.lab.plan_read import ReadingStopped
         self.calls.append(Path(path).read_bytes())
-        assert self.go.wait(5)
+        end = time.monotonic() + 5
+        while not self.go.is_set():
+            if stop.is_set():
+                raise ReadingStopped("the reading was stopped")
+            assert time.monotonic() < end
+            time.sleep(0.01)
         if self.error:
             raise self.error
         return self.plan
@@ -583,6 +591,86 @@ def test_generate_builds_the_edited_plan_as_the_composed_home(server, tmp_path):
     # a generated home after an imported one sets the plan aside with the rest
     assert call(s, "/api/generate", {"format": "vesper-request/1", "rooms": 2, "devices": []})[0] == 200
     assert not (out / "plan.json").exists()
+
+
+def raw(s, request: bytes) -> tuple[int, dict, bytes]:
+    """One request written to the server as given (a body shorter than its length, a half-closed socket)."""
+    import socket
+    k = socket.create_connection(("127.0.0.1", s.port), timeout=5)
+    k.sendall(request)
+    k.shutdown(socket.SHUT_WR)
+    got = b""
+    while chunk := k.recv(65536):
+        got += chunk
+    k.close()
+    head, _, body = got.partition(b"\r\n\r\n")
+    lines = head.decode().split("\r\n")
+    return int(lines[0].split()[1]), dict(line.split(": ", 1) for line in lines[1:]), body
+
+
+def test_a_body_shorter_than_its_length_is_refused_and_nothing_is_read(server):
+    s, _ = server
+    s._reader = reader = FakeReader(px_plan())
+    status, _, body = raw(s, f"POST /api/import HTTP/1.1\r\nHost: 127.0.0.1:{s.port}\r\nContent-Length: 1000\r\n"
+                             "\r\n".encode() + PNG)
+    assert status == 400 and "arrived incomplete" in json.loads(body)["error"]
+    assert reader.calls == [] and s.import_status() == {"state": "none"}
+    assert not (s.stack_root / "imports").exists()
+
+
+def test_a_stalled_client_gives_its_thread_back_after_a_minute(server):
+    s, _ = server
+    assert s._handler().timeout == 60
+
+
+def test_a_reading_can_be_stopped_and_the_next_one_starts_at_once(server):
+    s, _ = server
+    s._reader = reader = FakeReader(px_plan())
+    job = json.loads(post_bytes(s, "/api/import", PNG, "image/png")[1])["job"]
+    status, body = call(s, f"/api/import/{job}/stop", {})
+    assert status == 200 and json.loads(body)["state"] == "stopped"
+    second = json.loads(post_bytes(s, "/api/import", PNG, "image/png")[1])
+    assert second["state"] == "reading"  # the one-at-a-time slot is free
+    reader.go.set()
+    assert wait_for(s, second["job"])["state"] == "done"
+    import time
+    time.sleep(0.1)
+    assert json.loads(call(s, f"/api/import/{job}")[1])["state"] == "stopped"  # its thread never overwrites that
+    assert call(s, "/api/import/0123456789abcdef/stop", {})[0] == 404
+    assert call(s, f"/api/import/{second['job']}/stop", {})[0] == 400  # done: nothing to stop
+
+
+def test_the_image_is_served_as_its_type_only_and_a_pdf_is_not_served(server):
+    s, _ = server
+    s._reader = reader = FakeReader(px_plan())
+    reader.go.set()
+    job = json.loads(post_bytes(s, "/api/import", PNG, "image/png")[1])["job"]
+    wait_for(s, job)
+    status, headers, body = raw(s, f"GET /api/import/{job}/image HTTP/1.1\r\nHost: 127.0.0.1:{s.port}\r\n"
+                                   "Connection: close\r\n\r\n".encode())
+    assert status == 200 and body == PNG
+    assert headers["Content-Type"] == "image/png" and headers["X-Content-Type-Options"] == "nosniff"
+    pdf = json.loads(post_bytes(s, "/api/import", b"%PDF-1.4\n" + b"\0" * 32, "application/pdf")[1])["job"]
+    wait_for(s, pdf)
+    assert call(s, f"/api/import/{pdf}/image")[0] == 404  # the page never draws a PDF
+
+
+def test_a_plan_file_imported_during_a_reading_leaves_the_reading_the_one_followed(server):
+    s, _ = server
+    s._reader = reader = FakeReader(px_plan())
+    reading = json.loads(post_bytes(s, "/api/import", PNG, "image/png")[1])["job"]
+    plan_file = json.loads(post_bytes(s, "/api/import", json.dumps(px_plan()).encode(), "application/json")[1])
+    assert plan_file["state"] == "done" and plan_file["job"] != reading
+    assert json.loads(call(s, "/api/import")[1])["job"] == reading  # a reopened page follows the reading
+    reader.go.set()
+    assert wait_for(s, reading)["state"] == "done"
+    assert json.loads(call(s, "/api/import")[1])["job"] == plan_file["job"]  # then the newest
+
+
+def test_a_reading_says_how_long_it_may_take_at_worst():
+    from vesper.lab.compose import ComposeServer
+    from vesper.lab.plan_read import TIMEOUT_S
+    assert ComposeServer.READING_LIMIT_S == 2 * TIMEOUT_S  # one answer, one retry
 
 
 def with_closet() -> dict:

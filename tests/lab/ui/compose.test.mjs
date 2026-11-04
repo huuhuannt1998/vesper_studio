@@ -117,8 +117,8 @@ test("a home with a place asks for its city, day and orientation; without one, n
 });
 
 // -- importing a floor plan (floor-plan import, task A4) -------------------------------------------------------
-import { READING_TEXT, drawOverlay, editedPlan, importNote, outsideDoors, overlayShapes, problemRooms, shownProblems,
-  toImage } from "../../../vesper/lab/ui/compose.js";
+import { READING_TEXT, drawOverlay, editedPlan, importNote, outsideDoors, overlayShapes, problemRooms, readingLimit,
+  shownProblems, toImage } from "../../../vesper/lab/ui/compose.js";
 
 const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
 // three rooms as Claude reads them from a 900 x 800 px image (pixels; y grows downward)
@@ -214,6 +214,15 @@ test("while Claude reads, the page says so and for how long; then what came of i
                "Not read: Claude could not read a floor plan in plan.png: a cat");
   assert.match(importNote({ state: "done", kind: "png", plan: PLAN }), /^Claude read 3 rooms\. /);
   assert.match(importNote({ state: "done", kind: "json", plan: PLAN }), /^3 rooms from the plan file\. /);
+  // which reading Generate home builds: named
+  assert.equal(importNote({ state: "done", kind: "png", plan: PLAN, name: "flat.png" }),
+               "Claude read 3 rooms from flat.png. Check each one over the image and set the scale: Generate home " +
+               "builds this plan as edited here.");
+  assert.match(importNote({ state: "done", kind: "json", plan: PLAN, name: "flat.json" }), /^3 rooms from flat\.json\. /);
+  assert.equal(importNote({ state: "stopped" }), "Stopped: Claude's reading was ended and nothing was read.");
+  assert.equal(readingLimit({ limit_s: 1800 }),
+               "A reading can take up to 30 minutes at worst (an answer and one retry); Stop reading ends it.");
+  assert.equal(readingLimit({}), "Stop reading ends it.");
 });
 
 // PLAN with what a reading can get wrong: a closet too small for any type off the bedroom (plan1's toilet), a back
@@ -259,6 +268,23 @@ test("leaving out the room the entrance opens into says so, and another outside 
                     "room 'k' is not reachable from the entrance through doors"]);
   assert.deepEqual(shownProblems(["no entrance: the plan names no door as the entrance"], []),
                    ["no entrance: the plan names no door as the entrance"]);
+});
+
+test("the reading's own entrance follows its door when an earlier door goes with a room left out", () => {
+  const read = { ...structuredClone(READ), entrance: 4 }; // the back door, after the closet's door (index 3)
+  const { plan, notes } = editedPlan(read, { left: ["c"] }); // entrance undefined: the reading's
+  assert.equal(plan.entrance, 3);
+  assert.deepEqual(plan.doors[plan.entrance].rooms, ["k", "outside"]);
+  assert.deepEqual(notes, []);
+});
+
+test("an entrance read on a door between two rooms is still shown as the entrance, marked as not outside", () => {
+  const read = { ...structuredClone(READ), entrance: 1 }; // Claude's guess: the living room - kitchen door
+  assert.deepEqual(outsideDoors(read, [], 1), [
+    { index: 0, label: "door 1: outside – Living room" },
+    { index: 1, label: "door 2: Living room – Kitchen (not to the outside)" },
+    { index: 4, label: "door 5: Kitchen – outside" }]);
+  assert.deepEqual(outsideDoors(read, ["k"], 1).map((d) => d.index), [0]); // its room left out: not offered
 });
 
 test("a room left out is drawn faintly over the image, not as a room", () => {

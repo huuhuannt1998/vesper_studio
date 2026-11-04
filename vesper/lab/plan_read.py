@@ -63,11 +63,35 @@ Answer with ONLY the JSON object: no explanation before or after it, no comments
 """
 
 
-def _claude(args: list[str], cwd: str | None = None, timeout: float = TIMEOUT_S) -> str:
-    """The default runner: run the Claude Code CLI in `cwd` and return what it printed."""
+class ReadingStopped(PlanError):
+    """The reading was stopped by the user (the lobby's Stop reading): Claude's process was killed."""
+
+
+def _stoppable(args: list[str], cwd: str | None, timeout: float, stop) -> subprocess.CompletedProcess:
+    """subprocess.run's answer, but the process is killed as soon as `stop` (a threading.Event) is set."""
+    import time
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,
+                            text=True, cwd=cwd)
+    end = time.monotonic() + timeout
+    while True:
+        try:
+            out, err = proc.communicate(timeout=0.2)
+            return subprocess.CompletedProcess(args, proc.returncode, out, err)
+        except subprocess.TimeoutExpired:
+            if stop.is_set() or time.monotonic() >= end:
+                proc.kill()
+                proc.communicate()
+                if stop.is_set():
+                    raise ReadingStopped("the reading was stopped: Claude's process was ended") from None
+                raise
+
+
+def _claude(args: list[str], cwd: str | None = None, timeout: float = TIMEOUT_S, stop=None) -> str:
+    """The default runner: run the Claude Code CLI in `cwd` and return what it printed. With `stop` (a
+    threading.Event), setting it kills the CLI at once (ReadingStopped)."""
     try:
-        done = subprocess.run(args, capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL,
-                              cwd=cwd)
+        done = (subprocess.run(args, capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL,
+                               cwd=cwd) if stop is None else _stoppable(args, cwd, timeout, stop))
     except FileNotFoundError:
         raise PlanError("Claude Code is not installed: reading a floor-plan image needs the `claude` command "
                         "(https://claude.com/claude-code) signed in to your account; or write the plan as a "
@@ -175,7 +199,8 @@ def summary(plan_m: dict) -> str:
     return "\n".join(lines)
 
 
-def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: float = TIMEOUT_S) -> dict:
+def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: float = TIMEOUT_S,
+                    stop=None) -> dict:
     """A validated `vesper-plan/1` (in pixels) read from the floor-plan image or PDF at `path`.
 
     The file must be a PNG, JPEG or PDF by its first bytes. A copy of it goes into a fresh temporary directory as
@@ -185,12 +210,15 @@ def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: 
     (the most exact; "sonnet" is faster and cheaper but read doors less exactly in the one comparison made).
     `runner(args, cwd=..., timeout=...) -> str` runs the `claude` argument list and returns its stdout; the default
     runs the CLI. Raises a PlanError when the file is no picture, the CLI is missing, fails or reports an error, or
-    when two answers in a row are not a valid plan (the message carries Claude's last text or stated reason)."""
+    when two answers in a row are not a valid plan (the message carries Claude's last text or stated reason).
+    `stop` (a threading.Event, the lobby's Stop reading): once set, no further answer is asked for and the default
+    runner kills the CLI at once; ReadingStopped is raised."""
     path = Path(path)
     if not path.is_file():
         raise PlanError(f"{_label(str(path))}: no such file")
     ext = _picture_kind(path)
-    run = runner or _claude
+    run = runner or (_claude if stop is None else lambda args, cwd=None, timeout=TIMEOUT_S: _claude(
+        args, cwd=cwd, timeout=timeout, stop=stop))
     tmp = Path(tempfile.mkdtemp(prefix="vesper-plan-")).resolve()
     try:
         copy = tmp / f"plan.{ext}"
@@ -201,6 +229,8 @@ def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: 
                 "--output-format", "json", *(["--model", model] if model else [])]
         text, problem, said = "", "", None
         for attempt in range(2):
+            if stop is not None and stop.is_set():
+                raise ReadingStopped("the reading was stopped")
             prompt = f"{PROMPT}\nThe image: {copy}\n"
             if attempt:
                 prompt += (f"\nYour previous answer was:\n{text}\n\nVESPER cannot use it: {problem}\n\n"

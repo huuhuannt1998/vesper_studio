@@ -90,6 +90,14 @@
     /* importing a floor plan: the plan needs the room, so its column widens while the panel is open */
     main.importing { grid-template-columns: minmax(460px, 1.8fr) minmax(280px, 0.9fr) minmax(280px, 0.9fr); }
     .import { margin: 4px 0 6px 22px; }
+    /* the catalog's column is narrower while a plan is shown: its search on a line of its own, the two choices
+       under it, each free to shrink rather than be cut off */
+    main.importing .filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    main.importing .filters #q { grid-column: 1 / -1; }
+    .filters > * { min-width: 0; max-width: 100%; }
+    .import-reading { border-left: 3px solid var(--accent); padding: 2px 0 2px 10px; margin: 8px 0; }
+    .import-reading p { margin: 3px 0; }
+    .import-reading button { margin-left: 6px; }
     .drop { position: relative; display: grid; gap: 2px; justify-items: center; padding: 18px 12px; margin: 8px 0;
             border: 1px dashed var(--muted); border-radius: 6px; background: var(--panel); font-size: 13px;
             cursor: pointer; text-align: center; }
@@ -148,6 +156,12 @@
           <span><b>Drop a floor plan here</b>, or choose a file</span>
           <span class="muted">PNG, JPEG or PDF up to 50 MB, or a vesper-plan/1 .json</span>
         </label>
+        <div id="import-reading" class="import-reading" hidden>
+          <p id="import-reading-text" class="import-progress now" role="timer" aria-live="off"></p>
+          <p class="muted"><span id="import-reading-limit"></span>
+            <button id="import-stop" type="button">Stop reading</button>
+            <button id="import-show" type="button" hidden>Show it</button></p>
+        </div>
         <p id="import-progress" class="import-progress" role="status" aria-live="polite"></p>
         <div id="import-read" hidden>
           <figure class="plan-figure">

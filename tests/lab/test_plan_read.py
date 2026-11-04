@@ -284,6 +284,38 @@ def test_the_default_runner_returns_stdout(monkeypatch, image):
     assert seen["stdin"] == subprocess.DEVNULL and seen["cwd"] and "/plan.png" in seen["args"][2]
 
 
+def test_a_reading_that_is_stopped_kills_its_process_at_once(tmp_path):
+    """The lobby's Stop reading: the CLI's process (here a sleeping Python) is killed, not waited for."""
+    import sys
+    import threading
+    import time
+    stop = threading.Event()
+    threading.Timer(0.3, stop.set).start()
+    t0 = time.monotonic()
+    with pytest.raises(plan_read.ReadingStopped, match="stopped"):
+        plan_read._claude([sys.executable, "-c", "import time; time.sleep(30)"], cwd=str(tmp_path), timeout=60,
+                          stop=stop)
+    assert time.monotonic() - t0 < 5
+    assert plan_read._claude([sys.executable, "-c", "print('hi')"], stop=threading.Event()) == "hi\n"
+    with pytest.raises(PlanError, match="did not answer within 0.5 s"):
+        plan_read._claude([sys.executable, "-c", "import time; time.sleep(30)"], timeout=0.5,
+                          stop=threading.Event())
+
+
+def test_a_stopped_reading_is_not_retried(image):
+    import threading
+    stop = threading.Event()
+
+    class Stops(Fake):
+        def __call__(self, args, cwd=None, timeout=None):
+            stop.set()  # the user pressed Stop while Claude was answering (badly)
+            return super().__call__(args, cwd, timeout)
+    fake = Stops("not a plan", envelope(json.dumps(px_plan())))
+    with pytest.raises(plan_read.ReadingStopped):
+        read_plan_image(image, runner=fake, stop=stop)
+    assert len(fake.calls) == 1
+
+
 # --- the command ---------------------------------------------------------------------------------------------------
 
 def fake_claude(monkeypatch, *answers):
