@@ -373,7 +373,7 @@ def _validate_sun(args) -> int:
     return 0
 
 
-def _room_range(run: dict) -> str:
+def _rooms_c_range(run: dict) -> str:
     rooms = run.get("rooms_c")
     if not rooms:
         return "-"
@@ -396,7 +396,7 @@ def _validate_crosssite(args) -> int:
               f"{'-' if r['heating_min'] is None else r['heating_min']:>5} {r.get('cooling_min', '-'):>5} "
               f"{r['living_dark_min'] if isinstance(r['living_dark_min'], int) else '-':>8} "
               f"{'-' if dark is None else f'{dark:.2f}':>7} "
-              f"{_room_range(r):>11} "
+              f"{_rooms_c_range(r):>11} "
               f"{(str(o.get('min_c')) + '..' + str(o.get('max_c'))) if o else '-':>11}")
     print(f"report {path}")
     return 0
