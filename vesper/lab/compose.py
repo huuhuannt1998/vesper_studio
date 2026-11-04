@@ -381,6 +381,8 @@ class ComposeServer:
                 plan = load_plan(json.loads(data))
             except (ValueError, PlanError) as e:  # a JSONDecodeError is a ValueError
                 raise ComposeError(f"not a vesper-plan/1 file: {e}") from None
+            except RecursionError:  # json.loads (or the plan's reading) of a file of nested brackets
+                raise ComposeError("the plan file is nested too deeply") from None
             return self._public(self._keep({**head, "kind": "json", "state": "done", "plan": plan,
                                             **import_check(plan)}))
         with self._import_lock:

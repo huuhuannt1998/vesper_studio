@@ -546,6 +546,14 @@ def test_a_plan_file_is_imported_at_once_with_no_claude(server):
     assert status == 400 and "missing key 'rooms'" in json.loads(body)["error"]
 
 
+def test_a_plan_file_nested_too_deeply_is_a_400_not_a_crash(server):
+    s, _ = server
+    deep = b'{"rooms": ' + b"[" * 100_000 + b"]" * 100_000 + b"}"
+    status, body = post_bytes(s, "/api/import", deep, "application/json")
+    assert status == 400 and json.loads(body)["error"] == "the plan file is nested too deeply"
+    assert post_bytes(s, "/api/import", json.dumps(px_plan()).encode(), "application/json")[0] == 200
+
+
 def test_the_check_scales_straightens_and_lists_problems_for_the_plan_as_the_user_edited_it(server):
     s, _ = server
     status, body = call(s, "/api/import/check", {"plan": px_plan(), "scale": "living width 5 m"})
