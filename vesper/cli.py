@@ -384,7 +384,8 @@ def _validate_crosssite(args) -> int:
         dark = r["automations_first_fired_h"].get("living lamp when it gets dark")
         o = r.get("outdoor") or {}
         print(f"{(r['city'] or 'no site (assumed)')[:22]:<22} {r['date'] or '-':<10} "
-              f"{'-' if r['north_deg'] is None else int(r['north_deg']):>4} {r['heating_min'] or '-':>8} "
+              f"{'-' if r['north_deg'] is None else int(r['north_deg']):>4} "
+              f"{'-' if r['heating_min'] is None else r['heating_min']:>8} "
               f"{r['living_dark_min'] if isinstance(r['living_dark_min'], int) else '-':>8} "
               f"{'-' if dark is None else f'{dark:.2f}':>7} "
               f"{(str(o.get('min_c')) + '..' + str(o.get('max_c'))) if o else '-':>11}")

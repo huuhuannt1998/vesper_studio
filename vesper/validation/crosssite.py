@@ -1,12 +1,12 @@
 """RQ3 (environment design 2026-11-03): does a home's place change what its sensors report and its automations do?
 
 One generated home (six rooms, seed 7), the same devices (plus a motion-and-light sensor in the living room and in
-the office), the same automations and no residents, lives one logical day from midnight in each city x date x
-plan orientation, and once with no site (the assumed indoor curve every home got before). Each day's trace gives:
-the minutes the heating runs, each room's temperature range, the daytime minutes (07:00-22:00) the living room is
-below DARK_LUX, when each automation first fires, and the outdoors. Weather is the recorded ERA5 day (fetched
-once into the cache); a day not fetched falls back to clear sky and the assumed temperature curve, and the run says
-so in its sources.
+the office), the same automations and no residents, lives three logical days from midnight in each city x date x
+plan orientation, and once with no site (the assumed indoor curve every home got before). The third day is measured
+(WARMUP_DAYS before it: the rooms' thermal mass forgets their start): the minutes the heating runs, each room's
+temperature range, the daytime minutes (07:00-22:00) the living room is below DARK_LUX, when each automation first
+fires, and the outdoors. Weather is the recorded ERA5 (fetched once into the cache); a day not fetched falls back to
+clear sky and the assumed temperature curve, and the run says so.
 """
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ CITIES = ("Phoenix, AZ, USA", "Seattle, WA, USA", "Minneapolis, MN, USA", "Stock
 DATES = ("2026-01-15", "2026-07-15")
 NORTHS = (0.0, 180.0)
 DARK_LUX = 50.0
+WARMUP_DAYS = 2  # a room's thermal mass takes days to forget its start (20.5 C): measure the third day
 EXTRA_DEVICES = [  # a motion sensor that also reports light and temperature (Philips Hue indoor motion sensor)
     {"product": "zigbee:philips:9290012607", "name": "living_sensor",
      "at": {"room": "living", "mount": "ceiling", "xy": [3.0, 1.9]}},
@@ -84,16 +85,17 @@ def run_day(home_yaml: Path, catalog) -> dict:
     home = load_lab_home(home_yaml, catalog)
     s = Session(home, clock=LogicalClock())
     s.start(spawn_player=False, residents=False, automations=True)
-    s.clock.advance(24 * 3600 - 1)
-    recs = s.records
-    meta = recs[0]
+    s.clock.advance((WARMUP_DAYS + 1) * 86400 - 1)
+    t0 = WARMUP_DAYS * 86400
+    recs = [r for r in s.records[1:] if r.get("t", 0) >= t0]
+    meta = s.records[0]
     env = [r for r in recs if r.get("rule") == "environment"]
     reports = [r for r in recs if r.get("kind") == "report" and r.get("device") == "living_sensor"
                and r.get("feature") == "illuminance"]
     fired: dict[str, float] = {}
     for r in recs:
         if r.get("kind") == "automation" and r.get("accepted", True):
-            fired.setdefault(r["automation"], r["t"])
+            fired.setdefault(r["automation"], r["t"] - t0)
     out = {"site": ((meta.get("environment") or {}).get("site") or {}).get("name"),
            "refused": s.automations.refused,
            "automations_first_fired_h": {k: round(v / 3600, 2) for k, v in sorted(fired.items(), key=lambda x: x[1])}}
@@ -103,14 +105,14 @@ def run_day(home_yaml: Path, catalog) -> dict:
         out["heating_min"] = heat  # one record a minute
         out["rooms_c"] = {rid: {"min": min(v), "max": max(v), "mean": round(sum(v) / len(v), 2)}
                           for rid, v in rooms.items()}
-        day = [r for r in env if 7 * 3600 <= r["t"] < 22 * 3600]
+        day = [r for r in env if 7 * 3600 <= r["t"] - t0 < 22 * 3600]
         out["living_dark_min"] = sum(1 for r in day if r["rooms"]["living"]["illuminance"] < DARK_LUX)
         out["outdoor"] = {"min_c": min(r["outdoor"]["temperature_c"] for r in env),
                           "max_c": max(r["outdoor"]["temperature_c"] for r in env),
                           "max_sun_el": max(r["outdoor"]["sun_elevation"] for r in env)}
         out["weather"] = ((meta.get("environment") or {}).get("weather") or {}).get("source", "none: assumed")
     else:  # no site: the assumed curve; the living sensor's reports are what the automations saw
-        day = [r for r in reports if 7 * 3600 <= r["t"] < 22 * 3600]
+        day = [r for r in reports if 7 * 3600 <= r["t"] - t0 < 22 * 3600]
         out["heating_min"] = None
         out["living_lux_reports"] = len(reports)
         out["living_dark_min"] = None if not day else "see reports"
@@ -158,7 +160,9 @@ def crosssite_report(base: Path | None, work: Path, catalog_dir: str = "catalog/
                 name = f"{city.split(',')[0].lower().replace(' ', '-')}-{date}-n{int(north)}"
                 home_yaml = prepare(base, work / name, {"city": city, "date": date, "north_deg": north}, catalog)
                 shutil.copytree(cache, work / name / "weather", dirs_exist_ok=True) if cache.exists() else None
-                runs.append({"city": city, "date": date, "north_deg": north, **run_day(home_yaml, catalog)})
+                measured = (dt.date.fromisoformat(date) + dt.timedelta(days=WARMUP_DAYS)).isoformat()
+                runs.append({"city": city, "date": date, "measured_date": measured, "north_deg": north,
+                             **run_day(home_yaml, catalog)})
     return {"design": __doc__.split("\n\n")[1].replace("\n", " "), "dark_lux": DARK_LUX,
             "cities": list(cities), "dates": list(dates), "norths": list(norths),
             "generated": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"), "runs": runs}
