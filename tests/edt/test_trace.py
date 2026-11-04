@@ -62,12 +62,13 @@ def test_recording_twice_reuses_the_file(home, tmp_path, monkeypatch):
     assert not list(tmp_path.glob("*.tmp*"))
 
 
-def held_mean(reports, seconds):
+def held_mean(reports, seconds, where=lambda twin_id: "@porch_" not in twin_id):
     """Mean illuminance over the run, each sensor holding its last report (a sensor reports on change, so the report
-    count differs between rungs and the plain mean of reports would not compare them)."""
+    count differs between rungs and the plain mean of reports would not compare them). `where`: which sensors (by
+    twin id; default the indoor ones, not the porch's)."""
     by = {}
     for r in reports:
-        if r["feature"] == "illuminance":
+        if r["feature"] == "illuminance" and where(r["twin_id"]):
             by.setdefault(r["twin_id"], []).append((r["t"], r["value"]))
     total = 0.0
     for series in by.values():
@@ -88,6 +89,20 @@ def test_rung3_daylight_is_one_fourteenth_of_rung4(home, tmp_path):
     assert r4 > 100
     assert r3 / r4 == pytest.approx(1 / 14.8, rel=0.05)
     assert indoor.DAYLIGHT_SCALE == 1.0  # restored
+
+
+def test_the_porch_sensors_read_the_outdoor_light_and_air(home, tmp_path):
+    """The porch is outdoors: its illuminance is the outdoor daylight, far above any room's, and the rung-3 scale of
+    indoor daylight leaves it alone; it reports temperature and humidity too."""
+    def porch(twin_id):
+        return "@porch_" in twin_id
+
+    traces = {rung: read(record_trace(home, Env(PHOENIX, "2026-07-15", 0.0, rung), tmp_path, hours=14,
+                                      fetch=False))[1] for rung in (3, 4)}
+    outdoor, indoor = held_mean(traces[4], 14 * 3600, porch), held_mean(traces[4], 14 * 3600)
+    assert outdoor > 10 * indoor
+    assert held_mean(traces[3], 14 * 3600, porch) == pytest.approx(outdoor, rel=0.05)
+    assert {"temperature", "humidity"} <= {r["feature"] for r in traces[4] if porch(r["twin_id"])}
 
 
 def test_scale_restored_and_no_file_when_the_run_fails(home, tmp_path, monkeypatch):

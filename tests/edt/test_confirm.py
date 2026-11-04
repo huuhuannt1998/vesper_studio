@@ -179,8 +179,8 @@ def test_actions_the_engine_cannot_run_are_recorded_and_climate_rooms_are_measur
     r = cf.closed_loop(auto, ENV_A, home_yaml, work / "cache", days=3)
     assert r["refused"] == [] and r["outcome"].fired is True
     assert {f.service for f in r["firings"]} == {"climate.set_temperature", "cover.open_cover"}
-    # the hallway thermostat heats every room: the envelope covers them all, per room
-    assert r["rooms"] == sorted({rid for (_, rid, _) in roles})
+    # the hallway thermostat heats every indoor room: the envelope covers them all, per room (not the porch)
+    assert r["rooms"] == sorted({rid for (_, rid, _) in roles} - {"porch"})
     env = cf.envelope(r["temperatures"], r["rooms"])
     assert env["corridor"]["min_c"] < env["corridor"]["max_c"] and env["corridor"]["above_30"] is False
     assert set(env) == set(r["rooms"]) and all(v is not None for v in env.values())
