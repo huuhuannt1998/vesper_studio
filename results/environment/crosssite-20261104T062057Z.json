@@ -1,0 +1,1493 @@
+{
+  "cities": [
+    "Phoenix, AZ, USA",
+    "Seattle, WA, USA",
+    "Minneapolis, MN, USA",
+    "Stockholm, Sweden",
+    "Singapore",
+    "Sydney, Australia"
+  ],
+  "dark_lux": 50.0,
+  "dates": [
+    "2026-01-15",
+    "2026-07-15"
+  ],
+  "design": "One generated home (six rooms, seed 7), the same devices (plus a motion-and-light sensor in the living room and in the office), the same automations and no residents, lives three logical days from midnight in each city x date x plan orientation, and once with no site (the assumed indoor curve every home got before). The third day is measured (WARMUP_DAYS before it: the rooms' thermal mass forgets their start): the minutes the heating runs, each room's temperature range, the daytime minutes (07:00-22:00) the living room is below DARK_LUX, when each automation first fires, and the outdoors. Weather is the recorded ERA5 (fetched once into the cache); a day not fetched falls back to clear sky and the assumed temperature curve, and the run says so. ",
+  "generated": "2026-11-04T06:20:57+00:00",
+  "norths": [
+    0.0,
+    180.0
+  ],
+  "run": {
+    "catalog_code_sha256": "139b8ebe38b83db10b2233221c249c5e98358e0e3edc6e402bf6fb327429c2e4",
+    "catalog_inputs": {
+      "dcl": {
+        "manifest_sha256": "d69e4b734bd541894c45789f44c6dfb589944aa1b9e9d1cc119b8fafb499f77b",
+        "version": "height-324961"
+      },
+      "ha": {
+        "manifest_sha256": "6917c7888197cc38aec661c2da0d14317c8e3ab1cbc4bfeb7772b7ac032e19f2",
+        "version": "2026.10.2"
+      },
+      "matter_zap": {
+        "manifest_sha256": "e608206f3ad32b1d1cfb4ba7231e4a690a0075bbcfe1cb9dcbedebf15ba2cf31",
+        "version": "v1.6.1.0"
+      },
+      "tasmota": {
+        "manifest_sha256": "f80efec1ca20e85eb2a6d2285f533b66717aa560d74ae2b38daf7b89356e86ce",
+        "version": "30d9c9b16014817641f83a0cf8f2f266a0dbaef2"
+      },
+      "zigbee": {
+        "manifest_sha256": "89edf8fad5a7f13adabc4cc8caf8d10fdf85379d95a49ca2eb6d6e5377166c67",
+        "version": "26.123.0"
+      },
+      "zwave": {
+        "manifest_sha256": "0889173c4fc30ba289600959b8907fdb7f34435f811ea7ebef4962a993eabeb6",
+        "version": "15.31.2"
+      }
+    },
+    "command": "validate crosssite",
+    "finished_utc": "2026-11-04T06:20:57Z",
+    "git_commit": "68850af34825dba6f8ada27ce54176327ac91b50",
+    "git_dirty": false,
+    "parameters": {
+      "catalog": "catalog/vds",
+      "no_fetch": false,
+      "work": ".vesper/crosssite"
+    },
+    "vesper_version": "0.2.0.dev0"
+  },
+  "runs": [
+    {
+      "automations_first_fired_h": {
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 8.35,
+        "living lamp when it gets dark": 19.27
+      },
+      "city": null,
+      "date": null,
+      "heating_min": null,
+      "living_dark_min": "see reports",
+      "living_lux_reports": 708,
+      "north_deg": null,
+      "refused": [],
+      "site": null
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 17.29,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 8.92,
+        "living lamp when it gets dark": 17.23
+      },
+      "city": "Phoenix, AZ, USA",
+      "date": "2026-01-15",
+      "heating_min": 0,
+      "living_dark_min": 203,
+      "measured_date": "2026-01-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 22.0,
+        "max_sun_el": 35.955,
+        "min_c": 7.1
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 24.2,
+          "mean": 22.95,
+          "min": 21.5
+        },
+        "bedroom_1": {
+          "max": 25.3,
+          "mean": 22.89,
+          "min": 20.8
+        },
+        "bedroom_2": {
+          "max": 20.5,
+          "mean": 19.5,
+          "min": 18.8
+        },
+        "corridor": {
+          "max": 21.9,
+          "mean": 20.92,
+          "min": 20.1
+        },
+        "kitchen": {
+          "max": 26.8,
+          "mean": 24.35,
+          "min": 21.9
+        },
+        "living": {
+          "max": 20.7,
+          "mean": 19.69,
+          "min": 18.9
+        },
+        "office": {
+          "max": 22.4,
+          "mean": 21.85,
+          "min": 20.5
+        }
+      },
+      "site": "Phoenix, AZ, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 33.427063, -112.02719"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 17.29,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 7.57,
+        "living lamp when it gets dark": 17.75
+      },
+      "city": "Phoenix, AZ, USA",
+      "date": "2026-01-15",
+      "heating_min": 0,
+      "living_dark_min": 162,
+      "measured_date": "2026-01-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 22.0,
+        "max_sun_el": 35.955,
+        "min_c": 7.1
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 22.7,
+          "mean": 21.99,
+          "min": 21.2
+        },
+        "bedroom_1": {
+          "max": 23.7,
+          "mean": 22.78,
+          "min": 21.0
+        },
+        "bedroom_2": {
+          "max": 29.4,
+          "mean": 26.92,
+          "min": 24.4
+        },
+        "corridor": {
+          "max": 26.3,
+          "mean": 24.8,
+          "min": 23.3
+        },
+        "kitchen": {
+          "max": 22.7,
+          "mean": 22.09,
+          "min": 21.2
+        },
+        "living": {
+          "max": 34.1,
+          "mean": 29.74,
+          "min": 25.5
+        },
+        "office": {
+          "max": 24.1,
+          "mean": 22.45,
+          "min": 21.0
+        }
+      },
+      "site": "Phoenix, AZ, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 33.427063, -112.02719"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 19.17,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 5.73,
+        "living lamp when it gets dark": 19.62
+      },
+      "city": "Phoenix, AZ, USA",
+      "date": "2026-07-15",
+      "heating_min": 0,
+      "living_dark_min": 72,
+      "measured_date": "2026-07-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 32.1,
+        "max_sun_el": 77.641,
+        "min_c": 24.4
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 33.1,
+          "mean": 32.38,
+          "min": 31.8
+        },
+        "bedroom_1": {
+          "max": 34.6,
+          "mean": 33.29,
+          "min": 32.1
+        },
+        "bedroom_2": {
+          "max": 33.6,
+          "mean": 32.75,
+          "min": 32.0
+        },
+        "corridor": {
+          "max": 33.5,
+          "mean": 32.66,
+          "min": 32.0
+        },
+        "kitchen": {
+          "max": 34.1,
+          "mean": 33.07,
+          "min": 32.1
+        },
+        "living": {
+          "max": 35.3,
+          "mean": 33.87,
+          "min": 32.6
+        },
+        "office": {
+          "max": 33.2,
+          "mean": 32.32,
+          "min": 31.5
+        }
+      },
+      "site": "Phoenix, AZ, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 33.427063, -112.02719"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 19.17,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 6.27,
+        "living lamp when it gets dark": 19.45
+      },
+      "city": "Phoenix, AZ, USA",
+      "date": "2026-07-15",
+      "heating_min": 0,
+      "living_dark_min": 77,
+      "measured_date": "2026-07-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 32.1,
+        "max_sun_el": 77.641,
+        "min_c": 24.4
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 33.2,
+          "mean": 32.43,
+          "min": 31.9
+        },
+        "bedroom_1": {
+          "max": 34.3,
+          "mean": 33.07,
+          "min": 32.0
+        },
+        "bedroom_2": {
+          "max": 33.7,
+          "mean": 32.86,
+          "min": 32.1
+        },
+        "corridor": {
+          "max": 33.6,
+          "mean": 32.73,
+          "min": 32.1
+        },
+        "kitchen": {
+          "max": 34.1,
+          "mean": 33.0,
+          "min": 32.1
+        },
+        "living": {
+          "max": 35.5,
+          "mean": 34.01,
+          "min": 32.7
+        },
+        "office": {
+          "max": 33.5,
+          "mean": 32.52,
+          "min": 31.7
+        }
+      },
+      "site": "Phoenix, AZ, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 33.427063, -112.02719"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 16.33,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 9.08,
+        "living lamp when it gets dark": 16.1
+      },
+      "city": "Seattle, WA, USA",
+      "date": "2026-01-15",
+      "heating_min": 156,
+      "living_dark_min": 249,
+      "measured_date": "2026-01-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 9.5,
+        "max_sun_el": 21.821,
+        "min_c": 2.6
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 22.8,
+          "mean": 21.49,
+          "min": 20.4
+        },
+        "bedroom_1": {
+          "max": 22.4,
+          "mean": 20.48,
+          "min": 19.4
+        },
+        "bedroom_2": {
+          "max": 19.3,
+          "mean": 18.76,
+          "min": 18.1
+        },
+        "corridor": {
+          "max": 20.3,
+          "mean": 19.99,
+          "min": 19.7
+        },
+        "kitchen": {
+          "max": 24.7,
+          "mean": 22.35,
+          "min": 20.3
+        },
+        "living": {
+          "max": 19.4,
+          "mean": 18.86,
+          "min": 18.2
+        },
+        "office": {
+          "max": 21.1,
+          "mean": 20.11,
+          "min": 19.4
+        }
+      },
+      "site": "Seattle, WA, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 47.627415, -122.32291"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 16.33,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 7.9,
+        "living lamp when it gets dark": 16.78
+      },
+      "city": "Seattle, WA, USA",
+      "date": "2026-01-15",
+      "heating_min": 96,
+      "living_dark_min": 211,
+      "measured_date": "2026-01-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 9.5,
+        "max_sun_el": 21.821,
+        "min_c": 2.6
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 19.3,
+          "mean": 18.64,
+          "min": 17.9
+        },
+        "bedroom_1": {
+          "max": 19.8,
+          "mean": 18.36,
+          "min": 17.1
+        },
+        "bedroom_2": {
+          "max": 24.0,
+          "mean": 21.68,
+          "min": 19.8
+        },
+        "corridor": {
+          "max": 21.3,
+          "mean": 20.42,
+          "min": 19.7
+        },
+        "kitchen": {
+          "max": 19.1,
+          "mean": 18.54,
+          "min": 17.6
+        },
+        "living": {
+          "max": 27.9,
+          "mean": 23.74,
+          "min": 20.5
+        },
+        "office": {
+          "max": 19.7,
+          "mean": 18.56,
+          "min": 17.8
+        }
+      },
+      "site": "Seattle, WA, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 47.627415, -122.32291"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 20.55,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 6.72,
+        "living lamp when it gets dark": 21.0
+      },
+      "city": "Seattle, WA, USA",
+      "date": "2026-07-15",
+      "heating_min": 0,
+      "living_dark_min": 30,
+      "measured_date": "2026-07-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 22.5,
+        "max_sun_el": 63.483,
+        "min_c": 14.8
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 25.1,
+          "mean": 24.24,
+          "min": 23.4
+        },
+        "bedroom_1": {
+          "max": 28.6,
+          "mean": 25.77,
+          "min": 23.9
+        },
+        "bedroom_2": {
+          "max": 25.6,
+          "mean": 24.24,
+          "min": 23.2
+        },
+        "corridor": {
+          "max": 25.5,
+          "mean": 24.34,
+          "min": 23.5
+        },
+        "kitchen": {
+          "max": 26.4,
+          "mean": 25.12,
+          "min": 23.9
+        },
+        "living": {
+          "max": 27.4,
+          "mean": 25.52,
+          "min": 23.8
+        },
+        "office": {
+          "max": 25.2,
+          "mean": 24.11,
+          "min": 23.0
+        }
+      },
+      "site": "Seattle, WA, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 47.627415, -122.32291"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 20.55,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 6.72,
+        "living lamp when it gets dark": 21.0
+      },
+      "city": "Seattle, WA, USA",
+      "date": "2026-07-15",
+      "heating_min": 0,
+      "living_dark_min": 30,
+      "measured_date": "2026-07-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 22.5,
+        "max_sun_el": 63.483,
+        "min_c": 14.8
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 25.6,
+          "mean": 24.54,
+          "min": 23.7
+        },
+        "bedroom_1": {
+          "max": 26.4,
+          "mean": 24.96,
+          "min": 23.5
+        },
+        "bedroom_2": {
+          "max": 25.7,
+          "mean": 24.62,
+          "min": 23.6
+        },
+        "corridor": {
+          "max": 25.7,
+          "mean": 24.63,
+          "min": 23.8
+        },
+        "kitchen": {
+          "max": 26.4,
+          "mean": 25.04,
+          "min": 23.8
+        },
+        "living": {
+          "max": 27.8,
+          "mean": 25.9,
+          "min": 24.2
+        },
+        "office": {
+          "max": 27.1,
+          "mean": 24.98,
+          "min": 23.6
+        }
+      },
+      "site": "Seattle, WA, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 47.627415, -122.32291"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 16.55,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 8.55,
+        "living lamp when it gets dark": 16.98
+      },
+      "city": "Minneapolis, MN, USA",
+      "date": "2026-01-15",
+      "heating_min": 410,
+      "living_dark_min": 203,
+      "measured_date": "2026-01-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": -11.7,
+        "max_sun_el": 24.428,
+        "min_c": -20.3
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 20.9,
+          "mean": 20.39,
+          "min": 20.0
+        },
+        "bedroom_1": {
+          "max": 19.0,
+          "mean": 18.2,
+          "min": 17.5
+        },
+        "bedroom_2": {
+          "max": 19.5,
+          "mean": 18.88,
+          "min": 18.3
+        },
+        "corridor": {
+          "max": 20.3,
+          "mean": 20.01,
+          "min": 19.7
+        },
+        "kitchen": {
+          "max": 20.8,
+          "mean": 20.0,
+          "min": 19.5
+        },
+        "living": {
+          "max": 20.0,
+          "mean": 19.09,
+          "min": 18.4
+        },
+        "office": {
+          "max": 19.8,
+          "mean": 19.12,
+          "min": 18.5
+        }
+      },
+      "site": "Minneapolis, MN, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 44.956062, -93.20929"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 16.55,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 8.55,
+        "living lamp when it gets dark": 16.98
+      },
+      "city": "Minneapolis, MN, USA",
+      "date": "2026-01-15",
+      "heating_min": 423,
+      "living_dark_min": 203,
+      "measured_date": "2026-01-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": -11.7,
+        "max_sun_el": 24.428,
+        "min_c": -20.3
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 20.8,
+          "mean": 20.33,
+          "min": 19.9
+        },
+        "bedroom_1": {
+          "max": 19.0,
+          "mean": 18.17,
+          "min": 17.5
+        },
+        "bedroom_2": {
+          "max": 19.5,
+          "mean": 18.93,
+          "min": 18.3
+        },
+        "corridor": {
+          "max": 20.3,
+          "mean": 20.0,
+          "min": 19.7
+        },
+        "kitchen": {
+          "max": 20.7,
+          "mean": 19.94,
+          "min": 19.4
+        },
+        "living": {
+          "max": 20.1,
+          "mean": 19.15,
+          "min": 18.5
+        },
+        "office": {
+          "max": 19.7,
+          "mean": 19.05,
+          "min": 18.4
+        }
+      },
+      "site": "Minneapolis, MN, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 44.956062, -93.20929"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 20.46,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 5.75,
+        "living lamp when it gets dark": 20.9
+      },
+      "city": "Minneapolis, MN, USA",
+      "date": "2026-07-15",
+      "heating_min": 0,
+      "living_dark_min": 33,
+      "measured_date": "2026-07-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 35.2,
+        "max_sun_el": 66.125,
+        "min_c": 24.0
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 34.7,
+          "mean": 32.47,
+          "min": 30.8
+        },
+        "bedroom_1": {
+          "max": 37.5,
+          "mean": 34.08,
+          "min": 31.4
+        },
+        "bedroom_2": {
+          "max": 34.4,
+          "mean": 32.24,
+          "min": 30.4
+        },
+        "corridor": {
+          "max": 34.8,
+          "mean": 32.34,
+          "min": 30.9
+        },
+        "kitchen": {
+          "max": 35.9,
+          "mean": 33.33,
+          "min": 31.1
+        },
+        "living": {
+          "max": 36.2,
+          "mean": 33.62,
+          "min": 31.0
+        },
+        "office": {
+          "max": 35.2,
+          "mean": 33.27,
+          "min": 30.6
+        }
+      },
+      "site": "Minneapolis, MN, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 44.956062, -93.20929"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 20.46,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 7.45,
+        "living lamp when it gets dark": 20.9
+      },
+      "city": "Minneapolis, MN, USA",
+      "date": "2026-07-15",
+      "heating_min": 0,
+      "living_dark_min": 33,
+      "measured_date": "2026-07-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 35.2,
+        "max_sun_el": 66.125,
+        "min_c": 24.0
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 34.7,
+          "mean": 32.37,
+          "min": 30.9
+        },
+        "bedroom_1": {
+          "max": 36.9,
+          "mean": 34.63,
+          "min": 31.3
+        },
+        "bedroom_2": {
+          "max": 35.3,
+          "mean": 32.96,
+          "min": 31.0
+        },
+        "corridor": {
+          "max": 35.3,
+          "mean": 32.75,
+          "min": 31.3
+        },
+        "kitchen": {
+          "max": 35.7,
+          "mean": 33.41,
+          "min": 31.1
+        },
+        "living": {
+          "max": 37.6,
+          "mean": 34.51,
+          "min": 31.6
+        },
+        "office": {
+          "max": 35.7,
+          "mean": 32.94,
+          "min": 30.9
+        }
+      },
+      "site": "Minneapolis, MN, USA",
+      "weather": "Open-Meteo archive (ERA5), cell 44.956062, -93.20929"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 15.01,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 9.65,
+        "living lamp when it gets dark": 14.88
+      },
+      "city": "Stockholm, Sweden",
+      "date": "2026-01-15",
+      "heating_min": 239,
+      "living_dark_min": 323,
+      "measured_date": "2026-01-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 2.7,
+        "max_sun_el": 10.068,
+        "min_c": 0.0
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 20.6,
+          "mean": 20.24,
+          "min": 19.9
+        },
+        "bedroom_1": {
+          "max": 19.4,
+          "mean": 18.93,
+          "min": 18.6
+        },
+        "bedroom_2": {
+          "max": 19.8,
+          "mean": 19.35,
+          "min": 19.0
+        },
+        "corridor": {
+          "max": 20.3,
+          "mean": 20.0,
+          "min": 19.7
+        },
+        "kitchen": {
+          "max": 20.4,
+          "mean": 19.95,
+          "min": 19.6
+        },
+        "living": {
+          "max": 19.9,
+          "mean": 19.36,
+          "min": 19.0
+        },
+        "office": {
+          "max": 19.9,
+          "mean": 19.52,
+          "min": 19.2
+        }
+      },
+      "site": "Stockholm, Sweden",
+      "weather": "Open-Meteo archive (ERA5), cell 59.36731, 18.0"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 15.01,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 9.57,
+        "living lamp when it gets dark": 15.03
+      },
+      "city": "Stockholm, Sweden",
+      "date": "2026-01-15",
+      "heating_min": 239,
+      "living_dark_min": 315,
+      "measured_date": "2026-01-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 2.7,
+        "max_sun_el": 10.068,
+        "min_c": 0.0
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 20.6,
+          "mean": 20.23,
+          "min": 19.9
+        },
+        "bedroom_1": {
+          "max": 19.4,
+          "mean": 18.93,
+          "min": 18.6
+        },
+        "bedroom_2": {
+          "max": 19.8,
+          "mean": 19.35,
+          "min": 19.0
+        },
+        "corridor": {
+          "max": 20.3,
+          "mean": 20.0,
+          "min": 19.7
+        },
+        "kitchen": {
+          "max": 20.4,
+          "mean": 19.94,
+          "min": 19.6
+        },
+        "living": {
+          "max": 19.9,
+          "mean": 19.36,
+          "min": 19.0
+        },
+        "office": {
+          "max": 19.9,
+          "mean": 19.52,
+          "min": 19.2
+        }
+      },
+      "site": "Stockholm, Sweden",
+      "weather": "Open-Meteo archive (ERA5), cell 59.36731, 18.0"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 21.29,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 4.07,
+        "living lamp when it gets dark": 21.45
+      },
+      "city": "Stockholm, Sweden",
+      "date": "2026-07-15",
+      "heating_min": 0,
+      "living_dark_min": 17,
+      "measured_date": "2026-07-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 28.8,
+        "max_sun_el": 51.832,
+        "min_c": 16.4
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 31.1,
+          "mean": 29.26,
+          "min": 27.5
+        },
+        "bedroom_1": {
+          "max": 33.0,
+          "mean": 30.63,
+          "min": 28.5
+        },
+        "bedroom_2": {
+          "max": 29.5,
+          "mean": 28.05,
+          "min": 26.7
+        },
+        "corridor": {
+          "max": 30.3,
+          "mean": 28.66,
+          "min": 27.5
+        },
+        "kitchen": {
+          "max": 32.8,
+          "mean": 30.4,
+          "min": 28.1
+        },
+        "living": {
+          "max": 31.2,
+          "mean": 29.38,
+          "min": 27.4
+        },
+        "office": {
+          "max": 31.4,
+          "mean": 29.76,
+          "min": 27.0
+        }
+      },
+      "site": "Stockholm, Sweden",
+      "weather": "Open-Meteo archive (ERA5), cell 59.36731, 18.0"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 21.29,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 6.33,
+        "living lamp when it gets dark": 21.33
+      },
+      "city": "Stockholm, Sweden",
+      "date": "2026-07-15",
+      "heating_min": 0,
+      "living_dark_min": 20,
+      "measured_date": "2026-07-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 28.8,
+        "max_sun_el": 51.832,
+        "min_c": 16.4
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 30.4,
+          "mean": 28.93,
+          "min": 27.9
+        },
+        "bedroom_1": {
+          "max": 33.2,
+          "mean": 31.15,
+          "min": 27.5
+        },
+        "bedroom_2": {
+          "max": 32.6,
+          "mean": 30.32,
+          "min": 28.1
+        },
+        "corridor": {
+          "max": 31.9,
+          "mean": 29.85,
+          "min": 28.4
+        },
+        "kitchen": {
+          "max": 31.6,
+          "mean": 29.81,
+          "min": 27.8
+        },
+        "living": {
+          "max": 35.8,
+          "mean": 32.38,
+          "min": 29.1
+        },
+        "office": {
+          "max": 31.3,
+          "mean": 29.47,
+          "min": 27.9
+        }
+      },
+      "site": "Stockholm, Sweden",
+      "weather": "Open-Meteo archive (ERA5), cell 59.36731, 18.0"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 18.78,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 7.62,
+        "living lamp when it gets dark": 19.27
+      },
+      "city": "Singapore",
+      "date": "2026-01-15",
+      "heating_min": 0,
+      "living_dark_min": 97,
+      "measured_date": "2026-01-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 30.7,
+        "max_sun_el": 67.916,
+        "min_c": 22.9
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 31.3,
+          "mean": 29.68,
+          "min": 28.4
+        },
+        "bedroom_1": {
+          "max": 33.2,
+          "mean": 30.82,
+          "min": 28.6
+        },
+        "bedroom_2": {
+          "max": 32.2,
+          "mean": 30.35,
+          "min": 28.7
+        },
+        "corridor": {
+          "max": 31.9,
+          "mean": 30.03,
+          "min": 28.8
+        },
+        "kitchen": {
+          "max": 32.7,
+          "mean": 30.56,
+          "min": 28.6
+        },
+        "living": {
+          "max": 34.6,
+          "mean": 31.87,
+          "min": 29.3
+        },
+        "office": {
+          "max": 31.7,
+          "mean": 29.84,
+          "min": 28.1
+        }
+      },
+      "site": "Singapore",
+      "weather": "Open-Meteo archive (ERA5), cell 1.3708259, 103.80237"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 18.78,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 7.25,
+        "living lamp when it gets dark": 19.27
+      },
+      "city": "Singapore",
+      "date": "2026-01-15",
+      "heating_min": 0,
+      "living_dark_min": 97,
+      "measured_date": "2026-01-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 30.7,
+        "max_sun_el": 67.916,
+        "min_c": 22.9
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 31.3,
+          "mean": 29.67,
+          "min": 28.4
+        },
+        "bedroom_1": {
+          "max": 33.3,
+          "mean": 30.89,
+          "min": 28.6
+        },
+        "bedroom_2": {
+          "max": 32.3,
+          "mean": 30.43,
+          "min": 28.7
+        },
+        "corridor": {
+          "max": 32.0,
+          "mean": 30.07,
+          "min": 28.8
+        },
+        "kitchen": {
+          "max": 32.7,
+          "mean": 30.56,
+          "min": 28.6
+        },
+        "living": {
+          "max": 34.8,
+          "mean": 31.98,
+          "min": 29.4
+        },
+        "office": {
+          "max": 31.7,
+          "mean": 29.8,
+          "min": 28.1
+        }
+      },
+      "site": "Singapore",
+      "weather": "Open-Meteo archive (ERA5), cell 1.3708259, 103.80237"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 18.78,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 7.12,
+        "living lamp when it gets dark": 19.27
+      },
+      "city": "Singapore",
+      "date": "2026-07-15",
+      "heating_min": 0,
+      "living_dark_min": 89,
+      "measured_date": "2026-07-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 30.0,
+        "max_sun_el": 70.168,
+        "min_c": 24.9
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 31.6,
+          "mean": 30.45,
+          "min": 29.6
+        },
+        "bedroom_1": {
+          "max": 33.4,
+          "mean": 31.35,
+          "min": 29.8
+        },
+        "bedroom_2": {
+          "max": 33.0,
+          "mean": 31.54,
+          "min": 30.3
+        },
+        "corridor": {
+          "max": 32.5,
+          "mean": 31.06,
+          "min": 30.1
+        },
+        "kitchen": {
+          "max": 32.5,
+          "mean": 31.0,
+          "min": 29.7
+        },
+        "living": {
+          "max": 35.1,
+          "mean": 32.92,
+          "min": 30.9
+        },
+        "office": {
+          "max": 32.1,
+          "mean": 30.78,
+          "min": 29.5
+        }
+      },
+      "site": "Singapore",
+      "weather": "Open-Meteo archive (ERA5), cell 1.3708259, 103.80237"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 18.78,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 7.57,
+        "living lamp when it gets dark": 19.27
+      },
+      "city": "Singapore",
+      "date": "2026-07-15",
+      "heating_min": 0,
+      "living_dark_min": 89,
+      "measured_date": "2026-07-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 30.0,
+        "max_sun_el": 70.168,
+        "min_c": 24.9
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 31.6,
+          "mean": 30.39,
+          "min": 29.4
+        },
+        "bedroom_1": {
+          "max": 33.3,
+          "mean": 31.53,
+          "min": 29.8
+        },
+        "bedroom_2": {
+          "max": 31.6,
+          "mean": 30.41,
+          "min": 29.3
+        },
+        "corridor": {
+          "max": 31.7,
+          "mean": 30.41,
+          "min": 29.6
+        },
+        "kitchen": {
+          "max": 32.9,
+          "mean": 31.26,
+          "min": 29.7
+        },
+        "living": {
+          "max": 33.3,
+          "mean": 31.47,
+          "min": 29.8
+        },
+        "office": {
+          "max": 32.0,
+          "mean": 30.38,
+          "min": 29.2
+        }
+      },
+      "site": "Singapore",
+      "weather": "Open-Meteo archive (ERA5), cell 1.3708259, 103.80237"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 19.66,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 6.73,
+        "living lamp when it gets dark": 19.63
+      },
+      "city": "Sydney, Australia",
+      "date": "2026-01-15",
+      "heating_min": 0,
+      "living_dark_min": 71,
+      "measured_date": "2026-01-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 21.5,
+        "max_sun_el": 76.899,
+        "min_c": 19.1
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 27.2,
+          "mean": 26.8,
+          "min": 26.3
+        },
+        "bedroom_1": {
+          "max": 29.4,
+          "mean": 28.03,
+          "min": 27.2
+        },
+        "bedroom_2": {
+          "max": 27.1,
+          "mean": 26.53,
+          "min": 25.9
+        },
+        "corridor": {
+          "max": 27.2,
+          "mean": 26.85,
+          "min": 26.4
+        },
+        "kitchen": {
+          "max": 28.1,
+          "mean": 27.59,
+          "min": 26.9
+        },
+        "living": {
+          "max": 28.5,
+          "mean": 27.58,
+          "min": 26.5
+        },
+        "office": {
+          "max": 27.4,
+          "mean": 26.78,
+          "min": 25.9
+        }
+      },
+      "site": "Sydney, Australia",
+      "weather": "Open-Meteo archive (ERA5), cell -33.848858, 151.19551"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 19.66,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 6.55,
+        "living lamp when it gets dark": 20.13
+      },
+      "city": "Sydney, Australia",
+      "date": "2026-01-15",
+      "heating_min": 0,
+      "living_dark_min": 56,
+      "measured_date": "2026-01-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 21.5,
+        "max_sun_el": 76.899,
+        "min_c": 19.1
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 27.2,
+          "mean": 26.88,
+          "min": 26.5
+        },
+        "bedroom_1": {
+          "max": 28.4,
+          "mean": 27.54,
+          "min": 26.4
+        },
+        "bedroom_2": {
+          "max": 27.3,
+          "mean": 26.83,
+          "min": 26.2
+        },
+        "corridor": {
+          "max": 27.4,
+          "mean": 27.01,
+          "min": 26.5
+        },
+        "kitchen": {
+          "max": 28.0,
+          "mean": 27.31,
+          "min": 26.4
+        },
+        "living": {
+          "max": 28.8,
+          "mean": 27.98,
+          "min": 26.9
+        },
+        "office": {
+          "max": 28.0,
+          "mean": 27.19,
+          "min": 26.6
+        }
+      },
+      "site": "Sydney, Australia",
+      "weather": "Open-Meteo archive (ERA5), cell -33.848858, 151.19551"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 16.61,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 6.98,
+        "living lamp when it gets dark": 17.08
+      },
+      "city": "Sydney, Australia",
+      "date": "2026-07-15",
+      "heating_min": 36,
+      "living_dark_min": 148,
+      "measured_date": "2026-07-17",
+      "north_deg": 0.0,
+      "outdoor": {
+        "max_c": 16.4,
+        "max_sun_el": 34.942,
+        "min_c": 12.2
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 20.0,
+          "mean": 19.61,
+          "min": 18.9
+        },
+        "bedroom_1": {
+          "max": 21.0,
+          "mean": 19.78,
+          "min": 18.7
+        },
+        "bedroom_2": {
+          "max": 22.3,
+          "mean": 21.13,
+          "min": 19.9
+        },
+        "corridor": {
+          "max": 21.1,
+          "mean": 20.45,
+          "min": 19.7
+        },
+        "kitchen": {
+          "max": 20.4,
+          "mean": 19.77,
+          "min": 18.9
+        },
+        "living": {
+          "max": 24.4,
+          "mean": 22.19,
+          "min": 20.2
+        },
+        "office": {
+          "max": 20.3,
+          "mean": 19.62,
+          "min": 18.6
+        }
+      },
+      "site": "Sydney, Australia",
+      "weather": "Open-Meteo archive (ERA5), cell -33.848858, 151.19551"
+    },
+    {
+      "automations_first_fired_h": {
+        "bedroom lamp half an hour before sunset": 16.61,
+        "every lamp off at night": 23.5,
+        "living lamp off when it is light": 7.58,
+        "living lamp when it gets dark": 17.02
+      },
+      "city": "Sydney, Australia",
+      "date": "2026-07-15",
+      "heating_min": 36,
+      "living_dark_min": 150,
+      "measured_date": "2026-07-17",
+      "north_deg": 180.0,
+      "outdoor": {
+        "max_c": 16.4,
+        "max_sun_el": 34.942,
+        "min_c": 12.2
+      },
+      "refused": [],
+      "rooms_c": {
+        "bathroom": {
+          "max": 21.1,
+          "mean": 20.57,
+          "min": 20.0
+        },
+        "bedroom_1": {
+          "max": 21.3,
+          "mean": 20.49,
+          "min": 19.6
+        },
+        "bedroom_2": {
+          "max": 19.9,
+          "mean": 19.53,
+          "min": 19.0
+        },
+        "corridor": {
+          "max": 20.3,
+          "mean": 19.99,
+          "min": 19.7
+        },
+        "kitchen": {
+          "max": 22.5,
+          "mean": 21.09,
+          "min": 20.0
+        },
+        "living": {
+          "max": 20.6,
+          "mean": 19.92,
+          "min": 19.3
+        },
+        "office": {
+          "max": 20.8,
+          "mean": 20.14,
+          "min": 19.6
+        }
+      },
+      "site": "Sydney, Australia",
+      "weather": "Open-Meteo archive (ERA5), cell -33.848858, 151.19551"
+    }
+  ]
+}
