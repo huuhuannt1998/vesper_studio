@@ -441,7 +441,9 @@ def test_a_passage_the_plan_draws_narrower_than_a_walkway_is_the_plan_s_not_the_
     assert cli.main(["lab", "layout", str(out / "home.yaml"), "--catalog", str(cat)]) == 0
     text = capsys.readouterr().out
     assert "0 error(s)" in text
-    assert "warn  walkway: hall: no 0.9 m path to bedroom_3-hall even with no furniture" in text
+    hall = next(line for line in text.splitlines() if "walkway: hall:" in line)
+    assert hall.startswith("  warn  walkway: hall: only a 0.7 m path") and "bedroom_3-hall" in hall
+    assert "even with no furniture" in hall
     # the hall is furnished all the same: what the furniture may not do is close a walkway the plan has
     assert "hall" in {i["room"] for i in json.loads((out / "furniture.json").read_text())["items"]}
 
@@ -478,3 +480,75 @@ def test_a_recess_narrower_than_a_porch_s_least_width_is_refused_naming_the_room
     plan["rooms"][2]["polygon"] = rect(3.45, 5, 6, 9)  # 0.9 m between the bedrooms: 0.7 m once each keeps 0.1 m
     with pytest.raises(GenerateError, match="room 'b1', room 'b2' stand where its porch would be"):
         floor_plan_from(plan, "imported/recess")
+
+
+# The reviewer's homes h3/arm5 and h3/arm2: a living room with a 1 m arm (0.8 m inside its walls) to a third room,
+# and furniture placed by hand that closes a path (the map is the plan's: floor_plan_from rebuilds it)
+ARM_LIVING = [[0.0, 0.0], [5.0, 0.0], [5.0, 1.5], [8.0, 1.5], [8.0, 2.5], [5.0, 2.5], [5.0, 4.0], [0.0, 4.0]]
+ARM5 = {"format": "vesper-plan/1", "units": "m", "scale": None,
+        "rooms": [{"id": "living", "name": "L", "type": "living", "polygon": ARM_LIVING},
+                  {"id": "bathroom", "name": "Bath", "type": "bathroom", "polygon": rect(8, 0, 10, 3)},
+                  {"id": "bedroom", "name": "Bed", "type": "bedroom", "polygon": rect(0, 4, 4, 8)}],
+        "doors": [{"at": [0.0, 2.0], "width": 0.9, "rooms": ["outside", "living"]},
+                  {"at": [8.0, 2.0], "width": 0.8, "rooms": ["living", "bathroom"]},
+                  {"at": [2.0, 4.0], "width": 0.9, "rooms": ["living", "bedroom"]}],
+        "windows": [], "entrance": 0}
+ARM5_FURNITURE = [  # kind, room, box, h; the sideboard and the cabinet wall the bedroom door off the front door
+    ("tv_stand", "living", [0.15, 0.13, 1.75, 0.58], 0.5), ("armchair", "living", [0.13, 2.95, 0.98, 3.8], 0.85),
+    ("bookshelf", "living", [2.95, 3.52, 3.85, 3.87], 1.9), ("bath", "bathroom", [9.12, 0.65, 9.87, 2.35], 0.55),
+    ("vanity", "bathroom", [8.15, 0.13, 8.95, 0.63], 0.85), ("toilet", "bathroom", [9.22, 0.15, 9.87, 0.55], 0.8),
+    ("bed", "bedroom", [1.2, 5.82, 2.8, 7.87], 0.55), ("nightstand", "bedroom", [2.88, 7.47, 3.33, 7.87], 0.5),
+    ("nightstand", "bedroom", [0.15, 7.47, 0.6, 7.87], 0.5), ("wardrobe", "bedroom", [3.27, 4.15, 3.87, 5.35], 2.0),
+    ("plant", "bedroom", [3.45, 7.47, 3.85, 7.87], 1.0), ("sideboard", "living", [0.9, 2.9, 4.9, 3.1], 0.9),
+    ("cabinet", "living", [0.9, 3.1, 1.1, 3.9], 0.9)]
+ARM2 = {"format": "vesper-plan/1", "units": "m", "scale": None,
+        "rooms": [{"id": "living", "name": "L", "type": "living", "polygon": ARM_LIVING},
+                  {"id": "kitchen", "name": "Kitchen", "type": "kitchen", "polygon": rect(8, 0, 11, 4)}],
+        "doors": [{"at": [0.0, 2.0], "width": 0.9, "rooms": ["outside", "living"]},
+                  {"at": [8.0, 2.0], "width": 0.8, "rooms": ["living", "kitchen"]}],
+        "windows": [], "entrance": 0}
+ARM2_FURNITURE = [  # the bookshelf stands across the arm: the kitchen's only way in is closed
+    ("sofa", "living", [2.75, 2.97, 4.85, 3.87], 0.85), ("coffee_table", "living", [3.3, 1.97, 4.3, 2.52], 0.42),
+    ("tv_stand", "living", [3.0, 0.13, 4.6, 0.58], 0.5), ("armchair", "living", [0.13, 2.95, 0.98, 3.8], 0.85),
+    ("bookshelf", "living", [1.15, 3.52, 2.05, 3.87], 1.9), ("counter", "kitchen", [10.25, 0.55, 10.87, 3.45], 0.9),
+    ("fridge", "kitchen", [8.15, 0.13, 8.87, 0.85], 1.85), ("dining_table", "kitchen", [9.1, 1.4, 9.9, 2.6], 0.75),
+    ("bookshelf", "living", [6.05, 1.5, 6.55, 2.5], 1.9)]
+
+
+def home_with(tmp_path, plan, furniture):
+    """The plan's home, unfurnished by VESPER, with these pieces in furniture.json (and the bare plan kept)."""
+    import shutil
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "arm"
+    generate_from_plan(rectify(plan), Request(tmp_path, [], 0, [], furnish=False), load_catalog(cat), out)
+    shutil.copyfile(out / "map.json", out / "map.original.json")
+    items = [{"kind": k, "room": room, "x": (box[0] + box[2]) / 2, "z": (box[1] + box[3]) / 2, "w": box[3] - box[1],
+              "d": box[2] - box[0], "h": h, "facing": 180, "solid": True, "box": box}  # facing -x (the counter's)
+             for k, room, box, h in furniture]
+    (out / "furniture.json").write_text(json.dumps({"format": "vesper-furniture/1", "items": items}))
+    return cat, out
+
+
+@pytest.mark.parametrize(("plan", "furniture", "message"), [
+    (ARM5, ARM5_FURNITURE, "living: no 0.9 m path between bedroom-living and living-porch"),
+    (ARM2, ARM2_FURNITURE, "living: the furniture closes the plan's 0.7 m path between kitchen-living and "
+                           "living-porch")])
+def test_furniture_that_closes_a_path_is_an_error_even_when_the_room_has_a_narrow_arm(tmp_path, capsys, plan,
+                                                                                     furniture, message):
+    cat, out = home_with(tmp_path, plan, furniture)
+    capsys.readouterr()
+    assert cli.main(["lab", "layout", str(out / "home.yaml"), "--catalog", str(cat)]) == 1
+    text = capsys.readouterr().out
+    walkway = next(line for line in text.splitlines() if line.startswith("  ERROR walkway: living: "))
+    assert message.removeprefix("living: ") in walkway, text
+
+
+@pytest.mark.parametrize(("plan", "furniture", "closing"), [(ARM5, ARM5_FURNITURE, ("sideboard", "cabinet")),
+                                                            (ARM2, ARM2_FURNITURE, ("bookshelf",))])
+def test_the_furnisher_keeps_every_pair_of_doorways_joined_as_wide_as_the_plan_joins_them(plan, furniture, closing):
+    from vesper.lab.furnishing import _cells_in, _Room, _walkway
+    m = floor_plan_from(rectify(plan), "imported/arm")
+    r = _Room(m.room("living"), m, [], [])
+    boxes = [box for kind, room, box, _ in furniture if room == "living" and kind in closing]
+    boxes = boxes[-1:] if closing == ("bookshelf",) else boxes  # arm2: the bookshelf in the arm, not the other
+    assert _walkway(r, set()) and not _walkway(r, {c for b in boxes for c in _cells_in(m.grid, b)})

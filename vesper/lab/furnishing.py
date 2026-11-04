@@ -340,34 +340,59 @@ def _still_reachable(r, taken) -> bool:
 
 
 def _walkway(r, taken) -> bool:
-    """With `taken` off the floor, a room with two or more doorways keeps joined by floor WALKWAY_M wide every
-    doorway the bare room joins so to its first, as the layout check measures it (vesper.lab.layoutcheck). A
-    doorway the plan itself leaves without such a path (a passage drawn narrower) does not stop the room being
-    furnished: the furniture only may not close a walkway the plan has."""
+    """With `taken` off the floor, every pair of the room's doorways stays joined as wide as the bare room joins it
+    (walk_widths, as the layout check measures it): by a WALKWAY_M path where the plan has one, and by the plan's
+    own narrower path where it draws a passage narrower (such a room is still furnished; the furniture only may not
+    narrow or close what the plan has)."""
     if len(r.doorways) < 2:
         return True
     if not hasattr(r, "walk_base"):
-        r.walk_base = _joined(r, set())
-    return r.walk_base <= _joined(r, taken)
+        r.walk_base = _widths(r, set())
+    now = _widths(r, taken)
+    return all(now[pair] >= k for pair, k in r.walk_base.items())
 
 
-def _joined(r, taken) -> set[int]:
-    """The room's doorways (by index) that floor WALKWAY_M wide, with `taken` off it, joins to its first: cells with
-    a (2k - 1)-cell square of floor about them, within the room's box and 0.3 m round it."""
+def _widths(r, taken) -> dict[tuple[int, int], int]:
     g = r.map.grid
-    k = max(1, math.ceil(WALKWAY_M / 2 / g.cell))
     box = (r.x0 - 0.3, r.z0 - 0.3, r.x1 + 0.3, r.z1 + 0.3)
+    k = walk_k(g)
     near = (box[0] - k * g.cell, box[1] - k * g.cell, box[2] + k * g.cell, box[3] + k * g.cell)
     free = {c for c in _cells_in(g, near) if g.is_walkable(*c) and c not in taken}
-    inside = {c for c in _cells_in(g, box) if all((c[0] + di, c[1] + dj) in free for di in range(-k + 1, k)
-                                                   for dj in range(-k + 1, k))}
-    starts = [{c for c in inside if distance(g.center(*c), d.center) <= WALKWAY_M} for d in r.doorways]
-    seen, todo = set(), deque(starts[0])
-    while todo:
-        c = todo.popleft()
-        if c in seen or c not in inside:
-            continue
-        seen.add(c)
-        i, j = c
-        todo.extend(((i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)))
-    return {k for k, s in enumerate(starts) if k and s & seen}
+    return walk_widths(g, free, box, [d.center for d in r.doorways])
+
+
+def walk_k(g) -> int:
+    """The k of a WALKWAY_M path: a cell with a (2k - 1)-cell square of floor about it."""
+    return max(1, math.ceil(WALKWAY_M / 2 / g.cell))
+
+
+def walk_widths(g, free: set, box, centres) -> dict[tuple[int, int], int]:
+    """For every pair of doorways (indices i < j of `centres`), the widest k (1 to walk_k) at which floor joins
+    them: cells within `box` with a (2k - 1)-cell square of `free` floor about them, from those within WALKWAY_M of
+    one doorway's centre to those of the other's; 0 when no floor joins them."""
+    top = walk_k(g)
+    pairs = [(i, j) for i in range(len(centres)) for j in range(i + 1, len(centres))]
+    out = dict.fromkeys(pairs, 0)
+    inner = set(_cells_in(g, box))
+    level = set(free)
+    for k in range(1, top + 1):
+        if k > 1:  # a (2k - 1) square about a cell: the (2k - 3) squares about it and its eight neighbours
+            level = {c for c in level if all((c[0] + di, c[1] + dj) in level for di in (-1, 0, 1)
+                                             for dj in (-1, 0, 1))}
+        inside = level & inner
+        label: dict[tuple[int, int], int] = {}
+        for mark, start in enumerate(inside):
+            if start in label:
+                continue
+            label[start], todo = mark, deque([start])
+            while todo:
+                i, j = todo.popleft()
+                for n in ((i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)):
+                    if n in inside and n not in label:
+                        label[n] = mark
+                        todo.append(n)
+        reach = [{label[c] for c in inside if distance(g.center(*c), p) <= WALKWAY_M} for p in centres]
+        for i, j in pairs:
+            if reach[i] & reach[j]:
+                out[(i, j)] = k
+    return out
