@@ -198,7 +198,7 @@ def test_a_room_without_a_motion_sensor_uses_its_illuminance_sensors_occupancy(e
     ("sensor.sun_next_rising", None),
     ("sensor.sun_room_temperature", ("temperature", "living")),
     ("light.deckenlampe_keller", ("light", "living")),
-    ("light.og_flur_decke", ("light", "living")),
+    ("light.og_flur_decke", ("light", "corridor")),  # Flur: a hallway; Decke: a ceiling
     ("light.deck", ("light", "porch")),
     ("sensor.dark_sky_daily_high_temperature_0d", None),
     ("sensor.dark_sky_overnight_low_temperature_0d", None),
@@ -861,3 +861,27 @@ def test_a_room_less_actuator_name_binds_to_the_living_rooms_copies(edt):
     _, roles, _, _ = edt
     b = bind(act(action="light.turn_on", target={"entity_id": ["light.lamp", "light.strip"]}), roles, 0)
     assert b["actions"][0]["target"]["entity_id"] == [roles[("light", "living", 0)], roles[("light", "living", 1)]]
+
+
+# --- classes found by the hand audit of bound ambient sensor names --------------------------------------------------
+
+@pytest.mark.parametrize("entity_id,expected", [
+    ("sensor.keukensensor_illuminance", ("illuminance", "kitchen")),
+    ("sensor.heizung_schlafzimmer_actual_temperature", ("temperature", "bedroom_1")),
+    ("sensor.entrance_luminance", ("illuminance", "corridor")),
+    ("sensor.entryway_nightlight_illuminance", ("illuminance", "corridor")),
+    ("sensor.fibaron_entrada_luminance", ("illuminance", "corridor")),
+    ("sensor.foyer_temperature", ("temperature", "corridor")),
+    ("sensor.flur_temperatur", ("temperature", "corridor")),
+    ("sensor.woonkamer_temperatuur", ("temperature", "living")),
+    ("sensor.badkamer_luchtvochtigheid", ("humidity", "bathroom")),
+    ("sensor.chambre_temperature", ("temperature", "bedroom_1")),
+    ("sensor.bedroom_heating_temp", None),  # a heating setpoint (fed to climate.set_temperature)
+    ("sensor.fan_operation_mode_temp", None),  # a mode, not a temperature
+    ("sensor.bedroom_strip_light", None),  # an LED strip's state
+    ("sensor.bedroom_light_brightness", None),  # a lamp's brightness setting
+    ("sensor.heating_current_temperature", ("temperature", "living")),
+    ("sensor.outdoor_brightness", ("illuminance", "porch")),
+])
+def test_audit_classes(entity_id, expected):
+    assert infer_role(entity_id) == expected

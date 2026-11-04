@@ -48,6 +48,7 @@ WORDS = {  # the name tokens that say a sensor's role (an actuator's domain says
              "ventana", "finestra", "raam"},
 }
 ROLE_WORDS = set().union(*WORDS.values())
+LAMP_WORDS = {"light", "lights", "lamp", "bulb", "dimmer"}  # beside `brightness`: a lamp's setting
 OTHER_MEASURE = {"power", "energy", "current", "voltage", "watt", "watts", "kwh", "battery", "signal", "linkquality",
                  "rssi", "status", "state", "dew", "dewpoint", "absolute", "soil", "moisture", "target", "setpoint",
                  "forecast", "feels", "apparent",
@@ -57,12 +58,21 @@ OTHER_MEASURE = {"power", "energy", "current", "voltage", "watt", "watts", "kwh"
                  # non-ambient temperatures
                  "tool", "nozzle", "hotend", "printer", "octoprint", "cpu", "gpu", "disk", "nvme", "water", "aquarium",
                  "pool", "fridge", "freezer", "boiler", "pipe", "fuse", "cooler", "frys", "tank", "ballon", "probe",
-                 "mech", "derivative", "set"}  # a sensor with one of these measures something the
+                 "mech", "derivative", "set",
+                 # settings and states, not measurements
+                 "mode", "operation", "strip"}  # a sensor with one of these measures something the
 # home has no role for (`current` before a role word is the adjective: current_temperature)
 OTHER_MEASURE_TOKEN = re.compile(r"^(\d+[dh]|tool\d+)$")  # a forecast's horizon (0d, 1d, 12h), a printer's tool0
 ROOMS = (  # (name token prefix, room id): the first that matches; no match is the living room
     ("living", "living"), ("lounge", "living"), ("kitchen", "kitchen"), ("bedroom", "bedroom_1"), ("bath", "bathroom"),
     ("hall", "corridor"), ("corridor", "corridor"), ("office", "office"), ("study", "office"),
+    # the entrance is the hallway; and a few other languages' room words
+    ("entr", "corridor"), ("foyer", "corridor"), ("flur", "corridor"), ("diele", "corridor"),
+    ("keuken", "kitchen"), ("kueche", "kitchen"), ("kuche", "kitchen"), ("cuisine", "kitchen"), ("cocina", "kitchen"),
+    ("cucina", "kitchen"), ("schlafzimmer", "bedroom_1"), ("slaapkamer", "bedroom_1"), ("chambre", "bedroom_1"),
+    ("sovrum", "bedroom_1"), ("dormitorio", "bedroom_1"), ("badezimmer", "bathroom"), ("badkamer", "bathroom"),
+    ("wohnzimmer", "living"), ("woonkamer", "living"), ("salon", "living"), ("vardagsrum", "living"),
+    ("buero", "office"), ("kantoor", "office"), ("bureau", "office"),
 )
 OUTDOOR_ROOM = "porch"  # the home's outdoor room (vesper.edt.home.OUTDOOR_ROOM)
 BEDROOM_2 = re.compile(r"(?<![a-z])(bed|bedroom)_?(2|two)(?![0-9a-z])|(?<![a-z])guest")
@@ -162,6 +172,10 @@ def _weather_service(tokens) -> bool:
 
 def _other_measure(tokens) -> bool:
     other = (OTHER_MEASURE & set(tokens)) | {t for t in tokens if OTHER_MEASURE_TOKEN.match(t)}
+    if any(a == "heating" and b == "temp" for a, b in zip(tokens, tokens[1:], strict=False)):
+        other.add("heating_temp")  # a heating setpoint (heating_current_temperature is the measured one)
+    if "brightness" in tokens and LAMP_WORDS & set(tokens):
+        other.add("brightness")  # a lamp's brightness setting, not the room's light level
     if "current" in other and all(i + 1 < len(tokens) and tokens[i + 1] in ROLE_WORDS
                                   for i, t in enumerate(tokens) if t == "current"):
         other.discard("current")
