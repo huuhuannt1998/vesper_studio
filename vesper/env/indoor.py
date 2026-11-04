@@ -13,10 +13,15 @@
   docs/experiments/results-2026-11-04-environment.md). The validation's standard room has no neighbours.
 - Humidity: the outdoor air's water vapour, plus a dwelling's moisture by EN ISO 13788's internal humidity class
   (HUMIDITY_CLASS; 0 none), plus what people add, at the room's temperature (Magnus formula).
+
+Sensitivity knobs (module-level, set them only through `knobs`, which restores them): DAYLIGHT_SCALE on all daylight,
+CAPACITY_SCALE on every room's heat capacity, HUMIDITY_T_OFFSET_C on the temperature the humidity is computed at. At
+their defaults (1.0, 1.0, 0.0) the model is the one built, to the bit.
 """
 from __future__ import annotations
 
 import math
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from vesper.env.outdoor import RUN_DAYS, Outdoor, OutdoorState
@@ -33,6 +38,7 @@ SHADE_LIGHT, SHADE_SOLAR = 0.1, 0.4  # what a closed shade lets through of light
 U_WALL, U_WINDOW = 0.35, 1.4  # W/m²K, a recent house's walls and double glazing (assumed)
 ACH = 0.5  # air changes per hour (assumed)
 C_PER_M2 = 165_000.0  # J/K per m² of floor (EN ISO 13790 "medium")
+CAPACITY_SCALE = 1.0  # a sensitivity knob on every room's heat capacity C (revision R2-a; 1.0 as built)
 HEAT_W_PER_M2 = 100.0  # a room's heating at full output (assumed)
 COOL_W_PER_M2 = 80.0  # what a room's cooling removes at full output (assumed; ~ 80 W/m², a split unit's sizing)
 PERSON_W, PERSON_VAPOUR_KPA = 80.0, 0.15  # what a person adds: sensible heat, and to the room's vapour (assumed)
@@ -40,9 +46,31 @@ START_C = 20.5  # every room's temperature when a run begins (assumed)
 # EN ISO 13788 internal humidity class 1-5 (0: no moisture beyond the outdoor air and people). 1: fitted on dataset A
 # and held out on B (addendum 2, results/environment/fit-humidity-20261104T065407Z.json); it was 0 before 2026-11-04
 HUMIDITY_CLASS = 1
+# a sensitivity knob: kelvin added to the room temperature the relative humidity is computed at, nowhere else (the room
+# itself, and every other reading, unchanged; revision R2-a; 0.0 as built)
+HUMIDITY_T_OFFSET_C = 0.0
 CLASS_PA = 270.0  # the vapour-pressure excess per class at an outdoor temperature at or below 0 °C (EN ISO 13788)
 U_INTERIOR = 2.0  # W/m²K, an interior partition with its doorway (assumed; plasterboard or block, 1.5-2.5)
 NEIGHBOUR_GAP_M = 0.35  # rooms whose facing edges are at most this apart share a wall (a wall's thickness)
+
+
+KNOBS = ("DAYLIGHT_SCALE", "CAPACITY_SCALE", "HUMIDITY_T_OFFSET_C")
+
+
+@contextmanager
+def knobs(**values: float):
+    """Within the block, the given sensitivity knobs (names in KNOBS) have these values; restored after, whatever
+    happens. Module state: it holds for this process only (a process pool's workers set their own)."""
+    unknown = set(values) - set(KNOBS)
+    if unknown:
+        raise ValueError(f"not a knob: {sorted(unknown)}")
+    module = globals()
+    old = {k: module[k] for k in values}
+    try:
+        module.update(values)
+        yield
+    finally:
+        module.update(old)
 
 
 def e_sat(t_c: float) -> float:
@@ -197,9 +225,10 @@ class HomeEnvironment:
                     people.get(rid, 0) * PERSON_W
                 # the equilibrium with the outdoor air and the neighbours' temperatures, each through its own wall
                 eq = (r.h_w_per_k * state.temperature_c + sum(g * before[n] for n, g in inner.items()) + q) / h
-                r.temperature = eq + (before[rid] - eq) * math.exp(-h * dt_s / (C_PER_M2 * r.floor_m2))
+                c = CAPACITY_SCALE * C_PER_M2 * r.floor_m2
+                r.temperature = eq + (before[rid] - eq) * math.exp(-h * dt_s / c)
             e_in = e_out + PERSON_VAPOUR_KPA * min(people.get(rid, 0), 4)
-            rh = min(85.0, max(15.0, 100 * e_in / e_sat(r.temperature)))
+            rh = min(85.0, max(15.0, 100 * e_in / e_sat(r.temperature + HUMIDITY_T_OFFSET_C)))
             out[rid] = {"temperature": round(r.temperature, 1), "humidity": round(rh),
                         "illuminance": round(self.daylight(rid, state) + lamp_lux * lamps.get(rid, 0))}
         return out
@@ -217,4 +246,6 @@ class HomeEnvironment:
             "heat_w_per_m2": HEAT_W_PER_M2,
             "cool_w_per_m2": COOL_W_PER_M2, "u_interior": U_INTERIOR,
             "humidity_class": HUMIDITY_CLASS,
+            **{k.lower(): v for k, v, d in (("CAPACITY_SCALE", CAPACITY_SCALE, 1.0),
+                                            ("HUMIDITY_T_OFFSET_C", HUMIDITY_T_OFFSET_C, 0.0)) if v != d},
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}

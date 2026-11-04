@@ -152,3 +152,73 @@ def test_an_overcast_room_s_daylight_is_the_hand_computed_bre_average_daylight_f
     e = HomeEnvironment(site, Outdoor(site), {"r": room})
     lux = e.daylight("r", state(elev=30, az=180, lux=10_000, direct=0.0))
     assert lux == pytest.approx(10_000 * 1.4507 / 100, rel=1e-4)
+
+
+# -- the sensitivity knobs (revision R2-a) ---------------------------------------------------------------------------
+def _fingerprint() -> str:
+    """Two days of the test house stepped every 10 min, a room heated on and off, one cooled, people and lamps in the
+    hall; the sha256 of every room's full-precision temperature and every reading."""
+    import hashlib
+    e, rows = env(), []
+    for k in range(2 * 144):
+        out = e.step(k * 600, {"hall": k % 3}, {"bedroom": 1.0 if (k // 18) % 2 else 0.0, "kitchen": -0.5 * (k % 2)},
+                     {"hall": k % 5}, 200)
+        rows.append((repr([(rid, r.temperature) for rid, r in sorted(e.rooms.items())]), sorted(out.items())))
+    return hashlib.sha256(repr(rows).encode()).hexdigest()
+
+
+# The fingerprint of the model before the knobs existed (vesper/env/indoor.py at 120f4ca, loaded in place of this
+# one): at their defaults the knobs change nothing, to the bit.
+BEFORE_KNOBS = "671b22a0fa68c482465b3c557564058a282263a1ed876a9fab05eb484b55d8d8"
+
+
+def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
+    from vesper.env import indoor
+    assert (indoor.DAYLIGHT_SCALE, indoor.CAPACITY_SCALE, indoor.HUMIDITY_T_OFFSET_C) == (1.0, 1.0, 0.0)
+    assert _fingerprint() == BEFORE_KNOBS
+    with indoor.knobs(CAPACITY_SCALE=1.0, HUMIDITY_T_OFFSET_C=0.0):
+        assert _fingerprint() == BEFORE_KNOBS
+    assert "capacity_scale" not in env().provenance()["indoor"]
+
+
+def test_knobs_restore_their_values_even_when_the_block_fails():
+    from vesper.env import indoor
+    with pytest.raises(RuntimeError), indoor.knobs(CAPACITY_SCALE=4.0, HUMIDITY_T_OFFSET_C=2.0):
+        assert (indoor.CAPACITY_SCALE, indoor.HUMIDITY_T_OFFSET_C) == (4.0, 2.0)
+        assert env().provenance()["indoor"]["capacity_scale"] == 4.0
+        raise RuntimeError
+    assert (indoor.CAPACITY_SCALE, indoor.HUMIDITY_T_OFFSET_C) == (1.0, 0.0)
+    with pytest.raises(ValueError), indoor.knobs(C_PER_M2=1.0):
+        pass
+    assert indoor.C_PER_M2 == 165_000.0
+
+
+def test_a_heavier_room_cools_more_slowly_by_exactly_its_capacity():
+    """One step of the exact solution: T - eq shrinks by exp(-h dt / C), so doubling C halves the exponent."""
+    import math
+
+    from vesper.env import indoor
+    after = {}
+    for scale in (1.0, 2.0):
+        e = env()
+        for r in e.rooms.values():
+            r.neighbours = {}
+        with indoor.knobs(CAPACITY_SCALE=scale):
+            e.step(0, {}, {}, {}, 0)
+            e.step(3600, {}, {}, {}, 0)
+        after[scale] = e.rooms["hall"].temperature
+    eq = env().outdoor.at(3600).temperature_c  # the hall has no windows (no sun), no heating, no people
+    d0, d1, d2 = indoor.START_C - eq, after[1.0] - eq, after[2.0] - eq
+    assert d0 > d2 > d1 > 0
+    assert math.log(d1 / d0) == pytest.approx(2 * math.log(d2 / d0))
+
+
+def test_the_humidity_offset_moves_only_the_humidity():
+    from vesper.env import indoor
+    a = env().step(3600, {}, {}, {}, 0)
+    with indoor.knobs(HUMIDITY_T_OFFSET_C=2.0):
+        b = env().step(3600, {}, {}, {}, 0)
+    for rid in a:
+        assert a[rid]["temperature"] == b[rid]["temperature"] and a[rid]["illuminance"] == b[rid]["illuminance"]
+        assert b[rid]["humidity"] <= a[rid]["humidity"]  # the same vapour at a warmer temperature: drier
+    assert any(b[rid]["humidity"] < a[rid]["humidity"] for rid in a)
