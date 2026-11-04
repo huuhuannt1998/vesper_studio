@@ -209,3 +209,9 @@ def test_time_spread_ignores_envs_where_it_does_not_fire():
 def test_envelope_kinds_when_any_environment_shows_them():
     got = divergences({E1: _o(flaps=True), E2: _o(nl=True), E3: _o(nc=True)})
     assert got == {"flaps", "night_light", "night_cover"}
+
+
+def test_no_site_does_not_judge_covers_at_night():
+    """Rung 1: the trace names no site, so there is no sunset: a cover opened at 23:00 is not flagged, no crash."""
+    o = outcome([f(DAY + 23 * H, "cover.open_cover", "cover.a")], None)
+    assert o.fired is True and o.night_cover is False

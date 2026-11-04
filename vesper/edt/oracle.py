@@ -13,7 +13,8 @@ Thresholds (fixed by the experiment design):
 Lights and covers are resolved per target, in time order, from every firing given (warm-up included), starting off
 and closed: turn_on/open sets on/open, turn_off/close sets off/closed, toggle flips. A lamp whose 01:00 deadline
 falls after the run's end (the end of the last measured day) cannot be judged and is not flagged. A day on which
-the sun does not set (or rise) has no "after sunset" (or "before sunrise"), so no finding on that side.
+the sun does not set (or rise) has no "after sunset" (or "before sunrise"), so no finding on that side. With no
+site at all (a rung-1 trace names none) there is no sunset: "cover open at night" is not judged.
 """
 from __future__ import annotations
 
@@ -81,6 +82,8 @@ def _night_light(firings: list[Firing], lo: float, hi: float) -> bool:
 
 
 def _night_cover(firings: list[Firing], lo: float, hi: float, site) -> bool:
+    if site is None:  # no place, no sunset: not judged
+        return False
     for steps in _state_after(firings, "cover.open_cover", "cover.close_cover", "cover.toggle").values():
         for t, is_open in steps:
             if not is_open or not lo <= t < hi:
