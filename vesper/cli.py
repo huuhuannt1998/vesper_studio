@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import signal
 import sys
 import time
@@ -948,11 +949,28 @@ def _lab_import(args, catalog) -> int:
     if out.exists():
         print(f"FAILED: {out} already exists", file=sys.stderr)
         return 1
+    save = Path(args.save_plan) if args.save_plan else out.with_name(out.name + ".plan.json")
+    if is_image and save.exists():  # an earlier paid reading is never overwritten
+        print(f"FAILED: {save} already exists (a plan read earlier: build from it with `vesper lab import {save} "
+              f"{out}`, or give another --save-plan)", file=sys.stderr)
+        return 1
+    saved = None
+
+    def retry_hint():  # a paid reading is kept: how to go on without Claude
+        scale = (f"--area {args.area:g}" if args.area is not None else
+                 f"--scale {shlex.quote(args.scale)}" if args.scale else "--area N")
+        print(f"re-run without Claude: vesper lab import {shlex.quote(str(saved))} {shlex.quote(str(out))} {scale}"
+              + ("   (N: the home's floor area in m²)" if scale == "--area N" else ""), file=sys.stderr)
     try:
         if is_image:  # the picture goes to Anthropic through the user's Claude Code session
             from vesper.lab import plan_read
-            print(f"reading {src.name} with Claude (this can take a minute or two)...", flush=True)
-            raw = plan_read.read_plan_image(src, model=args.model)
+            print(f"reading {src.name} with Claude (this takes several minutes and uses your Claude Code quota)...",
+                  flush=True)
+            raw = plan_read.read_plan_image(src, model=args.model, timeout=args.timeout)
+            save.parent.mkdir(parents=True, exist_ok=True)
+            save.write_text(json.dumps(raw, indent=1))
+            saved = save
+            print(f"saved the plan Claude read (in pixels): {save}", flush=True)
         else:
             try:
                 raw = json.loads(src.read_text())
@@ -960,7 +978,14 @@ def _lab_import(args, catalog) -> int:
                 raise GenerateError(f"{src}: cannot read it: {e.strerror}") from None
             except ValueError as e:
                 raise GenerateError(f"{src.name}: not valid JSON: {e}") from None
-        plan = rectify(scale_plan(load_plan(raw), args.scale, args.area))
+        loaded = load_plan(raw)
+        try:
+            scaled = scale_plan(loaded, args.scale, args.area)
+        except PlanError:
+            if is_image:
+                print(plan_read.summary(loaded), flush=True)  # in pixels: the scale is what is missing
+            raise
+        plan = rectify(scaled)
         if is_image:
             print(plan_read.summary(plan), flush=True)
         problems = check_house(plan)
@@ -969,6 +994,8 @@ def _lab_import(args, catalog) -> int:
                   f"{'s' if len(problems) != 1 else ''}):", file=sys.stderr)
             for p in problems:
                 print(f"  - {p}", file=sys.stderr)
+            if saved:
+                retry_hint()
             return 1
         types = [r["type"] for r in plan["rooms"]]
         if args.request:
@@ -991,6 +1018,8 @@ def _lab_import(args, catalog) -> int:
         return 0
     except (GenerateError, PlanError) as e:
         print(f"FAILED: {e}", file=sys.stderr)
+        if saved:
+            retry_hint()
         return 1
 
 
@@ -2056,6 +2085,11 @@ def main(argv: list[str] | None = None) -> int:
     lab_import.add_argument("--model", default=None, help="an image plan: the Claude model that reads it (default: "
                                                           "Claude Code's own; sonnet is faster and cheaper but reads "
                                                           "doors less exactly)")
+    lab_import.add_argument("--save-plan", help="an image plan: where to keep the plan Claude read, in pixels "
+                                                "(default: DIR.plan.json beside the new home), so a refusal costs "
+                                                "no second reading")
+    lab_import.add_argument("--timeout", type=float, default=900, help="an image plan: seconds to wait for Claude "
+                                                                       "(default 900)")
     lab_import.add_argument("--request", help="a vesper-request/1 file: the devices, seed, furnishing and site (the "
                                               "rooms are the plan's)")
     lab_import.add_argument("--catalog", default="catalog/vds")

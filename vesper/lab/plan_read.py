@@ -1,20 +1,25 @@
 """Reading a floor-plan image into a `vesper-plan/1` with Claude (floor-plan import, task A3).
 
-`read_plan_image(path)` runs the Claude Code CLI headless (`claude -p`) on the image (or PDF), with the Read tool
-allowed for that one file, and parses the plan out of its answer. A first answer that is not a valid plan is sent back
-once with the reasons; a second invalid answer raises a PlanError carrying Claude's last text, so a picture that is not
-a floor plan fails with Claude's own words. The image goes to Anthropic through the user's Claude Code session; this
-module makes no other network call, and `vesper lab import` never calls it for a `.json` plan."""
+`read_plan_image(path)` checks that the file is a PNG, JPEG or PDF by its first bytes, copies it into a fresh temporary
+directory as `plan.png|jpg|pdf` and runs the Claude Code CLI headless (`claude -p`) there with only the Read tool,
+allowed for that one copy: the file's own name, folder and links never reach the prompt or the permissions. It parses
+the plan out of the answer. A first answer that is not a valid plan is sent back once with the reasons; a second
+invalid answer raises a PlanError carrying Claude's last text or stated reason, so a picture that is not a floor plan
+fails with Claude's own words. The image goes to Anthropic through the user's Claude Code session; this module makes
+no other network call, and `vesper lab import` never calls it for a `.json` plan."""
 from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from vesper.lab.plan import ROOM_TYPES, PlanError, load_plan
 
-TIMEOUT_S = 600  # one reading of a large image can take a few minutes
+TIMEOUT_S = 900  # one reading of a large image can take several minutes
+MAGIC = ((b"\x89PNG", "png"), (b"\xff\xd8\xff", "jpg"), (b"%PDF", "pdf"))  # what the first bytes say a picture is
 
 PROMPT = f"""You are reading a floor-plan image for VESPER, a smart-home simulator. The image is the file given below
 (open it with the Read tool). Turn it into a floor plan in the `vesper-plan/1` format, in the image's own pixels.
@@ -57,17 +62,18 @@ Answer with ONLY the JSON object: no explanation before or after it, no comments
 """
 
 
-def _claude(args: list[str]) -> str:
-    """The default runner: run the Claude Code CLI and return what it printed."""
+def _claude(args: list[str], cwd: str | None = None, timeout: float = TIMEOUT_S) -> str:
+    """The default runner: run the Claude Code CLI in `cwd` and return what it printed."""
     try:
-        done = subprocess.run(args, capture_output=True, text=True, timeout=TIMEOUT_S, stdin=subprocess.DEVNULL)
+        done = subprocess.run(args, capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL,
+                              cwd=cwd)
     except FileNotFoundError:
         raise PlanError("Claude Code is not installed: reading a floor-plan image needs the `claude` command "
                         "(https://claude.com/claude-code) signed in to your account; or write the plan as a "
                         "vesper-plan/1 .json file") from None
     except subprocess.TimeoutExpired:
-        raise PlanError(f"Claude did not answer within {TIMEOUT_S // 60} minutes; try again, or write the plan as a "
-                        "vesper-plan/1 .json file") from None
+        raise PlanError(f"Claude did not answer within {timeout:g} s (raise it with --timeout); try again, or write "
+                        "the plan as a vesper-plan/1 .json file") from None
     if done.returncode != 0 and not done.stdout.strip():
         detail = done.stderr.strip() or f"exit code {done.returncode}"
         raise PlanError(f"the `claude` command failed (is it signed in? run `claude` once to log in): {detail}")
@@ -80,12 +86,14 @@ def _answer_text(out: str) -> str:
         env = json.loads(out)
     except ValueError:
         return out
-    if not isinstance(env, dict) or "result" not in env and "is_error" not in env:
+    if not isinstance(env, dict) or not ("result" in env or "is_error" in env or env.get("type") == "result"):
         return out
     text = env.get("result")
     text = text if isinstance(text, str) else ""
-    if env.get("is_error"):
-        raise PlanError(f"the `claude` command reported an error: {text.strip() or 'no details'}")
+    subtype = env.get("subtype") if isinstance(env.get("subtype"), str) else ""
+    if env.get("is_error") or subtype.startswith("error"):
+        kind = f" ({subtype})" if subtype else ""
+        raise PlanError(f"the `claude` command reported an error{kind}: {text.strip() or 'no details'}")
     return text
 
 
@@ -105,32 +113,55 @@ def _json_in(text: str) -> object:
     raise ValueError("the answer holds no JSON object")
 
 
-def _check(text: str) -> tuple[dict | None, str]:
-    """(the plan, "") for a valid answer, else (None, what is wrong with it)."""
+def _check(text: str) -> tuple[dict | None, str, str | None]:
+    """(the plan, "", None) for a valid answer, else (None, what is wrong with it, Claude's stated reason when it
+    answered {"error": ...})."""
     try:
         raw = _json_in(text)
     except ValueError:
-        return None, "the answer holds no JSON object (answer with only the JSON)"
+        return None, "the answer holds no JSON object (answer with only the JSON)", None
     if isinstance(raw, dict) and "error" in raw and "rooms" not in raw:
-        return None, f"you said this is not a readable floor plan: {raw['error']}"
+        return None, f"you said this is not a readable floor plan: {raw['error']}", str(raw["error"])
     try:
-        return load_plan(raw), ""
+        return load_plan(raw), "", None
     except PlanError as e:
-        return None, str(e)
+        return None, str(e), None
+
+
+def _label(name: str) -> str:
+    """A file name safe to print: control characters shown as ?."""
+    return "".join(c if c.isprintable() else "?" for c in name)
+
+
+def _picture_kind(path: Path) -> str:
+    """png, jpg or pdf by the file's first bytes (a symlink is followed: what it points at is what is read)."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(8)
+    except OSError as e:
+        raise PlanError(f"{_label(path.name)}: cannot read it: {e.strerror}") from None
+    for magic, ext in MAGIC:
+        if head.startswith(magic):
+            return ext
+    raise PlanError(f"{_label(path.name)}: not a PNG, JPEG or PDF file")
 
 
 def summary(plan_m: dict) -> str:
     """What was read, for the user to check against the image: each room's name, type and area, the doors, and the
-    entrance. `plan_m` is a plan in metres (scaled)."""
+    entrance. `plan_m` is a plan in metres (scaled); a plan still in pixels (no scale yet) is shown in pixels."""
     from vesper.lab.geometry import polygon_area
+    px = plan_m.get("units") == "px"
+    area = (lambda a: f"{a:.0f} px²") if px else (lambda a: f"{a:.1f} m²")
+    width = (lambda w: f"{w:.0f} px") if px else (lambda w: f"{w:.2f} m")
     rooms, doors = plan_m["rooms"], plan_m.get("doors", [])
     names = {r["id"]: r.get("name") or r["id"] for r in rooms}
     names["outside"] = "outside"
-    lines = [f"Claude read {len(rooms)} room{'s' if len(rooms) != 1 else ''} and {len(doors)} door"
-             f"{'s' if len(doors) != 1 else ''}; check them against your image:"]
-    lines += [f"  {names[r['id']]} ({r['type']}): {polygon_area([tuple(p) for p in r['polygon']]):.1f} m²"
+    head = f"Claude read {len(rooms)} room{'s' if len(rooms) != 1 else ''} and {len(doors)} door" \
+           f"{'s' if len(doors) != 1 else ''}"
+    lines = [head + ("; scale missing, so areas are in pixels:" if px else "; check them against your image:")]
+    lines += [f"  {names[r['id']]} ({r['type']}): {area(polygon_area([tuple(p) for p in r['polygon']]))}"
               for r in rooms]
-    lines += [f"  door {k}: {names[d['rooms'][0]]} - {names[d['rooms'][1]]} ({d['width']:.2f} m)"
+    lines += [f"  door {k}: {names[d['rooms'][0]]} - {names[d['rooms'][1]]} ({width(d['width'])})"
               for k, d in enumerate(doors)]
     ent = plan_m.get("entrance")
     if ent is None or not 0 <= ent < len(doors):
@@ -141,31 +172,42 @@ def summary(plan_m: dict) -> str:
     return "\n".join(lines)
 
 
-def read_plan_image(path: Path, runner=None, model: str | None = None) -> dict:
+def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: float = TIMEOUT_S) -> dict:
     """A validated `vesper-plan/1` (in pixels) read from the floor-plan image or PDF at `path`.
 
-    `model` is passed as `--model` (an alias such as "sonnet" or "opus", or a full model name); None, the default,
-    passes none, so the user's own Claude Code model reads the plan (the most exact; "sonnet" is faster and cheaper
-    but read doors less exactly in the one comparison made). `runner(args) -> str` runs the `claude` argument list
-    and returns its stdout; the default runs the CLI. Raises a PlanError when the CLI is missing, fails or reports an
-    error, or when two answers in a row are not a valid plan (the message carries Claude's last text)."""
+    The file must be a PNG, JPEG or PDF by its first bytes. A copy of it goes into a fresh temporary directory as
+    `plan.png|jpg|pdf`; Claude runs there, with only the Read tool, allowed for that copy alone, and no MCP servers,
+    and the temporary directory is deleted afterwards. `model` is passed as `--model` (an alias such as "sonnet" or
+    "opus", or a full model name); None, the default, passes none, so the user's own Claude Code model reads the plan
+    (the most exact; "sonnet" is faster and cheaper but read doors less exactly in the one comparison made).
+    `runner(args, cwd=..., timeout=...) -> str` runs the `claude` argument list and returns its stdout; the default
+    runs the CLI. Raises a PlanError when the file is no picture, the CLI is missing, fails or reports an error, or
+    when two answers in a row are not a valid plan (the message carries Claude's last text or stated reason)."""
     path = Path(path)
     if not path.is_file():
-        raise PlanError(f"{path}: no such file")
+        raise PlanError(f"{_label(str(path))}: no such file")
+    ext = _picture_kind(path)
     run = runner or _claude
-    full = path.resolve()
-    prompt = f"{PROMPT}\nThe image: {full}\n"
-    # Only the Read tool exists for this run, and it may read only this file (`//` marks an absolute path).
-    base = ["--tools", "Read", "--allowedTools", f"Read(/{full})", "--add-dir", str(full.parent),
-            "--output-format", "json", *(["--model", model] if model else [])]
-    text, problem = "", ""
-    for attempt in range(2):
-        if attempt:
-            prompt = (f"{PROMPT}\nThe image: {full}\n\nYour previous answer was:\n{text}\n\nVESPER cannot use it: "
-                      f"{problem}\n\nLook at the image again and answer with the corrected JSON only.\n")
-        text = _answer_text(run(["claude", "-p", prompt, *base]))
-        plan, problem = _check(text)
-        if plan is not None:
-            return plan
+    tmp = Path(tempfile.mkdtemp(prefix="vesper-plan-")).resolve()
+    try:
+        copy = tmp / f"plan.{ext}"
+        shutil.copyfile(path, copy)
+        # Only the Read tool exists for this run, and it may read only the copy (`//` marks an absolute path).
+        base = ["--tools", "Read", "--allowedTools", f"Read(/{copy})", "--strict-mcp-config",
+                "--output-format", "json", *(["--model", model] if model else [])]
+        text, problem, said = "", "", None
+        for attempt in range(2):
+            prompt = f"{PROMPT}\nThe image: {copy}\n"
+            if attempt:
+                prompt += (f"\nYour previous answer was:\n{text}\n\nVESPER cannot use it: {problem}\n\n"
+                           "Look at the image again and answer with the corrected JSON only.\n")
+            text = _answer_text(run(["claude", "-p", prompt, *base], cwd=str(tmp), timeout=timeout))
+            plan, problem, said = _check(text)
+            if plan is not None:
+                return plan
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if said is not None:
+        raise PlanError(f"Claude could not read a floor plan in {_label(path.name)}: {said}")
     shown = text.strip() if len(text.strip()) <= 2000 else text.strip()[:2000] + " ..."
-    raise PlanError(f"could not read a floor plan from {path.name}: {problem}. Claude's last answer: {shown}")
+    raise PlanError(f"could not read a floor plan from {_label(path.name)}: {problem}. Claude's last answer: {shown}")
