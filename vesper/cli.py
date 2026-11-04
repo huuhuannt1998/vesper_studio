@@ -415,6 +415,20 @@ def _validate_environment(args) -> int:
         print("FAILED environment: neither dataset is there (see docs/experiments/environment-validation.md)",
               file=sys.stderr)
         return 1
+    if args.thermal_ladder:
+        from vesper.validation.thermal_ladder import ladder_report
+        if not (have["a"] and have["b"]):
+            print("FAILED environment --thermal-ladder: needs both datasets", file=sys.stderr)
+            return 1
+        ladder = ladder_report(have["a"], have["b"], Path(args.weather_cache), workers=args.workers)
+        out = args.out or Path("results/environment") / f"thermal-ladder-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+        path = _write_report(str(out), "thermal-ladder", ladder, args)
+        for order, row in ladder["orders"].items():
+            print(f"{order:<11} A RMSE {row['A']['median_rmse']:.2f} C (r {row['A']['median_r']:.2f}); held out on B "
+                  f"RMSE {row['B']['median_rmse']:.2f} C (r {row['B']['median_r']:.2f}); AIC {row['aic_A']:.0f}; "
+                  f"{row['verdict']}")
+        print(f"outcome: {ladder['outcome']} (order {ladder['outcome_order']}); report {path}")
+        return 0
     if args.fit_humidity:
         from vesper.validation.environment import humidity_fit_report
         if not (have["a"] and have["b"]):
@@ -1783,6 +1797,9 @@ def main(argv: list[str] | None = None) -> int:
                                                          "the chosen pair once on dataset B")
     envv.add_argument("--fit-humidity", action="store_true", help="addendum 2: fit EN ISO 13788's humidity class "
                                                                   "on dataset A, judge it once on dataset B")
+    envv.add_argument("--thermal-ladder", action="store_true", help="addendum 3: 1R1C to 2R2C+solar fitted on dataset "
+                                                                    "A, held out on B, with identifiability")
+    envv.add_argument("--workers", type=int, default=2, help="processes for --thermal-ladder")
     envv.add_argument("--out")
     xs = checks.add_parser("crosssite", help="RQ3: one home, the same automations, across cities, seasons and "
                                              "orientations (logical clock)")

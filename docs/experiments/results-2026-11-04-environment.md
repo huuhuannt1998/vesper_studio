@@ -71,3 +71,41 @@ After it (`environment-20261104T065549Z.json`): H passes on A (8.2) and still fa
 are unchanged. The constant 45 % of the assumed curve is still closer on both homes (6.6 and 8.3 points). The low
 class is consistent with A's rooms being simulated too cold (warmer simulated air would hold the measured vapour
 at a lower relative humidity); that remains untested.
+
+## The thermal ladder (addendum 3; `results/environment/thermal-ladder-20261104T162908Z.json`)
+
+Four grey-box orders fitted on each of dataset A's eight rooms (3,289 h, 10-minute steps, heater held at 1600 W, the
+room's own 10th-percentile setpoint rule on the model's own state), then handed A's median parameters for B's two
+rooms (1,197 h; nothing fitted on B for the held-out column). Medians over rooms:
+
+| Order | A RMSE (r) | B held-out RMSE (r), bias | AIC on A (sum of 8 rooms) | A's parameters at a bound | Verdict |
+|---|---|---|---|---|---|
+| one-node model as it stands (`vesper validate environment`) | 2.08 °C (0.55-0.71) | 7.79 °C (0.73-0.77) | | | |
+| 1R1C | 2.44 °C (0.41) | 2.59 °C (0.83), -1.5 °C | 44,549 | C at its lower bound in 8 rooms of 8, R at its upper in 2 | sponge |
+| 1R1C+solar | 1.28 °C (0.78) | 8.56 °C (0.65), +7.9 °C | 15,302 | R at its upper bound in 2 rooms, C at a bound in 5 | sponge |
+| 2R2C | 2.44 °C (0.44) | 2.70 °C (0.84), -1.6 °C | 44,565 | C_a at its lower bound in 7, R_am at its upper in 6, C_m at its lower in 3, R_ao at its upper in 2 | sponge |
+| 2R2C+solar | 1.08 °C (0.83) | 4.08 °C (0.74), +3.4 °C | 5,125 | C_a at a bound in 2 rooms, C_m at its upper in 1, R_ao at its upper in 2 | sponge |
+
+**Outcome: sponge.** No order repairs. Every parameter of every order has a 95 % profile-likelihood interval that
+spans an order of magnitude (upper/lower between 30 and 594 for A's median of rooms; for 2R2C+solar: R_ao
+0.025-2 K/W, R_am 0.0014-0.82 K/W, C_a 0.4-50 MJ/K, C_m 4.8-500 MJ/K, g·A 0.017-4.6 m²), and most of those intervals
+are open: the profile never crosses the 95 % threshold within the grid's 1/30-to-30× range (so a span of "30" means "at
+least 30"). The optima sit on a bound in most rooms (table). Fitting each B room by itself gives parameters
+nowhere near A's (2R2C+solar: C_m 0.23×, g·A 16×, R_ao 0.005× A's median). The only aperture in the plausible 0.5-3
+m² window is 2R2C+solar's (median 0.52 m² conditional on the 1600 W heater, across rooms 0.02-1.4); it has an interval of 0.017-4.6 m².
+
+What the table says, as interpretation (not tested here):
+
+- The two orders without solar gain pass B's numerical criteria (2.6-2.7 °C, r 0.83-0.84, against the one-node room's
+  7.79 °C) with parameters at bounds and no identifiable structure: with a heater that holds the room's own
+  10th-percentile floor and almost no heat loss (C at its lower bound), the model is close to a room held at its
+  floor; the cold bias on B (-1.4 to -1.7 °C) is consistent with that. This is the "sponge" the protocol names, not a
+  thermal model that transfers; it also fits A worse (2.44 °C) than the one-node room does (2.08 °C).
+- The solar orders fit A much better (AIC down by 29,000 for 1R1C+solar, 39,000 for 2R2C+solar relative to 1R1C) and
+  hold out on B much worse for 1R1C+solar (+7.9 °C, the same overheating as the one-node room) and in between for 2R2C+solar
+  (+3.4 °C): the solar aperture and the heater absorb A's winter, which B's spring sun does not obey.
+- The scale of (1/R, C, heater power, g·A) is not identifiable (found by the synthetic test: three starts reached the
+  same error with different constants); it is why the heater is held at VESPER's value, and every R, C and g·A above is
+  conditional on it.
+- Neither dataset publishes room geometry, heating or occupancy; a repair of the one-node model cannot be separated
+  from these omissions with this data. Nothing in `vesper/env/indoor.py` changes because of this result.
