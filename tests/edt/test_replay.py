@@ -322,14 +322,14 @@ def test_the_catalog_is_cached_by_its_resolved_path(edt, trace4):
 
 def live_firings(home_yaml, work, autos):
     """What a live permissive session (the link layer in the loop, the home's own physics) fires in days 1 and 2."""
-    from vesper.edt.trace import _copy_home, _site
+    from vesper.edt.trace import copy_home, env_site
     from vesper.lab.automations import Engine
     from vesper.lab.home import load_lab_home
     from vesper.lab.session import Session
     from vesper.twins.clock import LogicalClock
     from vesper.twins.home import load_catalog
-    site = _site(Env(PHOENIX, "2026-07-15", 0.0, 4))
-    home = load_lab_home(_copy_home(home_yaml, work / "live", site, work / "no-weather"),
+    site = env_site(Env(PHOENIX, "2026-07-15", 0.0, 4))
+    home = load_lab_home(copy_home(home_yaml, work / "live", site, work / "no-weather"),
                          load_catalog(Path("catalog/vds")))
     s = Session(home, clock=LogicalClock())
     s.start(spawn_player=False, residents=False, automations=False)
