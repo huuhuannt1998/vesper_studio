@@ -292,6 +292,22 @@ def test_a_room_above_30_in_the_baseline_as_well_is_not_counted(edt, warm_home):
     assert not any(v["above_30"] for v in env.values())  # the automation changed nothing here
 
 
+def test_the_baseline_cache_follows_the_homes_contents_and_each_confirm_starts_it_empty(edt, warm_home, tmp_path):
+    import shutil
+    work, home_yaml, roles = edt
+    cold = Env(CITY, "2026-01-15", 0.0, 4)
+    copy = tmp_path / "home"
+    shutil.copytree(home_yaml.parent, copy)
+    first = cf.baseline_temperatures(cold, copy / "home.yaml", work / "cache")
+    (copy / "home.yaml").write_text((warm_home).read_text())  # the same path, a different home
+    second = cf.baseline_temperatures(cold, copy / "home.yaml", work / "cache")
+    assert max(c for _, c in first["kitchen"]) < max(c for _, c in second["kitchen"]) - 3
+    cf._BASELINES["sentinel"] = {}
+    s = sweep({"u": entry({ENV_A.key: out(tod=8.0)}) | {"bound": set_temperature(roles, 21)}}, envs=(ENV_A,))
+    cf.confirm(s, work / "run4", sample=1, seed=0, cache=work / "cache", days=3)
+    assert "sentinel" not in cf._BASELINES
+
+
 def test_the_report_counts_envelope_violations_per_run_and_room():
     ok = {"min_c": 18.0, "max_c": 22.0, "below_10": False, "above_30": False}
     hot = {"min_c": 29.0, "max_c": 36.0, "below_10": False, "above_30": True}
@@ -302,7 +318,7 @@ def test_the_report_counts_envelope_violations_per_run_and_room():
     assert r["envelope"]["violations"] == [{"id": "a", "env_key": "k", "room": "living", **hot}]
     assert r["caveat"] == r["envelope"]["caveat"] == (
         "indoor temperature carries the thermal model's validation error (sunny rooms overheat; "
-        "see results-2026-11-04-environment.md)")
+        "see results-2026-11-04-environment.md); runs without cached weather use the assumed outdoor curve")
 
 
 def test_confirm_reports_the_envelope_against_a_baseline_run_once_per_environment(edt):
@@ -320,9 +336,9 @@ def test_confirm_reports_the_envelope_against_a_baseline_run_once_per_environmen
 
 
 # -- a command's parts are one firing ------------------------------------------------------------
-def row(t, service="light.turn_on", entity="light.a", feature="state", automation="a1"):
+def row(t, service="light.turn_on", entity="light.a", feature="state", automation="a1", device="lamp"):
     return {"kind": "automation", "t": t, "automation": automation, "service": service, "entity": entity,
-            "feature": feature, "value": 1}
+            "device": device, "feature": feature, "value": 1}
 
 
 def test_the_parts_of_one_command_are_one_firing():
@@ -330,6 +346,17 @@ def test_the_parts_of_one_command_are_one_firing():
     firings = cf.firings_from(rows)
     assert [(f.t, f.service, f.target) for f in firings] == [(100.0, "light.turn_on", "light.a"),
                                                              (500.0, "light.turn_on", "light.a")]
+
+
+def test_a_repeated_feature_within_a_second_is_a_new_firing_so_an_oscillating_toggle_still_flaps():
+    rows = [row(100.0), row(100.2), row(100.4, feature="brightness"), row(100.6)]
+    assert [f.t for f in cf.firings_from(rows)] == [100.0, 100.2, 100.6]  # state | state+brightness | state
+
+
+def test_recorded_actions_are_never_merged():
+    rows = [row(100.0, device="", feature=""), row(100.0, device="", feature=""), row(100.0, device="", feature=""),
+            row(100.0)]
+    assert len(cf.firings_from(rows)) == 4  # three recorded calls, and a twin command that a record does not join
 
 
 def test_other_targets_services_and_automations_stay_separate_firings():

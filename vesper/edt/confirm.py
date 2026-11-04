@@ -28,6 +28,7 @@ automation and not in the baseline; each room reports both min/max and the delta
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import random
 import tempfile
 from collections import Counter
@@ -44,7 +45,7 @@ COLD_C, HOT_C = 10.0, 30.0
 COMMAND_PARTS_S = 1.0      # the rows of one command (state, brightness, ...) are written within this of its first
 RUNS_PER_UNFLAGGED = 2
 CAVEAT = ("indoor temperature carries the thermal model's validation error (sunny rooms overheat; "
-          "see results-2026-11-04-environment.md)")
+          "see results-2026-11-04-environment.md); runs without cached weather use the assumed outdoor curve")
 FIELDS = ("fired", "flaps", "night_light", "night_cover")
 
 
@@ -64,6 +65,8 @@ def disagreements(open_loop: dict, closed: Outcome) -> list[str]:
 
 
 def _class(o: dict) -> tuple:
+    """A screening outcome's class: its flags and its first firing's time of day in fixed TOD_BUCKET_H-hour bins (two
+    times a few minutes apart can fall in different bins; the pick only uses it to find outliers)."""
     tod = o["first_tod_h"]
     return (o["fired"], o["flaps"], o["night_light"], o["night_cover"],
             None if tod is None else int(tod // TOD_BUCKET_H))
@@ -199,14 +202,14 @@ def closed_loop(bound: dict | None, env: Env, home_yaml: Path, cache: Path, *, d
             "refused": s.automations.refused, "rooms": rooms, "temperatures": temps, "rows": rows}
 
 
-_BASELINES: dict[tuple, dict] = {}
+_BASELINES: dict[tuple, dict] = {}  # (home sha256, env key, days, cache, catalog) -> temperatures; cleared per confirm
 
 
 def baseline_temperatures(env: Env, home_yaml: Path, cache: Path, days: int = 3,
                           catalog_dir: str = "catalog/vds") -> dict[str, list[tuple[float, float]]]:
     """Every indoor room's temperature over the run with no automation, in `env` (run once per home, environment and
     length, then remembered)."""
-    key = (str(home_yaml), str(cache), env, days, catalog_dir)
+    key = (hashlib.sha256(Path(home_yaml).read_bytes()).hexdigest(), env.key, days, str(cache), catalog_dir)
     if key not in _BASELINES:
         _BASELINES[key] = closed_loop(None, env, Path(home_yaml), Path(cache), days=days,
                                       catalog_dir=catalog_dir)["temperatures"]
@@ -216,17 +219,25 @@ def baseline_temperatures(env: Env, home_yaml: Path, cache: Path, days: int = 3,
 def firings_from(rows: list[dict]) -> list[Firing]:
     """The oracle's firings from a live session's `automation` rows. The session writes one row per part of a command
     at delivery (a light turned on with a brightness is a `state` row, then a `brightness` row); the open-loop replay
-    counts one firing. Rows of the same automation, service and target within COMMAND_PARTS_S of a firing's first row
-    are its parts."""
+    counts one firing. As the replay does: a row of a twin command (it has a device) joins the current firing of its
+    (automation, service, target) if it is within COMMAND_PARTS_S of that firing's first row and its feature is not
+    yet in it; a repeated feature starts a new firing (a toggle that undoes itself in 0.2 s is two). A recorded action
+    (no device, no feature) is a firing of its own, never merged."""
     out: list[Firing] = []
-    last: dict[tuple, Firing] = {}
+    open_group: dict[tuple, tuple[Firing, set]] = {}
     for r in sorted((r for r in rows if r.get("kind") == "automation"), key=lambda r: r["t"]):
         key = (r["automation"], r["service"], r["entity"])
-        prev = last.get(key)
-        if prev is not None and r["t"] - prev.t <= COMMAND_PARTS_S:
+        group = open_group.get(key)
+        twin = bool(r.get("device"))
+        if twin and group is not None and r["t"] - group[0].t <= COMMAND_PARTS_S and r.get("feature") not in group[1]:
+            group[1].add(r.get("feature"))
             continue
-        last[key] = firing = Firing(t=r["t"], automation=r["automation"], service=r["service"], target=r["entity"])
+        firing = Firing(t=r["t"], automation=r["automation"], service=r["service"], target=r["entity"])
         out.append(firing)
+        if twin:
+            open_group[key] = (firing, {r.get("feature")})
+        else:
+            open_group.pop(key, None)
     return out
 
 
@@ -257,6 +268,7 @@ def confirm(sweep_result: dict, work: Path, sample: int = 200, seed: int = 0, *,
     `<work>/cache`; never fetched here, a missing day is clear sky). `days`: run length (default RUN_DAYS; the
     measured days are 1..days-1). `workers`: processes (default 1; keep to 2 on the shared Mac)."""
     from vesper.edt.home import build_edt_home
+    _BASELINES.clear()
     work = Path(work)
     cache = Path(cache) if cache is not None else work / "cache"
     envs = {e["key"]: {k: e[k] for k in ("city", "date", "north_deg", "rung")} for e in sweep_result["envs"]}
