@@ -146,3 +146,15 @@ median of the upper ends over A's rooms. AIC = `n·ln(SSE/n) + 2k`, summed over 
 
 The ladder's outcome is that of the simplest order that repairs; if none does, that of the order with the lowest
 summed AIC on A. The one-node model's own result (T: A 2.08 °C, B 7.79 °C) is the benchmark, not a criterion.
+
+**Addendum 3, corrections found by the synthetic tests (2026-11-04, before any real data ran).**
+
+- The heating power P is **not** fitted. Scaling (1/R, C, P, g·A) by one factor leaves every temperature unchanged
+  (three starts of the fit reached the same error with different constants), so the data fix only the ratios. P is held at
+  VESPER's own heater, 100 W/m² of the standard room (1600 W); R, C and g·A are read conditional on it. This
+  replaces "P is a free parameter" above; the parameters per order are therefore `1R1C`: R, C; `1R1C+solar`: R, C,
+  g·A; `2R2C`: R_ao, R_am, C_a, C_m; `2R2C+solar`: the same and g·A. The aperture's 0.5-3 m² window is conditional on
+  the same assumed heater.
+- The two-node orders get a nuisance parameter, the mass node's starting temperature less the air's (-10 to +10 °C;
+  fitted, not profiled, not carried to B, where the mass starts at the air's temperature): with a mass time constant
+  of days, the unknown start would otherwise bias C_m. It counts in AIC.
