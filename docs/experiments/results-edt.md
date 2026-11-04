@@ -246,6 +246,8 @@ no automation (protocol section 4; the confirmation's causal rule).
   so the above-30 envelope cannot be judged with this model; the causal rule keeps the failure from being reported as
   a finding, but it also hides any real overheating an automation would cause.
 
+How far the below-10 C count depends on the model's thermal mass (post hoc): "Revision R2-a", item 10, at the end.
+
 ## RQ3: is the physics necessary? (the necessity ladder)
 
 Pass criteria, pre-registered in Addendum 1, A1.4, verbatim: "Rung 0 matches rung 4 iff its repo-grouped AUC >= 0.90
@@ -572,3 +574,73 @@ sensor-driven flags. (d) Run-level closed-loop agreement intervals must be clust
 by repository. (e) The open-loop over-report of self-disabling automations is bounded: 35 flagged automations (4.4 %)
 have the condition-type self-state shape. (f) Of the time_spread findings, 40 % depend on a single city being in the
 set (leave-one-city-out; Stockholm alone for 255).
+
+## Revision R2-a (post hoc): thermal mass and the below-10 C finding; humidity under a temperature error
+
+**Post hoc, not pre-registered**, for the review (MUST 3, SHOULD 10). Unlike the analyses above these re-run
+simulations: closed-loop runs and open-loop traces with two new sensitivity knobs of the indoor model,
+`vesper.env.indoor.CAPACITY_SCALE` (every room's heat capacity x S) and `HUMIDITY_T_OFFSET_C` (kelvin added to the
+temperature the relative humidity is computed at, nothing else), both set through `indoor.knobs` and restored after;
+at their defaults (1, 0) the model is bit-identical to before (a pinned fingerprint test, `tests/env/test_indoor.py`).
+Inputs: the local results of `dc119cd` (sweep, confirmation, their homes and the cached weather they read; never
+fetched again). Script: `scripts/revision/r2a_thermal_humidity.py`; numbers in
+`results/edt/thermal-mass-r2a-dc119cd-20261104.json` and `results/edt/humidity-offset-r2a-dc119cd-20261104.json`
+(aggregates only).
+
+**10. Thermal mass.** The 7 automations of item 9 (A1-A7) were run closed loop again (`vesper.edt.confirm.closed_loop`,
+unchanged) in the six January environments the confirmation ran them in (Minneapolis, Stockholm, Seattle,
+2026-01-14, plan north 0 and 180): 42 runs per scale, each scale with its own six baselines (no automation, same
+scale), and the confirmation's causal rule (a room-run cell counts when the room's minimum over days 1-2 is below
+10 C with the automation and not in the baseline). **At S = 1 the re-run reproduces the confirmation exactly**: 294
+cells, every minimum and baseline minimum identical, no breach classified differently. Nominal C is EN ISO 13790's
+"medium" class, 165 kJ/(m² K) of floor; S = 0.5 is about its "very light" class (80), S = 2 lies between "heavy"
+(260) and "very heavy" (370), S = 4 is beyond every class.
+
+| S (kJ/(m² K)) | Runs with a caused breach (of 42) | Minneapolis / Stockholm / Seattle (of 14 each) | Caused cells (of 294) | Automations | Coldest caused room per run: min / median / max | Baseline coldest room |
+|---|---|---|---|---|---|---|
+| 0.5 (82.5) | **28** | 14 / 14 / 0 | 194 | 7 | 3.3 / 6.1 / 9.4 C | 14.8 C |
+| **1 (165)** | **20** | 14 / 6 / 0 | 108 | 7 | 5.3 / 8.5 / 9.5 C | 15.6 C |
+| 2 (330) | **6** | 6 / 0 / 0 | 26 | 3 (A1, A2, A5) | 7.7 / 8.75 / 9.7 C | 16.8 C |
+| 4 (660) | **0** | 0 / 0 / 0 | 0 | 0 | none (Minneapolis rooms reach 12.4-15.8 C) | 17.7 C |
+
+No baseline room falls below 10 C at any scale, so every breach is caused. Seattle's January never breaches (coldest
+room per run 11.7-13.7 C at S = 0.5); Stockholm's coldest room per run is 6.3-9.4 C at S = 0.5, 8.0-12.6 at 1,
+11.6-14.8 at 2, 14.6-16.2 at 4. The largest drop below the baseline is 13.2 K at S = 0.5 and 1, 11.1 K at 2.
+**The finding is not robust to thermal mass**: the mechanism (a 7 C setback on a sub-zero day lets the rooms fall
+well below the baseline's) is there at every scale, but whether the rooms cross 10 C within the two measured days
+is not. It survives a twofold heavier house only in Minneapolis (6 of 14 runs), and vanishes at fourfold.
+
+*Time constants* (tau = C / H, H the room's loss to the outdoors: walls, windows, 0.5 air changes per hour; the
+interior walls only move heat between rooms that are all cooling): the EDT home's rooms 38.7 h (the smaller bedroom),
+44.5 h (office), 45.5 h (living room), 46.3 h (the larger bedroom), 56.7 h (kitchen), 64.5 h (bathroom), 76.4 h
+(hallway); the whole house 48.9 h (13.7 MJ/K over 77.8 W/K); the validation's standard room 62.1 h. As an order of
+magnitude (no standard source verified here), free-running dwellings decay with time constants of roughly 10-30 h for
+light timber frame and 50-100 h or more for heavy masonry: **VESPER's nominal house sits between the two, at the
+light end of masonry**, not at a short time constant. The timber-frame houses typical of Minneapolis would be at or
+below S = 0.5 (more breaches); a heavy masonry house at S = 1-2 (fewer).
+
+*Bias direction, plainly.* Two known errors of the model push the below-10 C count **up** (toward inflating the
+finding): validation A's cold bias (the model's rooms 0.9-1.7 C colder than the measured ones, median RMSE 2.08 C)
+and any thermal mass lower than the real house's. Against them, VESPER's tau of about 49 h is already longer than a
+light timber frame's, which would push the other way for such a house. The count therefore rests on two uncertain
+quantities and should be reported as "20 of 42 runs at the model's nominal mass, 6-28 for half to twice that mass,
+none at four times", not as a fixed number.
+
+**11. Humidity flags under a +-2 K temperature error.** The rung-4 humidity-coupled automations that ran (63: the
+37 flagged and 26 unflagged) were replayed open loop (`vesper.edt.sweep`'s own worker) in all 48 environments against
+traces recorded afresh with the temperature the humidity is computed at offset by -2, 0 and +2 K (the rooms' own
+temperature and every other reading unchanged; the porch's outdoor humidity is not a room's and is unchanged). **Offset
+0 reproduces the published sweep exactly** (3,024 automation-environment outcomes, every divergence kind identical).
+
+| Offset | Flagged (37): flag lost / gained | Divergence kinds changed | Automations with any outcome change | Outcomes changed (of 1,776) exactly / beyond 1 h | Kinds after (published: time_spread 34, fires_somewhere_only 31, flaps 7) |
+|---|---|---|---|---|---|
+| -2 K | 1 / 0 | 2 | 34 | 721 / 543 | 35, 31, 6 |
+| +2 K | 0 / 0 | 3 | 34 | 598 / 452 | 33, 31, 7 |
+
+**36 of the 37 flagged humidity automations stay flagged under both offsets** (one loses its flag at -2 K); 4 change
+which divergence kinds they show under one offset or the other. What changes a lot is *when* they fire: 34 of the 37
+change at least one environment's outcome, and 25-31 % of their automation-environment outcomes move beyond the
+confirmation's one-hour tolerance. The flag (that the automation behaves differently across environments) is robust
+to a 2 K error in the room temperature; the per-environment behaviour (first firing times) is not. The 26 unflagged
+ones fire in no environment, at any offset, so their stability says nothing. (Humidity's own model error, without the
+temperature: `results-2026-11-04-environment.md`, "Revision R2-a".)

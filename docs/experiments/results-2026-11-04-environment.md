@@ -277,3 +277,42 @@ tree at f19bd31):
 
 For the 2026 dates of the cross-site experiment and the EDT sweeps the blend is not ERA5 in any variable (see
 `results-2026-11-04-crosssite.md`, "With the weather pinned to ERA5").
+
+## Revision R2-a (2026-11-04, post hoc): the humidity model apart from the thermal model
+
+**Post hoc, not pre-registered**; check H's registered verdicts stand. H compares the room's relative humidity
+modelled from start to end: VESPER's vapour pressure (the measured outdoor air's, plus EN ISO 13788's excess for
+class 1) divided by the saturation pressure at VESPER's *modelled* room temperature. A thermal error therefore shows
+up as a humidity error. Here the same modelled vapour is divided by the saturation pressure at the *measured* room
+temperature (hour by hour, clamped to 15-85 % as the model does), which isolates the humidity model from the thermal
+one. Script `scripts/revision/r2a_thermal_humidity.py` (`--part humidity-validation`), report
+`results/environment/humidity-decomposition-r2a-20261104.json`; the same datasets, ERA5 cache and code as
+`environment-20261104T212613Z.json`. The "check" column recomputes the fully modelled humidity per hour, unrounded,
+from the model's hourly mean temperature: it matches H to 0.01 points, so the decomposition's arithmetic is the
+model's.
+
+| Dataset | H, fully modelled (check) | Modelled vapour at the measured temperature | Median bias, fully modelled / at measured T | Vapour pressure, modelled vs measured: RMSE, bias | Room temperature RMSE |
+|---|---|---|---|---|---|
+| A (8 rooms) | **8.2** (8.195) points | **6.2** points (rooms 5.0-12.7) | +5.1 / +1.5 points | 1.41 hPa, +0.33 | 2.08 C |
+| B (2 rooms) | **14.9** (14.9) points | **9.2** points (dining room 9.2, other room 7.2) | -11.7 / +4.9 points (the dining room; the other room -13.8 / +3.8) | 1.83 hPa, +1.01 | 7.79 C |
+
+(Medians as check H takes them: the upper middle of the rooms, for B the larger of two.) On B, about 6 of the 15
+points are the thermal model's overheating: with the measured temperature the humidity error falls to 9.2 points,
+under H's 10-point criterion, and its sign flips (the modelled rooms are too warm, hence too dry; the modelled vapour
+itself is slightly too high). On A, 2 of the 8.2 points are the thermal model's cold bias (cold rooms read too humid:
+the median bias falls from +5.1 to +1.5 points at the measured temperature); A's bathroom and teenager room (vapour
+under-predicted: showers, occupants) and ironing room (over-predicted) remain the worst at 7-13 points. The note
+under "Humidity class" above, that class 1 may be compensating for A's cold rooms, is now partly tested: at the
+measured temperature A's humidity bias is small and positive, so more moisture (a higher class) would raise it; the
+class was not refitted.
+
+**What class 1 is.** EN ISO 13788's internal humidity classes (informative Annex A) are design loads for the
+*monthly* assessment of surface and interstitial condensation risk, from measurements in Western European buildings,
+with the class's upper limit recommended for design; class 1 is "unoccupied buildings, storage of dry goods" (very low
+load), class 2 "offices, dwellings with normal occupancy and ventilation". VESPER uses them otherwise: hour by hour,
+on the hour's outdoor temperature, as a vapour-pressure excess over the outdoor air of `CLASS_PA` = 270 Pa per class
+at an outdoor temperature at or below 0 C, falling linearly to none at 20 C (class 1: 0.27 kPa at or below 0 C, 0.135
+kPa at 10 C, 0 at or above 20 C), plus 0.15 kPa per person present (at most four). That the class labelled for
+unoccupied buildings fits occupied homes best is a fitted value, not a description of the homes: it stands for
+whatever ventilation, occupancy and moisture the datasets' homes had, and it was chosen on A with A's thermal bias in
+place.
