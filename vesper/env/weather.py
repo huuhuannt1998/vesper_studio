@@ -1,6 +1,8 @@
 """The recorded weather of a site's dates: hourly outdoor temperature, relative humidity, cloud cover and shortwave
 (global horizontal) radiation from the Open-Meteo historical archive (ERA5 reanalysis; data CC BY 4.0, Open-Meteo
-asks for attribution and free use is non-commercial; https://open-meteo.com/en/terms).
+asks for attribution and free use is non-commercial; https://open-meteo.com/en/terms). A day within the last
+ARCHIVE_LAG_DAYS (the archive is about five days behind) comes from Open-Meteo's forecast service instead, which
+keeps the past days of its weather models; both are free and need no key.
 
 `vesper env fetch` downloads days into `.vesper/weather/` once; runs only read that cache, so a logical run is
 reproducible and needs no network. A day with no recorded weather leaves the outdoor values to the clear-sky
@@ -18,6 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+FORECAST_URL = "https://api.open-meteo.com/v1/forecast"  # recent days (the archive is about 5 days behind)
+ARCHIVE_LAG_DAYS = 6  # a day this recent comes from the forecast service's past days, not the archive
 VARIABLES = ("temperature_2m", "relative_humidity_2m", "cloud_cover", "shortwave_radiation")
 FORMAT = "vesper-weather/1"
 ATTRIBUTION = "Weather data by Open-Meteo.com (ERA5 reanalysis), CC BY 4.0"
@@ -69,18 +73,25 @@ def cache_path(cache_dir: Path, lat: float, lon: float, day: dt.date) -> Path:
     return Path(cache_dir) / f"{lat:.4f}_{lon:.4f}_{day.isoformat()}.json"
 
 
-def fetch(lat: float, lon: float, start: dt.date, end: dt.date, cache_dir: Path, *, get=None) -> list[Path]:
-    """Download the UTC days start..end (inclusive) for a site into the cache, one file per day; the paths. `get` is
-    httpx.get, injectable."""
+def fetch(lat: float, lon: float, start: dt.date, end: dt.date, cache_dir: Path, *, get=None,
+          today: dt.date | None = None) -> list[Path]:
+    """Download the UTC days start..end (inclusive) for a site into the cache, one file per day; the paths. Days
+    within ARCHIVE_LAG_DAYS of `today` (default: today, UTC) come from the forecast service. `get` is httpx.get,
+    injectable."""
     if end < start:
         raise WeatherError(f"the last day {end} is before the first {start}")
     if get is None:
         import httpx
         get = httpx.get
-    params = {"latitude": lat, "longitude": lon, "start_date": start.isoformat(), "end_date": end.isoformat(),
-              "hourly": ",".join(VARIABLES), "timezone": "GMT"}
+    today = today or dt.datetime.now(dt.UTC).date()
+    url = FORECAST_URL if end > today - dt.timedelta(days=ARCHIVE_LAG_DAYS) else ARCHIVE_URL
+    params = {"latitude": lat, "longitude": lon, "hourly": ",".join(VARIABLES), "timezone": "GMT"}
+    if url == ARCHIVE_URL:
+        params |= {"start_date": start.isoformat(), "end_date": end.isoformat()}
+    else:  # the forecast service counts days back from today and ahead of it
+        params |= {"past_days": max(1, (today - start).days + 1), "forecast_days": max(1, (end - today).days + 1)}
     try:
-        r = get(ARCHIVE_URL, params=params, timeout=60)
+        r = get(url, params=params, timeout=60)
         r.raise_for_status()
         data = r.json()
     except Exception as e:  # noqa: BLE001 - the network, the server, a non-JSON answer: one message
@@ -98,8 +109,10 @@ def fetch(lat: float, lon: float, start: dt.date, end: dt.date, cache_dir: Path,
     Path(cache_dir).mkdir(parents=True, exist_ok=True)
     paths = []
     for day, series in sorted(by_day.items()):
+        if not start <= dt.date.fromisoformat(day) <= end:
+            continue  # the forecast service answers whole ranges around today
         p = cache_path(cache_dir, lat, lon, dt.date.fromisoformat(day))
-        p.write_text(json.dumps({"format": FORMAT, "attribution": ATTRIBUTION, "url": ARCHIVE_URL,
+        p.write_text(json.dumps({"format": FORMAT, "attribution": ATTRIBUTION, "url": url,
                                  "site": {"lat": lat, "lon": lon},
                                  "cell": {"lat": data.get("latitude"), "lon": data.get("longitude"),
                                           "elevation": data.get("elevation")},
@@ -112,13 +125,14 @@ def load(lat: float, lon: float, days: list[dt.date], cache_dir: Path) -> Weathe
     """The cached weather of these UTC days, from the first up to the first one missing (a run longer than its
     cache keeps the recorded days; past them the outdoors is assumed), or None when the first is missing. Never
     fetches."""
-    times, values, cell = [], {v: [] for v in VARIABLES}, None
+    times, values, cell, urls = [], {v: [] for v in VARIABLES}, None, set()
     for day in sorted(set(days)):
         p = cache_path(cache_dir, lat, lon, day)
         data = json.loads(p.read_text()) if p.is_file() else {}
         if data.get("format") != FORMAT:
             break
         cell = data.get("cell") or {}
+        urls.add(data.get("url", ARCHIVE_URL))
         h = data["hourly"]
         times += [dt.datetime.fromisoformat(t).replace(tzinfo=dt.UTC) for t in h["time"]]
         for v in VARIABLES:
@@ -126,7 +140,9 @@ def load(lat: float, lon: float, days: list[dt.date], cache_dir: Path) -> Weathe
     if not times:
         return None
     return Weather(lat=cell.get("lat") or lat, lon=cell.get("lon") or lon, times=times, values=values,
-                   source=f"Open-Meteo archive (ERA5), cell {cell.get('lat')}, {cell.get('lon')}")
+                   source=("Open-Meteo forecast (models' past days)" if urls == {FORECAST_URL} else
+                           "Open-Meteo archive (ERA5) and forecast" if FORECAST_URL in urls else
+                           "Open-Meteo archive (ERA5)") + f", cell {cell.get('lat')}, {cell.get('lon')}")
 
 
 def utc_days(first: dt.datetime, last: dt.datetime) -> list[dt.date]:

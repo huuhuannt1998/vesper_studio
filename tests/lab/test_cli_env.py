@@ -91,3 +91,22 @@ def test_look_gives_the_page_the_free_models_as_play_does(tmp_path, monkeypatch)
     except Stop:
         pass
     assert seen.get("assets") is not None  # live look 2026-11-04: the look drew the built-in shapes only
+
+
+def test_a_request_s_place_is_looked_up_once_and_written_into_the_home(tmp_path, monkeypatch):
+    from vesper.env import geocode as g
+    monkeypatch.setattr(g, "geocode", lambda name, get=None: {"lat": 21.0245, "lon": 105.8412, "elevation_m": 10.0,
+                                                              "tz": "Asia/Bangkok", "name": "Hanoi, Vietnam"})
+    _, out = generated(tmp_path, site='    site: {place: "Hanoi, Vietnam", date: "2026-11-04"}\n')
+    site = yaml.safe_load((out / "home.yaml").read_text())["site"]
+    assert (site["lat"], site["tz"], site["name"]) == (21.0245, "Asia/Bangkok", "Hanoi, Vietnam")
+    assert "place" not in site
+
+
+def test_place_prints_a_site_to_paste_into_home_yaml(monkeypatch, capsys):
+    from vesper.env import geocode as g
+    monkeypatch.setattr(g, "geocode", lambda name, get=None: {"lat": 45.7485, "lon": 4.8467, "elevation_m": 173.0,
+                                                              "tz": "Europe/Paris", "name": "Lyon, France"})
+    assert cli.main(["lab", "place", "Lyon, France"]) == 0
+    out = capsys.readouterr().out
+    assert "site: {lat: 45.7485, lon: 4.8467, elevation_m: 173.0, tz: Europe/Paris" in out and "GeoNames" in out

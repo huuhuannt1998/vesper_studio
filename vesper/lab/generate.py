@@ -200,8 +200,15 @@ def site_of(raw) -> dict | None:
     if raw is None:
         return None
     if not isinstance(raw, dict):
-        raise GenerateError("site: a mapping (a city, or lat, lon and tz) with an optional date")
+        raise GenerateError("site: a mapping (a place, a city, or lat, lon and tz) with an optional date")
     raw = {**raw, "date": str(raw.get("date") or dt.date.today().isoformat())}
+    if "place" in raw:  # looked up once, now; the home keeps the answer and never needs the network
+        from vesper.env import geocode
+        try:
+            found = geocode.geocode(raw["place"])
+        except geocode.GeocodeError as e:
+            raise GenerateError(str(e)) from e
+        raw = {**found, **{k: v for k, v in raw.items() if k != "place"}}
     try:
         parse_site(raw)
     except SiteError as e:

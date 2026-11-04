@@ -695,11 +695,16 @@ a **City**, the **First day** and which way the floor plan faces; in a request o
 
     site: {city: "Charlotte, NC, USA", date: "2026-01-15", north_deg: 0}
 
-(or `lat`, `lon`, `elevation_m` and `tz` for any place). Then
+(or `lat`, `lon`, `elevation_m` and `tz` for any place). For any other place by name, a request may say
+`site: {place: "Lyon, France"}`, or `vesper lab place "Lyon, France"` prints the line to paste: Open-Meteo's free
+geocoding (GeoNames data, no key) is asked once, when the home is made, and home.yaml keeps the answer, so a home
+never needs the network to load or run. Then
 
 - the **sun** is computed for the site and the clock by astral, the library Home Assistant's own `sun.sun` uses;
 - the **weather** is the recorded hourly weather of that place and date from the Open-Meteo archive (ERA5
-  reanalysis, data CC BY 4.0). Download it once, beside the home:
+  reanalysis, data CC BY 4.0), or for the last few days (the archive is about five days behind) from Open-Meteo's
+  forecast service, which keeps its models' past days; both are free and need no key. Download it once, beside the
+  home:
 
       vesper lab env homes/eight/home.yaml --fetch
 

@@ -83,7 +83,8 @@ def parse_site(raw) -> Site | None:
     if "city" in raw:
         city = CITIES.get(raw["city"])
         if city is None:
-            raise SiteError(f"site.city: {raw['city']!r} is not one of {', '.join(CITIES)}")
+            raise SiteError(f"site.city: {raw['city']!r} is not one of {', '.join(CITIES)} (for any other place, "
+                            "give place: in the generate request, or lat, lon and tz)")
         raw = {**city, "name": raw["city"], **{k: v for k, v in raw.items() if k != "city"}}
     tz = raw.get("tz")
     try:

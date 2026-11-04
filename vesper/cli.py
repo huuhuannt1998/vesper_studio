@@ -724,6 +724,8 @@ def _lab(args) -> int:
             return _lab_new(args, WorldMap)
         if args.action == "scenes":
             return _lab_scenes(args)
+        if args.action == "place":
+            return _lab_place(args)
         catalog = load_catalog(Path(args.catalog))
         if args.action == "check":
             home = load_lab_home(Path(args.home), catalog)
@@ -986,6 +988,24 @@ def _warn_range(home) -> None:
         print(f"network: {', '.join(off)} {'is' if len(off) == 1 else 'are'} out of the router's Wi-Fi range: "
               f"{'it joins' if len(off) == 1 else 'they join'} once in range; until then never heard, never "
               "commanded (`network: router:` in the home file; `vesper lab network` shows each link)")
+
+
+def _lab_place(args) -> int:
+    """A place's site, by Open-Meteo's geocoding (vesper.env.geocode), as a line for home.yaml."""
+    import datetime as dt
+
+    from vesper.env.geocode import ATTRIBUTION, GeocodeError, geocode
+    try:
+        s = geocode(args.name)
+    except GeocodeError as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    date = args.date or dt.date.today().isoformat()
+    print(f"{s['name']}:")
+    print(f"site: {{lat: {s['lat']}, lon: {s['lon']}, elevation_m: {s['elevation_m']}, tz: {s['tz']}, "
+          f"date: \"{date}\", name: \"{s['name']}\"}}")
+    print(f"({ATTRIBUTION})")
+    return 0
 
 
 def _lab_env(home, args) -> int:
@@ -1835,6 +1855,10 @@ def main(argv: list[str] | None = None) -> int:
     lab_network = lab_actions.add_parser("network", help="the home's network: the router and each link's quality")
     lab_network.add_argument("home")
     lab_network.add_argument("--catalog", default="catalog/vds")
+    lab_place = lab_actions.add_parser("place", help="a place name's site (coordinates, elevation, time zone) by "
+                                                     "Open-Meteo's free geocoding, to paste into home.yaml")
+    lab_place.add_argument("name", help='a place, such as "Lyon, France" (the words after a comma pick the country)')
+    lab_place.add_argument("--date", help="the site's first day, YYYY-MM-DD (default today)")
     lab_env = lab_actions.add_parser("env", help="the home's site and outdoors: sun, light, temperature, weather")
     lab_env.add_argument("home")
     lab_env.add_argument("--fetch", action="store_true", help="first download the recorded weather of its days "

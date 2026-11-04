@@ -102,3 +102,19 @@ def test_a_run_s_utc_days_cover_its_local_span():
     assert utc_days(site.utc(0), site.utc(86400)) == [dt.date(2026, 1, 15), dt.date(2026, 1, 16)]
     assert cache_path("x", 1.5, -2.25, dt.date(2026, 1, 1)).name == "1.5000_-2.2500_2026-01-01.json"
 
+
+
+def test_recent_days_come_from_the_forecast_service_older_ones_from_the_archive(tmp_path):
+    from vesper.env.weather import ARCHIVE_URL, FORECAST_URL
+    urls = []
+
+    def get(url, params=None, timeout=None):
+        urls.append((url, params))
+        return Answer(archive(("2026-11-01", "2026-11-02")))
+    today = dt.date(2026, 11, 4)
+    fetch(35.2271, -80.8431, dt.date(2026, 11, 1), dt.date(2026, 11, 2), tmp_path, get=get, today=today)
+    fetch(35.2271, -80.8431, dt.date(2026, 1, 15), dt.date(2026, 1, 16), tmp_path, get=lambda u, params=None,
+          timeout=None: urls.append((u, params)) or Answer(archive()), today=today)
+    assert urls[0][0] == FORECAST_URL and urls[0][1]["past_days"] >= 3 and urls[1][0] == ARCHIVE_URL
+    w = load(35.2271, -80.8431, [dt.date(2026, 11, 1)], tmp_path)
+    assert "forecast" in w.source
