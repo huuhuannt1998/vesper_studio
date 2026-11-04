@@ -205,6 +205,46 @@ recorded) is an environment-level failure, recorded once under `failed_envs` wit
 each automation. An automation refused in some environments and run in others is counted in `partially_refused`; its
 divergences are over the environments where it ran.
 
+## Addendum 2 (2026-11-04, before the first full run)
+
+Written after the binder-coverage smoke runs (4 environments, the first 10,000 automations, used to check the harness
+only) and before any full sweep. It amends section 1 (what "bound" means) and section 7 (what the sweep writes).
+
+**A2.1 Gate-open helpers.** Helper and presence entities (`input_boolean`, `input_select`, `input_number`, `group`,
+`person`, `device_tracker`, `zone`, `timer`) have no device in the standard home. An automation whose helper or
+presence entities appear **only** in `state` / `numeric_state` **conditions** whose entities are all helpers, at the
+top level or inside an `and` (`condition: and`, the `and:` shorthand, or a nested list), is bound with those
+conditions **removed**; the state each removed condition requires is recorded as an assumption, beside the bound
+automation:
+
+- `state`: `input_boolean.away_mode == off`, or `input_select.mode in [home, guest]` for several allowed states
+  (an attribute condition reads `person.me[source] == gps`);
+- `numeric_state`: a value inside its range, `input_number.t in (18, 22)`, or `input_number.t > 18` / `< 22` when one
+  side is open.
+
+Conditions on one helper are merged (the intersection of their allowed states or ranges); a disabled condition
+(`enabled: false`) is removed with no assumption (Home Assistant ignores it); a condition's `for:` is assumed to have
+held.
+
+Rationale: a helper gate (away mode off, someone home, the heating season selected) is a mode its author set by hand;
+the automation is run in the mode its author gated it for. Helpers and presence never change without residents, and
+the standard home has none, so a gate either holds for the whole trace or never does; holding it open is the only
+setting in which the automation's environmental behaviour can be observed at all.
+
+**A2.2 What stays unbindable**, each with its own reason:
+
+- a helper in a trigger (helpers and presence change only with residents);
+- a helper as a numeric threshold (`above` / `below: input_number.x`);
+- a helper inside `or` or `not` (or a state condition with `match: any` over several entities);
+- conflicting requirements on one helper (no common state or range);
+- a helper in a template, in any other condition kind, in an action, or anywhere else in the automation;
+- a helper and a device entity in one condition; a helper state given as YAML's unquoted on/off (Home Assistant
+  refuses it); a helper `numeric_state` compared against an entity or a template.
+
+**A2.3 Reporting.** Every sweep result records `assumptions` per automation (empty when none) and reports the yield
+and the flagged counts twice: over all bound automations (`yield`, `flagged`) and over the assumption-free subset
+(`yield_assumption_free`, `flagged_assumption_free`). Every result is stated over both.
+
 ## Addendum 3 (2026-11-04, before the first full run)
 
 Found in a 10,000-automation smoke run once the engine supported `weekday` conditions and triggers: the plan's four
