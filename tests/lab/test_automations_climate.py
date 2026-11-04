@@ -72,6 +72,7 @@ def test_set_temperature_can_also_set_the_mode(tmp_path):
     climate, s = thermostat_lab(tmp_path, TRV, ", state: {system_mode: \"off\"}")
     run(s, [call(climate, "set_temperature", temperature=21, hvac_mode="heat")])
     assert (state(s)["current_heating_setpoint"], state(s)["system_mode"]) == (21, "heat")
+    assert [c[1] for c in commands(s)] == ["system_mode", "current_heating_setpoint"]  # Home Assistant: mode first
 
 
 def test_a_temperature_outside_the_range_is_refused_strict_and_recorded_permissive(tmp_path):
@@ -111,17 +112,20 @@ def test_a_heat_pump_takes_cool(tmp_path):
     assert state(s)["system_mode"] == "cool"
 
 
-def test_a_range_sets_the_heating_and_cooling_setpoints_of_a_twin_that_has_both(tmp_path):
-    climate, s = thermostat_lab(tmp_path, HEAT_PUMP)
-    run(s, [call(climate, "set_temperature", target_temp_low=19, target_temp_high=25)])
-    assert (state(s)["occupied_heating_setpoint"], state(s)["occupied_cooling_setpoint"]) == (19, 25)
-
-
-def test_a_range_on_a_heating_only_twin_is_recorded_with_the_reason(tmp_path):
-    climate, s = thermostat_lab(tmp_path, TRV)
-    e = run(s, [call(climate, "set_temperature", target_temp_low=19, target_temp_high=25)], permissive=True)
-    assert "target_temp" in e.automations[0].approximations[0]
-    assert commands(s) == [("climate.set_temperature", "", None, True)]
+@pytest.mark.parametrize("product", [HEAT_PUMP, TRV])
+def test_a_target_temperature_range_is_refused_strict_and_recorded_permissive_whatever_the_twin_has(tmp_path, product):
+    """Home Assistant's discovered climate entity has one temperature command topic, so no target temperature range
+    (even on a twin with a heating and a cooling setpoint): real Home Assistant refuses the call."""
+    climate, s = thermostat_lab(tmp_path, product)
+    before = dict(state(s))
+    actions = [call(climate, "set_temperature", target_temp_low=19, target_temp_high=25)]
+    strict = Engine(s, automations=[{"alias": "a", "triggers": [{"trigger": "time", "at": "08:00"}],
+                                     "actions": actions}])
+    assert strict.automations == [] and "no target temperature range" in strict.refused[0]["reason"]
+    e = run(s, actions, permissive=True)
+    assert e.refused == []
+    assert "the climate entity has no target temperature range" in e.automations[0].approximations[0]
+    assert commands(s) == [("climate.set_temperature", "", None, True)] and state(s) == before
 
 
 def test_turn_off_sets_off_and_turn_on_picks_heat(tmp_path):

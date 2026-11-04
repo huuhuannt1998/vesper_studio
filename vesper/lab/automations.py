@@ -15,7 +15,7 @@ Supported: triggers `state` (to, from, for; `to: ~` is any change), `numeric_sta
 and before across midnight is either), and the entity `sun.sun` (above_horizon, below_horizon), all from the same
 astral sun as Home Assistant's at the site and the run's date; actions `light.*` (brightness,
 brightness_pct), `switch.*` (turn_on, turn_off, toggle), `lock.lock`/`lock.unlock`, `climate.set_temperature`
-(temperature, or target_temp_low and target_temp_high on a twin with a heating and a cooling setpoint, and hvac_mode),
+(temperature and hvac_mode; no target temperature range, the discovered entity has none),
 `climate.set_hvac_mode`, `climate.turn_on`/`climate.turn_off` on the home's thermostats (the climate entity of
 Home Assistant's MQTT discovery: the setpoint and `system_mode` it exposes, within its range and its modes) and
 `delay`; `enabled: false`
@@ -447,7 +447,8 @@ class Engine:
 
         def temperature(feature: str, value, key: str) -> tuple[str, float]:
             c = _number(value, f"{where}: {key}")
-            v = round(c * 9 / 5 + 32, 1) if e.cfg.get("temperature_unit") == "F" else c  # the entity's unit
+            # a Fahrenheit entity gets the value converted from Celsius: this assumes a metric Home Assistant
+            v = round(c * 9 / 5 + 32, 1) if e.cfg.get("temperature_unit") == "F" else c
             lo, hi = features[feature].get("range") or (None, None)
             if (lo is not None and v < lo) or (hi is not None and v > hi):
                 raise AutomationError(f"{where}: {key} {value!r} is outside {e.entity_id}'s range {lo}..{hi}")
@@ -461,22 +462,17 @@ class Engine:
             _keys(data, {"hvac_mode"}, f"{where}: data")
             return [mode(data.get("hvac_mode"))]
         _keys(data, SET_TEMPERATURE_KEYS, f"{where}: data")
+        if "target_temp_low" in data or "target_temp_high" in data:
+            # the discovered climate entity has one temperature command topic: no TARGET_TEMPERATURE_RANGE, so Home
+            # Assistant refuses the call, whatever setpoints the twin has
+            raise AutomationError(f"{where}: the climate entity has no target temperature range "
+                                  "(target_temp_low/target_temp_high)")
+        if "temperature" not in data:
+            raise AutomationError(f"{where}: needs temperature")
         out: list[tuple[str, object]] = []
-        if "temperature" in data:
-            if "target_temp_low" in data or "target_temp_high" in data:
-                raise AutomationError(f"{where}: temperature and target_temp_low/high together")
-            out.append(temperature(e.feature, data["temperature"], "temperature"))
-        elif "target_temp_low" in data and "target_temp_high" in data:
-            cooling = e.feature.replace("heating", "cooling")
-            if e.feature == cooling or cooling not in features or "set" not in features[cooling].get("access", ()):
-                raise AutomationError(f"{where}: {e.entity_id} has no heating and cooling setpoints for "
-                                      "target_temp_low/target_temp_high")
-            out += [temperature(e.feature, data["target_temp_low"], "target_temp_low"),
-                    temperature(cooling, data["target_temp_high"], "target_temp_high")]
-        else:
-            raise AutomationError(f"{where}: needs temperature, or target_temp_low and target_temp_high")
-        if "hvac_mode" in data:
+        if "hvac_mode" in data:  # Home Assistant's order: the mode, then the temperature
             out.append(mode(data["hvac_mode"]))
+        out.append(temperature(e.feature, data["temperature"], "temperature"))
         return out
 
     @staticmethod
