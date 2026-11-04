@@ -577,16 +577,17 @@ def _site_lines(request: Request) -> list[str]:
 
 def _furnish(out: Path, catalog: dict) -> None:
     """Furnish the generated home (vesper.lab.furnishing): `furniture.json` beside it, the floor under each solid
-    piece taken off `map.json`, the plan without furniture kept as `map.original.json` (as `vesper lab renav`)."""
+    piece taken off `map.json`, the plan without furniture kept as `map.original.json` (as `vesper lab renav`),
+    marked `"bare": true`: a plan VESPER drew, with no furniture in it (an HSSD house's map.original.json is HSSD's
+    own walking map, its furniture in it: vesper.lab.layoutcheck tells them apart by this)."""
     import json
-    import shutil
 
     from vesper.lab.furnishing import FORMAT, block, furnish
     from vesper.lab.home import load_lab_home
     from vesper.lab.windows import load_windows
     home = load_lab_home(out / "home.yaml", catalog)
     items = furnish(home.map, home.devices, home.avatar["start"], load_windows(out))
-    shutil.copyfile(out / "map.json", out / "map.original.json")
+    (out / "map.original.json").write_text(json.dumps({**json.loads((out / "map.json").read_text()), "bare": True}))
     block(home.map, items)
     home.map.save(out / "map.json")
     (out / "furniture.json").write_text(json.dumps({"format": FORMAT, "items": items}, indent=1) + "\n")

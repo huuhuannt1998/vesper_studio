@@ -441,9 +441,9 @@ def test_a_passage_the_plan_draws_narrower_than_a_walkway_is_the_plan_s_not_the_
     assert cli.main(["lab", "layout", str(out / "home.yaml"), "--catalog", str(cat)]) == 0
     text = capsys.readouterr().out
     assert "0 error(s)" in text
-    hall = next(line for line in text.splitlines() if "walkway: hall:" in line)
-    assert hall.startswith("  warn  walkway: hall: only a 0.7 m path") and "bedroom_3-hall" in hall
-    assert "even with no furniture" in hall
+    hall = [line for line in text.splitlines() if "walkway: hall:" in line]
+    assert hall == ["  warn  walkway: hall: only a 0.7 m path to bedroom_3-hall even with no furniture: the plan's "
+                    "room is narrower there"]  # one line per narrow doorway, not one per pair
     # the hall is furnished all the same: what the furniture may not do is close a walkway the plan has
     assert "hall" in {i["room"] for i in json.loads((out / "furniture.json").read_text())["items"]}
 
@@ -552,3 +552,28 @@ def test_the_furnisher_keeps_every_pair_of_doorways_joined_as_wide_as_the_plan_j
     boxes = [box for kind, room, box, _ in furniture if room == "living" and kind in closing]
     boxes = boxes[-1:] if closing == ("bookshelf",) else boxes  # arm2: the bookshelf in the arm, not the other
     assert _walkway(r, set()) and not _walkway(r, {c for b in boxes for c in _cells_in(m.grid, b)})
+
+
+def test_a_furnished_home_marks_its_map_without_furniture_as_the_bare_plan(tmp_path):
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "three"
+    generate_from_plan(rectify(three_rooms()), Request(tmp_path, [], 0, []), load_catalog(cat), out)
+    original = json.loads((out / "map.original.json").read_text())
+    assert original["bare"] is True and original["format"] == "vesper-map/1"
+
+
+def test_an_hssd_house_s_map_original_is_not_a_bare_plan_every_pair_needs_a_walkway(tmp_path, capsys):
+    """A dressed or renav'd HSSD house keeps HSSD's own walking map as map.original.json, its furniture already in
+    it: narrowness there is no proof of the plan's, so each pair of doorways needs its 0.9 m path."""
+    cat, out = home_with(tmp_path, ARM2, [])  # no furniture: the arm alone is narrower than a walkway
+    home = out / "home.yaml"
+    assert cli.main(["lab", "layout", str(home), "--catalog", str(cat)]) == 0  # imported/: the plan's (a warning)
+    home.write_text(home.read_text().replace("scene: imported/", "scene: hssd/"))
+    capsys.readouterr()
+    assert cli.main(["lab", "layout", str(home), "--catalog", str(cat)]) == 1
+    text = capsys.readouterr().out
+    assert "ERROR walkway: living: no 0.9 m path between kitchen-living and living-porch" in text
+    assert "even with no furniture" not in text
+    original = out / "map.original.json"  # VESPER's own bare map says so, whatever the scene
+    original.write_text(json.dumps({**json.loads(original.read_text()), "bare": True}))
+    assert cli.main(["lab", "layout", str(home), "--catalog", str(cat)]) == 0

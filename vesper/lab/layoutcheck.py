@@ -212,13 +212,14 @@ def _floor(home, solid) -> tuple:
 
 def _walkways(home, solid) -> list[dict]:
     """Each room's doorways joined through floor at least WALKWAY_M wide (cells at least half of it from any
-    blocked cell), pair by pair (vesper.lab.furnishing.walk_widths). A home with its plan without furniture
-    (map.original.json: generated or imported) is also measured bare, and each pair needs only the width the bare
-    plan gives it: a pair the plan itself joins by a narrower path (a passage drawn narrower) is a warning, the
-    plan's, as long as the furniture keeps that path; a pair the furniture narrows or cuts off is an error."""
+    blocked cell), pair by pair (vesper.lab.furnishing.walk_widths). A home whose map.original.json is a plan
+    VESPER drew with no furniture in it (`bare_plan`) is also measured bare, and each pair needs only the width the
+    bare plan gives it: a doorway the plan itself reaches by a narrower path (a passage drawn narrower) is a
+    warning, the plan's, as long as the furniture keeps that path; a pair the furniture narrows or cuts off is an
+    error. Any other home (an HSSD house: its map.original.json has HSSD's furniture in it) needs WALKWAY_M a pair."""
     from vesper.lab.furnishing import walk_k, walk_widths
     g, free = _floor(home, solid)
-    bare = _floor(home, [])[1] if (Path(home.path).parent / "map.original.json").is_file() else None
+    bare = _floor(home, [])[1] if bare_plan(home) else None
     top = walk_k(g)
     width = lambda k: f"{(2 * k - 1) * g.cell:.1f} m"  # noqa: E731
     out = []
@@ -231,21 +232,57 @@ def _walkways(home, solid) -> list[dict]:
         x0, z0, x1, z1 = room_box(room)
         box = (x0 - 0.3, z0 - 0.3, x1 + 0.3, z1 + 0.3)
         now = walk_widths(g, free, box, [d.center for d in dws])
-        need = walk_widths(g, bare, box, [d.center for d in dws]) if bare is not None else dict.fromkeys(now, top)
+        need, own = dict.fromkeys(now, top), {}
+        if bare is not None:  # and how much floor each doorway has by it: the narrow end of a passage has less
+            widths = walk_widths(g, bare, box, [d.center for d in dws], own=True)
+            need = {p: k for p, k in widths.items() if p[0] != p[1]}
+            own = {p[0]: k for p, k in widths.items() if p[0] == p[1]}
         name = lambda pair: f"{dws[pair[0]].id} and {dws[pair[1]].id}"  # noqa: E731
         cut = [f"no {WALKWAY_M} m path between {name(p)}" if need[p] >= top else
                f"the furniture {'narrows' if now[p] else 'closes'} the plan's {width(need[p])} path between {name(p)}"
                for p in now if now[p] < min(need[p], top)]
-        narrow = [p for p in now if need[p] < top and now[p] >= need[p]]
+        narrow = []  # the doorways the plan reaches only narrower: each group of them, from the room's main group
+        groups = _groups(len(dws), [p for p in need if need[p] >= top])
+        main = max(groups, key=lambda grp: (len(grp), max(own.get(k, 0) for k in grp), 0 in grp))
+        for grp in groups:
+            across = [(min(a, b), max(a, b)) for a in grp for b in main]
+            if grp is main or any(now[p] < need[p] for p in across):
+                continue  # the furniture's doing is an error above
+            w = max(need[p] for p in across)
+            doors = ", ".join(dws[k].id for k in sorted(grp))
+            narrow.append(f"only a {width(w)} path to {doors}" if w else f"no path to {doors}")
         if cut or not narrow:
             out.append(_finding("walkway", not cut, f"{room.id}: " + (
                 "; ".join(cut) if cut else f"its doorways joined by a {WALKWAY_M} m path"), where=room.id))
         if narrow:
-            out.append(_finding("walkway", False, f"{room.id}: " + "; ".join(
-                f"only a {width(need[p])} path between {name(p)}" if need[p] else f"no path between {name(p)}"
-                for p in narrow) + " even with no furniture: the plan's room is narrower there",
-                severity="warning", where=room.id))
+            out.append(_finding("walkway", False, f"{room.id}: " + "; ".join(narrow) + " even with no furniture: the "
+                                "plan's room is narrower there", severity="warning", where=room.id))
     return out
+
+
+def _groups(n: int, joined: list[tuple[int, int]]) -> list[set[int]]:
+    """The doorways 0..n-1 in groups that the pairs `joined` connect."""
+    group = {k: {k} for k in range(n)}
+    for a, b in joined:
+        if group[a] is not group[b]:
+            merged = group[a] | group[b]
+            for k in merged:
+                group[k] = merged
+    return list({id(g): g for g in group.values()}.values())
+
+
+def bare_plan(home) -> bool:
+    """Whether the home's map.original.json is a plan VESPER drew with no furniture in it: marked `"bare": true`
+    (vesper.lab.generate writes it so), or, for a home made before the mark, a generated or imported scene."""
+    original = Path(home.path).parent / "map.original.json"
+    if not original.is_file():
+        return False
+    try:
+        if json.loads(original.read_text()).get("bare") is True:
+            return True
+    except (OSError, ValueError, AttributeError):
+        return False
+    return str(home.scene).startswith(("generated/", "imported/"))
 
 
 def _flood(start, area) -> set:

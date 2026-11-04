@@ -366,12 +366,13 @@ def walk_k(g) -> int:
     return max(1, math.ceil(WALKWAY_M / 2 / g.cell))
 
 
-def walk_widths(g, free: set, box, centres) -> dict[tuple[int, int], int]:
+def walk_widths(g, free: set, box, centres, own: bool = False) -> dict[tuple[int, int], int]:
     """For every pair of doorways (indices i < j of `centres`), the widest k (1 to walk_k) at which floor joins
     them: cells within `box` with a (2k - 1)-cell square of `free` floor about them, from those within WALKWAY_M of
-    one doorway's centre to those of the other's; 0 when no floor joins them."""
+    one doorway's centre to those of the other's; 0 when no floor joins them. `own`: also (i, i), the widest k
+    there is floor for by doorway i at all."""
     top = walk_k(g)
-    pairs = [(i, j) for i in range(len(centres)) for j in range(i + 1, len(centres))]
+    pairs = [(i, j) for i in range(len(centres)) for j in range(i if own else i + 1, len(centres))]
     out = dict.fromkeys(pairs, 0)
     inner = set(_cells_in(g, box))
     level = set(free)
