@@ -139,12 +139,18 @@ from it, so that the paper can cite the result with them.
    3.21 °C for the third, and B's refit parameters are outside ±50 % of A's in all of them), and 1R1C+solar "sponge"
    (its median aperture, 0.028 m², is outside 0.5-3 m²). So three of the four "sponge" verdicts, including the
    outcome's order 2R2C+solar, rest on width alone. No order could have been a repair even without the width
-   condition: B's own refit lies outside ±50 % of A's parameters in every order. The widths are mostly grid- or
+   condition: B's own refit lies outside ±50 % of A's parameters in every order. For the three orders whose fits
+   converged that rests on A's converged medians; for 2R2C+solar it rests on A medians from unconverged fits
+   (disclosure 4), and what keeps it true is B's own refits, which converged (statuses 3 and 4) and sit at R_ao 0.004x
+   and g·A 13.5x A's median (R_ao on its bound), far outside ±50 %. The widths are mostly grid- or
    bound-limited (above), which is what an unidentified parameter looks like, but also what a profile that does not
    cross within 1/30-30x looks like for a flat objective; the registration made that the criterion.
-4. **Not every main fit converged.** In 6 of 8 rooms of 2R2C+solar the least-squares fit stopped at its 60-evaluation
-   limit (`fit.status` 0 in the report), the other orders' fits converged (status 1-4). Those optima and their
-   profiles are those of an unfinished fit; a longer fit could lower A's error and move the intervals. Not rerun.
+4. **Not every main fit converged, and the cap was not registered.** Addendum 3 says only "least squares, two
+   starts"; the 60-evaluation limit of the main fit is the code's (`MAIN_MAX_NFEV`), not the registration's. In 6 of 8
+   rooms of 2R2C+solar the fit stopped at it with `status` 0 (T1, T3, T4, T5, T7, T9); T8 used all 60 evaluations and
+   was stopped by the step tolerance (status 3), T2 converged in 18. The other orders' fits converged (status 1-4)
+   within the limit. Those 2R2C+solar optima and their profiles are those of an unfinished fit; a longer fit could
+   lower A's error and move the intervals. See the post hoc convergence check below.
 5. **Profile refits stop early** (12 evaluations, tolerance 1e-5, versus 60 and 1e-7 for the main fit), which can leave
    the profile's error too high away from the optimum and so narrows the intervals (conservative against "sponge").
 6. **Exploratory fits.** Two timing fits were run on dataset A, room T1 (1R1C+solar and 2R2C+solar, no profile), after
@@ -159,3 +165,18 @@ from it, so that the paper can cite the result with them.
    floor" (the non-solar orders) benefits from exactly this.
 9. **The mass start** is fitted for the two-node orders as a nuisance (registered in the corrections); its bound is
    -10 to +10 °C as registered, parametrised as 0.01-20 (offset + 10), so the lower bound is -9.99 °C.
+
+### Post hoc convergence check (2026-11-04; protocol written before it runs)
+
+Labelled post hoc: it was not registered and it does not change the verdict. The registered rule's verdict, from the
+run above (60-evaluation cap), stays the verdict; this check only shows whether it survives converged fits.
+
+- Same code path (`vesper validate environment --thermal-ladder --main-max-nfev 400,1000,3000`), registered default
+  unchanged (60). Each main fit (each order, each A room, and each B refit) is run with a cap of 400 evaluations
+  per start; a fit whose chosen start still ends with `status` 0 is rerun from the same two starts with 1,000, and then
+  3,000. The cap each fit finally used is in the report (`fit.max_nfev`).
+- Profile refits unchanged (12 evaluations, tolerance 1e-5), run around each converged optimum; the grid, the
+  threshold, ρ and its cap, the setpoint rule, the heater, the bounds, the parameters carried to B, and the verdict rule
+  are as before.
+- A separate JSON (`thermal-ladder-converged-*.json`). Both outcomes are reported side by side below. If the label
+  changes (for example sponge -> neither), the label is fragile and the robust statement is "no order repairs".
