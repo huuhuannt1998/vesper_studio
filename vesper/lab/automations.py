@@ -18,6 +18,9 @@ brightness_pct), `switch.*` (turn_on, turn_off, toggle), `lock.lock`/`lock.unloc
 anywhere; mode `single`. An automation using anything else (a template, an option, a key the engine does not
 know, an unquoted on/off that Home Assistant itself refuses) is refused by name when the file is loaded, never run
 in part; the others run.
+`Engine(permissive=True)` is for replaying public automations: an action it cannot execute is recorded (the service
+and its targets, which need not be the home's) and a mode other than single runs as single, both said in the
+automation's `approximations`; a condition or trigger it cannot evaluate is still refused.
 As in Home Assistant, every trigger of a state change is evaluated before any action runs, a `for:` lasts while
 the state still matches (a numeric value, while it stays in range), and conditions are checked before mode
 `single` drops a trigger. Every command the engine sends is an `automation` record, not an input: a replay runs
@@ -26,6 +29,7 @@ the engine again.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -46,6 +50,7 @@ TRIGGER_KEYS = {"state": {"entity_id", "to", "from", "for"}, "numeric_state": {"
 CONDITION_KEYS = {"state": {"entity_id", "state"}, "numeric_state": {"entity_id", "above", "below"},
                   "time": {"after", "before"}, "sun": {"after", "before", "after_offset", "before_offset"}}
 SUN_EVENTS = ("sunrise", "sunset")
+SERVICE_NAME = re.compile(r"[a-z0-9_]+\.[a-z0-9_]+")
 ACTION_KEYS = {"action", "service", "target", "entity_id", "data", "alias", "continue_on_error"}
 
 
@@ -70,6 +75,7 @@ class Automation:
     conditions: list
     actions: list
     running: bool = field(default=False)
+    approximations: list[str] = field(default_factory=list)  # what permissive mode ran differently from the file
 
 
 @dataclass
@@ -203,8 +209,12 @@ def _enabled(items: list) -> list:
 
 
 class Engine:
-    def __init__(self, session):
+    def __init__(self, session, permissive: bool = False, automations: list[dict] | None = None):
+        """`permissive`: an action the engine cannot execute is recorded (`automation_command` with no twin) rather
+        than refusing the automation, and a mode other than single runs as single, listed in the automation's
+        `approximations`. `automations`: the automations to load, in place of the home's file."""
         self.session, self.home, self.runtime = session, session.home, session.runtime
+        self.permissive, self._given = permissive, automations
         self.entities: dict[str, Entity] = {}
         for name, twin_id, payload, expected in _discovered(self.home):
             for e in expected:
@@ -236,7 +246,7 @@ class Engine:
         path = self.home.automations
         name = path.name if path else "automations.yaml"
         try:
-            raw = yaml.safe_load(path.read_text()) if path else []
+            raw = self._given if self._given is not None else yaml.safe_load(path.read_text()) if path else []
         except OSError as e:
             self.refused.append({"automation": name, "reason": f"{name}: cannot read it: {e.strerror}"})
             return
@@ -262,16 +272,18 @@ class Engine:
         if "use_blueprint" in a:
             raise AutomationError("blueprint automations are not supported")
         _keys(a, AUTOMATION_KEYS)
-        mode = a.get("mode", "single")
+        mode, approximations = a.get("mode", "single"), []
         if mode != "single":
-            raise AutomationError(f"mode {mode!r} is not supported (single only)")
+            if not self.permissive:
+                raise AutomationError(f"mode {mode!r} is not supported (single only)")
+            approximations.append(f"mode {mode} run as single")
         triggers = [self._trigger(t) for t in _enabled(_list(a.get("triggers", a.get("trigger")), "triggers"))]
         if not triggers and not _list(a.get("triggers", a.get("trigger")), "triggers"):
             raise AutomationError("it has no trigger")
         conditions = [self._condition(c)
                       for c in _enabled(_list(a.get("conditions", a.get("condition")), "conditions"))]
         actions = [self._action(x) for x in _enabled(_list(a.get("actions", a.get("action")), "actions"))]
-        return Automation(label, triggers, conditions, actions)
+        return Automation(label, triggers, conditions, actions, approximations=approximations)
 
     def _entity(self, entity_id) -> Entity:
         e = self.entities.get(entity_id) if isinstance(entity_id, str) else None
@@ -354,6 +366,8 @@ class Engine:
         service = x.get("action", x.get("service"))
         domain, _, verb = str(service).partition(".")
         if verb not in SERVICES.get(domain, ()):
+            if self.permissive and isinstance(service, str) and SERVICE_NAME.fullmatch(service):
+                return self._record(x, service)
             raise AutomationError(f"action {service!r} is not supported")
         where = f"action {service}"
         _keys(x, ACTION_KEYS, where)
@@ -381,6 +395,19 @@ class Engine:
                 raise AutomationError(f"{where}: data {key}: {value!r} is not between 0 and {allowed[key]}")
             brightness = round(v * 255 / 100) if key == "brightness_pct" else v  # the light service's 0..255
         return {"kind": "call", "service": service, "entities": ents, "brightness": brightness}
+
+    @staticmethod
+    def _record(x: dict, service: str) -> dict:
+        """An action the engine cannot execute, kept as the service and the entities it names (which need not be
+        the home's: `notify.mobile_app_phone`)."""
+        where = f"action {service}"
+        target = x.get("target") or {}
+        if not isinstance(target, dict):
+            raise AutomationError(f"{where}: target {target!r} is not a mapping")
+        targets = _entities(target.get("entity_id") or x.get("entity_id"))
+        if not all(isinstance(t, str) for t in targets):
+            raise AutomationError(f"{where}: entity_id {targets!r} is not entity ids")
+        return {"kind": "record", "service": service, "targets": targets}
 
     # -- running ------------------------------------------------------------------------------
     def start(self) -> None:
@@ -560,6 +587,10 @@ class Engine:
                 clock = self.session.clock
                 clock.call_at(clock.now() + x["seconds"], lambda: self._run(a, actions, why))
                 return
+            if x["kind"] == "record":  # no twin: the session writes down the call and sends nothing
+                for target in x["targets"] or [""]:  # an action that names no entity (notify.notify) is kept too
+                    self.session.automation_command(a.name, why, x["service"], target, "", "", None)
+                continue
             for entity_id in x["entities"]:
                 self._call(a, x, self.entities[entity_id], why)
         a.running = False
