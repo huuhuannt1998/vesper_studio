@@ -180,3 +180,31 @@ run above (60-evaluation cap), stays the verdict; this check only shows whether 
   are as before.
 - A separate JSON (`thermal-ladder-converged-*.json`). Both outcomes are reported side by side below. If the label
   changes (for example sponge -> neither), the label is fragile and the robust statement is "no order repairs".
+
+**Result of the post hoc convergence check** (`results/environment/thermal-ladder-converged-20261104T165735Z.json`,
+code b80f99c, sha256 `382b8894…` in its `run`; 14 minutes with 2 workers under `taskpolicy -b`). Every main fit
+converged within the first cap of 400 evaluations (no fit needed 1,000; the largest used 179): in 2R2C+solar all
+eight rooms now end with status 2 or 3 (they used 18-179 evaluations; T8 used 60 and was stopped by the step
+tolerance, T2 18). The three other orders are identical to the registered run (their fits never reached 60). Side by
+side, medians over rooms:
+
+| Order | Registered run (cap 60): A RMSE (r) / B RMSE (r), bias / verdict | Converged (post hoc): A RMSE (r) / B RMSE (r), bias / verdict |
+|---|---|---|
+| 1R1C | 2.44 (0.41) / 2.59 (0.83), -1.5 / sponge | identical |
+| 1R1C+solar | 1.28 (0.78) / 8.56 (0.65), +7.9 / sponge | identical |
+| 2R2C | 2.44 (0.43) / 2.64 (0.84), -1.6 / sponge | identical |
+| 2R2C+solar | 1.15 (0.83) / 3.21 (0.74), +2.2 / sponge | 1.05 (0.83) / 5.50 (0.89), +5.1 / sponge |
+| AIC on A, 2R2C+solar | 4,863 | 3,458 |
+
+For 2R2C+solar the converged fit is better on A (RMSE 1.15 -> 1.05 °C, AIC down by 1,400) and worse on B (3.21 ->
+5.50 °C, with r 0.89 but a +5.1 °C bias: B is simulated too warm, as the one-node room was). A's median parameters moved
+a lot (R_ao 0.27 -> 1.28 K/W, C_m 71 -> 302 MJ/K, g·A 0.63 -> 0.42 m²); B's own refits are the same as before in
+kind (R_ao on its bound, g·A 20.6x A's median, C_m 0.055x). Intervals are still all wide: every one of the five
+spans at least 43x, with ends at a bound or at the grid's end. The verdict by the registered rule is **sponge**,
+unchanged, and the outcome is **sponge** with order 2R2C+solar (lowest AIC), unchanged. Two things hold now that did
+not before: the median aperture, 0.42 m², is outside the 0.5-3 m² window, so 2R2C+solar is a sponge on its aperture as
+well as on its widths (post hoc, without the width condition it is still "sponge", not "neither"); and B's RMSE is above
+5 °C. The label survived, but it rests on different grounds than in the registered run, so the robust statement is
+that **no order repairs**: B's refit parameters are outside ±50 % of A's in all four orders, converged or not, and no
+order meets B's criteria (RMSE 3.0 °C and r 0.70) with identifiable parameters and a plausible aperture. The sponge
+label itself is what is fragile (it was "neither, inconclusive middle" for three orders without the width condition).
