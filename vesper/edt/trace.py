@@ -2,9 +2,19 @@
 
 An environment is a city x date x plan orientation x model rung (`Env`). A trace is the home with no automations and
 no residents living RUN_DAYS days from local midnight (day 0 is the thermal warm-up) in that environment; the file
-`trace-<Env.key>.jsonl.gz` holds a header line {"env", "site", "start_time"} and then every report, one JSON object
-per line {"t", "twin_id", "feature", "value", "observed_t"}, with t and observed_t logical seconds from the run's
-start. Later tasks replay public automations against these traces, so an automation never needs the simulator.
+`trace-<Env.key>.jsonl.gz` holds a header line and then every report, one JSON object per line {"t", "twin_id",
+"feature", "value", "observed_t"}, with t and observed_t logical seconds from the run's start. Later tasks replay
+public automations against these traces, so an automation never needs the simulator.
+
+The header: "env" (the Env and its key), "site" (or null), "start_time" (ISO local start), "seconds" (run length),
+"weather" (the weather source the run read; null: clear-sky fallback), "home_sha256" (of the home.yaml recorded) and
+"initial_state" ({twin_id: state}, as the environment rules left every twin before the first instant: they move
+temperature, humidity and the thermostat's setpoint before the first report, which arrives at t=10). A trace is
+reused only if env, seconds, weather and home hash all match, and the same request gives the same bytes.
+
+The reports are the twins' own, recorded before the link layer: no Zigbee latency, drops or retries. They include
+the actuators' reports (lights, running_state, battery and so on), which a replay must ignore: only the sensors an
+automation names are inputs.
 
 Rungs (how much of the environment model the home gets):
   4  the full model (site, recorded weather, windows and the sun, the room's thermal model);
@@ -18,6 +28,8 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import gzip
+import hashlib
+import io
 import itertools
 import json
 import os
@@ -40,27 +52,36 @@ ENVIRONMENTS: list[Env] = [Env(city, date, north, 4)
 def record_trace(home_yaml: Path, env: Env, cache: Path, *, hours: float | None = None, fetch: bool = True,
                  get=None, catalog_dir: str = "catalog/vds") -> Path:
     """Record `env`'s trace of the EDT home `home_yaml` into `cache/trace-<env.key>.jsonl.gz`; its path. A trace
-    already there is reused (nothing runs). Recorded weather (rungs 3 and 4) is fetched into `cache/weather` once
-    per city and date, shared by every environment there; `fetch=False` uses whatever is cached (else the assumed
-    clear sky). `hours`: a shorter run than RUN_DAYS days, for tests. `get`: httpx.get, injectable."""
+    already there is reused (nothing runs) only if its header agrees with this request on the environment, the run
+    length, the weather source and the home's hash; otherwise it is recorded again, atomically. Recorded weather
+    (rungs 3 and 4) is fetched into `cache/weather` once per city and date, shared by every environment there;
+    `fetch=False` uses whatever is cached (else the assumed clear sky). `hours`: a shorter run than RUN_DAYS days,
+    for tests. `get`: httpx.get, injectable. The same request gives the same bytes."""
     from vesper.env.outdoor import RUN_DAYS
     if env.rung not in (1, 2, 3, 4):
         raise ValueError(f"rung {env.rung}: 1, 2, 3 or 4")
-    cache = Path(cache)
+    cache, home_yaml = Path(cache), Path(home_yaml)
     out = cache / f"trace-{env.key}.jsonl.gz"
-    if out.is_file():
-        return out
     cache.mkdir(parents=True, exist_ok=True)
     site = _site(env)
     if site is not None and env.rung >= 3 and fetch:
         _fetch_weather(site, cache / "weather", get)
     seconds = (RUN_DAYS * 86400) if hours is None else hours * 3600
-    header = {"env": {**dataclasses.asdict(env), "key": env.key},
-              "site": site.as_dict() if site and env.rung > 1 else None, "start_time": _start_time(site, env)}
+    seconds = int(seconds) if float(seconds).is_integer() else seconds
+    home_sha = hashlib.sha256(home_yaml.read_bytes()).hexdigest()
+    weather = _cached_weather_source(site, cache / "weather") if site is not None and env.rung >= 3 else None
+    want = {"env": {**dataclasses.asdict(env), "key": env.key}, "seconds": seconds, "weather": weather,
+            "home_sha256": home_sha}
+    if out.is_file() and _header(out) is not None and all(_header(out).get(k) == v for k, v in want.items()):
+        return out
+    shown = site if env.rung > 1 else None  # rung 1 names no site, not even through its time zone
     tmp = out.with_name(f".{out.name}.tmp{os.getpid()}")
     try:
-        reports = _run(Path(home_yaml), env, site, cache / "weather", seconds, catalog_dir)
-        with gzip.open(tmp, "wt") as f:
+        initial, weather_ran, reports = _run(home_yaml, env, site, cache / "weather", seconds, catalog_dir)
+        header = {**want, "site": shown.as_dict() if shown else None, "start_time": _start_time(shown, env),
+                  "weather": weather_ran, "initial_state": initial}
+        with tmp.open("wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz, \
+                io.TextIOWrapper(gz, encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(header) + "\n")
             for r in reports:
                 f.write(json.dumps(r) + "\n")
@@ -69,6 +90,22 @@ def record_trace(home_yaml: Path, env: Env, cache: Path, *, hours: float | None 
         with contextlib.suppress(FileNotFoundError):
             tmp.unlink()
     return out
+
+
+def _header(path: Path) -> dict | None:
+    """A trace's header line, or None when the file cannot be read as one."""
+    try:
+        with gzip.open(path, "rt") as f:
+            return json.loads(f.readline())
+    except (OSError, EOFError, ValueError):
+        return None
+
+
+def _cached_weather_source(site, cache: Path) -> str | None:
+    """The weather source a run of `site` would read from `cache` (None: clear-sky fallback)."""
+    from vesper.env.outdoor import Outdoor
+    w = Outdoor.for_run(site, cache).weather
+    return None if w is None else w.source
 
 
 def _site(env: Env):
@@ -96,8 +133,9 @@ def _fetch_weather(site, cache: Path, get) -> None:
     weather.fetch(site.lat, site.lon, days[0], days[-1], cache, get=get)
 
 
-def _run(home_yaml: Path, env: Env, site, weather_cache: Path, seconds: float, catalog_dir: str) -> list[dict]:
-    """Live the home `seconds` from local midnight in `env`; its reports. The home is copied, never touched."""
+def _run(home_yaml: Path, env: Env, site, weather_cache: Path, seconds: float, catalog_dir: str):
+    """Live the home `seconds` from local midnight in `env`: (initial state, weather source, reports). The home is
+    copied, never touched."""
     from vesper.env import indoor
     old_scale = indoor.DAYLIGHT_SCALE
     if env.rung == 3:
@@ -127,7 +165,7 @@ def _copy_home(home_yaml: Path, out: Path, site, weather_cache: Path) -> Path:
     return out / "home.yaml"
 
 
-def _live(home_yaml: Path, seconds: float, catalog_dir: str) -> list[dict]:
+def _live(home_yaml: Path, seconds: float, catalog_dir: str):
     from vesper.lab.home import load_lab_home
     from vesper.lab.session import Session
     from vesper.twins.clock import LogicalClock
@@ -135,9 +173,13 @@ def _live(home_yaml: Path, seconds: float, catalog_dir: str) -> list[dict]:
     home = load_lab_home(home_yaml, load_catalog(Path(catalog_dir)))
     s = Session(home, clock=LogicalClock())
     s.start(spawn_player=False, residents=False, automations=True)
+    # the state the environment rules left the twins in, before the first instant passes
+    initial = {tid: json.loads(json.dumps(dict(t.state), default=str)) for tid, t in s.runtime.twins.items()}
+    weather = (((s.records[0].get("environment") or {}).get("weather")) or {}).get("source")
     try:
         s.clock.advance(seconds)
     finally:
         s.stop()
-    return [{"t": r["t"], "twin_id": s.twin_ids[r["device"]], "feature": r["feature"], "value": r["value"],
-             "observed_t": r["observed_t"]} for r in s.records if r.get("kind") == "report"]
+    reports = [{"t": r["t"], "twin_id": s.twin_ids[r["device"]], "feature": r["feature"], "value": r["value"],
+                "observed_t": r["observed_t"]} for r in s.records if r.get("kind") == "report"]
+    return initial, weather, reports

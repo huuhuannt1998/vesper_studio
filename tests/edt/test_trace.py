@@ -146,3 +146,99 @@ def test_weather_is_fetched_once_per_city_and_date(home, tmp_path):
         record_trace(home, Env(PHOENIX, "2026-07-15", north, 4), tmp_path, hours=2, get=get)
     assert len(calls) == 1
     assert list((tmp_path / "weather").glob("*.json"))
+
+
+def _fake_get(calls=None):
+    class Resp:
+        def __init__(self, params):
+            self.params = params
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            import datetime as dt
+            a, b = (dt.date.fromisoformat(self.params[k]) for k in ("start_date", "end_date"))
+            hourly = {k: [] for k in _day("x")}
+            for k in range((b - a).days + 1):
+                for name, v in _day((a + dt.timedelta(days=k)).isoformat()).items():
+                    hourly[name] += v
+            return {"hourly": hourly, "latitude": 33.4, "longitude": -112.0, "elevation": 331}
+
+    def get(url, params, timeout):
+        if calls is not None:
+            calls.append(params)
+        return Resp(params)
+    return get
+
+
+def test_same_env_twice_is_byte_identical(home, tmp_path):
+    env = Env(PHOENIX, "2026-07-15", 180.0, 4)
+    a = record_trace(home, env, tmp_path / "a", hours=3, fetch=False)
+    b = record_trace(home, env, tmp_path / "b", hours=3, fetch=False)
+    assert a.read_bytes() == b.read_bytes()
+    data = a.read_bytes()
+    assert data[4:8] == b"\0\0\0\0" and data[3] == 0  # no mtime, no file name in the gzip header
+
+
+def test_header_has_initial_state_as_the_engine_first_sees_it(home, tmp_path):
+    from vesper.env import indoor
+    header, reports = read(record_trace(home, Env(PHOENIX, "2026-07-15", 0.0, 4), tmp_path, hours=2, fetch=False))
+    init = header["initial_state"]
+    assert {r["twin_id"] for r in reports} <= set(init)
+    tid = "zigbee:sonoff:snzb-02@living_temp0"
+    assert init[tid]["temperature"] == pytest.approx(indoor.START_C, abs=0.6) and init[tid]["temperature"] != 0
+    assert init[tid]["humidity"] > 0
+    first = next(r for r in reports if r["twin_id"] == tid and r["feature"] == "temperature")
+    assert abs(first["value"] - init[tid]["temperature"]) < 1.0  # the first report continues from the initial state
+
+
+def test_header_provenance(home, tmp_path):
+    import hashlib
+    header, _ = read(record_trace(home, Env(PHOENIX, "2026-07-15", 0.0, 4), tmp_path, hours=2, fetch=False))
+    assert header["seconds"] == 7200 and header["weather"] is None
+    assert header["home_sha256"] == hashlib.sha256(home.read_bytes()).hexdigest()
+
+
+def test_a_short_trace_is_not_reused_for_a_full_request(home, tmp_path):
+    env = Env(PHOENIX, "2026-07-15", 0.0, 4)
+    record_trace(home, env, tmp_path, hours=2, fetch=False)
+    header, _ = read(record_trace(home, env, tmp_path, fetch=False))
+    assert header["seconds"] == 3 * 86400
+    assert not list(tmp_path.glob(".*tmp*"))
+
+
+def test_a_different_home_is_rerecorded(home, tmp_path):
+    import shutil
+    other = tmp_path / "other"
+    shutil.copytree(home.parent, other)
+    with (other / "home.yaml").open("a") as f:
+        f.write("\n# edited\n")
+    env = Env(PHOENIX, "2026-07-15", 0.0, 4)
+    cache = tmp_path / "cache"
+    h1, _ = read(record_trace(home, env, cache, hours=2, fetch=False))
+    h2, _ = read(record_trace(other / "home.yaml", env, cache, hours=2, fetch=False))
+    assert h1["home_sha256"] != h2["home_sha256"]
+
+
+def test_weather_used_when_cached_and_trace_rerecorded_when_it_arrives(home, tmp_path):
+    env = Env(PHOENIX, "2026-07-15", 0.0, 4)
+    h1, _ = read(record_trace(home, env, tmp_path, hours=2, fetch=False))
+    assert h1["weather"] is None
+    h2, _ = read(record_trace(home, env, tmp_path, hours=2, get=_fake_get()))  # now fetched into the cache
+    assert h2["weather"] is not None and "Open-Meteo" in h2["weather"]
+    h3, _ = read(record_trace(home, env, tmp_path, hours=2, fetch=False))  # reused: same weather
+    assert h3 == h2
+
+
+def test_rung1_start_time_does_not_leak_the_timezone(home, tmp_path):
+    header, _ = read(record_trace(home, Env(PHOENIX, "2026-07-15", 0.0, 1), tmp_path, hours=2, fetch=False))
+    assert header["start_time"] == "2026-07-15T00:00:00" and header["site"] is None
+
+
+def test_header_site_round_trips_through_the_site_parser(home, tmp_path):
+    from vesper.env.site import parse_site
+    header, _ = read(record_trace(home, Env(PHOENIX, "2026-07-15", 180.0, 4), tmp_path, hours=2, fetch=False))
+    site = parse_site(header["site"])
+    assert site.as_dict() == header["site"]
+    assert site.north_deg == 180.0 and site.tz == "America/Phoenix"
