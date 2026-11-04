@@ -1,0 +1,34 @@
+{
+  "automations": {
+    "deduplicated": 43280,
+    "raw": 45208
+  },
+  "by_kind": {
+    "deduplicated": {
+      "humidity": 348,
+      "illuminance": 462,
+      "sun": 2908,
+      "temperature": 1380,
+      "weather": 268
+    },
+    "raw": {
+      "humidity": 362,
+      "illuminance": 491,
+      "sun": 3029,
+      "temperature": 1397,
+      "weather": 279
+    }
+  },
+  "environment_coupled": {
+    "deduplicated": 4984,
+    "raw": 5168
+  },
+  "files": {
+    "failed": 37,
+    "parsed": 14990,
+    "total": 15027
+  },
+  "hash": "sha256 of the canonical JSON of the automation without id and alias",
+  "repos_with_automations": 1123,
+  "repos_with_environment_coupled": 637
+}

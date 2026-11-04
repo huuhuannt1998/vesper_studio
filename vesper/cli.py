@@ -2017,6 +2017,11 @@ def main(argv: list[str] | None = None) -> int:
     lab_replay.add_argument("trace")
     lab_replay.add_argument("--home", help="the home file (default: the one the trace names)")
     lab_replay.add_argument("--catalog", default="catalog/vds")
+    edt = commands.add_parser("edt", help="environmental differential testing of Home Assistant automations")
+    edt_actions = edt.add_subparsers(dest="action", required=True)
+    edt_census = edt_actions.add_parser("census", help="count a corpus's automations and the environment-coupled ones")
+    edt_census.add_argument("--corpus", required=True, help="the corpus directory (its raw/ holds the YAML files)")
+    edt_census.add_argument("--out", required=True, help="the census file (JSON)")
     args = parser.parse_args(argv)
     _configured_defaults(args)
     if args.command in ("setup", "twins", "validate", "lab"):
@@ -2270,6 +2275,24 @@ def _remember(**paths) -> None:
     save_config(**{k: Path(v).resolve() for k, v in paths.items()})
 
 
+def _edt_census(args) -> int:
+    """`vesper edt census`: the census of a corpus; the file records the corpus's own file names, never its path."""
+    from vesper.edt.corpus import census
+    corpus = Path(args.corpus)
+    raw = corpus / "raw" if (corpus / "raw").is_dir() else corpus
+    if not raw.is_dir():
+        print(f"FAILED edt census: {corpus} is not a directory", file=sys.stderr)
+        return 1
+    report = census(raw)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    a, c = report["automations"], report["environment_coupled"]
+    print(f"{a['raw']} automations ({a['deduplicated']} distinct); environment-coupled {c['raw']} "
+          f"({c['deduplicated']} distinct); report {out}")
+    return 0
+
+
 def _dispatch(args) -> int:
     if args.command == "catalog":
         if args.action in ("bundle", "fetch"):
@@ -2291,6 +2314,8 @@ def _dispatch(args) -> int:
         return _twins_run(args)
     if args.command == "lab":
         return _lab(args)
+    if args.command == "edt":
+        return _edt_census(args)
     if args.action == "discovery":
         return _validate_discovery(args)
     if args.action == "sun":
