@@ -645,6 +645,35 @@ def test_a_resident_leaves_by_the_front_door_onto_the_porch_not_the_balcony(tmp_
     assert resident._front_door() == "living-porch" and resident._outdoors() == "porch"
 
 
+def test_a_room_s_light_switch_is_by_its_front_door_not_its_balcony_door(tmp_path):
+    import math
+
+    import yaml
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "bal"
+    assert cli.main(["lab", "import", str(write(tmp_path, balcony_plan(), "bal.json")), str(out), "--catalog",
+                     str(cat)]) == 0
+    home = load_lab_home(out / "home.yaml", load_catalog(cat))
+    switch = next(d["at"]["wall_switch"] for d in yaml.safe_load((out / "home.yaml").read_text())["devices"]
+                  if d["name"] == "living_light")
+    front, balcony = home.map.doorway("living-porch").center, home.map.doorway("balcony-living").center
+    assert math.dist(switch, front) < 1.0 < math.dist(switch, balcony)
+
+
+def test_an_entrance_through_a_balcony_is_refused_before_anything_is_built(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    plan = balcony_plan()
+    plan["doors"].append({"at": [5, 4.8], "width": 0.9, "rooms": ["bal", "outside"]})  # into the garden
+    plan["entrance"] = 3
+    out = tmp_path / "bal"
+    assert cli.main(["lab", "import", str(write(tmp_path, plan, "bal.json")), str(out), "--catalog", str(cat)]) == 1
+    assert ("the entrance opens into the balcony 'Balcony': choose the door from it into the home"
+            in capsys.readouterr().err)
+    assert not out.exists()
+    plan["entrance"] = 0  # the living room's own front door: the balcony's door to the garden is just a door
+    assert cli.main(["lab", "import", str(write(tmp_path, plan, "bal.json")), str(out), "--catalog", str(cat)]) == 0
+
+
 def t_junction(dx=0.0) -> dict:
     """A kitchen along the top; under it a hall (x 0 to 2) and a living room (x 2 to 5); a door from the kitchen
     into each, the two meeting end to end where the hall's and the living room's wall comes up, as CubiCasa5K plan
@@ -680,5 +709,6 @@ def test_the_import_prints_what_it_left_out_or_narrowed_and_builds_the_home(tmp_
     out = tmp_path / "mine"
     assert cli.main(["lab", "import", str(write(tmp_path, plan)), str(out), "--catalog", str(cat)]) == 0
     text = capsys.readouterr().out
-    assert "warning: window 3 of 'k' is not on an outside wall: left out" in text
+    assert "warning: window 3 of 'Kitchen' is not on an outside wall: left out; the room gets a rule window" in text
     assert (out / "home.yaml").is_file()
+    assert [w["source"] for w in load_windows(out) if w["room"] == "kitchen"] == ["rule"]  # as the warning said

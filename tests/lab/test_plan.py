@@ -353,7 +353,7 @@ def test_a_window_moves_onto_the_outside_wall_of_its_room():
     far["windows"][0]["at"] = [2.5, 2]  # no outside wall within 50 cm: left out (task A6), with a warning
     warnings = []
     assert rectify(far, warnings)["windows"] == [] and warnings == ["window 1 of 'living' is not on an outside wall: "
-                                                                     "left out"]
+                                                                     "left out; the room gets a rule window"]
 
 
 def test_rectify_rotates_doors_and_windows_with_the_plan():
@@ -899,7 +899,7 @@ def test_a_window_wider_than_its_wall_is_narrowed_and_one_on_a_tiny_stretch_left
                   windows=[{"at": [4.75, 4], "width": 1.0, "room": "living"}])
     warnings = []
     assert rectify(tiny, warnings)["windows"] == []
-    assert warnings == ["window 1 of 'living' is not on an outside wall: left out"]
+    assert warnings == ["window 1 of 'living' is not on an outside wall: left out; the room gets a rule window"]
 
 
 def test_a_door_between_rooms_that_do_not_touch_is_left_out_when_the_house_stays_connected():
@@ -1023,3 +1023,53 @@ def test_a_refusal_names_the_door_by_its_place_in_the_plan_as_read():
         load_plan(bad)
     with pytest.raises(PlanError, match=r"door 8: room 'garage' is not in the plan"):
         load_plan(bad, [0, 1, 2, 3, 7])
+
+
+# --- round 3 (task A6): an entrance through a balcony; rule windows said; names in warnings; no entrance ---------
+
+def test_an_entrance_through_a_balcony_is_a_problem_naming_it():
+    p = with_balcony()
+    p["doors"].append({"at": [5, 5], "width": 0.9, "rooms": ["bal", "outside"]})
+    p["entrance"] = 2
+    p["rooms"][1]["name"] = "Terrace"
+    assert check_house(p) == ["the entrance opens into the balcony 'Terrace': choose the door from it into the home"]
+    p["entrance"] = 0
+    assert check_house(p) == []  # the balcony's own door to the garden is fine
+
+
+def test_a_dropped_window_says_when_its_room_gets_a_rule_window():
+    p = house()
+    p["windows"] = [{"at": [5, 2], "width": 1.0, "room": "kitchen"},  # on the wall it shares with the living room
+                    {"at": [4, 4.6], "width": 1.0, "room": "hall"}]  # a corridor: no rule windows
+    warnings = []
+    out = rectify(p, warnings)
+    assert out["windows"] == []
+    assert warnings == ["window 1 of 'kitchen' is not on an outside wall: left out; the room gets a rule window",
+                        "window 2 of 'hall' is not on an outside wall: left out"]
+    p["windows"].append({"at": [8.5, 2], "width": 1.0, "room": "kitchen"})  # the kitchen keeps one of its own
+    warnings = []
+    rectify(p, warnings)
+    assert warnings[0] == "window 1 of 'kitchen' is not on an outside wall: left out"
+
+
+def test_warnings_name_rooms_by_their_names_with_the_id_when_names_repeat():
+    p = house()
+    for r, name in zip(p["rooms"], ["Olohuone", "MH", "Käytävä", "MH"], strict=True):
+        r["name"] = name
+    p["doors"].append({"at": [5, 4.6], "width": 0.9, "rooms": ["kitchen", "bed"]})
+    p["windows"] = [{"at": [4, 4.6], "width": 1.0, "room": "hall"}]
+    warnings = []
+    rectify(p, warnings)
+    assert warnings == ["door 5 between 'MH' (kitchen) and 'MH' (bed): the rooms do not touch (they have no wall in "
+                        "common): left out (no room needs it to be reached from the entrance)",
+                        "window 1 of 'Käytävä' is not on an outside wall: left out"]
+
+
+def test_with_no_entrance_a_door_between_rooms_that_do_not_touch_is_kept_for_check_house_to_report():
+    p = house()
+    p["entrance"] = None
+    p["doors"].append({"at": [5, 4.6], "width": 0.9, "rooms": ["kitchen", "bed"]})
+    warnings = []
+    out = rectify(p, warnings)
+    assert warnings == [] and len(out["doors"]) == 5 and out["doors"][4] == p["doors"][4]
+    assert any(s.startswith("no entrance") for s in check_house(out))

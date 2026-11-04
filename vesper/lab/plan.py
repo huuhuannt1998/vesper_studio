@@ -64,6 +64,22 @@ def door_name(k: int, numbers: list[int] | None = None) -> str:
     return f"door {(k if numbers is None else numbers[k]) + 1}"
 
 
+def room_names(rooms: list[dict]):
+    """How rooms are named to the user in a warning: by their name, quoted ('MH'), with the id after it when another
+    room has the same name ('MH' (r4)); by the id when the name is empty. "outside" is 'outside'."""
+    names = {r["id"]: (r.get("name") or "").strip() or r["id"] for r in rooms}
+    count: dict[str, int] = {}
+    for n in names.values():
+        count[n] = count.get(n, 0) + 1
+
+    def name(rid: str) -> str:
+        if rid not in names:
+            return repr(rid)
+        n = names[rid]
+        return repr(n) if count[n] == 1 else f"{n!r} ({rid})"
+    return name
+
+
 def _numbers_problem(numbers, doors: list) -> str | None:
     if numbers is None:
         return None
@@ -920,6 +936,7 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
             warnings.append(text)
 
     rnd = lambda q: [round(q[0], 9) + 0.0, round(q[1], 9) + 0.0]  # noqa: E731
+    named = room_names(plan["rooms"])  # a warning names rooms as the user knows them; an error by id (the lobby
     outdoor = frozenset(k for k, r in enumerate(plan["rooms"]) if r["type"] in OUTDOOR_TYPES)
     entrance = plan["entrance"]
     loose: list[int] = []  # doors between rooms with no wall in common
@@ -927,7 +944,8 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
     for k, d in enumerate(doors):
         a, b = d["rooms"]
         at = tuple(d["at"])
-        what = f"{door_name(k, numbers)} between {a!r} and {b!r}"
+        what = f"{door_name(k, numbers)} between {a!r} and {b!r}"  # marks the rooms an error names by id)
+        said = f"{door_name(k, numbers)} between {named(a)} and {named(b)}"
         if "outside" in d["rooms"]:
             room = b if a == "outside" else a
             segs = _outside_walls(ids.index(room), rings)
@@ -950,7 +968,7 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
         if dist > DOOR_REACH_M + 1e-9:
             raise PlanError(f"{what}: it is {dist:.2f} m from {wall} (more than {DOOR_REACH_M} m)")
         if width < d["width"]:
-            say(f"{what} ({d['width']:.2f} m) is wider than {its} ({math.dist(*seg):.2f} m): narrowed to "
+            say(f"{said} ({d['width']:.2f} m) is wider than {its} ({math.dist(*seg):.2f} m): narrowed to "
                 f"{width:.2f} m")
             d["width"] = round(width, 9)
         d["at"] = rnd(q)
@@ -983,8 +1001,9 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
                 f"narrowed to {hi_i - lo_i:.2f} m and "
                 f"{hi_j - lo_j:.2f} m to leave {2 * END_M:.2f} m of wall between them")
 
-    # a door between rooms that do not touch: left out when no room needs it to be reached from the entrance
-    if loose:
+    # a door between rooms that do not touch: left out when no room needs it to be reached from the entrance (with
+    # no entrance, kept as it is: check_house says the entrance is missing, and this is decided once there is one)
+    if loose and entrance is not None:
         lost = _reached(ids, doors, entrance) - _reached(ids, doors, entrance, frozenset(loose))
         if lost:
             need = next((k for k in loose if _reached(ids, doors, entrance, frozenset(loose) - {k})
@@ -995,19 +1014,17 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
                             f"cannot be reached from the entrance")
         for k in loose:
             a, b = doors[k]["rooms"]
-            say(f"{door_name(k, numbers)} between {a!r} and {b!r}: the rooms do not touch (they have no wall in "
-                f"common): left out "
-                f"(no room needs it to be reached from the entrance)")
-        if entrance is not None:
-            plan["entrance"] = entrance - sum(1 for k in loose if k < entrance)
+            say(f"{door_name(k, numbers)} between {named(a)} and {named(b)}: the rooms do not touch (they have no "
+                f"wall in common): left out (no room needs it to be reached from the entrance)")
+        plan["entrance"] = entrance - sum(1 for k in loose if k < entrance)
         plan["doors"] = [d for k, d in enumerate(doors) if k not in loose]
         if numbers is not None:
             numbers[:] = [n for k, n in enumerate(numbers) if k not in loose]
 
-    kept = []
+    kept, dropped = [], []  # dropped: (its warning's place, its room) for a window on no outside wall
     for k, w in enumerate(windows):
         r = ids.index(w["room"])
-        what = f"window {k + 1} of {w['room']!r}"  # counted from 1, as doors are
+        what = f"window {k + 1} of {named(w['room'])}"  # counted from 1, as doors are
         if r in outdoor:
             say(f"{what} is in an outdoor room: left out")
             continue
@@ -1015,6 +1032,8 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
         hit = _fit(segs, tuple(w["at"]), w["width"]) if segs else None
         if hit is None or hit[1] > DOOR_REACH_M + 1e-9:
             say(f"{what} is not on an outside wall: left out")
+            if warnings is not None:
+                dropped.append((len(warnings) - 1, r))
             continue
         q, _, seg, width = hit
         if width < w["width"]:
@@ -1024,6 +1043,12 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
         w["at"] = rnd(q)
         kept.append(w)
     plan["windows"] = kept
+    from vesper.lab.windows import CORNER_M, RULES
+    lit = {ids.index(w["room"]) for w in kept}
+    for at, r in dropped:  # a room of a kind with windows, left with none, gets them by rule where it has a wall out
+        if (plan["rooms"][r]["type"] in RULES and r not in lit
+                and _longest(_outside_walls(r, rings, outdoor)) >= 0.5 + 2 * CORNER_M):
+            warnings[at] += "; the room gets a rule window"
 
     for r, ring in zip(plan["rooms"], rings, strict=True):
         r["polygon"] = [[x, z] for x, z in ring]
@@ -1062,6 +1087,10 @@ def check_house(plan_m: dict, numbers: list[int] | None = None) -> list[str]:
         problems.append("no entrance: the plan names no door as the entrance")
         return problems
     door = doors[ent]
+    inside = next((r for r in rooms if r["id"] in door["rooms"] and r["type"] in OUTDOOR_TYPES), None)
+    if "outside" in door["rooms"] and inside is not None:
+        problems.append(f"the entrance opens into the balcony {room_names(rooms)(inside['id'])}: choose the door from "
+                        f"it into the home")
     if "outside" not in door["rooms"]:
         problems.append(f"entrance {door_name(ent, numbers)} joins {door['rooms'][0]!r} and {door['rooms'][1]!r}, "
                         f"not a room and the outside")

@@ -135,6 +135,7 @@ def _fill(grid: Grid, x0: float, z0: float, x1: float, z1: float) -> None:
 PLAN_LABELS = {**LABELS, "corridor": "hallway", "hall": "hall", "balcony": "balcony/terrace", "other": "other"}
 PLAN_STEMS = {"other": "room", "corridor": "hallway"}  # a hallway gets a light; `at: hall` finds it
 PORCH_LABEL = "porch/terrace/deck/driveway"
+BALCONY_LABEL = PLAN_LABELS["balcony"]  # an imported balcony, terrace, patio or loggia (outdoor, not the way in)
 PORCH_TRIES = ((2.0, 3.0), (2.0, 2.0), (1.5, 2.0), (1.0, 1.5))  # (depth, width): the first that fits outside
 PORCH_LEAST = (0.9, 0.6)  # a porch in a recess is at least this wide (and the door's width) and deep (m)
 MARGIN = 0.3  # the map's floor grid reaches this far past the plan, so every outer wall has cells
@@ -757,14 +758,18 @@ def _place(product, category, rule, target, world_map: WorldMap, per_room: dict,
     name = _unique(f"{room.id}_{short}", taken)
     xs, zs = [x for x, _ in room.polygon], [z for _, z in room.polygon]
     x0, z0, x1, z1 = min(xs), min(zs), max(xs), max(zs)
-    door = next((w for w in world_map.doorways if room.id in w.rooms), None)
+    # the room's doorways, a balcony's last (an imported home's: a switch or a sensor goes by the way people come in)
+    mine = [w for w in world_map.doorways if room.id in w.rooms]
+    onto_balcony = lambda w: any(world_map.room(r).label == BALCONY_LABEL for r in w.rooms)  # noqa: E731
+    mine = [w for w in mine if not onto_balcony(w)] + [w for w in mine if onto_balcony(w)]
+    door = next(iter(mine), None)
     if rule == "ceiling":
         at = {"room": room.id, "mount": "ceiling"}
         if k:
             at["xy"] = [round(x0 + (x1 - x0) * (0.25 + 0.5 * (k % 2)), 2), round(z0 + (z1 - z0) * 0.5, 2)]
         if category == "light" and switch:  # its plain wall switch (PI 2026-10-31), by
             # the entrance; a second light's beside it. A light with no on/off (a scene panel) gets none.
-            entry = next((w for w in world_map.doorways if room.id in w.rooms and w.outdoor), door)
+            entry = next((w for w in mine if w.outdoor and not onto_balcony(w)), door)
             nth = sum(1 for d in out if d["at"].get("room") == room.id and "wall_switch" in d["at"])
             at["wall_switch"] = _by_door(entry, room, (x0, z0, x1, z1), SWITCH_M + 0.12 * nth)
     elif rule == "corner":  # in the corner farthest from the door, watching the room and the door
