@@ -153,11 +153,14 @@ def _jsonable(x):
 
 _ENTITY_PREFIX = re.compile(r"^[a-z_]+\.[a-z0-9_]+: ")
 _FOR_ENTITY = re.compile(r" \(for [^)]*\)$")
-_QUOTED = re.compile(r"""(['"])(?:[a-z_]+\.[a-z0-9_]+|![^'"]*)\1""")  # a quoted entity id or YAML tag value
+_QUOTED = re.compile(r"""(['"])(?:[a-z_]+\.[^'"]+|![^'"]*)\1""")  # a quoted entity id or YAML tag value
+_NOT_IN_HOME = re.compile(r"^entity .+ is not one of this home's$")
 
 
 def reason_class(reason: str) -> str:
     """A reason without the entity it names (the unsupported feature it names stays), for counting reasons."""
+    if _NOT_IN_HOME.match(reason):
+        return "entity <...> is not one of this home's"
     return _QUOTED.sub("<...>", _FOR_ENTITY.sub("", _ENTITY_PREFIX.sub("", reason)))
 
 

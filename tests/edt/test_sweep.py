@@ -123,6 +123,9 @@ def test_reason_class_drops_entities_and_keeps_the_feature():
         "the standard home has no switch in the living"
     assert reason_class("entity_id '!input motion' is not an entity id") == "entity_id <...> is not an entity id"
     assert reason_class("trigger 'template' is not supported") == "trigger 'template' is not supported"
+    assert reason_class("entity_id 'binary_sensor.MCU1_GPIO4' is not an entity id") == \
+        "entity_id <...> is not an entity id"
+    assert reason_class("entity light.a, light.b is not one of this home's") == "entity <...> is not one of this home's"
 
 
 def test_is_negative_control():
