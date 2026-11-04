@@ -153,11 +153,11 @@ def _jsonable(x):
 
 _ENTITY_PREFIX = re.compile(r"^[a-z_]+\.[a-z0-9_]+: ")
 _FOR_ENTITY = re.compile(r" \(for [^)]*\)$")
-_QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
+_QUOTED = re.compile(r"""(['"])(?:[a-z_]+\.[a-z0-9_]+|![^'"]*)\1""")  # a quoted entity id or YAML tag value
 
 
 def reason_class(reason: str) -> str:
-    """A reason without the entity it names, for counting reasons."""
+    """A reason without the entity it names (the unsupported feature it names stays), for counting reasons."""
     return _QUOTED.sub("<...>", _FOR_ENTITY.sub("", _ENTITY_PREFIX.sub("", reason)))
 
 

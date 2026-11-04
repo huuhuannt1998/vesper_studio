@@ -115,6 +115,16 @@ def test_rung1_refuses_the_sun_and_records_why(corpus, work):
     assert r1["yield"]["run"] == 3  # the sunset automation ran nowhere
 
 
+def test_reason_class_drops_entities_and_keeps_the_feature():
+    from vesper.edt.sweep import reason_class
+    assert reason_class("sensor.xyz_1: its name names no role the standard home has") == \
+        "its name names no role the standard home has"
+    assert reason_class("the standard home has no switch in the living (for switch.tv)") == \
+        "the standard home has no switch in the living"
+    assert reason_class("entity_id '!input motion' is not an entity id") == "entity_id <...> is not an entity id"
+    assert reason_class("trigger 'template' is not supported") == "trigger 'template' is not supported"
+
+
 def test_is_negative_control():
     roles = {"binary_sensor.m": "motion", "light.l": "light", "sensor.lux": "illuminance", "lock.d": "lock"}
     motion = {"trigger": [{"platform": "state", "entity_id": "binary_sensor.m"}], "action": []}
