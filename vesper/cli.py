@@ -954,21 +954,43 @@ def _lab_import(args, catalog) -> int:
         print(f"FAILED: {save} already exists (a plan read earlier: build from it with `vesper lab import {save} "
               f"{out}`, or give another --save-plan)", file=sys.stderr)
         return 1
+    if is_image:  # a paid reading must have somewhere to go: checked before Claude is run
+        try:
+            save.parent.mkdir(parents=True, exist_ok=True)
+            if not os.access(save.parent, os.W_OK | os.X_OK):
+                raise PermissionError(13, "Permission denied")
+        except OSError as e:
+            print(f"FAILED: cannot save the plan to {save}: {e.strerror or e} (give another --save-plan)",
+                  file=sys.stderr)
+            return 1
     saved = None
+    raw = None
 
     def retry_hint():  # a paid reading is kept: how to go on without Claude
-        scale = (f"--area {args.area:g}" if args.area is not None else
-                 f"--scale {shlex.quote(args.scale)}" if args.scale else "--area N")
-        print(f"re-run without Claude: vesper lab import {shlex.quote(str(saved))} {shlex.quote(str(out))} {scale}"
-              + ("   (N: the home's floor area in m²)" if scale == "--area N" else ""), file=sys.stderr)
+        mine = shlex.quote(str(saved)), shlex.quote(str(out))
+        flag = (f"--area {args.area:g}" if args.area is not None else
+                f"--scale {shlex.quote(args.scale)}" if args.scale else "")
+        if not flag and isinstance(raw, dict) and raw.get("units") == "px" and raw.get("scale") is None:
+            print(f"re-run without Claude: vesper lab import {mine[0]} {mine[1]} --area N   "
+                  "(N: the home's floor area in m²)", file=sys.stderr)
+        else:  # the plan's own scale was read, or a flag was given: what is left to fix is the plan
+            print(f"edit {saved} (rooms, types, doors), then re-run: vesper lab import {mine[0]} {mine[1]}"
+                  + (f" {flag}" if flag else ""), file=sys.stderr)
     try:
         if is_image:  # the picture goes to Anthropic through the user's Claude Code session
             from vesper.lab import plan_read
             print(f"reading {src.name} with Claude (this takes several minutes and uses your Claude Code quota)...",
                   flush=True)
             raw = plan_read.read_plan_image(src, model=args.model, timeout=args.timeout)
-            save.parent.mkdir(parents=True, exist_ok=True)
-            save.write_text(json.dumps(raw, indent=1))
+            text = json.dumps(raw, indent=1)
+            try:
+                with open(save, "x") as f:  # exclusive: never over a file that is there
+                    f.write(text)
+            except OSError as e:  # the paid reading must not be lost: it is printed
+                if isinstance(e, FileExistsError):
+                    print(f"FAILED: {save} already exists (created while Claude was reading)", file=sys.stderr)
+                print(f"could not save the plan ({e.strerror or e}); here it is:\n{text}", flush=True)
+                return 1
             saved = save
             print(f"saved the plan Claude read (in pixels): {save}", flush=True)
         else:

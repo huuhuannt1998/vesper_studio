@@ -19,6 +19,7 @@ from pathlib import Path
 from vesper.lab.plan import ROOM_TYPES, PlanError, load_plan
 
 TIMEOUT_S = 900  # one reading of a large image can take several minutes
+MAX_BYTES = 50 * 2**20  # no picture larger than this is sent
 MAGIC = ((b"\x89PNG", "png"), (b"\xff\xd8\xff", "jpg"), (b"%PDF", "pdf"))  # what the first bytes say a picture is
 
 PROMPT = f"""You are reading a floor-plan image for VESPER, a smart-home simulator. The image is the file given below
@@ -136,6 +137,8 @@ def _label(name: str) -> str:
 def _picture_kind(path: Path) -> str:
     """png, jpg or pdf by the file's first bytes (a symlink is followed: what it points at is what is read)."""
     try:
+        if path.stat().st_size > MAX_BYTES:
+            raise PlanError(f"{_label(path.name)}: larger than {MAX_BYTES // 2**20} MB")
         with open(path, "rb") as f:
             head = f.read(8)
     except OSError as e:
@@ -194,6 +197,7 @@ def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: 
         shutil.copyfile(path, copy)
         # Only the Read tool exists for this run, and it may read only the copy (`//` marks an absolute path).
         base = ["--tools", "Read", "--allowedTools", f"Read(/{copy})", "--strict-mcp-config",
+                "--setting-sources", "",  # no user or project settings, hooks or permission rules
                 "--output-format", "json", *(["--model", model] if model else [])]
         text, problem, said = "", "", None
         for attempt in range(2):

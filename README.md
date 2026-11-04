@@ -681,7 +681,7 @@ can build (a room too small or large for its type, a room with no way in) is ref
 home is written. The image goes to Anthropic through your Claude Code session (your own login); a hand-written
 vesper-plan/1 file needs no network. Reading an image needs the `claude` command installed and signed in; it takes
 several minutes and uses your Claude Code quota (`--timeout SECONDS` waits longer than the default 900). Only a PNG,
-JPEG or PDF is accepted (checked by its contents), and a copy of it alone is shown to Claude, with no other file or tool.
+JPEG or PDF of at most 50 MB is accepted (checked by its contents), and a copy of it alone is shown to Claude, with no other file or tool.
 VESPER prints what it read (each room's type and area, the doors, which door is the entrance) before building, so you
 can check it against your picture. By default Claude Code's own model reads it; `--model sonnet` is faster and cheaper
 but reads doors less exactly. The plan Claude read is kept (in pixels) as `DIR.plan.json` beside the new home, or at

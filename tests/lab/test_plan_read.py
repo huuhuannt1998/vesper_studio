@@ -452,7 +452,102 @@ def test_a_refused_house_keeps_the_reading_and_the_command_to_retry_with_the_giv
     captured = capsys.readouterr()
     saved = tmp_path / "mine.plan.json"
     assert saved.exists() and "m²" in captured.out
-    assert f"re-run without Claude: vesper lab import {saved} {out} --area 20" in captured.err
+    assert f"edit {saved} (rooms, types, doors), then re-run: vesper lab import {saved} {out} --area 20" in captured.err
+
+
+def test_a_refused_house_whose_scale_was_read_says_to_edit_the_plan_and_adds_no_scale_flag(tmp_path, monkeypatch,
+                                                                                           capsys, image):
+    cat, _ = setup(tmp_path)
+    plan = px_plan()  # the scale is in the plan: 0.02 m per pixel
+    plan["rooms"][1]["polygon"] = [[250, 0], [300, 0], [300, 100], [250, 100]]  # a 2 m² kitchen
+    fake_claude(monkeypatch, envelope(json.dumps(plan)))
+    out = tmp_path / "mine"
+    assert cli.main(["lab", "import", str(image), str(out), "--catalog", str(cat)]) == 1
+    err = capsys.readouterr().err
+    saved = tmp_path / "mine.plan.json"
+    hint = f"edit {saved} (rooms, types, doors), then re-run: vesper lab import {saved} {out}"
+    assert "2.0 m²" in err and hint in err
+    assert "--area" not in err.split("then re-run:")[1]
+
+
+# --- the saved plan must not be lost to the disk ----------------------------------------------------------------------
+
+def test_a_save_path_that_cannot_be_written_is_refused_before_claude_is_run(tmp_path, monkeypatch, capsys, image):
+    cat, _ = setup(tmp_path)
+    fake = fake_claude(monkeypatch)
+    blocker = tmp_path / "a_file"
+    blocker.write_text("x")
+    assert cli.main(["lab", "import", str(image), str(tmp_path / "mine"), "--save-plan", str(blocker / "p.json"),
+                     "--catalog", str(cat)]) == 1
+    assert "cannot save the plan" in capsys.readouterr().err and fake.calls == []
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o500)
+    try:
+        assert cli.main(["lab", "import", str(image), str(tmp_path / "mine"), "--save-plan", str(locked / "p.json"),
+                         "--catalog", str(cat)]) == 1
+    finally:
+        locked.chmod(0o700)
+    assert "cannot save the plan" in capsys.readouterr().err and fake.calls == []
+
+
+def test_a_write_that_fails_after_the_read_prints_the_plan_instead_of_losing_it(tmp_path, monkeypatch, capsys, image):
+    cat, _ = setup(tmp_path)
+    keep = tmp_path / "keep"
+    keep.mkdir()
+    fake = fake_claude(monkeypatch, envelope(json.dumps(px_plan())))
+    reader = plan_read.read_plan_image
+
+    def read_then_lock(*a, **k):
+        plan = reader(*a, **k)
+        keep.chmod(0o500)  # the disk turns read-only while Claude was reading
+        return plan
+    monkeypatch.setattr(plan_read, "read_plan_image", read_then_lock)
+    try:
+        assert cli.main(["lab", "import", str(image), str(tmp_path / "mine"), "--save-plan", str(keep / "p.json"),
+                         "--catalog", str(cat)]) == 1
+    finally:
+        keep.chmod(0o700)
+    captured = capsys.readouterr()
+    assert "could not save the plan (" in captured.out and "here it is:" in captured.out
+    assert json.dumps(px_plan(), indent=1) in captured.out and len(fake.calls) == 1
+    assert not (tmp_path / "mine").exists()
+
+
+def test_a_saved_plan_created_while_claude_read_is_not_overwritten_and_the_plan_is_printed(tmp_path, monkeypatch,
+                                                                                            capsys, image):
+    cat, _ = setup(tmp_path)
+    fake_claude(monkeypatch, envelope(json.dumps(px_plan())))
+    reader = plan_read.read_plan_image
+    saved = tmp_path / "mine.plan.json"
+
+    def read_then_race(*a, **k):
+        plan = reader(*a, **k)
+        saved.write_text("someone else's file")
+        return plan
+    monkeypatch.setattr(plan_read, "read_plan_image", read_then_race)
+    assert cli.main(["lab", "import", str(image), str(tmp_path / "mine"), "--catalog", str(cat)]) == 1
+    captured = capsys.readouterr()
+    assert saved.read_text() == "someone else's file" and "already exists" in captured.err
+    assert json.dumps(px_plan(), indent=1) in captured.out
+
+
+def test_a_file_over_50_mb_is_refused_before_claude_is_run(tmp_path):
+    big = tmp_path / "big.png"
+    with open(big, "wb") as f:
+        f.write(b"\x89PNG\r\n")
+        f.truncate(50 * 1024 * 1024 + 1)  # sparse: no disk used
+    fake = Fake()
+    with pytest.raises(PlanError, match="larger than 50 MB"):
+        read_plan_image(big, runner=fake)
+    assert fake.calls == []
+
+
+def test_claude_loads_no_user_project_settings_or_hooks(image):
+    fake = Fake(envelope(json.dumps(px_plan())))
+    read_plan_image(image, runner=fake)
+    args = fake.calls[0]
+    assert args[args.index("--setting-sources") + 1] == ""
 
 
 def test_an_existing_saved_plan_is_never_overwritten_and_stops_before_claude_is_run(tmp_path, monkeypatch, capsys,
