@@ -121,11 +121,11 @@ def test_cover_toggle_state_comes_from_earlier_firings():
                    STOCKHOLM).night_cover is False
 
 
-def test_cover_opened_before_sunrise_and_left_open_is_night_cover():
+def test_cover_opened_before_sunrise_and_left_open_is_not_night_cover():
+    """After sunset only (protocol addendum 1): 06:30 in Stockholm's January is before sunrise, and not flagged."""
     sunrise = sun_events(STOCKHOLM, 1)["sunrise"]
-    assert outcome([f(sunrise - 1800, "cover.open_cover", "cover.w")], STOCKHOLM).night_cover is True
-    both = [f(sunrise - 1800, "cover.open_cover", "cover.w"), f(sunrise + 3600, "cover.close_cover", "cover.w")]
-    assert outcome(both, STOCKHOLM).night_cover is False
+    assert DAY + 6.5 * H < sunrise
+    assert outcome([f(DAY + 6.5 * H, "cover.open_cover", "cover.w")], STOCKHOLM).night_cover is False
 
 
 def test_light_toggled_on_at_2200_and_nothing_else_is_night_light():

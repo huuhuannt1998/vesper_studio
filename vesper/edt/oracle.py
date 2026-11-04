@@ -7,13 +7,13 @@ Thresholds (fixed by the experiment design):
 - time divergence: the first firing's local time of day differs by more than 3 h (the short way round the
   clock) between two environments that fire;
 - night is 00:00-05:00 local; "lamp left on all night" is a light that becomes on in the measured window and is not
-  off by the next 01:00; "cover open at night" is a cover that becomes open after that day's sunset (or before its
-  sunrise) and is not closed by that day's midnight.
+  off by the next 01:00; "cover open at night" is a cover that becomes open after that day's sunset and is not closed
+  by that day's midnight (a cover opened before sunrise is not judged: docs/experiments/edt-protocol.md, A1.1).
 
 Lights and covers are resolved per target, in time order, from every firing given (warm-up included), starting off
 and closed: turn_on/open sets on/open, turn_off/close sets off/closed, toggle flips. A lamp whose 01:00 deadline
 falls after the run's end (the end of the last measured day) cannot be judged and is not flagged. A day on which
-the sun does not set (or rise) has no "after sunset" (or "before sunrise"), so no finding on that side. With no
+the sun does not set has no "after sunset", so no finding that day. With no
 site at all (a rung-1 trace names none) there is no sunset: "cover open at night" is not judged.
 """
 from __future__ import annotations
@@ -89,9 +89,8 @@ def _night_cover(firings: list[Firing], lo: float, hi: float, site) -> bool:
             if not is_open or not lo <= t < hi:
                 continue
             day = int(t // DAY_S)
-            events = sun_events(site, day)
-            sunset, sunrise = events["sunset"], events["sunrise"]
-            at_night = (sunset is not None and t >= sunset) or (sunrise is not None and t < sunrise)
+            sunset = sun_events(site, day)["sunset"]
+            at_night = sunset is not None and t >= sunset
             midnight = (day + 1) * DAY_S
             if at_night and midnight <= hi and not any(not s and t < u < midnight for u, s in steps):
                 return True
