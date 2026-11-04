@@ -149,23 +149,26 @@ def _page_words(problem: str) -> str:
     return problem.replace("give --scale or --area, not both", "give a room's size or the area, not both")
 
 
-def import_check(plan: dict, scale: str | None = None) -> dict:
+def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None = None) -> dict:
     """What the page shows for a plan as read (or as the user edited it) and the user's scale: {problems (every
     reason VESPER would not build it, empty when it would), warnings (what straightening left out or narrowed
     because the walls cannot carry it: built without it, never blocking), summary (plan_read.summary: each room,
     door and the entrance), transform (plan_transform of the scaled plan, with m_per_px: a straightened point (x, z)
     goes back to the image by turning it -angle_deg about centre and dividing by m_per_px), rooms (the rooms as
-    VESPER would build them, in metres; None when it cannot straighten the plan)}."""
+    VESPER would build them, in metres; None when it cannot straighten the plan)}. `numbers` (the page's
+    door_numbers) is each door's place in the plan as read, so that every message names a door as the reading does
+    (vesper.lab.plan.door_name), whatever rooms the user left out."""
     from vesper.lab.geometry import polygon_area
     from vesper.lab.plan import PlanError, check_house, load_plan, plan_transform, rectify, scale_plan
     from vesper.lab.plan_read import summary
     out = {"problems": [], "warnings": [], "summary": None, "transform": None, "rooms": None}
     try:
-        load_plan(plan)
+        load_plan(plan, numbers)
     except PlanError as e:
         out["problems"] = [str(e)]
         return out
-    out["summary"] = summary(plan)
+    out["summary"] = summary(plan, numbers)
+    numbers = list(range(len(plan.get("doors") or []))) if numbers is None else list(numbers)
     try:
         room_size, area = scale_args(scale)
         scaled = scale_plan(plan, room_size, area)
@@ -173,33 +176,36 @@ def import_check(plan: dict, scale: str | None = None) -> dict:
         real = sum(polygon_area([tuple(p) for p in r["polygon"]]) for r in scaled["rooms"])
         out["transform"] = {**plan_transform(scaled), "m_per_px": math.sqrt(real / drawn) if drawn > 0 else 1.0}
         warnings: list[str] = []
-        straight = rectify(scaled, warnings)
+        straight = rectify(scaled, warnings, numbers)
         out["warnings"] = warnings
-        out["summary"] = summary(straight)
+        out["summary"] = summary(straight, numbers)
         out["rooms"] = [{"id": r["id"], "polygon": r["polygon"]} for r in straight["rooms"]]
-        out["problems"] = check_house(straight)
+        out["problems"] = check_house(straight, numbers)
     except PlanError as e:
         out["problems"] = [_page_words(str(e))]
     return out
 
 
-def _plan_home(request: dict) -> tuple[dict, dict, str]:
+def _plan_home(request: dict) -> tuple[dict, dict, str, list[int]]:
     """A page request that carries a plan (as read, as edited) -> (the request without it, the plan straightened in
-    metres, the plan's file name for the home's scene). ComposeError lists every problem."""
+    metres, the plan's file name for the home's scene, each kept door's place in the plan as read). ComposeError lists
+    every problem."""
     from vesper.lab.plan import PlanError, rectify, scale_plan
-    spec = {k: v for k, v in request.items() if k not in ("plan", "scale", "source")}
+    spec = {k: v for k, v in request.items() if k not in ("plan", "scale", "source", "door_numbers")}
     if any(spec.get(k) is not None for k in ("rooms", "program", "scene")):
         raise ComposeError("an imported home's rooms come from the plan: its request names no rooms, program or scene")
-    checked = import_check(request["plan"], request.get("scale"))
+    checked = import_check(request["plan"], request.get("scale"), request.get("door_numbers"))
     if checked["problems"]:
         raise ComposeError("the plan is not a house VESPER can build: " + "; ".join(checked["problems"]))
     room_size, area = scale_args(request.get("scale"))
+    given = request.get("door_numbers")
+    numbers = list(range(len(request["plan"].get("doors") or []))) if given is None else list(given)
     try:
-        plan_m = rectify(scale_plan(request["plan"], room_size, area))
+        plan_m = rectify(scale_plan(request["plan"], room_size, area), None, numbers)
     except PlanError as e:  # checked above: only a plan that changed under us
         raise ComposeError(str(e)) from None
     name = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(str(request.get("source") or "plan.json")).name).strip(".") or "plan"
-    return spec, plan_m, name
+    return spec, plan_m, name, numbers
 
 
 def compose_home(request: dict, catalog: dict, out: Path) -> dict:
@@ -216,7 +222,7 @@ def compose_home(request: dict, catalog: dict, out: Path) -> dict:
     out = Path(out)
     plan_m = None
     if request.get("plan") is not None:
-        request, plan_m, source = _plan_home(request)
+        request, plan_m, source, numbers = _plan_home(request)
     out.mkdir(parents=True, exist_ok=True)
     scratch = out / f".compose-{datetime.now(UTC):%Y%m%dT%H%M%S%fZ}"
     try:
@@ -228,7 +234,7 @@ def compose_home(request: dict, catalog: dict, out: Path) -> dict:
                 generate_home(req, catalog, scratch / "home")
             else:
                 req = dataclasses.replace(req, program=[r["type"] for r in plan_m["rooms"]])
-                generate_from_plan(plan_m, req, catalog, scratch / "home", source=source)
+                generate_from_plan(plan_m, req, catalog, scratch / "home", source=source, numbers=numbers)
             load_lab_home(scratch / "home" / "home.yaml", catalog)
         except (GenerateError, HomeError) as e:
             raise ComposeError(str(e)) from e
@@ -751,7 +757,7 @@ class ComposeServer:
                     if self.path == "/api/import/check":
                         if not isinstance(body, dict) or not isinstance(body.get("plan"), dict):
                             raise ComposeError("a check is {plan, scale}: the plan as edited and the scale text")
-                        return self._json(200, import_check(body["plan"], body.get("scale")))
+                        return self._json(200, import_check(body["plan"], body.get("scale"), body.get("door_numbers")))
                 except ComposeError as e:
                     return self._json(400, {"error": str(e)})
                 except Exception as e:  # noqa: BLE001 - said to the page, never a dropped connection

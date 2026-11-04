@@ -246,6 +246,17 @@ test("leaving a room out drops it, its doors and windows from the plan sent; the
   assert.deepEqual(buildRequest(model).request.plan.rooms.map((r) => r.id), ["lr", "k", "b"]);
 });
 
+test("the plan sent says where each of its doors stood in the reading, so every message numbers them alike", () => {
+  // READ's doors: 0 front, 1 lr-k, 2 lr-b, 3 b-c, 4 k-outside; leaving the closet out drops door 3
+  const { plan, doorNumbers } = editedPlan(READ, { left: ["c"] });
+  assert.deepEqual(doorNumbers, [0, 1, 2, 4]);
+  assert.equal(plan.doors.length, doorNumbers.length);
+  assert.deepEqual(editedPlan(READ).doorNumbers, [0, 1, 2, 3, 4]);
+  const model = { rooms: { mode: "plan" }, seed: 0, rows: [], plan: { plan, doorNumbers } };
+  assert.deepEqual(buildRequest(model).request.door_numbers, [0, 1, 2, 4]);
+  assert.equal(buildRequest({ ...model, plan: { plan } }).request.door_numbers, undefined);
+});
+
 test("a name or type edited stays edited when a room is left out and put back", () => {
   const edits = { b: { type: "office", name: "Study" } };
   const out = editedPlan(READ, { edits, left: ["c"] }).plan;

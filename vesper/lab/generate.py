@@ -162,17 +162,17 @@ def typed_ids(plan_m: dict) -> tuple[dict, list[tuple[str, str, str]]]:
     return plan, out
 
 
-def floor_plan_from(plan_m: dict, scene: str) -> WorldMap:
+def floor_plan_from(plan_m: dict, scene: str, numbers: list[int] | None = None) -> WorldMap:
     """The map of a rectified plan in metres (vesper.lab.plan): its rooms keep their ids, each room's polygon is its
     outline taken in by half a wall (WALL), as a generated room's is, so a wall between two rooms is solid floor-less
     cells; each door opens the wall across its width; an outside door gets an outdoor room before it (the entrance's
     `porch`, PORCH deep and wide when it fits, any other `porch_2`, ...; doors close together on one wall share one,
     `_porch_for`); a balcony is an outdoor room. The map lists the indoor rooms, then the porches, then the
     balconies (the porch is the home's first outdoor room: where a resident goes out). Rooms may be any simple
-    polygon."""
-    from vesper.lab.plan import PlanError, load_plan
+    polygon. Doors are named as `vesper.lab.plan.door_name` names them (`numbers`: as rectify's)."""
+    from vesper.lab.plan import PlanError, door_name, load_plan
     try:
-        load_plan(plan_m)
+        load_plan(plan_m, numbers)
     except PlanError as e:
         raise GenerateError(str(e)) from None
     if plan_m["units"] != "m":
@@ -201,7 +201,8 @@ def floor_plan_from(plan_m: dict, scene: str) -> WorldMap:
         pair = set(sides)
         if "outside" in d["rooms"]:
             inward = _inward(outlines[sides[0]], (a, b))
-            porch = _porch_for(k, d, sides[0], along, (-inward[0], -inward[1]), outlines, porches, taken)
+            porch = _porch_for(k, d, sides[0], along, (-inward[0], -inward[1]), outlines, porches, taken,
+                               numbers)
             pair.add(porch["id"])
         joins[k] = pair
     every = [*(r for r in rooms if not r.outdoor), *(Room(p["id"], PORCH_LABEL, p["polygon"], outdoor=True)
@@ -223,8 +224,8 @@ def floor_plan_from(plan_m: dict, scene: str) -> WorldMap:
     found = [set(d.rooms) for d in world_map.doorways]
     for k, pair in sorted(joins.items()):
         if pair not in found:
-            raise GenerateError(f"door {k} does not open between {' and '.join(sorted(pair))} on the map: check "
-                                "that it stands on the wall they share")
+            raise GenerateError(f"{door_name(k, numbers)} does not open between {' and '.join(sorted(pair))} on "
+                                "the map: check that it stands on the wall they share")
     return world_map
 
 
@@ -292,7 +293,8 @@ def _inset(ring, d: float):
     return out
 
 
-def _porch_for(k: int, d: dict, room: str, along, out, outlines: dict, porches: list[dict], taken: set) -> dict:
+def _porch_for(k: int, d: dict, room: str, along, out, outlines: dict, porches: list[dict], taken: set,
+               numbers: list[int] | None = None) -> dict:
     """The outdoor room outside door `k` (from `room`), added to `porches` or grown there: a porch that already
     covers the door's step; else a new one, from WALL to `depth` out from the wall and `width` along it, centred
     on the door, the first of PORCH_TRIES that keeps WALL clear of every room and porch; else, when only porches
@@ -305,7 +307,8 @@ def _porch_for(k: int, d: dict, room: str, along, out, outlines: dict, porches: 
         if all(point_in_polygon(q, p["polygon"]) for q in step):
             return p
     others = [(f"room {rid!r}", ring) for rid, ring in outlines.items()]
-    others += [(f"the porch of door {p['door']}", p["polygon"]) for p in porches]
+    from vesper.lab.plan import door_name
+    others += [(f"the porch of {door_name(p['door'], numbers)}", p["polygon"]) for p in porches]
 
     def new(width: float, depth: float) -> dict:
         porch = {"id": _unique("porch", taken), "polygon": _strip(at, along, out, -width / 2, width / 2, depth),
@@ -346,8 +349,8 @@ def _porch_for(k: int, d: dict, room: str, along, out, outlines: dict, porches: 
             if not _blockers(_strip(at, along, out, -width / 2, width / 2, depth), others):
                 return new(width, depth)
     names = ", ".join(first)
-    raise GenerateError(f"door {k} (from {room!r} to the outside): {names} {'stand' if len(first) > 1 else 'stands'} "
-                        "where its porch would be; check the plan")
+    raise GenerateError(f"{door_name(k, numbers)} (from {room!r} to the outside): {names} "
+                        f"{'stand' if len(first) > 1 else 'stands'} where its porch would be; check the plan")
 
 
 def _strip(origin, along, out, lo: float, hi: float, depth: float) -> tuple:
@@ -521,12 +524,14 @@ def generate_home(request: Request, catalog: dict, out: Path, export=None) -> No
         _furnish(out, catalog)
 
 
-def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path, source: str = "plan.json") -> None:
+def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path, source: str = "plan.json",
+                       numbers: list[int] | None = None) -> None:
     """Write the home of a rectified plan in metres into `out`, a new directory, as `generate_home` writes a generated
     one: its rooms renamed by type (`typed_ids`, listed in home.yaml's header), the map (`floor_plan_from`), the plan's
     windows and rule windows where a room has none (vesper.lab.windows.from_plan), the request's devices placed by
     rule, the built-in furniture, and the plan itself (`plan.json`, with the map's room ids). `source` is the plan's
-    file name: the scene is `imported/<its stem>`. The request's program is not used: the rooms are the plan's."""
+    file name: the scene is `imported/<its stem>`. The request's program is not used: the rooms are the plan's.
+    `numbers` (as rectify's) names the doors in a refusal as the plan as read numbers them."""
     import json
 
     from vesper.lab.plan import PlanError, check_house
@@ -534,13 +539,13 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
     if request.scene is not None:
         raise GenerateError("an imported home's rooms come from the plan: a request for it names no scene")
     try:
-        problems = check_house(plan_m)
+        problems = check_house(plan_m, numbers)
     except PlanError as e:
         raise GenerateError(str(e)) from None
     if problems:
         raise GenerateError("the plan is not a house: " + "; ".join(problems))
     plan, names = typed_ids(plan_m)
-    world_map = floor_plan_from(plan, f"imported/{Path(source).stem}")
+    world_map = floor_plan_from(plan, f"imported/{Path(source).stem}", numbers)
     devices = place_devices(world_map, request, catalog)
     windows = from_plan(plan, world_map)
     indoor = [r.id for r in world_map.rooms if not r.outdoor]

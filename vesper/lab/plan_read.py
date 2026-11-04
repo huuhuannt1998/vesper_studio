@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from vesper.lab.plan import ROOM_TYPES, PlanError, load_plan
+from vesper.lab.plan import ROOM_TYPES, PlanError, door_name, load_plan
 
 TIMEOUT_S = 900  # one reading of a large image can take several minutes
 MAX_BYTES = 50 * 2**20  # no picture larger than this is sent
@@ -176,9 +176,11 @@ def _picture_kind(path: Path) -> str:
     raise PlanError(f"{_label(path.name)}: not a PNG, JPEG or PDF file")
 
 
-def summary(plan_m: dict) -> str:
+def summary(plan_m: dict, numbers: list[int] | None = None) -> str:
     """What was read, for the user to check against the image: each room's name, type and area, the doors, and the
-    entrance. `plan_m` is a plan in metres (scaled); a plan still in pixels (no scale yet) is shown in pixels."""
+    entrance. `plan_m` is a plan in metres (scaled); a plan still in pixels (no scale yet) is shown in pixels. Doors are
+    named as `vesper.lab.plan.door_name` names them: from 1, in the plan as read (`numbers`: each door's place there,
+    when doors were left out since)."""
     from vesper.lab.geometry import polygon_area
     px = plan_m.get("units") == "px"
     area = (lambda a: f"{a:.0f} px²") if px else (lambda a: f"{a:.1f} m²")
@@ -191,14 +193,14 @@ def summary(plan_m: dict) -> str:
     lines = [head + ("; scale missing, so areas are in pixels:" if px else "; check them against your image:")]
     lines += [f"  {names[r['id']]} ({r['type']}): {area(polygon_area([tuple(p) for p in r['polygon']]))}"
               for r in rooms]
-    lines += [f"  door {k}: {names[d['rooms'][0]]} - {names[d['rooms'][1]]} ({width(d['width'])})"
+    lines += [f"  {door_name(k, numbers)}: {names[d['rooms'][0]]} - {names[d['rooms'][1]]} ({width(d['width'])})"
               for k, d in enumerate(doors)]
     ent = plan_m.get("entrance")
     if ent is None or not 0 <= ent < len(doors):
         lines.append("  entrance: none given")
     else:
         inside = [names[x] for x in doors[ent]["rooms"] if x != "outside"]
-        lines.append(f"  entrance: door {ent} between {' and '.join(inside + ['outside'])}")
+        lines.append(f"  entrance: {door_name(ent, numbers)} between {' and '.join(inside + ['outside'])}")
     return "\n".join(lines)
 
 
@@ -236,7 +238,8 @@ def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: 
                 raise ReadingStopped("the reading was stopped")
             prompt = f"{PROMPT}\nThe image: {copy}\n"
             if attempt:
-                prompt += (f"\nYour previous answer was:\n{text}\n\nVESPER cannot use it: {problem}\n\n"
+                prompt += (f"\nYour previous answer was:\n{text}\n\nVESPER cannot use it: {problem}\n"
+                           "(\"door N\" is the N-th entry of \"doors\", counting from 1.)\n\n"
                            "Look at the image again and answer with the corrected JSON only.\n")
             text = _answer_text(run(["claude", "-p", prompt, *base], cwd=str(tmp), timeout=timeout))
             plan, problem, said = _check(text)

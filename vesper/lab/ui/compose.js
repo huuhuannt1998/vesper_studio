@@ -29,6 +29,7 @@ export function buildRequest(model) {
       request.plan = structuredClone(p.plan);
       if (p.scale && p.scale.trim()) request.scale = p.scale.trim();
       if (p.source) request.source = p.source;
+      if (p.doorNumbers) request.door_numbers = [...p.doorNumbers]; // each door's place in the reading
     }
   } else if (model.rooms.mode === "list") {
     if (!model.rooms.program.length) problems.push("rooms: add at least one room");
@@ -110,8 +111,9 @@ export const READING_TEXT = "Claude is reading the plan — several minutes; it 
 
 // The plan the page sends, made from the reading (never changed) and the user's edits: `edits` {id: {name, type}},
 // `left` the ids of rooms left out (with every door touching them and their windows), `entrance` the index in the
-// reading's doors of the door chosen as the entrance (undefined: the reading's own). -> {plan, notes}: a note says
-// when the entrance went with a room left out.
+// reading's doors of the door chosen as the entrance (undefined: the reading's own). -> {plan, notes, doorNumbers}:
+// a note says when the entrance went with a room left out; doorNumbers gives each door of the plan its place in the
+// reading (from 0), which the check and Generate are sent so that every message names a door as the reading does.
 export function editedPlan(read, { edits = {}, left = [], entrance } = {}) {
   const gone = new Set(left);
   const plan = structuredClone(read);
@@ -127,6 +129,7 @@ export function editedPlan(read, { edits = {}, left = [], entrance } = {}) {
     kept.push(d);
   });
   if (plan.doors) plan.doors = kept;
+  const doorNumbers = [...newIndex.keys()];
   if (plan.windows) plan.windows = plan.windows.filter((w) => !gone.has(w.room));
   const want = entrance === undefined ? read.entrance : entrance;
   const notes = [];
@@ -138,7 +141,7 @@ export function editedPlan(read, { edits = {}, left = [], entrance } = {}) {
       notes.push(`the entrance was in ${inside.join(" and ")}: choose another`);
     }
   }
-  return { plan, notes };
+  return { plan, notes, doorNumbers };
 }
 
 // The reading's doors that can be the entrance: those to the outside whose room is still in the plan, and the
@@ -598,8 +601,9 @@ if (typeof document !== "undefined") {
 
   // The plan sent (and checked) from the reading and the user's changes.
   function rebuild() {
-    const { plan, notes } = editedPlan(imp.read, { edits: imp.edits, left: imp.left, entrance: imp.entrance });
-    Object.assign(imp, { plan, notes });
+    const { plan, notes, doorNumbers } = editedPlan(imp.read, { edits: imp.edits, left: imp.left,
+                                                                 entrance: imp.entrance });
+    Object.assign(imp, { plan, notes, doorNumbers });
   }
 
   function edit(id, field, value) {
@@ -698,7 +702,8 @@ if (typeof document !== "undefined") {
     checkTimer = setTimeout(async () => {
       const mine = ++checkSeq;
       try {
-        const got = await api("/api/import/check", { plan: imp.plan, scale: imp.scale });
+        const got = await api("/api/import/check", { plan: imp.plan, scale: imp.scale,
+                                                     door_numbers: imp.doorNumbers });
         if (mine !== checkSeq) return;
         Object.assign(imp, { problems: got.problems, warnings: got.warnings || [], summary: got.summary,
                              transform: got.transform, straight: got.rooms });

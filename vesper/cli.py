@@ -1062,12 +1062,13 @@ def _lab_import(args, catalog) -> int:
                 print(plan_read.summary(loaded), flush=True)  # in pixels: the scale is what is missing
             raise
         warnings: list[str] = []  # what the walls could not carry: left out or narrowed, never invented
-        plan = rectify(scaled, warnings)
+        numbers = list(range(len(loaded.get("doors") or [])))  # each kept door's place in the plan as read
+        plan = rectify(scaled, warnings, numbers)
         if is_image:
-            print(plan_read.summary(plan), flush=True)
+            print(plan_read.summary(plan, numbers), flush=True)
         for w in warnings:
             print(f"warning: {w}", flush=True)
-        problems = check_house(plan)
+        problems = check_house(plan, numbers)
         if problems:
             print(f"FAILED: {src.name} is not a house VESPER can build ({len(problems)} problem"
                   f"{'s' if len(problems) != 1 else ''}):", file=sys.stderr)
@@ -1087,7 +1088,7 @@ def _lab_import(args, catalog) -> int:
         else:
             request = Request(Path("."), types, 0, [])
         request, left = _with_starter(request, catalog, starter)
-        generate_from_plan(plan, request, catalog, out, source=src.name)
+        generate_from_plan(plan, request, catalog, out, source=src.name, numbers=numbers)
         home = load_lab_home(out / "home.yaml", catalog)
         print(f"{len(types)} rooms ({', '.join(types)}), {len(home.devices)} devices: {out / 'home.yaml'} "
               f"(imported from {src.name}; positions by rule)")

@@ -330,7 +330,7 @@ def test_a_door_between_rooms_that_do_not_touch_is_rejected_naming_both_when_a_r
 def test_a_door_far_from_the_wall_it_belongs_to_is_rejected():
     p = metres([room("living", "living", rect(0, 0, 5, 4)), room("kitchen", "kitchen", rect(5, 0, 8.5, 4))],
                doors=[{"at": [2, 2], "width": 0.9, "rooms": ["living", "kitchen"]}])
-    with pytest.raises(PlanError, match=r"door 0.*'living'.*'kitchen'.*0.5 m"):
+    with pytest.raises(PlanError, match=r"door 1.*'living'.*'kitchen'.*0.5 m"):
         rectify(p)
 
 
@@ -341,7 +341,7 @@ def test_a_front_door_moves_onto_an_outside_wall_not_a_shared_one():
     assert at == [pytest.approx(5.45), 4]  # on the kitchen's north wall (clear of the corner), not the shared one
     boxed = metres([room("living", "living", rect(0, 0, 5, 4)), room("kitchen", "kitchen", rect(5, 0, 8.5, 4))],
                    doors=[{"at": [2, 2], "width": 0.9, "rooms": ["living", "outside"]}])
-    with pytest.raises(PlanError, match=r"door 0.*'living'.*outside"):
+    with pytest.raises(PlanError, match=r"door 1.*'living'.*outside"):
         rectify(boxed)
 
 
@@ -443,8 +443,8 @@ def test_the_plausible_range_is_half_the_smallest_to_one_and_a_half_times_the_la
     assert check_house(only("living", 6, 7)) == []  # 42 m² = 1.5 x 28
     assert check_house(only("living", 2, 3.9))
     assert check_house(only("living", 6, 7.1))
-    assert check_house(only("other", 1, 2)) == []  # types with no typical area: 2 to 60 m²
-    assert check_house(only("other", 1, 1.9))
+    assert check_house(only("corridor", 1, 2)) == []  # types with no typical area: 2 to 60 m²
+    assert check_house(only("corridor", 1, 1.9))
     assert check_house(only("hall", 6, 10)) == []
     assert check_house(only("hall", 6, 10.1))
 
@@ -738,7 +738,7 @@ def test_numbers_beyond_any_plan_are_a_plan_error_not_an_overflow(bad):
         load_plan(p)
     q = house()
     q["doors"][0]["width"] = bad
-    with pytest.raises(PlanError, match="door 0"):
+    with pytest.raises(PlanError, match="door 1"):
         load_plan(q)
     s = two_rooms(scale={"m_per_px": bad})
     with pytest.raises(PlanError, match="scale"):
@@ -878,14 +878,14 @@ def test_a_door_wider_than_its_shared_wall_is_narrowed_to_fit_with_a_warning():
     warnings = []
     out = rectify(p, warnings)
     assert out["doors"][0] == {"at": [5, pytest.approx(0.6)], "width": pytest.approx(1.1), "rooms": ["living", "hall"]}
-    assert warnings == ["door 0 between 'living' and 'hall' (1.50 m) is wider than their wall (1.20 m): narrowed to "
+    assert warnings == ["door 1 between 'living' and 'hall' (1.50 m) is wider than their wall (1.20 m): narrowed to "
                         "1.10 m"]
 
 
 def test_a_door_on_a_wall_shorter_than_60_cm_is_still_refused():
     p = metres([room("living", "living", rect(0, 0, 5, 4)), room("hall", "corridor", rect(5, 0, 6, 0.5))],
                doors=[{"at": [5, 0.25], "width": 0.9, "rooms": ["living", "hall"]}])
-    with pytest.raises(PlanError, match=r"door 0 between 'living' and 'hall'.*wider than the wall.*0.50 m"):
+    with pytest.raises(PlanError, match=r"door 1 between 'living' and 'hall'.*wider than the wall.*0.50 m"):
         rectify(p)
 
 
@@ -910,7 +910,7 @@ def test_a_door_between_rooms_that_do_not_touch_is_left_out_when_the_house_stays
     out = rectify(p, warnings)
     assert [d["rooms"] for d in out["doors"]] == [d["rooms"] for d in house()["doors"]]
     assert out["entrance"] == 0  # still the front door
-    assert warnings == ["door 0 between 'kitchen' and 'bed': the rooms do not touch (they have no wall in common): "
+    assert warnings == ["door 1 between 'kitchen' and 'bed': the rooms do not touch (they have no wall in common): "
                         "left out (no room needs it to be reached from the entrance)"]
     assert check_house(out) == []
 
@@ -918,7 +918,7 @@ def test_a_door_between_rooms_that_do_not_touch_is_left_out_when_the_house_stays
 def test_a_door_between_rooms_that_do_not_touch_is_refused_when_a_room_needs_it():
     p = house()
     p["doors"][3] = {"at": [2, 5.2], "width": 0.9, "rooms": ["kitchen", "bed"]}  # the bedroom's only door
-    with pytest.raises(PlanError, match=r"door 3 between 'kitchen' and 'bed': the rooms do not touch.*'bed'"):
+    with pytest.raises(PlanError, match=r"door 4 between 'kitchen' and 'bed': the rooms do not touch.*'bed'"):
         rectify(p)
 
 
@@ -939,7 +939,7 @@ def test_two_doors_meeting_end_to_end_on_one_wall_are_narrowed_to_leave_wall_bet
     hall_end, living_start = a["at"][0] + a["width"] / 2, b["at"][0] - b["width"] / 2
     assert hall_end == pytest.approx(1.95) and living_start == pytest.approx(2.05)
     assert a["at"][0] - a["width"] / 2 == pytest.approx(0.01) and b["at"][0] + b["width"] / 2 == pytest.approx(4.44)
-    assert warnings == ["doors 0 and 1 meet end to end on one wall: narrowed to 1.94 m and 2.39 m to leave 0.10 m of "
+    assert warnings == ["doors 1 and 2 meet end to end on one wall: narrowed to 1.94 m and 2.39 m to leave 0.10 m of "
                         "wall between them"]
     assert rectify(out, []) == out  # stable
 
@@ -968,3 +968,58 @@ def test_a_balcony_s_area_is_not_judged_by_an_indoor_room_s_range():
                              {"at": [0.5, 4], "width": 0.8, "rooms": ["living", "bal"]}], entrance=0)
     assert check_house(with_bal(1.2, 1.0)) == []  # 1.2 m²: a small balcony
     assert check_house(with_bal(5, 14)) == []  # 70 m²: a large terrace
+
+
+# --- round 2 (task A6): small rooms are real rooms; one door numbering ------------------------------------------
+
+def test_a_wc_and_a_closet_are_rooms_but_a_cupboard_is_not():
+    def only(typ, w, d):
+        return metres([room("r", typ, rect(0, 0, w, d))],
+                      doors=[{"at": [0, d / 2], "width": 0.6, "rooms": ["r", "outside"]}], entrance=0)
+    assert check_house(only("bathroom", 1.0, 1.3)) == []  # a 1.3 m² WC typed bathroom (CubiCasa5K plan 1590)
+    assert check_house(only("bathroom", 1.0, 1.0)) == []  # 1.0 m²: the least
+    assert check_house(only("bathroom", 1.0, 0.95))
+    assert check_house(only("bathroom", 3.0, 3.5)) == []  # 10.5 m², the most, unchanged
+    assert check_house(only("bathroom", 3.0, 3.6))
+    assert check_house(only("other", 0.7, 0.75)) == []  # a 0.5 m² closet
+    problems = check_house(only("other", 0.5, 0.8))  # 0.4 m²
+    assert problems == ["room 'r' (other): 0.4 m² is outside the plausible 0.5 to 60.0 m² for its type"]
+    assert check_house(only("other", 6, 10.1))  # 60 m², the most, unchanged
+
+
+def numbered():
+    """house() with a door across the corridor first (left out), the front door second, and a living room to kitchen
+    door wider than their wall fourth (narrowed): the doors as read are 1 to 5."""
+    p = house()
+    p["doors"].insert(0, {"at": [5, 4.6], "width": 0.9, "rooms": ["kitchen", "bed"]})
+    p["entrance"] = 1
+    p["doors"][2]["width"] = 4.5  # living room to kitchen, on 4 m of wall
+    return p
+
+
+def test_doors_are_named_counting_from_1_in_the_plan_as_read_even_after_one_is_left_out():
+    warnings, numbers = [], list(range(5))
+    out = rectify(numbered(), warnings, numbers)
+    assert numbers == [1, 2, 3, 4]  # the doors kept: their places in the plan as read (from 0)
+    assert warnings == ["door 3 between 'living' and 'kitchen' (4.50 m) is wider than their wall (4.00 m): narrowed "
+                        "to 3.90 m",
+                        "door 1 between 'kitchen' and 'bed': the rooms do not touch (they have no wall in common): "
+                        "left out (no room needs it to be reached from the entrance)"]
+    out["entrance"] = 1  # door 3 as read: between two rooms
+    assert any(p.startswith("entrance door 3 joins 'living' and 'kitchen'") for p in check_house(out, numbers))
+    assert any(p.startswith("entrance door 2 joins") for p in check_house(out))  # no numbers: its place here
+
+
+def test_a_refusal_names_the_door_by_its_place_in_the_plan_as_read():
+    p = numbered()
+    p["doors"][2]["at"] = [2, 2]  # 3 m from the wall
+    with pytest.raises(PlanError, match=r"^door 3 between 'living' and 'kitchen': it is 3.00 m"):
+        rectify(p, [], list(range(5)))
+    with pytest.raises(PlanError, match=r"^door 13 between 'living' and 'kitchen'"):  # numbers given by the page
+        rectify(p, [], [9, 10, 12, 13, 14])
+    bad = numbered()
+    bad["doors"][4]["rooms"] = ["hall", "garage"]
+    with pytest.raises(PlanError, match=r"door 5: room 'garage' is not in the plan"):
+        load_plan(bad)
+    with pytest.raises(PlanError, match=r"door 8: room 'garage' is not in the plan"):
+        load_plan(bad, [0, 1, 2, 3, 7])

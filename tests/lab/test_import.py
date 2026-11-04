@@ -388,8 +388,18 @@ def test_a_door_that_does_not_open_between_its_rooms_is_named():
     plan = three_rooms()
     plan["rooms"][1]["polygon"] = rect(6, 0, 9.5, 3)  # the kitchen a metre east of the living room
     plan["doors"][1]["at"] = [5.5, 1.5]
-    with pytest.raises(GenerateError, match="door 1 does not open between k and lr"):
+    with pytest.raises(GenerateError, match="door 2 does not open between k and lr"):  # doors counted from 1
         floor_plan_from(plan, "imported/gap")
+    with pytest.raises(GenerateError, match="door 5 does not open between k and lr"):  # door 5 as read
+        floor_plan_from(plan, "imported/gap", numbers=[0, 4, 5])
+
+
+def test_a_porch_in_the_way_is_named_by_its_door_as_read():
+    plan = three_rooms()
+    plan["doors"].append({"at": [0, 4.0], "width": 0.9, "rooms": ["lr", "outside"]})  # a back door by the front one
+    plan["rooms"].append({"id": "shed", "name": "Shed", "type": "other", "polygon": rect(-2.5, 4.6, -1.0, 5.0)})
+    with pytest.raises(GenerateError, match=r"door 9 \(from 'lr' to the outside\)"):
+        floor_plan_from(plan, "imported/two", numbers=[0, 1, 2, 8])
 
 
 def test_a_part_of_a_room_narrower_than_its_walls_is_named():

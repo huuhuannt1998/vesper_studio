@@ -28,6 +28,7 @@ FORMAT = "vesper-plan/1"
 ROOM_TYPES = (*AREAS, "corridor", "hall", "balcony", "other")
 OUTDOOR_TYPES = ("balcony",)  # outdoor rooms (a balcony, terrace, patio or loggia): built like a porch, no ceiling
 OTHER_AREA = (2.0, 60.0)  # the plausible m² of a room type with no typical area (corridor, hall, other)
+AREA_FLOOR = {"bathroom": 1.0, "other": 0.5}  # the least m² of a WC typed bathroom, and of a closet or store
 AREA_SLACK = (0.5, 1.5)  # a room's plausible area: 0.5 x the smallest typical to 1.5 x the largest
 
 SNAP_DEG = 10.0  # an edge within this of one of the two plan directions is straightened onto it
@@ -54,6 +55,24 @@ _SCALE_TEXT = re.compile(
 
 class PlanError(ValueError):
     """A plan VESPER cannot use, with what is wrong with it."""
+
+
+def door_name(k: int, numbers: list[int] | None = None) -> str:
+    """How door k of a plan is named to the user: "door N", N counting from 1 in the plan as read. `numbers` gives each
+    door's place (from 0) in the plan as read when doors were left out since (by `rectify`, or the lobby's Leave
+    out); None: the plan is the plan as read."""
+    return f"door {(k if numbers is None else numbers[k]) + 1}"
+
+
+def _numbers_problem(numbers, doors: list) -> str | None:
+    if numbers is None:
+        return None
+    if (not isinstance(numbers, list) or len(numbers) != len(doors)
+            or not all(isinstance(n, int) and not isinstance(n, bool) and 0 <= n < MAX_ABS for n in numbers)
+            or len(set(numbers)) != len(numbers)):
+        return (f"door numbers: expected one number (from 0) per door of the plan, {len(doors)} distinct ones, "
+                f"not {numbers!r}")
+    return None
 
 
 # --- the file ----------------------------------------------------------------------------------------------------
@@ -148,8 +167,9 @@ def _scale_problem(scale) -> str | None:
     return "scale: expected {m_per_px}, {length_m, from, to}, {area_m2} or null"
 
 
-def load_plan(raw: dict) -> dict:
-    """Check a `vesper-plan/1` file and return it unchanged, or raise a PlanError listing everything wrong."""
+def load_plan(raw: dict, numbers: list[int] | None = None) -> dict:
+    """Check a `vesper-plan/1` file and return it unchanged, or raise a PlanError listing everything wrong (doors
+    named as `door_name` names them)."""
     if not isinstance(raw, dict):
         raise PlanError("plan: the file is not a JSON object")
     errs: list[str] = []
@@ -198,21 +218,21 @@ def load_plan(raw: dict) -> dict:
         doors = []
     for k, d in enumerate(doors):
         if not isinstance(d, dict) or set(d) != _DOOR_KEYS:
-            errs.append(f"door {k}: must be an object with exactly {', '.join(sorted(_DOOR_KEYS))}")
+            errs.append(f"{door_name(k, numbers)}: must be an object with exactly {', '.join(sorted(_DOOR_KEYS))}")
             continue
         if not _is_point(d["at"]):
-            errs.append(f"door {k}: at must be an [x, y] point")
+            errs.append(f"{door_name(k, numbers)}: at must be an [x, y] point")
         if not _num(d["width"]) or d["width"] <= 0:
-            errs.append(f"door {k}: width must be a number above 0")
+            errs.append(f"{door_name(k, numbers)}: width must be a number above 0")
         sides = d["rooms"]
         if not isinstance(sides, list) or len(sides) != 2 or not all(isinstance(s, str) for s in sides):
-            errs.append(f"door {k}: rooms must be two room ids (or 'outside')")
+            errs.append(f"{door_name(k, numbers)}: rooms must be two room ids (or 'outside')")
             continue
         for s in sides:
             if s != "outside" and s not in ids:
-                errs.append(f"door {k}: room {s!r} is not in the plan")
+                errs.append(f"{door_name(k, numbers)}: room {s!r} is not in the plan")
         if sides[0] == sides[1]:
-            errs.append(f"door {k}: joins {sides[0]!r} to itself")
+            errs.append(f"{door_name(k, numbers)}: joins {sides[0]!r} to itself")
 
     windows = raw.get("windows", [])
     if not isinstance(windows, list):
@@ -229,6 +249,8 @@ def load_plan(raw: dict) -> dict:
         if not isinstance(w["room"], str) or w["room"] not in ids:
             errs.append(f"window {k}: room {w['room']!r} is not in the plan")
 
+    if not errs and (bad := _numbers_problem(numbers, doors)) is not None:
+        errs.append(bad)
     ent = raw.get("entrance")
     if ent is not None and (isinstance(ent, bool) or not isinstance(ent, int) or not 0 <= ent < len(doors)):
         errs.append(f"plan: entrance {ent!r} is not the index of one of the {len(doors)} doors")
@@ -731,7 +753,7 @@ def plan_transform(plan_m: dict) -> dict:
     return {"angle_deg": angle, "centre": [about[0], about[1]]}
 
 
-def rectify(plan_m: dict, warnings: list[str] | None = None) -> dict:
+def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] | None = None) -> dict:
     """The plan straightened. In order: the plan is turned so its dominant wall direction is the x axis; every wall
     within 10 degrees of an axis is made exactly parallel to it, consecutive walls on one line become one wall, and
     steps narrower than 15 cm are ironed out; where two rooms overlap the larger loses the strip (the smaller keeps
@@ -745,8 +767,11 @@ def rectify(plan_m: dict, warnings: list[str] | None = None) -> dict:
     doors meeting end to end on one wall are narrowed to leave 10 cm of wall between them; a door between rooms with
     no wall in common is left out when no room needs it to be reached from the entrance. A PlanError names what is
     left: a door more than 50 cm from its wall, on a wall shorter than 60 cm, between rooms with no wall in common
-    that a room needs, or between two rooms that cannot be straightened."""
-    load_plan(plan_m)
+    that a room needs, or between two rooms that cannot be straightened.
+
+    Doors are named as `door_name` names them: `numbers` is each door's place in the plan as read (None: this plan
+    is the plan as read); a list given is updated in place to the doors kept."""
+    load_plan(plan_m, numbers)
     if plan_m["units"] != "m":
         raise PlanError("rectify: the plan is in pixels; scale it to metres first (scale_plan)")
     plan = _normal(plan_m)
@@ -902,7 +927,7 @@ def rectify(plan_m: dict, warnings: list[str] | None = None) -> dict:
     for k, d in enumerate(doors):
         a, b = d["rooms"]
         at = tuple(d["at"])
-        what = f"door {k} between {a!r} and {b!r}"
+        what = f"{door_name(k, numbers)} between {a!r} and {b!r}"
         if "outside" in d["rooms"]:
             room = b if a == "outside" else a
             segs = _outside_walls(ids.index(room), rings)
@@ -948,12 +973,14 @@ def rectify(plan_m: dict, warnings: list[str] | None = None) -> dict:
             mid = (hi_i + lo_j) / 2
             hi_i, lo_j = mid - END_M, mid + END_M
             if min(hi_i - lo_i, hi_j - lo_j) < NARROW_LEAST_M - 2 * END_M - 1e-9:
-                raise PlanError(f"doors {i} and {j} overlap on one wall: move one of them")
+                raise PlanError(f"{door_name(i, numbers)} and {door_name(j, numbers)[5:]} overlap on one wall: "
+                                "move one of them")
             for k, lo, hi in ((i, lo_i, hi_i), (j, lo_j, hi_j)):
                 spans[k] = (cls, off, lo, hi)
                 doors[k]["width"] = round(hi - lo, 9)
                 doors[k]["at"] = rnd(((lo + hi) / 2, off) if cls == "h" else (off, (lo + hi) / 2))
-            say(f"doors {i} and {j} meet end to end on one wall: narrowed to {hi_i - lo_i:.2f} m and "
+            say(f"doors {door_name(i, numbers)[5:]} and {door_name(j, numbers)[5:]} meet end to end on one wall: "
+                f"narrowed to {hi_i - lo_i:.2f} m and "
                 f"{hi_j - lo_j:.2f} m to leave {2 * END_M:.2f} m of wall between them")
 
     # a door between rooms that do not touch: left out when no room needs it to be reached from the entrance
@@ -963,16 +990,19 @@ def rectify(plan_m: dict, warnings: list[str] | None = None) -> dict:
             need = next((k for k in loose if _reached(ids, doors, entrance, frozenset(loose) - {k})
                          - _reached(ids, doors, entrance, frozenset(loose))), loose[0])
             a, b = doors[need]["rooms"]
-            raise PlanError(f"door {need} between {a!r} and {b!r}: the rooms do not touch (they have no wall in "
-                            f"common), and without it {', '.join(repr(r) for r in ids if r in lost)} cannot be "
-                            f"reached from the entrance")
+            raise PlanError(f"{door_name(need, numbers)} between {a!r} and {b!r}: the rooms do not touch (they have "
+                            f"no wall in common), and without it {', '.join(repr(r) for r in ids if r in lost)} "
+                            f"cannot be reached from the entrance")
         for k in loose:
             a, b = doors[k]["rooms"]
-            say(f"door {k} between {a!r} and {b!r}: the rooms do not touch (they have no wall in common): left out "
+            say(f"{door_name(k, numbers)} between {a!r} and {b!r}: the rooms do not touch (they have no wall in "
+                f"common): left out "
                 f"(no room needs it to be reached from the entrance)")
         if entrance is not None:
             plan["entrance"] = entrance - sum(1 for k in loose if k < entrance)
         plan["doors"] = [d for k, d in enumerate(doors) if k not in loose]
+        if numbers is not None:
+            numbers[:] = [n for k, n in enumerate(numbers) if k not in loose]
 
     kept = []
     for k, w in enumerate(windows):
@@ -1002,12 +1032,13 @@ def rectify(plan_m: dict, warnings: list[str] | None = None) -> dict:
 
 # --- is it a house -----------------------------------------------------------------------------------------------
 
-def check_house(plan_m: dict) -> list[str]:
+def check_house(plan_m: dict, numbers: list[int] | None = None) -> list[str]:
     """Every way a plan in metres is not a house (an empty list when it is): rooms that overlap, a room whose area is
     outside [0.5 x the smallest, 1.5 x the largest] of its type's typical area (`generate.AREAS`; 2 to 60 m² for
     types with none; an outdoor room, such as a balcony, has any size), no entrance (a door to the outside), and
-    rooms not reachable from it through doors."""
-    load_plan(plan_m)
+    rooms not reachable from it through doors. A WC typed bathroom may be as small as 1 m², a closet or store
+    ("other") 0.5 m² (AREA_FLOOR). Doors are named as `door_name` names them (`numbers`: as `rectify`'s)."""
+    load_plan(plan_m, numbers)
     if plan_m["units"] != "m":
         raise PlanError("check_house: the plan is in pixels; scale it to metres first (scale_plan)")
     problems: list[str] = []
@@ -1017,6 +1048,7 @@ def check_house(plan_m: dict) -> list[str]:
         lo, hi = ((AREA_SLACK[0] * AREAS[r["type"]][0], AREA_SLACK[1] * AREAS[r["type"]][1])
                   if r["type"] in AREAS else OTHER_AREA)
         area = polygon_area(rings[r["id"]])
+        lo = AREA_FLOOR.get(r["type"], lo)
         if not lo <= area <= hi:
             problems.append(f"room {r['id']!r} ({r['type']}): {area:.1f} m² is outside the plausible {lo:.1f} to "
                             f"{hi:.1f} m² for its type")
@@ -1031,8 +1063,8 @@ def check_house(plan_m: dict) -> list[str]:
         return problems
     door = doors[ent]
     if "outside" not in door["rooms"]:
-        problems.append(f"entrance door {ent} joins {door['rooms'][0]!r} and {door['rooms'][1]!r}, not a room and "
-                        f"the outside")
+        problems.append(f"entrance {door_name(ent, numbers)} joins {door['rooms'][0]!r} and {door['rooms'][1]!r}, "
+                        f"not a room and the outside")
     graph: dict[str, set[str]] = {r["id"]: set() for r in rooms}
     for d in doors:
         a, b = d["rooms"]

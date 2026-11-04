@@ -698,14 +698,14 @@ def test_a_reading_says_how_long_it_may_take_at_worst():
 
 
 def with_closet() -> dict:
-    """px_plan with a 1.8 m² toilet off the bedroom (as plan1's reading of the 30x35 plan has): too small for any
-    type, so only leaving it out fixes it. A window in it, and a back door from the kitchen."""
+    """px_plan with a 0.4 m² cupboard off the bedroom read as a room: too small for any type (a WC is 1 m², a closet
+    0.5 m² at least), so only leaving it out fixes it. A window in it, and a back door from the kitchen."""
     plan = px_plan()
     plan["rooms"].append({"id": "c", "name": "Toilet", "type": "bathroom",
-                          "polygon": [[850, 520], [970, 520], [970, 670], [850, 670]]})
-    plan["doors"] += [{"at": [850, 600], "width": 70, "rooms": ["b", "c"]},
+                          "polygon": [[850, 520], [910, 520], [910, 585], [850, 585]]})
+    plan["doors"] += [{"at": [850, 550], "width": 50, "rooms": ["b", "c"]},
                       {"at": [850, 100], "width": 90, "rooms": ["k", "outside"]}]
-    plan["windows"].append({"at": [970, 600], "width": 60, "room": "c"})
+    plan["windows"].append({"at": [910, 550], "width": 40, "room": "c"})
     return plan
 
 
@@ -723,7 +723,7 @@ def left_out(plan: dict, room: str) -> dict:
 
 def test_a_room_left_out_on_the_page_is_checked_without_it_and_a_lost_entrance_is_a_problem(server):
     s, _ = server
-    for kind in ("bathroom", "other"):  # no type fits a 1.8 m² closet
+    for kind in ("bathroom", "other"):  # no type fits a 0.4 m² cupboard
         plan = with_closet()
         plan["rooms"][3]["type"] = kind
         got = json.loads(call(s, "/api/import/check", {"plan": plan, "scale": "living width 5 m"})[1])
@@ -735,6 +735,27 @@ def test_a_room_left_out_on_the_page_is_checked_without_it_and_a_lost_entrance_i
                                                        "scale": "kitchen width 3.5 m"})[1])
     # the page puts its own note ("the entrance was in Living room: choose another") in this line's place
     assert "no entrance: the plan names no door as the entrance" in no_door["problems"]
+
+
+def test_the_check_and_generate_name_doors_as_the_reading_did_after_a_room_is_left_out(server, tmp_path):
+    s, _ = server
+    plan = with_closet()
+    plan["doors"][4]["width"] = 400  # the back door, 4 m on 3 m of the kitchen's outside wall
+    edited = left_out(plan, "c")  # door 4 as read (bedroom to cupboard) goes with the cupboard
+    got = json.loads(call(s, "/api/import/check", {"plan": edited, "scale": "living width 5 m",
+                                                   "door_numbers": [0, 1, 2, 4]})[1])
+    assert got["problems"] == []
+    assert got["warnings"] == ["door 5 between 'k' and 'outside' (4.00 m) is wider than its outside wall (3.00 m): "
+                               "narrowed to 2.90 m"]
+    assert "door 5: Kitchen - outside" in got["summary"] and "door 4:" not in got["summary"]
+    bad = json.loads(call(s, "/api/import/check", {"plan": edited, "scale": "living width 5 m",
+                                                   "door_numbers": [0, 1, 2]})[1])
+    assert bad["problems"][0].startswith("door numbers:")
+    req = {"format": "vesper-request/1", "seed": 3, "devices": [], "plan": edited, "scale": "living width 5 m",
+           "door_numbers": [0, 1, 2, 4]}
+    status, body = call(s, "/api/generate", req, origin=s.url.rstrip("/"))
+    assert status == 200, body
+    assert "door_numbers" not in (tmp_path / "out" / "request.yaml").read_text()
 
 
 def test_scale_text_is_a_room_s_size_or_the_home_s_area():

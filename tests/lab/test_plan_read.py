@@ -195,6 +195,16 @@ def test_an_invalid_first_answer_is_retried_with_the_errors_and_the_second_is_re
     assert fake.calls[1][3:] == fake.calls[0][3:]  # the same permissions
 
 
+def test_a_retry_says_doors_are_counted_from_1(image):
+    bad = px_plan()
+    bad["doors"][2]["rooms"] = ["lr", "garage"]  # "doors"[2]: door 3 to the user and to Claude
+    fake = Fake(envelope(json.dumps(bad)), envelope(json.dumps(px_plan())))
+    read_plan_image(image, runner=fake)
+    retry = fake.calls[1][2]
+    assert "door 3: room 'garage' is not in the plan" in retry
+    assert '"door N" is the N-th entry of "doors", counting from 1' in retry
+
+
 def test_two_invalid_answers_raise_with_claudes_last_text(image):
     first = px_plan(units="feet")
     last = px_plan(format="vesper-plan/2")
@@ -425,9 +435,9 @@ def test_an_image_import_prints_what_was_read_before_building(tmp_path, monkeypa
     assert "Claude read 3 rooms and 3 doors" in out
     assert "Living room (living): 25.0 m²" in out and "Kitchen (kitchen): 10.5 m²" in out
     assert "Bedroom (bedroom): 14.0 m²" in out
-    assert "door 1: Living room - Kitchen" in out
-    assert "entrance: door 0 between Living room and outside" in out
-    assert out.index("entrance: door 0") < out.index("3 rooms (living")  # shown before the home is built
+    assert "door 2: Living room - Kitchen" in out  # doors counted from 1
+    assert "entrance: door 1 between Living room and outside" in out
+    assert out.index("entrance: door 1") < out.index("3 rooms (living")  # shown before the home is built
 
 
 def test_the_summary_is_printed_even_when_the_plan_is_then_refused(tmp_path, monkeypatch, capsys, image):
@@ -439,6 +449,40 @@ def test_the_summary_is_printed_even_when_the_plan_is_then_refused(tmp_path, mon
     assert cli.main(["lab", "import", str(image), str(out), "--catalog", str(cat)]) == 1
     captured = capsys.readouterr()
     assert "Kitchen (kitchen)" in captured.out and not out.exists()
+
+
+def with_a_loose_door() -> dict:
+    """px_plan with a closet under the living room, its door from the living room last (door 5), and as door 2 a door
+    from the closet to the bedroom, which it does not touch: left out."""
+    plan = px_plan()
+    plan["rooms"].append({"id": "c", "name": "Closet", "type": "other", "polygon": [[0, 260], [100, 260], [100, 350],
+                                                                                     [0, 350]]})
+    plan["doors"].insert(1, {"at": [175, 300], "width": 40, "rooms": ["c", "b"]})
+    plan["doors"].append({"at": [50, 255], "width": 40, "rooms": ["lr", "c"]})
+    return plan
+
+
+def test_the_summary_and_the_warnings_name_each_door_as_the_plan_read_it_from_1(tmp_path, monkeypatch, capsys, image):
+    cat, _ = setup(tmp_path)
+    fake_claude(monkeypatch, envelope(json.dumps(with_a_loose_door())))
+    assert cli.main(["lab", "import", str(image), str(tmp_path / "mine"), "--catalog", str(cat)]) == 0
+    out = capsys.readouterr().out
+    assert "warning: door 2 between 'c' and 'b': the rooms do not touch" in out
+    summary = out[out.index("Claude read"):out.index("warning:")]
+    assert "door 2:" not in summary  # left out
+    for line in ("door 1: outside - Living room", "door 3: Living room - Kitchen", "door 4: Living room - Bedroom",
+                 "door 5: Living room - Closet", "entrance: door 1 between Living room and outside"):
+        assert line in summary, line
+
+
+def test_the_summary_counts_doors_from_1_or_as_numbered():
+    from vesper.lab.plan import scale_plan
+    plan = scale_plan(px_plan())
+    text = plan_read.summary(plan)
+    assert "door 1: outside - Living room" in text and "door 3: Living room - Bedroom" in text
+    text = plan_read.summary(plan, [0, 4, 6])
+    assert "door 5: Living room - Kitchen" in text and "door 7: Living room - Bedroom" in text
+    assert "entrance: door 1 between" in text
 
 
 def test_a_json_plan_prints_no_reading_summary(tmp_path, capsys):
