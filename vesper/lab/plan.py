@@ -649,6 +649,14 @@ def _longest(segs: list[tuple[Point, Point]]) -> float:
 
 # --- rectify -----------------------------------------------------------------------------------------------------
 
+def _shift(a: list[Point], b: list[Point]) -> float:
+    """How far apart two outlines are: the furthest any corner of one lies from the other, both ways."""
+    def far(pts: list[Point], ring: list[Point]) -> float:
+        return max(min(math.dist(p, _closest(u, v, p)) for u, v in zip(ring, ring[1:] + ring[:1], strict=True))
+                   for p in pts)
+    return max(far(a, b), far(b, a))
+
+
 def _turn(rings: list[list[Point]]) -> tuple[float, Point]:
     points = [p for r in rings for p in r]
     about = (sum(p[0] for p in points) / len(points), sum(p[1] for p in points) / len(points))
@@ -687,6 +695,8 @@ def rectify(plan_m: dict) -> dict:
         rings = [[_rotate(p, about, angle) for p in r] for r in rings]
         for item in (*doors, *windows):
             item["at"] = list(_rotate(tuple(item["at"]), about, angle))
+
+    turned = [list(r) for r in rings]
 
     # 2. straighten each room
     def tidy(k: int, ring: list[Point]) -> list[Point]:
@@ -732,6 +742,20 @@ def rectify(plan_m: dict) -> dict:
         if "outside" not in d["rooms"]:
             door_at.setdefault(frozenset(ids.index(r) for r in d["rooms"]), []).append(tuple(d["at"]))
 
+    straight = rings
+    rings = trim_overlaps(rings)
+    # a room trimmed by an overlap is measured from where the trim left it (the trim itself is at most TRIM_MAX_M deep)
+    baseline = [turned[k] if rings[k] == straight[k] else rings[k] for k in range(len(rings))]
+    info0 = [_edges(r) for r in rings]  # the walls as drawn (turned, straightened, trimmed), before any gap is closed
+
+    def origin(k: int, e: dict) -> tuple[float, float]:
+        """Where the wall e of room k was drawn: the offsets of the walls it comes from. Limits are checked on these,
+        not on where earlier rounds put the walls, so that rounds cannot chain gaps into a wider merge."""
+        offs = [o["off"] for o in info0[k]
+                if o["cls"] == e["cls"] and o["s"] == e["s"] and abs(o["off"] - e["off"]) <= DOOR_REACH_M + 1e-6
+                and min(o["t1"], e["t1"]) - max(o["t0"], e["t0"]) > 1e-6]
+        return (min(offs), max(offs)) if offs else (e["off"], e["off"])
+
     def close_walls(rings: list[list[Point]]) -> list[list[Point]]:
         info = [_edges(r) for r in rings]
         walls = [(k, i) for k, es in enumerate(info) for i, e in enumerate(es) if e["cls"] is not None]
@@ -758,7 +782,8 @@ def rectify(plan_m: dict) -> dict:
                 if gap < GAP_M or door:
                     pairs.append((abs(gap), (ka, ia), (kb, ib), door))
         parent = {w: w for w in walls}
-        span = {w: (info[w[0]][w[1]]["off"],) * 2 for w in walls}
+        span = {w: origin(w[0], info[w[0]][w[1]]) for w in walls}
+        size = dict.fromkeys(walls, 1)
         has_door = dict.fromkeys(walls, False)
 
         def root(w):
@@ -776,10 +801,12 @@ def rectify(plan_m: dict) -> dict:
             if hi - lo < (DOOR_REACH_M if wide else GAP_M):
                 parent[rb] = ra
                 span[ra] = (lo, hi)
+                size[ra] += size[rb]
                 has_door[ra] = wide
         for w in walls:
-            lo, hi = span[root(w)]
-            info[w[0]][w[1]]["off"] = (lo + hi) / 2
+            r = root(w)
+            if size[r] > 1:
+                info[w[0]][w[1]]["off"] = (span[r][0] + span[r][1]) / 2
         return [tidy(k, _rebuild([e["a"] for e in es], [e["cls"] for e in es], [e["off"] for e in es]))
                 for k, es in enumerate(info)]
 
@@ -788,6 +815,14 @@ def rectify(plan_m: dict) -> dict:
         if closed == rings:
             break
         rings = closed
+    else:
+        raise PlanError(f"the plan does not settle: closing the gaps between its rooms was still moving walls after "
+                        f"{MAX_PASSES} rounds; check that the rooms' walls line up")
+    moved = [_shift(baseline[k], rings[k]) for k in range(len(rings))]
+    far = [f"{ids[k]!r} ({moved[k]:.2f} m)" for k in range(len(rings)) if moved[k] > DOOR_REACH_M + 1e-6]
+    if far:
+        raise PlanError(f"rectifying would move the walls of {', '.join(far)} more than {DOOR_REACH_M} m: the rooms' "
+                        f"walls are too far apart or too far off to be straightened; redraw them")
 
     # 5. doors and windows onto their walls
     for k, d in enumerate(doors):

@@ -7,6 +7,7 @@ import random
 
 import pytest
 
+from vesper.lab import plan as plan_module
 from vesper.lab.geometry import polygon_area
 from vesper.lab.plan import PlanError, check_house, load_plan, plan_transform, rectify, scale_plan
 
@@ -757,3 +758,74 @@ def test_numbers_beyond_any_plan_are_a_plan_error_not_an_overflow(bad):
 def test_a_scale_that_makes_the_plan_absurdly_large_is_refused():
     with pytest.raises(PlanError, match="scale"):
         scale_plan(two_rooms(scale={"m_per_px": 1e8}))
+
+
+def four_rooms(doors_between=True):
+    """Two columns of two rooms: a0/b0 drawn 0.60 m apart, a1/b1 drawn 0.35 m apart, the tops of a0 and a1 (and the
+    bottoms of b0 and b1) within 15 cm of one line."""
+    rooms = [room("a0", "other", rect(0, 0, 4, 3.7)), room("b0", "other", rect(0, 4.3, 4, 8)),
+             room("a1", "other", rect(4, 0, 8, 3.825)), room("b1", "other", rect(4, 4.175, 8, 8))]
+    doors = [{"at": [4, 2], "width": 0.8, "rooms": ["a0", "a1"]}, {"at": [4, 6], "width": 0.8, "rooms": ["b0", "b1"]},
+             {"at": [0, 2], "width": 0.9, "rooms": ["a0", "outside"]}]
+    if doors_between:
+        doors += [{"at": [2, 4], "width": 0.8, "rooms": ["a0", "b0"]},
+                  {"at": [6, 4], "width": 0.8, "rooms": ["a1", "b1"]}]
+    return metres(rooms, doors=doors, entrance=2)
+
+
+def test_wall_gaps_do_not_chain_across_passes_into_a_merge_wider_than_the_door_reach():
+    with pytest.raises(PlanError, match=r"door \d between 'a[01]' and 'b[01]': the rooms do not touch"):
+        rectify(four_rooms())
+    out = rectify(four_rooms(doors_between=False))  # no door between the rows: nothing pulls them together
+    assert by_id(out, "a0")["polygon"][2][1] == by_id(out, "a1")["polygon"][2][1]  # the rows' tops line up...
+    for i in "01":  # ...and the rows stay apart: nothing closed a gap, nothing joined a top to a bottom
+        assert by_id(out, f"b{i}")["polygon"][0][1] - by_id(out, f"a{i}")["polygon"][2][1] > 0.4
+
+
+def max_shift(before, after):
+    """The furthest any corner of one polygon is from the outline of the other, both ways."""
+    def far(pts, ring):
+        return max(min(math.dist(p, plan_module._closest(a, b, p))
+                       for a, b in zip(ring, ring[1:] + ring[:1], strict=True)) for p in pts)
+    a, b = [tuple(p) for p in before], [tuple(p) for p in after]
+    return max(far(a, b), far(b, a))
+
+
+def test_walls_never_move_more_than_half_a_metre_whatever_the_gaps():
+    rng = random.Random("vesper-plan-creep")
+    refused = settled = 0
+    for n in range(60):
+        cols = [0.0]
+        for _ in range(rng.choice([3, 4, 5])):
+            cols.append(cols[-1] + rng.uniform(2.5, 4))
+        rooms, doors = [], []
+        for i in range(len(cols) - 1):
+            bottom, top = 4 - rng.uniform(0, 0.5), 4 + rng.uniform(0, 0.5)  # gaps of up to 1 m
+            x0 = cols[i] + (rng.uniform(0, 0.1) if i else 0)
+            rooms += [room(f"a{i}", "other", rect(x0, 0, cols[i + 1], bottom)),
+                      room(f"b{i}", "other", rect(x0, top, cols[i + 1], 8))]
+            doors.append({"at": [(cols[i] + cols[i + 1]) / 2, 4], "width": 0.8, "rooms": [f"a{i}", f"b{i}"]})
+            if i:
+                doors += [{"at": [cols[i], 2], "width": 0.8, "rooms": [f"a{i - 1}", f"a{i}"]},
+                          {"at": [cols[i], 6], "width": 0.8, "rooms": [f"b{i - 1}", f"b{i}"]}]
+        p = metres(rooms, doors=doors)
+        try:
+            out = rectify(p)
+        except PlanError:
+            refused += 1
+            continue
+        settled += 1
+        for before, after in zip(p["rooms"], out["rooms"], strict=True):
+            assert max_shift(before["polygon"], after["polygon"]) <= 0.5 + 1e-6, (n, before["id"])
+    assert refused and settled  # the generator reaches both outcomes
+
+
+def test_a_plan_that_does_not_settle_in_the_allowed_passes_is_refused(monkeypatch):
+    p = metres([room("living", "living", rect(0, 0, 5, 4)), room("kitchen", "kitchen", rect(5.2, 0, 8.5, 4))],
+               doors=[{"at": [5.1, 2], "width": 0.9, "rooms": ["living", "kitchen"]}])
+    assert rectify(p)  # settles with the passes allowed
+    monkeypatch.setattr(plan_module, "MAX_PASSES", 1)
+    with pytest.raises(PlanError, match="does not settle"):
+        rectify(p)
+    clean = metres([room("living", "living", rect(0, 0, 5, 4))])
+    assert rectify(clean) == clean  # nothing to settle: one pass confirms it
