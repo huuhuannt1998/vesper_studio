@@ -233,3 +233,20 @@ def test_parameters_are_stable_within_fifty_percent(ratios, stable):
 ])
 def test_the_outcome_is_the_simplest_repair_else_the_best_aic(verdicts, aic, order, outcome):
     assert tl._outcome(tuple(verdicts), verdicts, aic) == (order, outcome)
+
+
+# -- the post hoc convergence check: the main fit's cap is a parameter; the registered default is unchanged ----------
+def test_the_main_fit_cap_defaults_to_the_one_the_run_used_and_can_be_raised():
+    import inspect
+    assert tl.MAIN_MAX_NFEV == 60
+    assert inspect.signature(tl.fit_model).parameters["max_nfev"].default == tl.MAIN_MAX_NFEV
+    assert inspect.signature(tl.ladder_report).parameters["max_nfev"].default == tl.MAIN_MAX_NFEV
+    t_out, ghi, heat = _week(240)
+    truth = {"r_ao": 0.08, "r_am": 0.03, "c_a": 1.2e6, "c_m": 2.5e7, "p": 1600.0, "ga": 1.6}
+    measured = tl.simulate("2R2C+solar", truth, t_out, ghi, heat, t0=19.0)
+    capped = tl.fit_model("2R2C+solar", t_out, ghi, measured, heat, profile=False, max_nfev=3)
+    assert capped.fit_info["status"] == 0 and capped.fit_info["max_nfev"] == 3  # stopped by the cap
+    raised = tl.fit_model("2R2C+solar", t_out, ghi, measured, heat, profile=False, max_nfev=(3, 400))
+    assert raised.fit_info["status"] != 0 and raised.fit_info["max_nfev"] == 400 and raised.sse < capped.sse
+    one = tl.fit_model("2R2C+solar", t_out, ghi, measured, heat, profile=False, max_nfev=(400, 1000))
+    assert one.fit_info["max_nfev"] == 400  # no escalation when the first cap converges

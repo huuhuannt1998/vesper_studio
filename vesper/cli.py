@@ -420,7 +420,9 @@ def _validate_environment(args) -> int:
         if not (have["a"] and have["b"]):
             print("FAILED environment --thermal-ladder: needs both datasets", file=sys.stderr)
             return 1
-        ladder = ladder_report(have["a"], have["b"], Path(args.weather_cache), workers=args.workers)
+        caps = tuple(int(x) for x in args.main_max_nfev.split(",") if x)
+        ladder = ladder_report(have["a"], have["b"], Path(args.weather_cache), workers=args.workers,
+                               **({"max_nfev": caps} if caps else {}))
         out = args.out or Path("results/environment") / f"thermal-ladder-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
         path = _write_report(str(out), "thermal-ladder", ladder, args)
         written = json.loads(path.read_text())  # the code's hash belongs to `run`, which _write_report fills
@@ -1803,6 +1805,9 @@ def main(argv: list[str] | None = None) -> int:
     envv.add_argument("--thermal-ladder", action="store_true", help="addendum 3: 1R1C to 2R2C+solar fitted on dataset "
                                                                     "A, held out on B, with identifiability")
     envv.add_argument("--workers", type=int, default=2, help="processes for --thermal-ladder")
+    envv.add_argument("--main-max-nfev", default="", help="--thermal-ladder, post hoc convergence check: the main "
+                                                          "fit's evaluation caps in turn, e.g. 400,1000,3000 "
+                                                          "(default: the registered run's 60)")
     envv.add_argument("--out")
     xs = checks.add_parser("crosssite", help="RQ3: one home, the same automations, across cities, seasons and "
                                              "orientations (logical clock)")

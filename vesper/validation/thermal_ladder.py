@@ -52,6 +52,7 @@ BAND_C = 1.0  # the thermostat's proportional half-band: full heat at setpoint -
 SPIN_UP_H = 48  # hours at the start of a series not scored
 AREA_M2 = STANDARD_ROOM["w"] * STANDARD_ROOM["d"]  # the room the parameters are for
 GRID = 15
+MAIN_MAX_NFEV = 60  # the main fit's evaluation cap in the registered run (addendum 3 does not register one)
 RHO_CAP = 0.99  # not registered in addendum 3; disclosed in the results (n_eff = n (1-rho)/(1+rho))
 GRID_SPAN = 30.0  # the profile's log grid runs from 1/30 to 30 times the optimum
 CHI2_95 = 3.841  # chi-square, one degree of freedom
@@ -231,15 +232,22 @@ def _end_status(name: str, edge: float, crossed: bool) -> str:
 
 
 def fit_model(order: str, t_out, ghi, measured, heat_on, *, setpoint: float | None = None, profile: bool = True,
-              starts: int = 2) -> FitResult:
-    """Least-squares fit of one order to one room's hourly series; the 95 % intervals by profile likelihood."""
+              starts: int = 2, max_nfev: int | tuple = MAIN_MAX_NFEV) -> FitResult:
+    """Least-squares fit of one order to one room's hourly series; the 95 % intervals by profile likelihood.
+    `max_nfev`: the main fit's evaluation cap per start; a tuple is tried in turn, from the same starts, until the
+    chosen start does not end at its cap (status 0): the post hoc convergence check. The default is the registered
+    run's."""
     prob = _Problem(order, t_out, ghi, measured, heat_on, setpoint)
     names = list(prob.all)
-    best, sse, info = None, math.inf, {}
-    for k in range(starts):
-        params, s, i = prob.fit(names, {}, _start(order, k))
-        if s < sse:
-            best, sse, info = params, s, {**i, "start": k}
+    caps = (max_nfev,) if isinstance(max_nfev, int) else tuple(max_nfev)
+    for cap in caps:
+        best, sse, info = None, math.inf, {}
+        for k in range(starts):
+            params, s, i = prob.fit(names, {}, _start(order, k), max_nfev=cap)
+            if s < sse:
+                best, sse, info = params, s, {**i, "start": k, "max_nfev": cap}
+        if info["status"] != 0:
+            break
     e = (prob.sim(best) - prob.meas)[prob.ok]
     n = len(e)
     rmse = math.sqrt(sse / n) if n else float("nan")
@@ -266,8 +274,8 @@ def _median(values):
 
 
 def _task(args):
-    order, col, t_out, ghi, measured, profile = args
-    f = fit_model(order, t_out, ghi, measured, None, profile=profile)
+    order, col, t_out, ghi, measured, profile, max_nfev = args
+    f = fit_model(order, t_out, ghi, measured, None, profile=profile, max_nfev=max_nfev)
     return order, col, f
 
 
@@ -326,7 +334,7 @@ def code_sha256() -> str:
 
 
 def ladder_report(appliances: str, sml2010: str, cache, *, orders=ORDERS, workers: int = 2,
-                  profile: bool = True) -> dict:
+                  profile: bool = True, max_nfev: int | tuple = MAIN_MAX_NFEV) -> dict:
     """Addendum 3: every order fitted on each of dataset A's rooms, held out once on dataset B, the parameters'
     profile-likelihood intervals, and the outcome."""
     from concurrent.futures import ProcessPoolExecutor
@@ -340,13 +348,13 @@ def ladder_report(appliances: str, sml2010: str, cache, *, orders=ORDERS, worker
     site_b = parse_site({"city": "Valencia, Spain", "date": b.index[0].date().isoformat()})
     ghi_b = _era5(site_b, b.index, cache)["shortwave_radiation"]
     t_b = _values(b["t_out"])
-    tasks = [(o, col, t_a, ghi_a, _values(a[col]), profile) for o in orders for col in APPLIANCES_ROOMS]
+    tasks = [(o, col, t_a, ghi_a, _values(a[col]), profile, max_nfev) for o in orders for col in APPLIANCES_ROOMS]
     if workers > 1:
         with ProcessPoolExecutor(max_workers=workers) as pool:
             done = list(pool.map(_task, tasks))
     else:
         done = [_task(t) for t in tasks]
-    refit = [(o, col, t_b, ghi_b, _values(b[col]), False) for o in orders for col in SML_ROOMS]
+    refit = [(o, col, t_b, ghi_b, _values(b[col]), False, max_nfev) for o in orders for col in SML_ROOMS]
     if workers > 1:
         with ProcessPoolExecutor(max_workers=workers) as pool:
             refit_done = list(pool.map(_task, refit))
@@ -403,4 +411,5 @@ def ladder_report(appliances: str, sml2010: str, cache, *, orders=ORDERS, worker
     report["best_aic_order"] = min(orders, key=lambda o: aics[o])
     report["outcome_order"], report["outcome"] = chosen, outcome
     report["code_sha256"] = code_sha256()
+    report["main_max_nfev"] = [max_nfev] if isinstance(max_nfev, int) else list(max_nfev)
     return report
