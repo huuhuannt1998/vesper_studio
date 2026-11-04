@@ -212,7 +212,7 @@ Run: `.venv/bin/ruff check vesper/catalog vesper/twins vesper/exposure vesper/va
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/normalize/matter.py vesper/catalog/normalize/ha_map.py tests/catalog/test_matter_normalize.py tests/catalog/test_ha_map.py tests/twins/test_twin.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): Matter booleans and the Matter crosswalk Home Assistant 2026.10.2 uses
@@ -404,7 +404,7 @@ Run: `.venv/bin/ruff check vesper/catalog vesper/twins vesper/exposure vesper/va
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/twins/runtime.py tests/twins/test_runtime.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(twins): presence, contact and ambient stimuli for Matter twins
@@ -994,7 +994,7 @@ Run: `.venv/bin/ruff check vesper/catalog vesper/twins vesper/exposure vesper/va
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/exposure/matter_tier.py tests/exposure/fake_matter_host.py tests/exposure/test_matter_tier.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(exposure): Matter tier: node identity, the host process and twin-node sync
@@ -1679,7 +1679,7 @@ Run: `.venv/bin/ruff check vesper/catalog vesper/twins vesper/exposure vesper/va
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/stack.py vesper/cli.py tests/validation/test_stack.py tests/validation/test_cli.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(stack): VESPER's Matter Server, vesper setup matter, Home Assistant's Matter flow
@@ -2773,7 +2773,7 @@ Run: `.venv/bin/ruff check vesper/catalog vesper/twins vesper/exposure vesper/va
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/acceptance.py vesper/validation/matter_acceptance.py vesper/cli.py vesper/validation/report.py tests/validation/test_matter_acceptance.py tests/validation/test_cli_matter.py tests/validation/test_report.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): Matter acceptance, vesper validate matter, Matter L2 in the report
@@ -3450,7 +3450,7 @@ Run: `.venv/bin/ruff check vesper/catalog vesper/twins vesper/exposure vesper/va
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/exposure/matter_host/package.json vesper/exposure/matter_host/package-lock.json vesper/exposure/matter_host/codec.mjs vesper/exposure/matter_host/recipes.mjs vesper/exposure/matter_host/stdout-guard.mjs vesper/exposure/matter_host/host.mjs vesper/exposure/matter_host/codec.test.mjs vesper/exposure/matter_host/recipes.test.mjs vesper/exposure/matter_host/stdout-guard.test.mjs tests/exposure/test_matter_host_contract.py .gitignore
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(exposure): the Matter host: matter.js nodes behind a JSON-lines protocol
@@ -3603,7 +3603,7 @@ with:
 - [ ] **Step 2: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add docs/experiments/device-twins-runbook.md
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "docs(runbook): Experiment 6, Matter acceptance

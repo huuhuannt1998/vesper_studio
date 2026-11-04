@@ -352,7 +352,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/rules.py vesper/lab/play.py vesper/lab/resident.py vesper/lab/session.py tests/lab/test_rules.py tests/lab/test_comfort.py tests/lab/test_play.py tests/lab/test_resident.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the rules say why a hand cannot reach; the page's hello says reach, what a hand uses and who lives here; a resident's task is a record
@@ -646,7 +646,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/ui/mapview.js tests/lab/ui/mapview.test.mjs
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the page's logic for PUBG-like play: held keys and running, prompts that say why not, click targets, the event feed, the compass
@@ -1176,7 +1176,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/ui/app.js vesper/lab/ui/index.html vesper/lab/ui/style.css tests/lab/test_ui.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the play page plays like PUBG on the map: WASD and Shift, click or F to use, the prompt says why not, an event feed, the residents, no click-to-walk
@@ -1385,7 +1385,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/visual.py examples/lab/test-house/look-hub.yaml tests/lab/test_look_browser.py docs/experiments/lab-runbook.md tests/lab/test_visual.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): looks walk the player with a walk step; the example look, the browser test and the run book follow the PUBG controls

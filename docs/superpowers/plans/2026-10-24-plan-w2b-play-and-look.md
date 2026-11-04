@@ -341,7 +341,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/png.py tests/lab/test_png.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): PNG images for the visual checks: read, compare, write
@@ -829,7 +829,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add pyproject.toml vesper/lab/browser.py tests/lab/test_browser.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): a headless browser over the DevTools protocol, and the websockets dependency
@@ -1348,7 +1348,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/session.py vesper/lab/play.py tests/lab/test_play.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the play server: the page, and a WebSocket to the running session
@@ -2061,7 +2061,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/ui/mapview.js vesper/lab/ui/index.html vesper/lab/ui/style.css vesper/lab/ui/app.js tests/lab/ui/mapview.test.mjs tests/lab/test_ui.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the play page: the map, the console and the panels
@@ -2444,7 +2444,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/visual.py tests/lab/test_visual.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): a look: drive the play page, photograph it and judge it
@@ -2787,7 +2787,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/cli.py tests/lab/test_cli_play.py tests/lab/test_look_browser.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): vesper lab play and vesper lab look

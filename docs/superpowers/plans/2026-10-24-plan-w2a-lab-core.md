@@ -479,7 +479,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/__init__.py vesper/lab/geometry.py vesper/lab/worldmap.py tests/lab/__init__.py tests/lab/maps.py tests/lab/test_worldmap.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the map file: rooms, the walkable floor, and the doorways between rooms
@@ -869,7 +869,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/mapworld.py tests/lab/test_mapworld.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the map world: people who step and walk, doors that stop them
@@ -1253,7 +1253,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/home.py tests/lab/homes.py tests/lab/test_home.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the home file v2: real products placed in the scene
@@ -1666,7 +1666,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/rules.py tests/lab/test_rules.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the game rules: presence, doors, devices by hand, bindings, ambient, effects
@@ -1946,7 +1946,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/session.py tests/lab/test_session.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the session and its trace, replayed exactly on the logical clock
@@ -2249,7 +2249,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/cli.py tests/lab/test_cli_lab.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): vesper lab new, check, run and replay

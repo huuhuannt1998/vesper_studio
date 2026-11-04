@@ -145,7 +145,7 @@ Expected: `31 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/twins/runtime.py tests/twins/test_runtime.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "fix(twins): drop a deferred report that drifted back; exact periodic tick
@@ -387,7 +387,7 @@ Expected: `38 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/twins/latency.py tests/twins/test_latency.py vesper/twins/runtime.py tests/twins/test_runtime.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(twins): latency models fitted to publications, or marked assumed
@@ -532,7 +532,7 @@ Expected: `5 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/stats.py tests/validation/test_stats.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): pre-registered latency statistics in the standard library
@@ -906,7 +906,7 @@ Expected: `8 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/timing.py tests/validation/test_timing_rules.py tests/validation/test_timing_latency.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): exact reporting-rule check and wall-clock latency measurement
@@ -1139,7 +1139,7 @@ Expected: `19 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/report.py tests/validation/test_report.py vesper/catalog/normalize/zigbee.py tests/catalog/test_zigbee_normalize.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): fidelity report; L2 credited from acceptance evidence
@@ -1394,7 +1394,7 @@ Expected: `309 passed, 6 skipped` in the working copy, or `308 passed, 7 skipped
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/cli.py tests/validation/test_cli.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(cli): validate rules and latency; vesper report
@@ -1569,7 +1569,7 @@ Expected: `ok` twice.
 - [ ] **Step 4: Commit (this commit is the pre-registration: record its hash in the ledger)**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add docs/experiments/l3-timing-design.md docs/experiments/device-twins-runbook.md
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "docs: L3 pre-registration; run book for rules, latency and the report

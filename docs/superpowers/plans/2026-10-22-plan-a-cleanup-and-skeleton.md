@@ -59,7 +59,7 @@
 
 - [ ] **Step 1: Confirm the branch and the modified set**
 
-Run: `cd /Users/huanbui/Research/vesper && git branch --show-current && git status --short --ignore-submodules=all | grep -v '^??'`
+Run: `cd <repo> && git branch --show-current && git status --short --ignore-submodules=all | grep -v '^??'`
 
 Expected: branch `reframe/habitat-device-twins`. The modified (` M`) lines are exactly the 14 files above, plus two `tests/__pycache__/*.pyc` files, which are not staged here; they are removed in Task 5.
 
@@ -114,7 +114,7 @@ A=/Volumes/ResearchSSD/vesper-archive-2026-10.noindex
 mkdir -p "$A/worktree"
 taskpolicy -b rsync -a --exclude '/data/' --exclude '/habitat-lab-official/' --exclude '/.git/' \
   --exclude '/.venv/' --exclude '__pycache__/' --exclude '/.pytest_cache/' \
-  /Users/huanbui/Research/vesper/ "$A/worktree/"
+  <repo>/ "$A/worktree/"
 du -sh "$A/worktree"
 ```
 Expected: a few hundred MB, with no errors.
@@ -125,7 +125,7 @@ Expected: a few hundred MB, with no errors.
 A=/Volumes/ResearchSSD/vesper-archive-2026-10.noindex
 (cd "$A/worktree" && find . -type f -print0 | sort -z | xargs -0 taskpolicy -b shasum -a 256) > "$A/MANIFEST.sha256"
 wc -l "$A/MANIFEST.sha256"
-cd /Users/huanbui/Research/vesper && taskpolicy -b git bundle create "$A/vesper-all-refs.bundle" --all
+cd <repo> && taskpolicy -b git bundle create "$A/vesper-all-refs.bundle" --all
 git bundle verify "$A/vesper-all-refs.bundle" | tail -1
 ```
 Expected: the manifest line count equals `find "$A/worktree" -type f | wc -l`, and the bundle verify output ends with "is okay".
@@ -134,7 +134,7 @@ Expected: the manifest line count equals `find "$A/worktree" -type f | wc -l`, a
 
 ```bash
 A=/Volumes/ResearchSSD/vesper-archive-2026-10.noindex
-cd /Users/huanbui/Research/vesper && taskpolicy -b shasum -a 256 -c "$A/MANIFEST.sha256" 2>&1 | grep -v ': OK$' | head
+cd <repo> && taskpolicy -b shasum -a 256 -c "$A/MANIFEST.sha256" 2>&1 | grep -v ': OK$' | head
 ```
 Expected: no output. Every archived file matches the live file.
 
@@ -145,7 +145,7 @@ Write `$A/README.md` with this content:
 ```markdown
 # VESPER legacy archive (2026-10-22)
 
-Snapshot of /Users/huanbui/Research/vesper before the reframe to the Habitat device-twins pipeline
+Snapshot of <repo> before the reframe to the Habitat device-twins pipeline
 (RKA dec_01M5JXCASCWJG93YAQZ6BKN529).
 
 - worktree/: the working tree, excluding data/, habitat-lab-official/, .git/, .venv/ and caches.
@@ -214,7 +214,7 @@ testpaths = ["tests"]
 - [ ] **Step 3: Create the virtualenv and install**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 taskpolicy -b uv venv --python 3.12 .venv
 taskpolicy -b uv pip install --python .venv/bin/python -e ".[dev]"
 ```
@@ -542,7 +542,7 @@ Expected: `test_kept_paths_exist` PASSES. `test_legacy_paths_removed` and `test_
 Run this whole block in ONE shell invocation; the variables do not survive between separate commands. `-f` is needed only for the two tracked `tests/__pycache__/*.pyc` files, which carry local modifications. Every other modified tracked file was committed in Task 1.
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 TRACKED_SCRIPTS=$(git ls-files scripts | grep -v -x 'scripts/extract_scene_info.py')
 TRACKED_TESTS=$(git ls-files tests | grep -v -x -e 'tests/__init__.py' -e 'tests/test_event_bus.py' -e 'tests/test_package.py' -e 'tests/test_archive_then_delete.py' -e 'tests/test_repo_layout.py')
 LEGACY_VESPER="vesper/attacks vesper/network vesper/protocol vesper/hub vesper/integrations vesper/firmware vesper/devices vesper/dashboard vesper/matter vesper/habitat vesper/evaluation vesper/utils vesper/engine.py vesper/platform.py vesper/config.py vesper/__main__.py vesper/core/environment.py vesper/core/registry.py vesper/simulation/autonomous_simulation.py vesper/agents/base.py vesper/agents/controller.py vesper/agents/llm_controller.py vesper/agents/smart_agent.py"
@@ -557,7 +557,7 @@ Then, in the same shell, run `git rm -r -f --ignore-unmatch $LEGACY_VESPER $OTHE
 Next, sweep the leftovers that `git rm` cannot remove: untracked `__pycache__` folders inside the removed packages, and untracked or ignored files inside removed folders. The archive covers them.
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 M=/Volumes/ResearchSSD/vesper-archive-2026-10.noindex/MANIFEST.sha256
 LEGACY_VESPER="vesper/attacks vesper/network vesper/protocol vesper/hub vesper/integrations vesper/firmware vesper/devices vesper/dashboard vesper/matter vesper/habitat vesper/evaluation vesper/utils vesper/engine.py vesper/platform.py vesper/config.py vesper/__main__.py vesper/core/environment.py vesper/core/registry.py vesper/simulation/autonomous_simulation.py vesper/agents/base.py vesper/agents/controller.py vesper/agents/llm_controller.py vesper/agents/smart_agent.py"
 taskpolicy -b .venv/bin/python scripts/cleanup/archive_then_delete.py --manifest "$M" --root . --skip-missing \
@@ -570,7 +570,7 @@ Expected: exit 0 for both commands. The second command removes git-ignored resul
 - [ ] **Step 4: Delete untracked and ignored legacy material (archive-verified)**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 M=/Volumes/ResearchSSD/vesper-archive-2026-10.noindex/MANIFEST.sha256
 taskpolicy -b .venv/bin/python scripts/cleanup/archive_then_delete.py --manifest "$M" --root . \
   INFOCOM-2027-manuscript IoTJ-manuscript logs '$OUTDIR' IoT-Phantom-Delay-Attack-main build \
@@ -587,7 +587,7 @@ Expected: exit 0, with one `deleted:` line per path. On exit 1, nothing has been
 Run the block in one shell.
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 M=/Volumes/ResearchSSD/vesper-archive-2026-10.noindex/MANIFEST.sha256
 RES=$(cd results/revision && ls -1 | grep -v -x -e llm_schedules -e casas -e e2 -e rule_corpus | sed 's|^|results/revision/|')
 RESE2=$(cd results/revision/e2 && ls -1 | grep -v -x embodied | sed 's|^|results/revision/e2/|')
@@ -604,7 +604,7 @@ Run: `.venv/bin/python -m pytest tests/test_repo_layout.py -q`. Expected: `3 pas
 - [ ] **Step 7: Commit the removal, together with the newly tracked kept scripts and the layout test**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add tests/test_repo_layout.py scripts/revision/e2_embodied.py scripts/revision/e1v2_workloads.py \
   scripts/revision/casas_workloads.py scripts/revision/casas_data_quality.py scripts/revision/e1v2_llm_schedules.py \
   scripts/revision/rule_corpus_prevalence.py scripts/revision/pause_in_windows.py

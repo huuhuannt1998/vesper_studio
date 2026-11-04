@@ -322,7 +322,7 @@ Expected: `11 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/__init__.py vesper/catalog/errors.py vesper/catalog/sources.py vesper/catalog/snapshot.py tests/catalog/__init__.py tests/catalog/test_snapshot.py .gitignore
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): pinned sources and hashed snapshots
@@ -452,7 +452,7 @@ Expected: collection ERROR, `ModuleNotFoundError: No module named 'vesper.catalo
 
 In `pyproject.toml`, set `dependencies = ["httpx>=0.27", "jsonschema>=4.23", "python-dotenv>=1.0", "pyyaml>=6.0"]`.
 
-Then run: `cd /Users/huanbui/Research/vesper && taskpolicy -b uv pip install --python .venv/bin/python -e ".[dev]"`
+Then run: `cd <repo> && taskpolicy -b uv pip install --python .venv/bin/python -e ".[dev]"`
 
 Expected: `+ jsonschema==4.x` among the installed packages.
 
@@ -694,7 +694,7 @@ Expected: `10 passed`.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add pyproject.toml vesper/catalog/vds.schema.json vesper/catalog/schema.py vesper/catalog/normalize/__init__.py vesper/catalog/normalize/common.py tests/catalog/test_schema.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): VDS v1 JSON Schema, record skeleton and fidelity ladder
@@ -1038,7 +1038,7 @@ Expected: `26 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/ingest/__init__.py vesper/catalog/ingest/_http.py vesper/catalog/ingest/ha.py vesper/catalog/normalize/ha_map.py tests/catalog/ha_2026_10_2.py tests/catalog/test_ha.py tests/catalog/test_ha_map.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): Home Assistant device-class vocabulary and feature crosswalk
@@ -1282,7 +1282,7 @@ Expected: `7 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/ingest/zhc_export.cjs vesper/catalog/ingest/zigbee.py tests/catalog/test_zigbee_ingest.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): snapshot zigbee-herdsman-converters definitions via a Node export
@@ -1616,7 +1616,7 @@ Expected: `10 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/normalize/zigbee.py tests/catalog/fixtures.py tests/catalog/test_zigbee_normalize.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): normalize Zigbee definitions and white labels to VDS
@@ -1964,7 +1964,7 @@ Expected: `17 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/ingest/matter_zap.py tests/catalog/fixtures.py tests/catalog/test_matter_zap.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): Matter clusters and device types from Apache-2.0 ZAP XML only
@@ -2146,7 +2146,7 @@ Expected: `4 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/ingest/dcl.py tests/catalog/fixtures.py tests/catalog/test_dcl.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): snapshot certified Matter products from the DCL
@@ -2405,7 +2405,7 @@ Expected: `6 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/normalize/matter.py tests/catalog/test_matter_normalize.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): normalize certified Matter products to VDS via their device types
@@ -2692,7 +2692,7 @@ Expected: `4 passed`.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add pyproject.toml vesper/catalog/ingest/zwave.py vesper/catalog/normalize/zwave.py tests/catalog/fixtures.py tests/catalog/test_zwave.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): Z-Wave JS identity records (category assumed, so not counted at L0)
@@ -3070,7 +3070,7 @@ Expected: every test passes. This includes the 28 Plan A tests, `tests/test_impo
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/coverage.py vesper/catalog/build.py tests/catalog/conftest.py tests/catalog/test_build.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(catalog): offline build with validation, dedup, release filter and coverage
@@ -3254,14 +3254,14 @@ Expected: `6 passed`, then the help text listing `sync` and `build`.
 
 Run:
 ```bash
-cd /Users/huanbui/Research/vesper && W=$(mktemp -d) && taskpolicy -b uv build --wheel -q -o "$W" . && unzip -l "$W"/vesper-*.whl | grep -E 'vds.schema.json|zhc_export.cjs'; rm -rf "$W"
+cd <repo> && W=$(mktemp -d) && taskpolicy -b uv build --wheel -q -o "$W" . && unzip -l "$W"/vesper-*.whl | grep -E 'vds.schema.json|zhc_export.cjs'; rm -rf "$W"
 ```
 Expected: two lines, `vesper/catalog/vds.schema.json` and `vesper/catalog/ingest/zhc_export.cjs`. If either is missing, add `[tool.hatch.build.targets.wheel.force-include]` entries for it and re-run. Record a `Ruling:` line in the ledger if you do.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/cli.py tests/catalog/test_cli.py pyproject.toml
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(cli): vesper catalog sync and build
@@ -3343,7 +3343,7 @@ Expected: everything passes; the 2 live tests are `skipped`.
 2. Add a ledger row: `vesper-<session>`, `vesper catalog sync + build (network fetch ~0.3 GB, npm install of zigbee-herdsman-converters, ~2 min CPU), taskpolicy -b`, 1 core, <1 GB, no Docker.
 3. Message the peer sessions listed by ListAgents.
 
-Run: `cd /Users/huanbui/Research/vesper && VESPER_NETWORK_TESTS=1 taskpolicy -b .venv/bin/python -m pytest tests/catalog/test_live_sources.py -q`
+Run: `cd <repo> && VESPER_NETWORK_TESTS=1 taskpolicy -b .venv/bin/python -m pytest tests/catalog/test_live_sources.py -q`
 
 Expected: `2 passed`. This checks the HA vocabulary (29/62 classes, every crosswalk class present) and every `CATEGORY` key against the real device types.
 
@@ -3351,7 +3351,7 @@ Expected: `2 passed`. This checks the HA vocabulary (29/62 classes, every crossw
 
 Run (one shell):
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 taskpolicy -b .venv/bin/vesper catalog sync
 taskpolicy -b .venv/bin/vesper catalog build
 cat catalog/vds/coverage.csv | head -40
@@ -3379,7 +3379,7 @@ The DCL is live, so its counts drift. Record the actual numbers; they are a meas
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add tests/catalog/test_live_sources.py pyproject.toml
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "test(catalog): opt-in live checks against the pinned upstream sources

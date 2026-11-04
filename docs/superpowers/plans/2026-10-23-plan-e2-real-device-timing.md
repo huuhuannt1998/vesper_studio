@@ -480,7 +480,7 @@ The real `catalog/vds` in the working copy is now refused until it is rebuilt. R
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/fingerprint.py tests/catalog/test_fingerprint.py vesper/catalog/build.py vesper/twins/home.py vesper/cli.py vesper/validation/report.py tests/twins/conftest.py tests/twins/test_home.py tests/validation/test_cli.py tests/validation/test_report.py docs/experiments/device-twins-runbook.md
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "fix(catalog): commands that run twins refuse a catalog built by other catalog code
@@ -655,7 +655,7 @@ Expected: `All checks passed!`
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/twins/runtime.py tests/twins/test_runtime.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(twins): install a twin in a reported state; a measured stimulus for any feature
@@ -841,7 +841,7 @@ Expected: `All checks passed!`
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/zcl.py tests/validation/test_zcl.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): exact ZCL Report Attributes decoding
@@ -1095,7 +1095,7 @@ Expected: `All checks passed!`
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/capture.py tests/validation/zigbee_frames.py tests/validation/test_capture.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): read Zigbee captures through tshark with the network key
@@ -1368,7 +1368,7 @@ Expected: `All checks passed!`
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/realdata.py tests/validation/test_realdata_streams.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): real-device report streams with dedup and sniffer-loss gaps
@@ -1622,7 +1622,7 @@ Expected: `All checks passed!`
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/realdata.py tests/validation/test_realdata_replay.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): replay real reports through the twins' runtime and match them
@@ -2038,7 +2038,7 @@ Expected: `All checks passed!`
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/realdata.py tests/validation/ziotp_fixture.py tests/validation/test_realdata_analyze.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): E2 analysis of a ZIOTP2025 checkout under ZHA's rule
@@ -2463,7 +2463,7 @@ Expected: the usage line lists `--dataset`, `--catalog`, `--tshark` and `--out`
 - [ ] **Step 6: Commit (this commit is the citation for E2)**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/cli.py vesper/validation/report.py tests/validation/test_cli.py tests/validation/test_report.py docs/experiments/l3-timing-design.md docs/experiments/device-twins-runbook.md
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "docs+feat: L3 pre-registration amendment 2 (E2, real devices); vesper validate realdata

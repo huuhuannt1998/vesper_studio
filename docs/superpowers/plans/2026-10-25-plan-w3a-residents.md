@@ -365,7 +365,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/routine.py vesper/lab/profile.py tests/lab/test_routine.py tests/lab/test_profile.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): routines and profiles: a resident's day, habits, comfort, and the devices an activity uses
@@ -558,7 +558,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/home.py tests/lab/test_home.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): a home's residents: each with an avatar, a routine file and a profile, and every mistake named
@@ -1459,7 +1459,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/resident.py vesper/lab/session.py vesper/lab/rules.py tests/lab/test_resident.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): residents who live their routine, react to the house and say why; a replay lives their day again
@@ -1677,7 +1677,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/cli.py tests/lab/test_cli_lab.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): vesper lab day: the residents live a day on the logical clock, and it replays exactly
@@ -1864,7 +1864,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/play.py vesper/lab/ui/app.js vesper/lab/ui/mapview.js tests/lab/test_play.py tests/lab/ui/mapview.test.mjs
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): a page that joins late gets the recent console, and a resident's decisions have their own line
@@ -1972,7 +1972,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add examples/lab/test-house/routines/alex.yaml examples/lab/test-house/home.yaml tests/lab/test_example_home.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "docs(lab): the example home's resident: Alex's weekday, lived in seconds with vesper lab day

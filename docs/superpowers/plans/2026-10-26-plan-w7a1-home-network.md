@@ -419,7 +419,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/network.py vesper/lab/home.py tests/lab/test_network.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): every home has a network: a router, the hub, the coordinator, a hop per Zigbee device, each link's quality from walls and distance
@@ -844,7 +844,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/linklayer.py tests/lab/test_linklayer.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the link layer: each link's latency, one device's order, and an attack's effects on its messages
@@ -1112,7 +1112,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/session.py vesper/lab/automations.py tests/lab/test_session_network.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the session on the home's network: the engine hears reports across their links, effects are inputs a replay applies again
@@ -1397,7 +1397,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/exposure/ha_discovery.py vesper/exposure/z2m_bridge.py vesper/lab/hub.py tests/exposure/test_ha_discovery.py tests/exposure/test_z2m_bridge.py tests/lab/test_hub.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(exposure): availability as Zigbee2MQTT's: the bridge's state in every device's, online after a reconnect, a device unavailable when its hop stays down
@@ -2066,7 +2066,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/relay.py tests/lab/test_relay.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the relay: real TCP between VESPER's own services, on loopback only, where an attack acts on whole MQTT messages
@@ -2479,7 +2479,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/relay.py vesper/lab/session.py vesper/cli.py tests/lab/test_cli_play.py tests/lab/test_session_network.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): play and look with the hub on the live network, through the relay; vesper lab network shows the home's links
@@ -2891,7 +2891,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add tests/lab/test_network_live.py tests/lab/test_network_ha_live.py README.md docs/superpowers/specs/2026-10-26-vesper-security-lab-design.md
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "test(lab): the home's network end to end, against a real Mosquitto and the real Home Assistant; README: the home's network

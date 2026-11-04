@@ -36,7 +36,7 @@ Every resource figure below is an estimate until the first run measures it. The 
 
 ### On the shared lab Mac only
 
-- Read `/Users/huanbui/Research/MAC_COORDINATION.md` and `~/Research/BUSY_WINDOWS.json`. Pick a time outside every window.
+- Read `~/Research/MAC_COORDINATION.md` and `~/Research/BUSY_WINDOWS.json`. Pick a time outside every window.
 - No Home Assistant process before 2026-10-24T02:30Z (another project's experiment).
 - The PI has said go for this run, in this session.
 - Add a ledger row (start, session, command, cores, memory, Docker: no) and message the peer sessions.

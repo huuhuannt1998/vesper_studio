@@ -447,7 +447,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper_world/__init__.py vesper_world/export.py vesper_world/habitat_scene.py vesper_world/__main__.py pyproject.toml tests/world/__init__.py tests/world/test_export.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(world): the world service's export: an HSSD scene's walkable floor, rooms and door openings, in the Habitat environment
@@ -959,7 +959,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/scenes.py vesper/cli.py tests/lab/test_scenes.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): vesper lab scenes and vesper lab new --scene: a Lab home from a real HSSD scene, its doors from the scene's openings
@@ -1080,7 +1080,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add tests/lab/test_world_export_live.py README.md
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "test(lab): a real HSSD scene becomes a Lab home, opt-in; the README says how

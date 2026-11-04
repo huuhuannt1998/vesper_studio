@@ -343,7 +343,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/mapworld.py tests/lab/maps.py tests/lab/test_mapworld.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "perf(lab): walks route over the open doorways and keep their legs: a home-sized floor no longer stalls the clock
@@ -859,7 +859,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/convert.py vesper/cli.py tests/lab/test_convert.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): vesper lab routine: a resident's routine from a persona schedule or an ARAS day, its rooms and choices noted
@@ -1691,7 +1691,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/automations.py vesper/lab/session.py vesper/cli.py tests/lab/test_automations.py tests/lab/test_cli_lab.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): VESPER's automation engine runs the home's automations in a day without Home Assistant, and the trace says so
@@ -2183,7 +2183,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/profile.py vesper/lab/rules.py vesper/lab/session.py vesper/lab/resident.py tests/lab/homes.py tests/lab/test_profile.py tests/lab/test_comfort.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the comfort band: a resident who finds a room too cold or too warm changes its thermostat by hand
@@ -2298,7 +2298,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/twins/twin.py tests/twins/test_twin.py docs/experiments/results-2026-10-26.md
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "fix(twins): a Matter color-temperature twin starts at the spec's 250 mireds, inside a light's physical range

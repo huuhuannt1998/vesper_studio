@@ -605,7 +605,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper_world/export.py vesper_world/habitat_scene.py vesper_world/humanoids.py vesper_world/__main__.py tests/world/test_export.py tests/world/test_humanoids.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(world): a scene's render manifest (every mesh where Habitat puts it) and Habitat's humanoids' walks
@@ -1526,7 +1526,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/world3d.py vesper/lab/humanoids.py vesper/lab/scenes.py vesper/lab/play.py vesper/cli.py tests/lab/test_world3d.py tests/lab/test_humanoids.py tests/lab/conftest.py tests/lab/test_play.py tests/lab/test_cli_play.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the play server serves a home's 3D scene and its people's Habitat humanoids, and nothing else of them
@@ -2004,7 +2004,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/ui/scene3d.js vesper/lab/ui/mapview.js tests/lab/ui/scene3d.test.mjs tests/lab/ui/mapview.test.mjs vesper/lab/ui/vendor/three tests/lab/test_ui.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the 3D view's arithmetic, and three.js 0.170.0 vendored unchanged, pinned by SHA-256
@@ -3016,7 +3016,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/ui/view3d.js vesper/lab/ui/app.js vesper/lab/ui/index.html vesper/lab/ui/style.css tests/lab/ui/app.test.mjs tests/lab/test_ui.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the 3D view: the scene or the map in three.js, Habitat's humanoids, the crosshair, first and third person, the minimap
@@ -3619,7 +3619,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/visual.py tests/lab/test_visual.py examples/lab/test-house/look-3d.yaml examples/lab/test-house/look-pubg.yaml examples/lab/test-house/look-hub.yaml tests/lab/test_look_browser.py tests/lab/test_world_export_live.py README.md docs/superpowers/specs/2026-10-24-vesper-lab-design.md
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): looks aim and choose the view; the 3D view checked live; README and spec section 3 say how it is drawn

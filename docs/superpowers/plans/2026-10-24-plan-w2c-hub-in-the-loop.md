@@ -234,7 +234,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/twins/runtime.py vesper/lab/session.py tests/twins/test_runtime.py tests/lab/test_session.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): commands from the hub are traced, and a replay applies them without the hub
@@ -443,7 +443,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/lab/hub.py tests/lab/test_hub.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): the hub: the home's Zigbee devices on the broker, handled on the clock thread
@@ -653,7 +653,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/stack.py tests/validation/test_stack.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(stack): the Lab's Home Assistant: a frameable dashboard, the home's automations, a login for the hub panel
@@ -1133,7 +1133,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/cli.py vesper/lab/ui/mapview.js tests/lab/test_cli_play.py tests/lab/ui/mapview.test.mjs
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(lab): vesper lab play --hub and look --hub: Home Assistant in the loop
@@ -1336,7 +1336,7 @@ Run: `.venv/bin/ruff check vesper/lab vesper/catalog vesper/twins vesper/exposur
 Expected: `All checks passed!`
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add examples/lab/test-house/home.yaml examples/lab/test-house/map.json examples/lab/test-house/automations.yaml examples/lab/test-house/look-hub.yaml docs/experiments/lab-runbook.md tests/lab/test_example_home.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "docs(lab): an example home with an automation, and the run book for the live hub check

@@ -31,7 +31,7 @@
   - Ruling: spec §2 says "its own Python 3.13 environment", but HA 2026.10.2 requires Python ≥3.14.2, so the venv is Python 3.14 (RKA `jrn_01M5K9ER2V5XE0F9XYE37N42KK`).
 - Licensing (spec §5): never redistribute or copy the Zigbee2MQTT application (GPL-3.0). VESPER only implements its public MQTT interface, and its HA discovery is written from Home Assistant's own documentation.
 - Ports on the shared Mac: VESPER owns 127.0.0.1:18830 (Mosquitto) and 127.0.0.1:18123 (HA). It never binds or connects to 1883 or 8123, which belong to another project on this Mac. Both services refuse to start on a busy port, so VESPER never shares a broker or an HA instance.
-- Shared Mac (`/Users/huanbui/Research/MAC_COORDINATION.md`, `~/Research/BUSY_WINDOWS.json`):
+- Shared Mac (`~/Research/MAC_COORDINATION.md`, `~/Research/BUSY_WINDOWS.json`):
   - every process runs under `taskpolicy -b`, ≤2 cores and <4 GB;
   - **no Home Assistant process before 2026-10-24T02:30Z**;
   - light non-HA jobs only outside 03:50–04:50Z, 19:55–20:15Z and 23:58Z–00:30Z, with a ledger row and a message to the peer sessions first;
@@ -162,7 +162,7 @@ Expected: `All checks passed!` (later tasks widen this to the full gate as their
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/catalog/normalize/zigbee.py tests/catalog/test_zigbee_normalize.py pyproject.toml
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "fix(catalog): reporting thresholds in feature units; pin ruff rules
@@ -519,7 +519,7 @@ Expected: `9 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/twins/__init__.py vesper/twins/clock.py vesper/twins/twin.py tests/twins/__init__.py tests/twins/conftest.py tests/twins/test_clock.py tests/twins/test_twin.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(twins): logical and wall clocks; typed, range-checked twins from VDS
@@ -936,7 +936,7 @@ Expected: `21 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/twins/runtime.py tests/twins/test_runtime.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(twins): runtime with reporting gate, stimuli, two-timestamp events and fault isolation
@@ -1277,7 +1277,7 @@ Expected: `9 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/exposure/__init__.py vesper/exposure/ha_discovery.py tests/exposure/__init__.py tests/exposure/conftest.py tests/exposure/test_ha_discovery.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(exposure): Home Assistant MQTT device discovery from VDS
@@ -1831,7 +1831,7 @@ Expected: `30 passed`.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add pyproject.toml vesper/exposure/z2m_bridge.py tests/exposure/fake_mqtt.py tests/exposure/test_z2m_bridge.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(exposure): Zigbee2MQTT-compatible MQTT bridge with real definitions
@@ -2361,7 +2361,7 @@ Expected: `10 passed`.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/validation/__init__.py vesper/validation/stack.py tests/validation/__init__.py tests/validation/test_stack.py .gitignore
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): own Mosquitto and pinned Home Assistant, onboarded headless
@@ -2665,7 +2665,7 @@ Expected: `5 passed, 2 skipped` (the live tests are opt-in).
 
 This starts Mosquitto on a free local port for about 10 seconds. It needs Mosquitto installed natively (macOS: `brew install mosquitto`).
 - Run it only outside 03:50–04:50Z, 19:55–20:15Z and 23:58Z–00:30Z.
-- First add a row to `/Users/huanbui/Research/MAC_COORDINATION.md` and message the peer sessions (`ListAgents`).
+- First add a row to `~/Research/MAC_COORDINATION.md` and message the peer sessions (`ListAgents`).
 - If it cannot run now, ledger `Ruling: live broker test deferred to the live run` and continue.
 
 Run: `VESPER_STACK_TESTS=1 taskpolicy -b .venv/bin/python -m pytest tests/validation/test_live_mqtt.py -q`
@@ -2675,7 +2675,7 @@ Expected: `2 passed`. Then `pgrep -fl mosquitto` shows no VESPER broker left (an
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add pyproject.toml vesper/exposure/mqtt.py vesper/validation/roundtrip.py tests/exposure/test_roundtrip.py tests/validation/test_live_mqtt.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): L0/L1 round trip of published definitions; live broker test
@@ -3074,7 +3074,7 @@ Expected: `43 passed`.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add pyproject.toml vesper/validation/acceptance.py tests/exposure/fake_ha.py tests/exposure/test_acceptance.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(validation): L2 acceptance checks through Home Assistant's own API
@@ -3714,7 +3714,7 @@ Expected: `243 passed, 5 skipped` and `All checks passed!` (the count includes P
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add vesper/twins/home.py vesper/cli.py tests/twins/test_home.py tests/validation/test_cli.py
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "feat(cli): setup ha, twins run, validate roundtrip and acceptance
@@ -3759,7 +3759,7 @@ These two experiments produce the paper's success criteria 2 and 3 for Zigbee-st
 
 ### On the shared lab Mac only
 
-- Read `/Users/huanbui/Research/MAC_COORDINATION.md` and `~/Research/BUSY_WINDOWS.json`. Pick a time outside every window.
+- Read `~/Research/MAC_COORDINATION.md` and `~/Research/BUSY_WINDOWS.json`. Pick a time outside every window.
 - No Home Assistant process before 2026-10-24T02:30Z (another project's experiment).
 - The PI has said go for this run, in this session.
 - Add a ledger row (start, session, command, cores, memory, Docker: no) and message the peer sessions.
@@ -3851,7 +3851,7 @@ Expected: `ok`.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/huanbui/Research/vesper
+cd <repo>
 git add docs/experiments/device-twins-runbook.md
 git diff --cached --name-only   # expect exactly the paths above
 git commit -m "docs: run book for the device-twin experiments

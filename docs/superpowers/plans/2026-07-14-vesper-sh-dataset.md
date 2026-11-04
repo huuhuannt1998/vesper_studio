@@ -14,7 +14,7 @@
 - `paper-latex/` and `.env` (secrets) **never** committed to GitHub.
 - Firmware is **simulated**; Wi-Fi is **emulated**; single-station LAN emulation — stated honestly in datasheet + paper.
 - Network is **one modality block** — no added networking-method claims.
-- Exporter/baselines run in the **vesper conda env on the Mac**: `/Users/huanbui/miniconda3/envs/vesper/bin/python`.
+- Exporter/baselines run in the **vesper conda env on the Mac**: `~/miniconda3/envs/vesper/bin/python`.
 - Mac eval is native (conda `vesper`); attackable Wi-Fi is in Multipass VM `vesper-vm`; bridge = TCP VM:6000; coupling gated by `VESPER_WIFI_VM`; dataset logging gated by `VESPER_DATASET_OUT`.
 - Canonical clock = Mac; VM timestamps mapped via `t_canon = t_vm − offset`, `offset = median(vm_ts − mac_ts)`.
 - Attack classes (exact strings): `deauth`, `evil_twin`, `beacon_flood`, `arp_spoof`, `lan_scan`. Benign label: `benign`.
@@ -34,17 +34,17 @@
 
 - [ ] **Step 1: Check current state**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -c "import pandas, pyarrow" 2>&1 || echo MISSING`
+Run: `~/miniconda3/envs/vesper/bin/python -c "import pandas, pyarrow" 2>&1 || echo MISSING`
 Expected: `MISSING`
 
 - [ ] **Step 2: Install**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/pip install "pandas>=2.0" "pyarrow>=14"`
+Run: `~/miniconda3/envs/vesper/bin/pip install "pandas>=2.0" "pyarrow>=14"`
 Expected: successful install.
 
 - [ ] **Step 3: Verify**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -c "import pandas,pyarrow,sklearn,numpy,scapy;print('ok')"`
+Run: `~/miniconda3/envs/vesper/bin/python -c "import pandas,pyarrow,sklearn,numpy,scapy;print('ok')"`
 Expected: `ok`
 
 - [ ] **Step 4: Commit** (record the dep addition in a requirements file)
@@ -110,7 +110,7 @@ def test_bridge_sync_line(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_event_log.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_event_log.py -v`
 Expected: FAIL (`ModuleNotFoundError: No module named 'dataset.event_log'`).
 
 - [ ] **Step 3: Write minimal implementation**
@@ -161,7 +161,7 @@ class DatasetEventLogger:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_event_log.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_event_log.py -v`
 Expected: PASS (2 passed). Also create empty `scripts/dataset/__init__.py`.
 
 - [ ] **Step 5: Wire into `run_autonomous_eval.py`**
@@ -226,7 +226,7 @@ In the existing `_wifi_forward(ev)` (line ~5615), add a per-event sequence + bri
 
 - [ ] **Step 6: Verify the wiring imports cleanly**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -c "import ast; ast.parse(open('scripts/run_autonomous_eval.py').read()); print('parse ok')"`
+Run: `~/miniconda3/envs/vesper/bin/python -c "import ast; ast.parse(open('scripts/run_autonomous_eval.py').read()); print('parse ok')"`
 Expected: `parse ok`
 
 - [ ] **Step 7: Commit**
@@ -264,7 +264,7 @@ def test_sync_record_shape(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_agent_sync.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_agent_sync.py -v`
 Expected: FAIL (`AttributeError: module 'vm_device_agent' has no attribute 'write_sync'`).
 
 - [ ] **Step 3: Write minimal implementation** — add to `scripts/vm_device_agent.py` above `main()`:
@@ -297,7 +297,7 @@ In `handle(conn)`, right after `ev = json.loads(line)` succeeds and before build
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_agent_sync.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_agent_sync.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -484,7 +484,7 @@ def test_raises_without_matches(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_clock_sync.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_clock_sync.py -v`
 Expected: FAIL (no module `dataset.clock_sync`).
 
 - [ ] **Step 3: Write minimal implementation**
@@ -518,7 +518,7 @@ def to_canonical(t_vm: float, offset: float) -> float:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_clock_sync.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_clock_sync.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -567,7 +567,7 @@ def test_ap_parse_arp(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_net_features.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_net_features.py -v`
 Expected: FAIL (no module).
 
 - [ ] **Step 3: Write minimal implementation** (tshark field extraction; robust to both link types)
@@ -627,7 +627,7 @@ def window_net(frames_rf, frames_ap, t0, t1, offset):
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_net_features.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_net_features.py -v`
 Expected: PASS (2 passed). (Note: `wlan.fc.type_subtype` renders as `0x0008` etc.; if the local tshark emits `0x0008,0x0008`, split on comma and take first — add `.split(",")[0]` in parse if the test shows it.)
 
 - [ ] **Step 5: Commit**
@@ -672,7 +672,7 @@ def test_activity_and_device_counts():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_event_features.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_event_features.py -v`
 Expected: FAIL.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -714,7 +714,7 @@ def window_events(events, t0, t1):
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_event_features.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_event_features.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -754,7 +754,7 @@ def test_overlap_labels(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_labeling.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_labeling.py -v`
 Expected: FAIL.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -787,7 +787,7 @@ def label_window(schedule, t0, t1):
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_labeling.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_labeling.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -854,7 +854,7 @@ def test_export_produces_windows_and_labels(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_export_episode.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_export_episode.py -v`
 Expected: FAIL.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -912,7 +912,7 @@ def export(episode_in, episode_out, home, model, run):
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_export_episode.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_export_episode.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -968,7 +968,7 @@ def test_discover_and_load(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_vesper_sh.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_vesper_sh.py -v`
 Expected: FAIL.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1024,7 +1024,7 @@ def load_xy(root, homes):
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_vesper_sh.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_vesper_sh.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1084,7 +1084,7 @@ def test_if_flags_attacks():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_baselines.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_baselines.py -v`
 Expected: FAIL.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1131,7 +1131,7 @@ def run_random_forest(Xtr, ytr, Xte, yte, seed=0):
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_baselines.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_baselines.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1176,7 +1176,7 @@ def test_full_pipeline(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_end_to_end.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_end_to_end.py -v`
 Expected: FAIL.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1247,7 +1247,7 @@ Add `tests/dataset/__init__.py` (empty) so `from tests.dataset...` import works;
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_end_to_end.py -v`
+Run: `~/miniconda3/envs/vesper/bin/python -m pytest tests/dataset/test_end_to_end.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1280,12 +1280,12 @@ Run the orchestration; verify with `check_episode.sh` on a sample of episodes as
 
 - [ ] **Step 3: Build the dataset**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m dataset.build_dataset results/vesper_sh_raw results/vesper_sh`
+Run: `~/miniconda3/envs/vesper/bin/python -m dataset.build_dataset results/vesper_sh_raw results/vesper_sh`
 Expected: `exported ...` per episode; `results/vesper_sh/episodes/*/windows.parquet` present.
 
 - [ ] **Step 4: Run baselines on real data**
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python -m dataset.run_baselines results/vesper_sh`
+Run: `~/miniconda3/envs/vesper/bin/python -m dataset.run_baselines results/vesper_sh`
 Expected: `baseline_results.json` + `tables/*.tex` written; sane per-attack F1/recall.
 
 - [ ] **Step 5: Commit** (code + a small sample; NOT the full multi-GB capture)
@@ -1333,7 +1333,7 @@ if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2])
 ```
 
-Run: `/Users/huanbui/miniconda3/envs/vesper/bin/python scripts/dataset/package_release.py results/vesper_sh dist/vesper-sh`
+Run: `~/miniconda3/envs/vesper/bin/python scripts/dataset/package_release.py results/vesper_sh dist/vesper-sh`
 Expected: `packaged -> dist/vesper-sh/vesper-sh.zip` (or `IDENTITY LEAK` → fix and re-run).
 
 - [ ] **Step 4: Commit** (docs + packager; NOT the zip or raw captures)

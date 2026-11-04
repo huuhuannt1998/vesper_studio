@@ -325,7 +325,7 @@ The legacy security framework (tag `legacy-security-v1`) worked at the network a
 | R1 | Offscreen rendering of an HSSD home on macOS arm64 at ≥10 frames/s, 640×480, within ~2 GB | Render a third-person camera in one articulated scene for 60 s; measure fps and memory | Habitat's HITL desktop window for 3D; failing that, map only (the PI is told) |
 | R2 | The humanoid walking controller (habitat-lab 0.3.3, motion data present for 8 avatars) in our own loop | Walk female_0 along a navmesh path | A simple avatar marker in 3D; the map is unaffected |
 | R3 | Opening and closing HSSD's articulated doors | Toggle a door's joint and check that the navmesh blocks or unblocks | Doors as triggers only, drawn open or closed |
-| R4 | The Habitat environment's habitat-lab install points at the old `/Users/huanbui/Desktop/vesper`, which no longer exists | Reinstall it, editable, from `habitat-lab-official/` (a light job) | — |
+| R4 | The Habitat environment's habitat-lab install points at the old `~/Desktop/vesper`, which no longer exists | Reinstall it, editable, from `habitat-lab-official/` (a light job) | — |
 | R5 | HSSD's license (gated download on Hugging Face) | Record its terms in RKA | Users download it; nothing derived is distributed |
 | R6 | Laptop budget: world service, app, Home Assistant and broker together | Measure in the R1 spike | Lower resolution or frame rate; the map only |
 
