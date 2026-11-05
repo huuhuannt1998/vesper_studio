@@ -806,6 +806,28 @@ def test_two_doors_filling_their_walls_at_one_corner_are_narrowed_with_a_warning
                for w in warnings), warnings
 
 
+def test_a_door_on_a_wall_too_short_to_leave_the_corner_stays_and_the_other_door_moves_further():
+    """A closet's 0.6 m door on its 0.7 m of wall with the hall cannot leave 25 cm at the corner (CubiCasa5K plans
+    4594, 4767, 12625): it stays, and the hall's door into the living room keeps twice that from the corner."""
+    plan = {"format": "vesper-plan/1", "units": "m", "scale": None,
+            "rooms": [{"id": "k", "name": "Kitchen", "type": "kitchen", "polygon": rect(0, 0, 2.3, 3)},
+                      {"id": "w", "name": "Closet", "type": "other", "polygon": rect(2.3, 0, 3, 3)},
+                      {"id": "h", "name": "Hall", "type": "hall", "polygon": rect(0, 3, 3, 5)},
+                      {"id": "lr", "name": "Living", "type": "living", "polygon": rect(3, 0, 7, 5)}],
+            "doors": [{"at": [1, 3], "width": 0.9, "rooms": ["k", "h"]},
+                      {"at": [2.65, 3], "width": 0.6, "rooms": ["w", "h"]},
+                      {"at": [3, 3.525], "width": 0.95, "rooms": ["h", "lr"]},
+                      {"at": [7, 2.5], "width": 0.9, "rooms": ["lr", "outside"]}],
+            "windows": [], "entrance": 3}
+    warnings = []
+    out = rectify(plan, warnings)
+    assert out["doors"][1]["at"] == [2.65, 3] and out["doors"][1]["width"] == pytest.approx(0.6)
+    assert out["doors"][2]["at"][1] - out["doors"][2]["width"] / 2 == pytest.approx(3 + 2 * corner_m())
+    assert out["doors"][2]["width"] == pytest.approx(0.95) and warnings == []
+    m = floor_plan_from(out, "imported/w")
+    assert sorted(d.id for d in m.doorways) == ["h-k", "h-lr", "h-w", "lr-porch"]
+
+
 @pytest.mark.parametrize("s", [0.04, 0.1, 0.2])
 def test_three_rooms_meeting_with_a_sliver_between_them_build(s):
     """Three rooms drawn a little apart where they meet (a sliver of floor `s` wide between each pair): the gaps are
@@ -842,3 +864,15 @@ def test_a_plan_whose_rooms_are_all_far_too_large_is_refused_for_its_scale(tmp_p
     assert "the scale looks wrong: rooms are on the whole 10.9 times their usual size; give --scale or --area" in \
         capsys.readouterr().err
     assert not out.exists()
+
+
+def test_a_closet_narrower_than_half_a_metre_gets_its_devices_inside_it(tmp_path, capsys):
+    """CubiCasa5K plan 12217: a 0.45 m wide closet, 0.25 m of floor inside its walls, too narrow for a device 15 cm
+    from every wall: its devices still go inside it."""
+    cat, _ = setup(tmp_path)
+    plan = three_rooms()
+    plan["rooms"].append({"id": "c", "name": "Closet", "type": "other", "polygon": rect(0, 5, 0.45, 7.5)})
+    plan["doors"].append({"at": [0.225, 5], "width": 0.35, "rooms": ["lr", "c"]})
+    out = tmp_path / "mine"
+    assert cli.main(["lab", "import", str(write(tmp_path, plan)), str(out), "--catalog", str(cat)]) == 0, \
+        capsys.readouterr().err

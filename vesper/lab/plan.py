@@ -745,6 +745,22 @@ def _clear(span: tuple[str, float, float, float], c: float) -> float:
     return max(span[2] - c, c - span[3], 0.0)
 
 
+def _away(span: tuple[str, float, float, float], stretch: tuple[float, float], c: float,
+          keep: float) -> tuple[str, float, float, float] | None:
+    """The opening moved along its stretch of wall, away from the point c, to leave `keep` of wall between them (and
+    END_M at the stretch's far end), narrowed when the stretch is too short; None when that leaves it narrower than
+    a door on the shortest wall that carries one."""
+    cls, off, lo, hi = span
+    width = hi - lo
+    if c <= (lo + hi) / 2:
+        lo = c + keep
+        hi = min(lo + width, stretch[1] - END_M)
+    else:
+        hi = c - keep
+        lo = max(hi - width, stretch[0] + END_M)
+    return (cls, off, lo, hi) if hi - lo >= NARROW_LEAST_M - 2 * END_M - 1e-9 else None
+
+
 def _span(q: Point, seg: Seg, width: float) -> tuple[str, float, float, float] | None:
     """An opening at q, `width` wide on an axis-aligned stretch: (class, offset, from, to) along the wall."""
     (a, b) = seg
@@ -1021,7 +1037,8 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
 
     # two doors on the two walls of one corner, one within CORNER_M of it and the other within twice that, would open
     # through the corner's wall into each other: one gap into three rooms. Each is moved along its wall to leave
-    # CORNER_M of wall at the corner, and narrowed (said) only when its wall is too short for that
+    # CORNER_M of wall at the corner, narrowed (and said) only when its wall is too short for that; a door whose wall
+    # is too short even so stays, and the other leaves twice CORNER_M instead
     for _ in range(MAX_PASSES):
         moved = False
         for i, j in itertools.combinations(sorted(spans), 2):
@@ -1029,29 +1046,27 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
                 continue
             at = {i: spans[j][1], j: spans[i][1]}  # where the other door's wall line crosses this door's
             clear = {k: _clear(spans[k], c) for k, c in at.items()}
-            if not (min(clear.values()) < CORNER_M - 1e-9 and max(clear.values()) < 2 * CORNER_M):
+            if not (min(clear.values()) < CORNER_M - 1e-9 and max(clear.values()) < 2 * CORNER_M - 1e-9):
                 continue
-            for k, c in at.items():
-                if clear[k] >= CORNER_M - 1e-9:
-                    continue
-                cls, off, lo, hi = spans[k]
-                (s0, s1), width = stretch[k], hi - lo
-                if c <= (lo + hi) / 2:
-                    lo = c + CORNER_M
-                    hi = min(lo + width, s1 - END_M)
-                else:
-                    hi = c - CORNER_M
-                    lo = max(hi - width, s0 + END_M)
-                if hi - lo < NARROW_LEAST_M - 2 * END_M - 1e-9:
-                    raise PlanError(f"{door_name(i, numbers)} and {door_name(j, numbers)[5:]} meet at a corner, with "
-                                    f"too little wall to leave {CORNER_M:.2f} m of it at the corner: move one of them")
+            keep = CORNER_M
+            to = {k: _away(spans[k], stretch[k], at[k], keep) for k in at if clear[k] < CORNER_M - 1e-9}
+            stuck = [k for k, v in to.items() if v is None]
+            if len(stuck) == 1:
+                other = j if stuck[0] == i else i
+                keep = 2 * CORNER_M
+                to = {other: _away(spans[other], stretch[other], at[other], keep)}
+            if stuck and None in to.values():
+                raise PlanError(f"{door_name(i, numbers)} and {door_name(j, numbers)[5:]} meet at a corner, with "
+                                f"too little wall to leave {CORNER_M:.2f} m of it at the corner: move one of them")
+            for k, span in to.items():
+                cls, off, lo, hi = span
+                width = spans[k][3] - spans[k][2]
                 if hi - lo < width - 1e-9:
                     a, b = doors[k]["rooms"]
-                    other = j if k == i else i
                     say(f"{door_name(k, numbers)} between {named(a)} and {named(b)} ({width:.2f} m) meets "
-                        f"{door_name(other, numbers)} at a corner: narrowed to {hi - lo:.2f} m to leave "
-                        f"{CORNER_M:.2f} m of wall at the corner")
-                spans[k] = (cls, off, lo, hi)
+                        f"{door_name(j if k == i else i, numbers)} at a corner: narrowed to {hi - lo:.2f} m to leave "
+                        f"{keep:.2f} m of wall at the corner")
+                spans[k] = span
                 doors[k]["width"] = round(hi - lo, 9)
                 doors[k]["at"] = rnd(((lo + hi) / 2, off) if cls == "h" else (off, (lo + hi) / 2))
             moved = True

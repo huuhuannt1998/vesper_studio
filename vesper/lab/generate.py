@@ -811,7 +811,8 @@ def _place(product, category, rule, target, world_map: WorldMap, per_room: dict,
 
 
 def _inside(room: Room, xy: list, step: float = 0.1, margin: float = 0.15) -> list:
-    """`xy` if it is in the room, else the nearest point at least `margin` inside it (on a `step` grid)."""
+    """`xy` if it is in the room, else the nearest point at least `margin` inside it (on a `step` grid); in a room too
+    narrow for that (an imported closet), the nearest point inside it on a grid of half the room's narrower side."""
     if point_in_polygon((xy[0], xy[1]), room.polygon):
         return xy
     xs, zs = [x for x, _ in room.polygon], [z for _, z in room.polygon]
@@ -824,6 +825,9 @@ def _inside(room: Room, xy: list, step: float = 0.1, margin: float = 0.15) -> li
             if d < best_d and all(point_in_polygon((p[0] + dx, p[1] + dz), room.polygon)
                                   for dx, dz in ((0, 0), (margin, 0), (-margin, 0), (0, margin), (0, -margin))):
                 best, best_d = p, d
+    if best is None and margin > 0:
+        narrow = min(max(xs) - min(xs), max(zs) - min(zs))
+        return _inside(room, xy, min(step, narrow / 4), 0.0) if narrow > 0 else xy
     return [round(best[0], 2), round(best[1], 2)] if best else xy
 
 
