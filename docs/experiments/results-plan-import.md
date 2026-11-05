@@ -297,3 +297,70 @@ are the import's rules, not the reading. Where the 34 read plans that do not bui
 
 (A plan with several problems is counted at its first.) Fixes follow in task A7: the three-room gap, areas as
 warnings unless the scale itself is implausible, and the entrance through an entrance porch.
+
+## After A7 (2026-11-04)
+
+Task A7 took on the three main reasons read plans did not build (commits c9ac743 to e862d20; spec "Check it is a
+house" and the A7 bullet):
+
+- **The three-room gap was two doors at one corner**, not a sliver of floor. Reproduced on all 8 plans: in each,
+  two doors on the two walls of one corner end a few centimetres from it (plan 7780: the hall's 2.84 m opening to
+  the kitchen 5 cm from the corner, its 1.37 m opening to the living room 5 cm from it on the other wall), so both
+  openings cut through the corner's wall into each other. Three rooms drawn a sliver apart are closed by
+  `rectify` already (a test keeps it so). Now two doors on the two walls of one corner, one within 25 cm of it and
+  the other within 50 cm, are moved along their walls to leave 25 cm of wall at the corner, narrowed with a warning
+  only when the wall is too short; a door whose wall is too short even for that stays, and the other keeps 50 cm.
+  A door keeps every corner it was moved from (so one between two crowded corners is placed between both).
+- **A room of an unusual size is a warning**, built as read. Still refused: a room under 0.5 m² (a mis-read), and
+  a scale under which the rooms are on the whole implausible: the median, over the rooms of a type with a typical
+  area (`generate.AREAS`; halls, corridors, "other" and balconies not counted), of area / the middle of the type's
+  typical range, below 0.4 or above 2.5 ("the scale looks wrong: rooms are on the whole N times their usual size;
+  give --scale or --area"). On the 49 readings with such rooms the median lies between 0.49 and 1.36; none is
+  refused for scale.
+- **An entrance through an entrance porch.** When the entrance leads from outside into a balcony with exactly one
+  door into the home (the three Finnish *kuisti* plans), that door is the house door, and the balcony is built as
+  the home's porch in front of it (no porch beyond it; the lock and contact go on the house door; a warning says
+  so). With no such door, or several, the import still asks for the house door. The prompt now types an entrance
+  porch as a balcony entered by its outside door (no new readings were made: the 50 are the saved ones).
+- Re-measuring exposed one more build failure, fixed: a 0.45 m wide closet (12217) had no point 15 cm from every
+  wall for a device; the device placer falls back to the nearest point inside the room.
+
+Re-measured OFFLINE on the same 50 saved readings (no Claude call): `vesper validate plans --offline --n 50 --seed 0`
+(code e862d20, clean tree; result file local, not committed). Reading metrics are unchanged (room F1 0.77, types
+81 %, doors 65 %, area error 4.6 %): only the import changed.
+
+| Of the 50 plans | before (A6) | after (A7) |
+|---|---|---|
+| Read plan passes check_house (scale, rectify, check_house) | 24 | **34** |
+| Read plan built | 16 | **34** |
+| Read plan built, layout check with 0 errors | 15 | **32** |
+| True plan passes check_house | 12 | 13 |
+| True plan built, layout check with 0 errors | 10 | 13 |
+| Warnings, read plans (plans with any) | 15 (12) | 59 (33) |
+| Warnings, true plans (plans with any) | 16 (7) | 23 (10) |
+
+The 59 warnings on read plans: 32 doors moved off a corner and narrowed, 9 rooms of an unusual size, 3 entrance
+porches, 4 pairs of doors meeting end to end, 4 doors wider than their wall, 7 windows left out or narrowed. All 8
+three-room gaps, all 10 area refusals and all 3 entrance porches now build except two: 3529 (a kitchen area
+problem before) stops at a room no door reaches, and 4767 (an area problem before) stops at its 1.2 x 1.5 m hall
+with five doors, where two doors at a corner cannot both keep their wall ("door 7 and 9 meet at a corner, with too
+little wall ...": refused, by design). The annotations gain 3: two true plans had the three-room gap (13138, 20197)
+and one an area problem (12030).
+
+**Where the 16 read plans that do not build with 0 layout errors stop** (the first problem):
+
+| Stage | Plans | What |
+|---|---|---|
+| rectify: rooms do not touch | 5 | a door between rooms with no wall in common that a room needs (6276 the storey bridge; doors missed or misplaced by the reading) |
+| check_house: reach | 6 | a room no door reaches (doors missed by the reading) |
+| rectify: door far from its wall | 2 | 0.92 and 1.24 m from the wall the rooms share (2029: a diagonal wall) |
+| rectify: walls too far apart | 1 | 1601: 0.59 m |
+| rectify: door wider than its wall | 1 | 13019: a 0.60 m door on 0.56 m of wall |
+| rectify: doors at a corner | 1 | 4767: two doors at a corner of a crowded 1.2 x 1.5 m hall |
+| built, 1 layout error | 2 | furniture narrows a 0.5-0.7 m path: a 2.7 m² kitchenette (3676), a small hall (4594, as before) |
+
+What is left is mostly the reading (11 of 16: doors missed or placed where the rooms do not meet), then the
+import's deliberate limits (walls more than 0.5 m apart, a wall under 60 cm, a corner too crowded for two doors),
+then the furniture in the smallest rooms. The annotations still fail more often than the readings (13 vs 32 build
+with 0 errors): their walls drawn far apart (8), doors on walls too short (4), self-crossing room outlines (8 at
+scale) and no entrance (6) are the annotation's drawing, not the house.
