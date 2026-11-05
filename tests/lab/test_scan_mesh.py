@@ -142,6 +142,25 @@ def test_z_up_model_is_turned(tmp_path):
             centroid([tuple(p) for p in b["polygon"]]), abs=0.1)
 
 
+def test_upside_down_shell_is_turned(tmp_path):
+    """A bare shell of closed slabs looks the same either way up; read both ways, the plan with the doors wins."""
+    mesh = house()
+    mesh.apply_transform(trimesh.transformations.rotation_matrix(math.pi, [1, 0, 0]))  # +y becomes -y
+    plan, meta, warnings = read_mesh(save(mesh, tmp_path / "flipped.glb"))
+    assert meta["up"] == "-y"
+    assert any("which way is up" in w for w in warnings)
+    assert_two_room_house(plan)
+
+
+def test_no_door_to_the_outside_is_said(tmp_path):
+    mesh = house()
+    mesh = trimesh.util.concatenate([mesh, box(6.0, 6.9, 0.0, H, 4 - T / 2, 4 + T / 2)])  # the entrance walled up
+    plan, _, warnings = read_mesh(save(mesh, tmp_path / "closed.glb"))
+    assert plan["entrance"] is None
+    assert len(plan["rooms"]) == 2 and len(plan["doors"]) == 1
+    assert any("no entrance found" in w for w in warnings)
+
+
 def test_small_scale_model_is_rescaled_with_a_warning(tmp_path):
     mesh = house(wall_h=2.5)  # the ceiling at 2.5 m, so the rescale is exactly 2.5
     mesh.apply_scale(1 / 2.5)

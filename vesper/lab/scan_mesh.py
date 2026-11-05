@@ -4,26 +4,31 @@ A photogrammetry or LiDAR scan, or a model from the web, names nothing: its floo
 
 1. **Up axis.** Detected, never assumed (Habitat's GLBs are Z-up inside glTF): for each of the file's three axes, the
    faces square to it are histogrammed by height, those facing along it (floors, tops) apart from those facing
-   against it (ceilings, undersides). The up axis is the one where a floor and a ceiling 2.1-4.0 apart cover the
-   most of each other (the model is then in metres), else the one with the largest flat layer; the axis along which
-   the model is thinnest is preferred, as a house is wider than it is tall. Which way is up: furniture tops face up
-   in the lower half of a room.
+   against it (ceilings, undersides). An axis scores the area of its floors covered by a ceiling 2.1-4.0 above them
+   (the model is then in metres) plus half its largest flat layer, a quarter more if the model is thinnest along it.
+   Which way is up: the one with the ceilings well above the floors on the whole (an interior seen from inside), else
+   the one with furniture tops in the lower half of the storey. When that cannot tell (a bare shell of closed slabs),
+   or a second axis scores two thirds of the best, the model is read each way and the plan with the most doors and
+   windows is kept, with a warning.
 2. **Storeys.** A storey is a floor with a ceiling over it. With several, the lowest is read (the floor the entrance
-   is usually on), with a warning; a large ground plane under the house is not its floor: the floor under a ceiling
-   is the highest one under it.
+   is usually on), with a warning naming the others. Under one ceiling the floor is the lowest layer lying mostly
+   under it (seats and tables are higher), so a ground plane far larger than the house is not the floor.
 3. **Scale.** Floor to ceiling 2.1-4.0: metres. Another height: the factor putting the ceiling at 2.5 m, said in a
    warning. No ceiling: the walls' height, if 2.1-4.0, else the doors' width (0.85 m a door); with neither, refused
    ("the scale looks wrong: ... give --scale"). Never guessed silently; `scale` overrides all of it.
-4. **Slices.** The model, turned upright and so that its walls run along x and z, is cut at 0.1, 0.5, 1.0, 1.6 and
-   2.15 m above the floor into occupancy grids of 5 cm cells. A free run of 0.6-1.6 m along a wall at 1.0 m, open at
-   0.1 m and closed above (a lintel, or the ceiling) is a door; a run walled at 0.5 m and above 2.15 m but open at
-   1.0-1.6 m is a window. Both are closed for finding rooms.
-5. **Rooms.** The free regions of the 1.0 m grid that do not reach the grid's edge, are at least 1.5 m², at least
-   60 cm wide, mostly floored and not the inside of a solid object (a stair, a wardrobe) are rooms. Each grows to the
-   middle of its walls, its holes (furniture) are filled, and its outline is straightened to the plan's two
-   directions with no step under 10 cm. Rooms are typed "other" and named "room 1..N": nothing is invented.
+4. **Slices.** The model, upright and turned so its walls run along x and z, is cut at 0.1, 0.5, 1.0, 1.6 and 2.15 m
+   above the floor (and just under the ceiling) into occupancy grids of 5 cm cells, gaps under 0.5 m closed (holes
+   in a scan, a wall's two faces). An opening is a free run along a wall's line in the 1.0 and 1.6 m cuts, with the
+   wall going on beyond both ends, no deeper than a wall is thick, and a way through it (open across the wall). A
+   doorway is 0.6-1.6 m wide and open at 0.1 m; a window is walled at 0.5 and 2.15 m and open at 1.0-1.6 m. No lintel
+   is asked of a doorway: a scan rarely sees the wall over a door.
+5. **Rooms.** The free regions inside the walls at 1.0, 1.6 and 2.15 m (and, near those walls, just under the
+   ceiling), with the doorways and windows closed, that do not reach the grid's edge, are at least 1.5 m², at least
+   60 cm wide, mostly floored (geometry sprayed through a window has no floor) and not the inside of a solid (a
+   stair, a wardrobe). Each grows to the middle of its walls, its holes (furniture) are filled, and its outline, on
+   the plan's two directions already, keeps no step under 10 cm. Rooms are typed "other" and named "room 1..N".
 6. **Doors and windows** join the rooms (or a room and the outside) on their two sides; the entrance is the widest
-   door to the outside.
+   door to the outside, else the widest door out into a space too small to be a room (said), else none (said).
 
 The result goes through part A's `rectify` and `check_house` unchanged. trimesh, numpy and scipy are the optional
 `scan` extra; without them `read_mesh` says which extra to install. Downloaded models are data: they are only read by
@@ -35,7 +40,7 @@ import copy
 import math
 from pathlib import Path
 
-from vesper.lab.plan import FORMAT, load_plan
+from vesper.lab.plan import FORMAT, PlanError, _polygon_problem, load_plan
 
 SUFFIXES = (".glb", ".gltf", ".obj", ".ply")
 EXTRA = "install the scan extra: pip install 'vesper[scan]'"
@@ -43,9 +48,9 @@ EXTRA = "install the scan extra: pip install 'vesper[scan]'"
 CELL_M = 0.05  # the occupancy grids' cell
 FLOOR_SLICE_M = 0.1  # a doorway has no wall below this
 SILL_SLICE_M = 0.5  # a window has wall here (its sill)
-WALL_SLICE_M = 1.0  # the walls: the rooms are the free regions of this slice
+WALL_SLICE_M = 1.0  # the walls (with HEAD_SLICE_M): openings are free runs of these two cuts
 HEAD_SLICE_M = 1.6  # a window is open from WALL_SLICE_M to here
-LINTEL_SLICE_M = 2.15  # a door and a window have wall here (a lintel)
+LINTEL_SLICE_M = 2.15  # a window has wall here (its lintel); rooms are bounded here too
 CEILING_M = (2.1, 4.0)  # a floor-to-ceiling height in this range: the model is in metres
 CEILING_DEFAULT_M = 2.5  # a model in other units is scaled to put its ceiling here
 DOOR_M = (0.6, 1.6)  # a doorway's width
@@ -61,10 +66,14 @@ SIMPLIFY_M = 0.1  # a room outline has no edge shorter than this
 SMALL_GAP_M = 0.5  # gaps in a slice narrower than this are closed (a wall's two faces, holes in a scan)
 TOP_BELOW_M = 0.15  # a model with a ceiling is also cut this far under it: the wall over a tall opening
 NEAR_WALL_M = 0.4  # that cut bounds rooms only this close to the walls below it
+WALL_THICK_M = 0.6  # no wall is thicker: a run of rows deeper than this is a passage, not an opening in a wall
 FLANK_M = 0.4  # an opening has this much wall (60 % of it) in line with it on both sides
 HORIZONTAL = 0.9  # a face whose normal is this close to the up axis is horizontal
 VERTICAL = 0.3  # and one this far from it is vertical (a wall)
 COVER = 0.7  # a run counts as walled (or open) in a slice when this share of its cells is
+GENERIC_STOREY = 0.4  # with no metric storey, a ceiling is at least this share of the model's height above its floor
+INSIDE_RISE = 0.3  # ceilings this far (a share of the height) above floors on the whole: that way is up
+AMBIGUOUS = 0.67  # a second axis scoring this share of the best one is read too, and the plan decides
 MAX_CELLS = 3000  # a grid side longer than this (150 m) is cropped to the floor
 
 
@@ -361,12 +370,24 @@ def _furniture(y, ny, areas, storey, np) -> float:
     return float(areas[lower].sum() - areas[upper].sum())
 
 
+def _rise(y, ny, areas, np) -> float:
+    """How far, as a share of the model's height, the down-facing horizontal area lies above the up-facing area (their
+    area-weighted mean heights): near +1/2 for an interior seen from inside (floors and tops face up below,
+    ceilings face down above), near -1/2 upside down; near 0 for closed solids, whose slabs face both ways."""
+    span = float(y.max() - y.min()) or 1.0
+    up, down = ny > HORIZONTAL, ny < -HORIZONTAL
+    if areas[up].sum() <= 0 or areas[down].sum() <= 0:
+        return 0.0
+    return float(np.average(y[down], weights=areas[down]) - np.average(y[up], weights=areas[up])) / span
+
+
 def _orientations(tris, normals, areas, np):
     """The directions worth reading the model with as up, best first: [(score, [up, ...])] per axis, the signs to
     try in order. An axis scores the area of its storeys' floors under their ceilings (2.1-4.0 apart) plus half
     its largest flat layer, a quarter more for the axis the model is thinnest along. Its sign: the one with the
-    furniture tops in the lower half of the storey; with no furniture to tell (a bare shell), the one whose floors
-    have more area than its ceilings first, then the other."""
+    down-facing area well above the up-facing area (`_rise`: an interior's ceilings over its floors); else the one
+    with the furniture tops in the lower half of the storey; with neither to tell (a bare shell of closed solids), the
+    one whose floors have more area than its ceilings first, then the other."""
     ext = tris.reshape(-1, 3).max(axis=0) - tris.reshape(-1, 3).min(axis=0)
     thinnest = "xyz"[int(np.argmin(ext))]
     out = []
@@ -382,7 +403,10 @@ def _orientations(tris, normals, areas, np):
         score = (pair + 0.5 * flat) * (1.25 if ax == thinnest else 1.0)
         fp = _furniture(y, ny, areas, sp[0] if sp else None, np)
         fm = _furniture(-y, -ny, areas, sm[0] if sm else None, np)
-        if abs(fp - fm) > 0.02 * max(flat, 1e-12):
+        rise = _rise(y, ny, areas, np)
+        if abs(rise) > INSIDE_RISE:
+            signs = [ax] if rise > 0 else ["-" + ax]
+        elif abs(fp - fm) > 0.02 * max(flat, 1e-12):
             signs = [ax] if fp > fm else ["-" + ax]
         elif bool(sp) != bool(sm):
             signs = [ax] if sp else ["-" + ax]
@@ -574,6 +598,8 @@ def _openings(g: _Grids, door_range=DOOR_M):
     rank = {"window": 1, "door": 0}
     out = []
     for grp in groups:
+        if len(grp) * CELL_M > WALL_THICK_M:  # deeper than a wall is thick: a corridor seen across, not an opening
+            continue
         axis = grp[0][0]
         kind = max(grp, key=lambda r: (r[5], rank[r[4]]))[4]
         rows = [r[1] for r in grp]
@@ -752,8 +778,6 @@ def _dedupe(ring):
 
 # --- the whole -----------------------------------------------------------------------------------------------------
 
-GENERIC_STOREY = 0.4  # with no metric storey, a ceiling is at least this share of the model's height above its floor
-AMBIGUOUS = 0.67  # a second axis scoring this share of the best one is read too, and the plan decides
 
 
 def _read(tris, scale, np):
@@ -857,10 +881,12 @@ def _read_up(tris, normals, areas, up, scale, np, ndi):
 
     polys = {}
     for k, m in masks.items():
-        loop = _outline(m, np)
-        ring = _simplify([(g.origin[0] + i * CELL_M, g.origin[1] + j * CELL_M) for i, j in loop], SIMPLIFY_M)
-        if len(ring) >= 4 and abs(_shoelace(ring)) >= ROOM_LEAST_M2 * 0.5:
-            polys[k] = ring
+        loop = [(g.origin[0] + i * CELL_M, g.origin[1] + j * CELL_M) for i, j in _outline(m, np)]
+        # the outline straightened to no step under SIMPLIFY_M; as traced if that crosses itself
+        for ring in (_simplify(loop, SIMPLIFY_M), _corners(loop)):
+            if len(ring) >= 4 and abs(_shoelace(ring)) >= ROOM_LEAST_M2 * 0.5 and _polygon_problem(ring) is None:
+                polys[k] = ring
+                break
     if not polys:
         raise ScanError("no room: the regions found have no usable outline")
     order = sorted(polys, key=lambda k: (round(_centre(polys[k])[1], 1), _centre(polys[k])[0]))
@@ -938,7 +964,10 @@ def _read_up(tris, normals, areas, up, scale, np, ndi):
 
     plan = {"format": FORMAT, "units": "m", "scale": None, "rooms": rooms_out, "doors": doors, "windows": windows,
             "entrance": entrance}
-    load_plan(plan)
+    try:
+        load_plan(plan)
+    except PlanError as e:  # pragma: no cover - the reader builds only valid plans; say so if it did not
+        raise ScanError(f"the plan read from the model is not valid: {e}") from e
 
     m = np.eye(4)
     m[:3, :3] = yaw @ (np.eye(3) * s) @ turn
