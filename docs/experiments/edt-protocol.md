@@ -1898,3 +1898,124 @@ within the fixes' reach). So: the published memberships every robust core and po
 `5b54586`'s (the frame relation's are `8fcd672`'s exactly, so nothing changes for the five registered families; the
 clock relation's are 785, not 790), and each reference is reported against both sweeps. The replay set (954) and
 R4-A's rung-2.5 partition stay `8fcd672`'s. Nothing else changes.
+
+## Addendum 17 (2026-11-05, post hoc: written after the fifth internal review, before its runs)
+
+**Post hoc**: written after the fifth internal review asked for these analyses (its items 1, 2, 4(a), 6(b), 6(c) and
+7(b)) and after every result they revisit was seen (R7-A to R7-W in `docs/experiments/results-edt.md`), but before any
+number below is computed. Nothing earlier changes and every earlier number stands; what follows is reported beside it.
+A change made after a computation is dated at the end of this addendum and called a deviation. Review 5's item numbers
+are in brackets. **No sweep, corner or offset is run again**: every analysis reads saved runs. Script:
+`scripts/revision/r8x_analyses.py` (tests first, `tests/edt/test_r8x_analyses.py`); results:
+`results/edt/r8x-<commit7>.json` (aggregates and anonymous indices only: no automation text, alias, entity name,
+repository or hash) and a section "Revision R8-X (Addendum 17)" of `results-edt.md`. At most 3 worker processes, under
+nice. Scratch: `~/vesper-lab/edt/r8-X/` (local). "Frame flags" are `8fcd672`'s 199 under the frame relation. No
+pass/fail criterion is registered here; every analysis is descriptive.
+
+**A17.1 The joint robust core [1].**
+
+- *Families* (membership at a setting, by one function for every source, as A12.4 and A13.1 define them):
+  1. **frame flags**: flagged under the frame relation (199);
+  2. **orientation witnesses**: frame flags with an orientation pair (two environments of one city, date and rung that
+     differ only in plan north) on which the frame relation restricted to the pair diverges (100);
+  3. **temperature flags**: frame flags reading a temperature by the names as written (`kinds`; 104);
+  4. **humidity flags**: likewise for humidity (36).
+- *Sources.* Every per-setting membership is recomputed from the saved outcomes and first-firing instants, because the
+  lanes did not save memberships per finding for every family (R7-A did not compute the frame-flag family at all):
+  - **R7-A's 13 settings (A12.4)**: the open-loop replays of its 327 automations at aperture x0.21, x0.25, x0.29,
+    x0.5, x2, direct share 0.6 and 0.95, outdoor air -2 and +2 K, humidity class 2 and 3
+    (`r7-A/scratch/openloop-8fcd672-*.pkl`); the published sweep (`8fcd672`, the nominal setting); and the
+    engine-corrected sweep (`5b54586`, whole). The x1 replay is A12's check, not a setting, as there.
+  - **R7-B's 120 corners (A13.1)** and **its 5 registered indoor offsets** {0, -1.7, -0.9, +2, +7} K (A13.2), on its
+    954 replayed automations (`r7-B/scratch/ol-c-*.pkl`, `ol-t-*.pkl`). The secondary offsets {+1.7, +0.9, -2, -7} K
+    are reported beside the joint core and are not in it.
+  - **R7-W's recorded-shortwave run (A14.3)**: the whole sweep at `52ded7b` with both options on.
+- *Checks first.* Each source's own cores, recomputed here, must equal the published ones: R7-A's "every setting
+  together" 42 / 88 / 34 and its per-bracket rows (A12.4); R7-B's corners 159 / 42 / 80 / 21 and registered offsets
+  146 / 40 / 69 / 19 (frame flags / witnesses / temperature / humidity); R7-W's 198 frame flags and 95 witnesses held.
+  A mismatch is reported, and its cause found before a joint number is used.
+- *Definitions.* The **joint robust core** of a family is its published members held at every setting of every source
+  (13 + 120 + 5 + 1 = 139 settings, each source's nominal counted as that source has it). The **joint possible set** is
+  the union over the same settings, each source within its own replayed set (the whole sweeps over all run
+  automations), so it is a lower bound on the corpus-wide union. Reported per family: the published count, the joint
+  core and the joint possible set; each source's own core beside them; and the joint core without each source in turn
+  (which source binds).
+- *What it is and is not.* The settings vary one bracket at a time around the nominal model. The AND over them is the
+  matrix-AND over sampled settings, not the core over the product of the brackets, which is not run. The product's
+  core is contained in it, so **the joint core is an upper bound on the core over the brackets' product** (and the
+  joint possible set a lower bound on its union). Separately, within one bracket an intersection over sampled points
+  over-estimates the intersection over the bracket's interval: a finding lost between two sampled points is not seen.
+  Both caveats are stated with the numbers.
+
+**A17.2 The glazing variants [4(a)].** Addendum 5's two glazing variants (every pane's area x0.5 and x2), swept at rung
+4 under the frame relation by A8.8 at `ba8a54c` (`sweep-rung4-r6a-variant-glazing-x0.5-ba8a54c.json` and `-x2-`,
+whole sweeps).
+
+- *Check first:* the standard home at `ba8a54c` (`sweep-rung4-r6a-base-ba8a54c.json`) reproduces the 199 frame flags
+  and the 100 witnesses (reported).
+- *Reported:* per variant, each family's members held, lost and gained; the **orientation-witness core over the
+  glazing bracket** {x0.5, x1 (nominal), x2}, with the same for the other three families; and the **joint core
+  including them** (A17.1's 139 settings plus the two variants: 141). The other two A5 variants (plan seed 8, mirrored
+  east-west) vary the plan, not the glazing; their cores are reported as secondary and are not in the joint core.
+
+**A17.3 The sun reference fixed to the first named event [6(b)].** Population: the 5,926 run automations of `8fcd672`.
+The sun references the relation uses are `frames_of(bound).sun_refs` (A6.2: the sun triggers', or, when they name
+none, the sun conditions'), in the order they are named.
+
+- *Ambiguous:* (i) the references name two or more distinct sun instants (`SunRef`s differing in event, offset or
+  elevation): the automations where the nearest-instant rule chooses; (ii) of these, those naming two or more distinct
+  events (sunrise, sunset, an elevation crossing): the review's "two or more named sun events". R6-A counted 98 of
+  kind (ii) among the run automations, 3 of them frame flags. Reported: (i) and (ii), and the frame flags among each.
+- *The variant:* the frame relation with each automation's sun references cut to the first named (`sun_refs[:1]`);
+  everything else (the nearest occurrence of that one instant on the firing's day or a neighbouring one, the 180 min
+  tolerance) is unchanged. It is computed in the script on the cached outcomes and first-firing instants; the oracle
+  is not changed. Check first: with the references as published, the recomputation reproduces every published frame
+  divergence of population (i).
+- *Reported:* frame flags gained, lost and with other kinds; `time_spread` counts; orientation witnesses changed
+  (secondary).
+
+**A17.4 The residual exposure of the sensed exemption [6(c)].** Population: the run automations of `8fcd672` that are
+not frame flags (5,926 - 199 = 5,727, checked).
+
+- *A reference-free frame:* the sensed frame (never computable in the published relation), or the sun frame when its
+  references are empty (A8.3's sun exemption). *Outside the crossing-time construction:* `sensed_crossing_refs(bound)`
+  is empty (A8.5: no `numeric_state` trigger on a sensed entity with a numeric bound and no `value_template`).
+- *Primary (the review's):* the automations that declare at least one frame and only reference-free ones, and fall
+  outside the crossing-time construction.
+- *Secondary:* those that declare at least one reference-free frame, whatever else they declare, and fall outside it.
+  Under the published relation such an automation can never carry `time_spread` either, because one invariant frame is
+  enough and a non-computable frame counts as invariant. So this is the exemption's full reach.
+- *Reported for each:* the count of the 5,727; how many fire in two or more environments (only these could spread); how
+  many carry `time_spread` under the clock relation (a time-of-day spread the exemption leaves unjudged: an upper bound
+  on what it could hide); and what they read.
+
+**A17.5 The location precision of the 44 sun-frame flags [7(b)].**
+
+- *Population:* the frame flags of `8fcd672` reading the sun by the names as written (`"sun" in kinds`): 44 (A12.5).
+  **All 44 are checked; nothing is sampled.**
+- *Procedure (R4-C's):* each is dumped locally, its raw configuration beside its bound one with each bound entity's
+  role and room in the standard EDT home (rebuilt as R4-C's `roles.py` did, and checked identical to the `8fcd672`
+  home), and read by hand. The labels stay local (`r8-X/labels-sunloc.tsv`).
+- *Labels:*
+  - **located**: every room-scoped bound role (in a trigger, a condition or an action) is in the room the author meant,
+    or bound by A2.5's convention (a room-less name, or a room the home lacks, bound to the living room, with nothing
+    in the automation placing it elsewhere). Whether it has no room-scoped role at all is recorded too;
+  - **mislocated**: some bound role is in another room than the one the author names (in the entity's name, the alias
+    or a companion entity) and the home has that room (R4-C's C5n, C5c), or it has the wrong medium (C1-C4, C6).
+    Whether the mislocated role is read by a trigger or a condition (a guard) or is only acted on is recorded;
+  - **uncertain**.
+- *Reported:* the location precision, located / (located + mislocated), with a Wilson 95 % interval and a repository
+  bootstrap (the 44's repositories resampled with replacement, 1,000 resamples, numpy `default_rng(0)`); the
+  sensitivity counting uncertain as mislocated; the labels by class.
+- *The binder discount, extended.* A12.5's D leaves the 51 frame flags without a sensed frame undiscounted; 38 of them
+  read the sun (44 - 6). **D_ext = D - (the mislocated among those 38)**, under A12.5's primary rule. Its interval is a
+  repository bootstrap over the 148 and the 38 together (1,000 resamples, `default_rng(0)`; each part rescaled to its
+  own size, as A12.5). Secondary: the 6 sun readers among the 148 count as mis-binds when either R4-C's label or this
+  check says so. If none of the 44 is mislocated, D is unchanged, and that is the result.
+
+**A17.6 Every rate in the R7 sections, re-checked [2].** Docs only. Every rate stated in the sections R7-A, R7-B, R7-C,
+R7-D and R7-W of `results-edt.md` (a percentage, a fraction or a share, with or without an interval) is recomputed from
+the numerator and denominator the text gives, or, where the text gives only the rate, from the result file it cites. A
+mismatch is a rate that differs from its recomputation beyond its stated rounding, or a numerator and a denominator
+from different populations. Reported: how many rates were checked, and every mismatch with its corrected value. The
+earlier sections are not edited; the corrections are stated in this lane's section.
