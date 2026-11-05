@@ -741,6 +741,162 @@ Each run labels every automation by its index so that firings are attributed.
   a companion turns that lamp off before 01:00 (same author entity, or a different one the binder put on the same home
   lamp: a binding collision, which would make the loss an artifact), the automation no longer turns it on, or other.
 
+## Addendum 8 (2026-11-05, post hoc, after the third internal review; before any of its runs)
+
+**Post hoc**: written after the third internal review asked for these analyses, and after the results they revisit
+were seen (revision R4-A and R4-C in `docs/experiments/results-edt.md`), but before any number below is computed or
+run. Nothing earlier changes. The numbers below are reported beside the earlier ones, not in place of them. A change
+made after a run is dated here and called a deviation.
+
+Base: the rung-4 and rung-2.5 sweeps at `8fcd672` (current binder, device reporting rule), their rich outcome cache
+(A6.4) and their traces (`work-8fcd672/cache`). The A6.7 rung-0 refits, the R4-C dead-rule audit (100 of 391,
+seed 20261104) and the Addendum 5 home variants are the other inputs. Script: `scripts/revision/r6a_analyses.py`.
+Results: `results/edt/r6a-<commit7>.json` (aggregates only: no automation, repository, entity or hash), and a section
+"Revision R6-A (Addendum 8)" of `results-edt.md`. Review 3's item numbers are given in brackets.
+
+**A8.1 The confirmatory rung-0 test on the registered split [1(c)].** This is a pre-specified secondary analysis of a
+post hoc relation (the frame relation is Addendum 6's).
+
+- *Split:* section 6's held-out half by repository (`vesper.edt.cover.half`): even is training, odd is held out.
+- *Model:* A1.4's rung 0, a logistic regression (L2 1.0, standardised features) fitted once on all training-half
+  rows. It is fitted with the eight A1.4 features, and again with those plus A6.7's four frame features (8+4).
+- *Label:* flagged under the frame relation at rung 4 (non-empty `frame_divergences`).
+- *Primary population:* the automations that run at rung 4. This is the population of A6.7's frame-relation refit
+  (5,926; 199 flagged). The bound (A1.4's population) and the environment-coupled run automations are reported beside
+  it, as secondary.
+- *Threshold:* chosen on the training half's own (in-sample) scores, as A1.4's folds do: the best recall at
+  precision >= 0.55 there (`ladder.recall_at_precision`). It is applied unchanged to the held-out half.
+- *Reported, on the held-out half:*
+  - the AUC, with a 95 % percentile bootstrap over held-out repositories (1,000 resamples, seed 0, A1.4's rule);
+  - the recall and the realised precision at the training threshold;
+  - the base rate, and the training and held-out counts (rows, flagged, repositories).
+
+**Detection criterion, written before any held-out number is computed.** A1.4's form and thresholds, applied to the
+frame relation on this split: *rung 0 matches rung 4 under the frame relation iff its held-out AUC >= 0.90 and its
+held-out recall at precision 0.55 (the training-half threshold) >= 0.80.*
+
+- The verdict is the eight-feature model's (A1.4's rung 0). The 8+4 model is judged by the same rule and reported
+  beside it, as a richer syntactic linter.
+- If rung 0 does not match, the physics is necessary for detection of frame-relation divergences on this split, as a
+  secondary analysis. If it matches, it is not.
+- The realised held-out precision is reported but is not part of the criterion, as in A1.4.
+- *For comparison:* the same fit, threshold and criterion on the clock relation's flags (non-empty `divergences`), on
+  the same split and populations.
+
+**A8.2 The paired bootstrap of the AUC difference [7(b)].** On the run automations, the frame relation's flags:
+A6.7's out-of-fold scores (5-fold, whole repositories per fold, seed 0), once with 8 features and once with 8+4, on
+the same folds and the same rows.
+
+- The difference is AUC(8+4) minus AUC(8).
+- Its 95 % interval is a percentile bootstrap that resamples whole repositories with replacement (1,000 resamples,
+  numpy `default_rng(0)`). Both AUCs are recomputed on each resample's rows; a resample holding one class is not
+  counted.
+- The same is reported for the environment-coupled run automations, for the clock relation on both populations, and
+  for the A8.1 held-out half (resampling held-out repositories).
+
+**A8.3 The two exemptions and two ambiguities [5(c), 5(e)].** Counts over the run automations, the clock relation's
+790 flags and the frame relation's 199 flags (rung 4, `8fcd672`).
+
+- *The sun exemption.* These are automations with a sun frame and no computable sun reference (A6.2). Each is
+  classified by the sun-reading steps it has:
+  - *azimuth*: a step on `sun.sun`'s azimuth;
+  - *template*: a template reading `sun.sun`;
+  - *other*: e.g. a sun condition naming no event, an unreadable offset, another attribute.
+  An automation may have several reasons.
+- *The sensed frame among the 199,* by frame combination.
+- *Two sun events.* Automations whose sun references name more than one event:
+  - (i) the references the relation uses (A6.2) name two or more of sunrise, sunset and an elevation;
+  - (ii) its triggers and its conditions name different events, so the conditions' references are not used.
+- *Templates reading both `now()` and `sun.sun`.* One template text that matches both. Each count is given with how
+  `vesper.edt.oracle` treats it.
+
+**A8.4 The frame-switch re-tabulation [14].** Population: the automations flagged under the clock relation and not
+under the frame relation (R4-A reports 595).
+
+- The rich cache records the first firing's instant (`first_t`), not which trigger produced it, and nothing below
+  invents it. In each environment where the automation fires, the frame of its first firing is *inferred* from what
+  is recorded and from the cached rung-4 traces. A trigger is a *candidate* for a first firing at `t` when, after its
+  `for` duration is taken off `t`:
+  - *time*: one of its `at` times of day equals the local time of day of `t` within 1 s;
+  - *time_pattern*: `t` matches its hours, minutes and seconds;
+  - *sun*, and a `state` or `numeric_state` trigger on `sun.sun`: `t` is within 5 s of a sun reference instant it
+    names (A6.2), or within 15 min for an elevation;
+  - *state or numeric_state* on another entity: `t` is within 0.01 s of a change, in the engine's replay of the
+    trace, of one of its entities (of the named attribute when there is one);
+  - *template*: `t` is a change instant of an entity it reads, or a whole minute when it reads `now()`.
+- A candidate trigger contributes its frame (A6.1; a trigger with no frame contributes "none").
+- The first firing's frame is inferred when the candidates' frames are exactly one frame. It is *ambiguous* when they
+  are more than one, and *uninferred* when there is no candidate (for example, an action delay).
+- **frame_switch**: the inferred frames of an automation's first firings are not all equal over the environments
+  where they are inferred (at least two).
+- Reported:
+  - how many of the population have triggers in more than one frame (only those can switch);
+  - how many have every first firing inferred;
+  - the frame_switch count (a lower bound when some firings are uninferred);
+  - the switches by frame pair.
+- *frame_switch* is registered as an outcome kind if at least 10 automations show it. It would be reported beside the
+  relations' flags and is never part of the 199. Below 10, the count is reported and the kind is not registered.
+
+**A8.5 The crossing-time sensed reference [13].** An option of the frame relation, off by default, so that the
+relation as published (A6.3) is unchanged.
+
+- *Which automations it applies to:* those whose bound triggers include a `numeric_state` trigger on a sensed entity
+  (`env_kinds`), with a numeric `above` and/or `below` and no `value_template`.
+- *The reference instant:* in each environment, the first crossing in the judged window (days 1 and 2) of any such
+  trigger's entity (its attribute when one is named). The crossing is in the triggering direction, as the engine's
+  replay of the cached trace holds it. A crossing is a report at which the previous numeric value lies outside the
+  trigger's range and the new one inside it (range: above < v < below, with a missing bound open).
+- *θ_sen:* the signed minutes from that instant to the first firing.
+- *Invariance:* the sensed frame is invariant iff the range of θ_sen over the environments where the automation fires
+  and a crossing exists is at most 180 min (fewer than two values: invariant), the same tolerance as the sun frame.
+  Every other sensed frame stays non-computable, and so invariant as before.
+- *Traces:* read through the sweep's own cache key (`trace-<Env.key>-rho_device.jsonl.gz`, one function shared with
+  `record_trace`). No trace is recorded again.
+- *Reported:*
+  - how many automations, and how many of the 199 and of their sensed-frame flags, get a computable sensed frame;
+  - the θ_sen spread distribution: min, quartiles, 90th percentile and max, and counts in 0, (0, 60], (60, 180],
+    (180, 720] and > 720 min;
+  - the frame relation's flag count with the option on. It can only add time_spread flags: those added are listed by
+    frame combination.
+- *What the added flags are,* by a rule fixed now:
+  - *latency* when every θ_sen is >= 0 (the firing follows the first crossing by an environment-dependent delay),
+    split by whether the automation has conditions;
+  - *precedes* when some θ_sen < 0 (the first firing comes before the first crossing).
+
+**A8.6 Humidity flags at rung 2.5 [16(d)].** The cached rung-2.5 sweep at `8fcd672` exists (R4-A).
+
+- Population: the humidity-reading automations flagged at rung 4, under the clock relation and under the frame
+  relation.
+- Reported: how many are flagged at rung 2.5 too (under the same relation), how many with the same kinds, and how many
+  name a porch sensor.
+
+**A8.7 The dead-rule headline [15(b)].** R4-C sampled 100 of the 391 environment-coupled dead automations at `120f4ca`
+(seed 20261104; 70 repositories) and labelled 6 genuinely dead.
+
+- The population count is estimated as 391 x 6 / 100 (23.5). It gets three intervals, each stated with its method:
+  1. Wilson 95 % on 6/100, times 391 (R4-C's "11-49");
+  2. **the headline:** the exact finite-population interval. The set of K in 0..391 for which drawing 100 without
+     replacement from 391 holding K gives P(X <= 6) >= 0.025 and P(X >= 6) >= 0.025 (the hypergeometric inversion);
+  3. a repository-clustered percentile bootstrap of the share (70 repositories, 1,000 resamples, seed 0), times 391.
+- Also reported: how many of the 100 and of the 6 are still environment-coupled dead at `8fcd672` (390).
+
+**A8.8 The frame relation on the four home variants [16(h)].** A5.1's four variants are swept again at rung 4 at the
+commit that implements this addendum, with the main run's settings: current binder, device reporting rule, the rich
+cache and both relations.
+
+- *Settings:* 48 environments; 4 workers under `nice -n 5`; one fresh work directory per variant, with only the
+  `8fcd672` ERA5 cache copied in (no trace copied, never fetched again).
+- *Check first:* the standard home, swept at this commit with the `8fcd672` rung-4 traces copied in, must reproduce
+  the `8fcd672` rung-4 outcomes and both relations' flags exactly. If it does not, the cause is found before any
+  variant number is used.
+- *Reported, per variant:*
+  - the run count;
+  - the clock and frame flag counts;
+  - how many of the 199 `8fcd672` frame flags are frame-flagged in the variant;
+  - how many of the 199 are frame-flagged in all four variants, and in none.
+- *Budget:* if the five sweeps would take more than about 2.5 h of wall time, the variants not run are listed and
+  skipped.
+
 ## Addendum 9 (2026-11-05, post hoc, after the third internal review; before any of its runs)
 
 **Post hoc**: written after the third internal review asked for it (its items 3(a, b), 8(a-c), 9 and 16(a, b, e)) and
