@@ -93,6 +93,24 @@ def test_classes_add_the_reading_rule_before_addendum_10s():
     assert ha_semantics.classify(twin, plain, reading=twin, fixed=None) == ("unexplained", "")
 
 
+def test_the_sun_condition_fix_reach_counts_conditions_boundaries_and_both_or_either():
+    trig = [{"platform": "sun", "event": "sunset", "offset": "-01:00:00"}]
+    boundary = {"trigger": trig, "action": [{"if": [{"condition": "sun", "before": "sunset",
+                                                     "before_offset": "-01:00:00"}], "then": []}]}
+    night = {"trigger": [{"platform": "sun", "event": "sunset"}],
+             "condition": [{"condition": "or", "conditions": [{"condition": "sun", "after": "sunset",
+                                                               "before": "sunrise"}]}]}
+    both = {"trigger": [{"platform": "time", "at": "07:00"}],
+            "condition": {"condition": "sun", "after": "sunset", "after_offset": "01:00:00", "before": "sunset"}}
+    plain = {"trigger": trig, "condition": [{"condition": "sun", "after": "sunrise"}]}
+    none = {"trigger": trig}
+    k = ha_semantics.sun_condition_kinds
+    assert k(boundary) == {"sun_condition", "boundary"}
+    assert k(night) == {"sun_condition", "boundary"}  # the night's strict after, at a sunset trigger
+    assert k(both) == {"sun_condition", "both_not_either"}
+    assert k(plain) == {"sun_condition"} and k(none) == set()
+
+
 def test_oracle_components_agree_or_not_per_pair():
     o = {"fired": True, "first_tod_h": 7.0, "flaps": False, "night_light": True, "night_cover": False}
     same = ha_semantics.component_agreement({"v_outcome": o, "h_outcome": dict(o)})

@@ -26,8 +26,8 @@ from pathlib import Path
 
 from vesper.validation import ha_diff
 from vesper.validation.ha_diff import (AGREE_FIRST_S, CLASSES, DEV_ENV, ENVS, FIRING_SHARE, SEED, _first,
-                                       _quantiles, _walk_actions, discrepant, fires_in, margin_at_risk, propagate,
-                                       subsecond_only, substituted_flags)
+                                       _listed, _quantiles, _walk_actions, discrepant, fires_in, margin_at_risk,
+                                       propagate, subsecond_only, substituted_flags)
 
 # The keys VESPER's engine accepts and does not act on (vesper.lab.automations: a mode other than single runs as
 # single in permissive replay; max, max_exceeded and initial_state are accepted and ignored)
@@ -321,6 +321,11 @@ def analyse(pairs: dict, autos: dict, reading: dict | None = None, fixed: dict |
         out["fixed_engine"]["vesper_outcome_differs_pairs"] = sum(
             p["v_outcome"] != pairs["per_env"][e]["per"][k]["v_outcome"] for e, k, p in frows)
     out["reach"] = reach(autos)
+    out["sun_condition_fix_reach"] = sun_condition_reach(autos)
+    held = [k for k, _ in sample if any(f.startswith("mode:") for f in feats[k])
+            and feats[k] & {"delay", "wait_for_trigger"}]
+    out["mode_with_a_hold"] = {"automations": len(held),
+                               "both_fire_pairs": sum(p["v_fired"] and p["h_fired"] for _, k, p in rows if k in held)}
     return out
 
 
@@ -339,9 +344,70 @@ def reach(autos: dict) -> dict:
                 "flaps_frame_flags": sum("flaps" in (a.get("frame_divergences") or []) for a in hit)}
     names = sorted({f for _, fs in per for f in fs})
     out = {"of_run": len(run), "any (the stratum's rule)": count(carries),
-           "a mode other than single": count(lambda f: any(x.startswith("mode:") for x in f))}
+           "a mode other than single": count(lambda f: any(x.startswith("mode:") for x in f)),
+           "a mode other than single, with a delay or a wait": count(
+               lambda f: any(x.startswith("mode:") for x in f) and bool(f & {"delay", "wait_for_trigger"}))}
     out |= {n: count(lambda f, n=n: n in f) for n in names}
     return out
+
+
+def _sun_conditions(bound: dict):
+    """Every sun condition of an automation: its conditions, and the conditions of its condition steps, choose
+    options and if steps (nested and/or/not too)."""
+    roots = [_first(bound, "condition", "conditions")]
+    for s in _walk_actions(_first(bound, "action", "actions")):
+        if "condition" in s:
+            roots.append(s)
+        if "if" in s:
+            roots.append(s["if"])
+        options = s.get("choose")
+        for o in options if isinstance(options, list) else []:
+            if isinstance(o, dict):
+                roots.append(o.get("conditions"))
+    for root in roots:
+        yield from (c for c in ha_diff._conditions_walk(root if isinstance(root, list) else [root])
+                    if c.get("condition") == "sun")
+
+
+def sun_condition_kinds(bound) -> set[str]:
+    """What the sun-condition fix (Addendum 15, A15.8) can change in an automation: `sun_condition` (it has one);
+    `boundary` (a sun trigger fires exactly at a condition's instant where the fix changes the result: a `before`,
+    or the night's `after` sunset); `both_not_either` (an after and a before on the same event whose after offset is
+    not earlier than its before offset: the old rule read it as either, Home Assistant as both, so it never holds).
+    An after sunrise with a before sunset whose offsets cross is not counted (offsets longer than half a day)."""
+    from vesper.edt.oracle import _offset_s
+    if not isinstance(bound, dict):
+        return set()
+    conds = list(_sun_conditions(bound))
+    if not conds:
+        return set()
+    out = {"sun_condition"}
+    triggers = {(t.get("event"), _offset_s(t.get("offset"))) for t in _listed(_first(bound, "trigger", "triggers"))
+                if isinstance(t, dict) and (t.get("platform") or t.get("trigger")) == "sun"}
+    for c in conds:
+        after, before = c.get("after"), c.get("before")
+        a, b = _offset_s(c.get("after_offset")), _offset_s(c.get("before_offset"))
+        night = after == "sunset" and before == "sunrise"
+        if (before is not None and not night and (before, b) in triggers) or (night and (after, a) in triggers):
+            out.add("boundary")
+        if after is not None and after == before and a is not None and b is not None and a >= b:
+            out.add("both_not_either")
+    return out
+
+
+def sun_condition_reach(autos: dict) -> dict:
+    """A15.8: of the sweep's run automations and flags, how many the sun-condition fix can touch, per kind."""
+    run = [a for a in autos.values() if a.get("outcomes")]
+    per = [(a, sun_condition_kinds(a["bound"])) for a in run]
+
+    def count(name):
+        hit = [a for a, k in per if name in k]
+        return {"run": len(hit), "fire_somewhere": sum(any(o.get("fired") for o in a["outcomes"].values())
+                                                       for a in hit),
+                "clock_flags": sum(bool(a.get("divergences")) for a in hit),
+                "frame_flags": sum(bool(a.get("frame_divergences")) for a in hit),
+                "time_spread_frame_flags": sum("time_spread" in (a.get("frame_divergences") or []) for a in hit)}
+    return {"of_run": len(run), **{n: count(n) for n in ("sun_condition", "boundary", "both_not_either")}}
 
 
 def main(argv: list[str] | None = None) -> int:
