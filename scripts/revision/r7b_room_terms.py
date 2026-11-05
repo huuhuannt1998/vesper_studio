@@ -44,6 +44,9 @@ import r6b_physics as r6b  # noqa: E402  (its trace worker and relations, unchan
 
 COMMIT = "8fcd672"
 RULE = "device"  # the twins' reporting rule 8fcd672 ran under
+# The engine-corrected sweep (R6-D, Addendum 11): the current code carries Addendum 10's two engine fixes, so a
+# reference recorded now reproduces this sweep, not 8fcd672's clock outcomes (A13.6, a dated deviation)
+BASE = "r6d-5b54586"
 OFFSETS_PRIMARY = (-1.7, -0.9, 2.0, 7.0)  # the review's residuals (model minus measured), K
 OFFSETS_SECONDARY = (1.7, 0.9, -2.0, -7.0)  # their opposite signs: the correction each residual implies
 LUX_PRODUCT = "zigbee:tuya:s-lux-zb"  # L1 "Light sensor": illuminance by the catalog's change rule, no occupancy
@@ -422,12 +425,26 @@ def report(a, lab: Path, scratch: Path, d: dict) -> int:
     commit7 = subprocess.run(["git", "rev-parse", "--short=7", "HEAD"], capture_output=True, text=True,
                              check=True).stdout.strip()
     s25 = json.loads((lab / f"sweep-rung2.5-{COMMIT}.json").read_text())
-    groups = groups_of(d, s25)
+    groups = groups_of(d, s25)  # the replay set and R4-A's partition stay 8fcd672's (A13.1)
     ids = replay_set(d)
     run, idset = d["run"], set(ids)
+    base = r4b.load(lab, BASE)  # the published memberships and the reference check: the engine-corrected sweep (A13.6)
+    from vesper.edt.cover import _envs
+    envs = _envs(d["sweep"])
+    by_key = {e.key: e for e in envs}
+    against_8fcd672 = {}
+    for tag in ("c", "t"):
+        if (scratch / f"ol-{tag}-ref.pkl").is_file():
+            outs, firsts, _ = _load_setting(scratch / f"ol-{tag}-ref.pkl")
+            against_8fcd672[tag] = _check_reference(d, ids, outs, _published_records(d, ids, by_key, envs),
+                                                    _records(d, ids, outs, firsts, by_key, envs))
+    d = base
     out = {"analysis": "R7-B (protocol Addendum 13, post hoc): the open-loop screen over R4-B's 120 corners, the "
                        "indoor-temperature offset, the second illuminance product",
-           "inputs": {"sweep": COMMIT, "reporting_rule": RULE}, "code_commit": commit7,
+           "inputs": {"sweep": COMMIT, "published_memberships_and_reference": BASE, "reporting_rule": RULE},
+           "code_commit": commit7, "references_against_8fcd672": against_8fcd672,
+           "base_flags_in_replay_set": {"clock": sum(1 for i in ids if base["run"][i]["divergences"]),
+                                        "frame": sum(1 for i in ids if base["run"][i]["frame_divergences"])},
            "replay_set": {"automations": len(ids), "frame_flags": sum(1 for i in ids if run[i]["frame_divergences"]),
                           "clock_flags": sum(1 for i in ids if run[i]["divergences"]),
                           **{f"reads_{k}": len(groups[k] & idset) for k in ("temperature", "humidity", "illuminance")},

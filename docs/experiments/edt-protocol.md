@@ -1886,3 +1886,15 @@ found.
 **A13.5 Resources.** At most 4 workers, under `nice -n 5`; about three hours. Raw outcomes stay in
 `~/vesper-lab/edt/r7-B/scratch` (local); each setting's traces are removed after its outcomes are kept. Any deviation
 is dated below this addendum.
+
+**A13.6 Deviation (2026-11-05, after the first reference run, before any other setting was looked at).** A13.1 says
+the reference "must reproduce `8fcd672`'s outcomes exactly". It cannot: the current code carries Addendum 10's two
+engine fixes (`sun.sun` as Home Assistant 2026.10.2 has it; `kelvin`/`color_temp` refused), committed before this
+addendum, which R6-D's engine-corrected sweep `5b54586` (Addendum 11) ran with. The first reference (offset 0)
+reproduces `5b54586`'s outcomes for the 954 automations exactly (0 of 45,792 differ, the same bound automations) and
+`8fcd672`'s frame divergences exactly (0 kind mismatches; the 199 and every family of the frame relation identical),
+but differs from `8fcd672` in the outcomes of 66 automations and in the clock divergences of 5 (R6-D's 790 -> 785, all
+within the fixes' reach). So: the published memberships every robust core and possible set is set against are
+`5b54586`'s (the frame relation's are `8fcd672`'s exactly, so nothing changes for the five registered families; the
+clock relation's are 785, not 790), and each reference is reported against both sweeps. The replay set (954) and
+R4-A's rung-2.5 partition stay `8fcd672`'s. Nothing else changes.
