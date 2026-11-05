@@ -686,8 +686,8 @@ moved in the home file. Without a request, a home gets a starter set. A batch ma
 door, the windows, then devices, furniture and the layout check as `generate` does. A picture (`.png`, `.jpg`, `.pdf`)
 is read by Claude into a `vesper-plan/1` file (rooms as polygons with a type, doors, windows, the entrance, any scale
 read off the drawing), which VESPER straightens and checks before it builds anything; a plan that is not a house VESPER
-can build (a room too small or large for its type, a room with no way in) is refused with every problem listed, and no
-home is written. The image goes to Anthropic through your Claude Code session (your own login); a hand-written
+can build (a room under 0.5 m², rooms that overlap, a room with no way in, no entrance) is refused with every problem
+listed, and no home is written. A room smaller or larger than its type usually is is built as read, with a warning. The image goes to Anthropic through your Claude Code session (your own login); a hand-written
 vesper-plan/1 file needs no network. Reading an image needs the `claude` command installed and signed in; it takes
 several minutes and uses your Claude Code quota (`--timeout SECONDS` waits longer than the default 900). Only a PNG,
 JPEG or PDF of at most 50 MB is accepted (checked by its contents), and a copy of it alone is shown to Claude, with no other file or tool.
@@ -699,7 +699,11 @@ but reads doors less exactly. The plan Claude read is kept (in pixels) as `DIR.p
 
 A picture has no scale unless it prints one. If the plan has none, VESPER does not guess: give a room's size with
 `--scale "kitchen width 3.2 m"` or the home's floor area with `--area 62`, or it stops with "no scale: give --scale or
---area". A plan written by hand can use metres (`"units": "m"`) and needs neither. Limit: a shared wall drawn wandering
+--area". A plan written by hand can use metres (`"units": "m"`) and needs neither. A scale you give, one in metres, or
+one Claude read off a scale bar or a printed dimension is taken as fact: if the rooms come out far from their usual
+sizes (a 12 x 6 m living room), VESPER says so in a warning and builds them. Only a scale Claude inferred any other way
+(a pixel size, a total area) that makes the rooms on the whole under 0.4 or over 2.5 times their usual size is refused
+("the scale looks wrong ... give --scale or --area"). Limit: a shared wall drawn wandering
 more than about 25 cm is refused ("the rooms do not touch"); redraw it straight.
 
 **One storey.** A home is one floor. When a picture draws several floors (side by side, or one per page), Claude reads
@@ -760,7 +764,15 @@ VESPER reads the floor plan in one of two ways (`--reader`):
   quota. The reading is kept, as `DIR.plan.json` or the file `--save-plan` names, so
   `vesper lab import DIR.plan.json DIR` builds the home again without Claude. If no door to the outside is drawn
   where Claude put the entrance, the summary says "entrance assumed".
-- `geometric` (offline): the floor, walls, doorways and windows are found by cutting the model at set heights.
+- `geometric` (offline): the floor, walls, doorways and windows are found by cutting the model at set heights. Its
+  reading is kept only when asked for (`--save-plan`) or when the import stops at "no entrance": then it is kept as
+  `DIR.plan.json`, and VESPER says how to set its `"entrance"` (adding a door to the outside if none was found) and
+  build from it.
+
+A kept reading (`vesper-scan-reading/1`) holds the plan as read and where the model goes, with the model's path
+relative to the reading. Building from it ignores `--scale`, `--reader` and `--save-plan`, and says so. It lies beside
+the home folder, not in it, so the home's `.gitignore` does not cover it: keep it out of a repository yourself (it names
+your model), for example with `*.plan.json` in that repository's `.gitignore`.
 
 Either way, the up axis is detected, never assumed. Rooms Claude cannot type, and every room the geometric reader
 finds, are typed `other` unless you give their types in order with `--types`.
