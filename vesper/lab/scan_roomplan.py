@@ -36,6 +36,7 @@ ROOM_LEAST_M2 = 1.5  # a region with no section smaller than this is left out (a
 CEILING_M = 2.5  # the ceiling VESPER builds
 SAME_M = 0.05  # walls within this of one height are one height
 ROUND = 4  # decimals kept in the plan (0.1 mm)
+ROUND_M = 10.0 ** -ROUND  # the least width kept
 
 ROOM_TYPES = {"bedroom": "bedroom", "livingRoom": "living", "kitchen": "kitchen", "bathroom": "bathroom",
               "diningRoom": "dining", "unidentified": "other"}
@@ -488,6 +489,9 @@ def plan_from_parts(walls: list[dict], doors: list[dict], windows: list[dict], o
     leaf: list[bool] = []
     for kind, items in (("door", doors), ("opening", openings)):
         for item in items:
+            if not (_num(item.get("width")) and item["width"] >= ROUND_M):
+                warnings.append(f"the {kind} at {_where(item['at'])} has no width: left out")
+                continue
             got = sides(item)
             if got is None:
                 warnings.append(f"the {kind} at {_where(item['at'])} stands on no wall of the scan: left out")
@@ -506,6 +510,9 @@ def plan_from_parts(walls: list[dict], doors: list[dict], windows: list[dict], o
 
     plan_windows = []
     for item in windows:
+        if not (_num(item.get("width")) and item["width"] >= ROUND_M):
+            warnings.append(f"the window at {_where(item['at'])} has no width: left out")
+            continue
         got = sides(item)
         if got is None:
             warnings.append(f"the window at {_where(item['at'])} stands on no wall of the scan: left out")

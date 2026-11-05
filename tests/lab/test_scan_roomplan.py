@@ -137,6 +137,15 @@ def test_a_door_naming_no_wall_stands_on_the_nearest_one_and_a_door_far_from_eve
     assert any("stands on no wall" in w for w in warnings), warnings
 
 
+def test_a_door_or_window_of_no_width_is_left_out():
+    raw = fixture()
+    item(raw, "doors", "D-between")["dimensions"][0] = 0
+    item(raw, "windows", "N-living")["dimensions"][0] = 0
+    plan, _, warnings = read_roomplan_json(raw)
+    assert len(plan["doors"]) == 1 and len(plan["windows"]) == 1
+    assert sum("has no width" in w for w in warnings) == 2, warnings
+
+
 def test_walls_of_different_heights_are_built_with_a_warning():
     """RoomPlan scans no ceiling, and a wall seen only in part is short (1.59, 2.09, 2.42 m in one real bedroom)."""
     raw = fixture()
