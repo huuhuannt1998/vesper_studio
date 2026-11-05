@@ -357,6 +357,107 @@ def rung0_fit(autos: dict, label: str = "divergences", population: str = "bound"
     return {**out, "auc": value, "auc_ci95": ci, "auc_ci95_n": n_used}
 
 
+# --- protocol Addendum 8: the confirmatory split (A8.1) and the paired bootstrap (A8.2) ----------------------------
+
+SPLIT_AUC = 0.90     # A1.4's thresholds, applied by A8.1 to the registered split
+SPLIT_RECALL = 0.80
+
+
+def _design(autos: dict, label: str, population: str, with_frames: bool):
+    """(rows' repos, labels, feature matrix) of `population`, as rung0_fit builds them."""
+    keep = POPULATIONS[population]
+    items = [(i, a) for i, a in autos.items() if keep(a)]
+    y = np.array([int(bool(a.get(label))) for _, a in items], dtype=int)
+    groups = [a.get("repo") or i for i, a in items]
+    names = FEATURES + (FRAME_FEATURES if with_frames else ())
+    rows = [{**linter_features(a["raw"]), **(frame_features(a["bound"]) if with_frames else {})} for _, a in items]
+    x = np.array([[r[f] for f in names] for r in rows], dtype=float).reshape(len(items), len(names))
+    return groups, y, x
+
+
+def oof_scores(autos: dict, label: str = "divergences", population: str = "bound", with_frames: bool = False):
+    """(labels, out-of-fold scores, repos) of rung0_fit's repo-grouped cross-validation, over the rows it scores: the
+    same folds, model and rows, so a statistic on them reproduces its AUC (A8.2 pairs two such fits)."""
+    groups, y, x = _design(autos, label, population, with_frames)
+    k = min(FOLDS, len(set(groups)))
+    scores, _, scored = _cross_validate(x, y, grouped_folds(groups, y, k))
+    return y[scored], scores[scored], [g for g, s in zip(groups, scored, strict=True) if s]
+
+
+def split_scores(autos: dict, label: str = "divergences", population: str = "run", with_frames: bool = False):
+    """Rung 0 on the registered split (protocol section 6, A8.1): fitted once on the training half's rows, scored on
+    the held-out half. Returns (held-out labels, held-out scores, held-out repos, the threshold chosen on the training
+    half's own scores: the best recall at precision >= PRECISION_FLOOR there; None when none reaches it)."""
+    from vesper.edt.cover import half
+    groups, y, x = _design(autos, label, population, with_frames)
+    tr = np.array([half(g) == "train" for g in groups], dtype=bool)
+    te = ~tr
+    if len(set(y[tr].tolist())) < 2:
+        return y[te], np.zeros(int(te.sum())), [g for g, t in zip(groups, te, strict=True) if t], None
+    s_tr, s_te = _standardised_scores(x, y, tr, te)
+    thr = recall_at_precision(s_tr, y[tr], PRECISION_FLOOR)["threshold"]
+    return y[te], s_te, [g for g, t in zip(groups, te, strict=True) if t], thr
+
+
+def rung0_split_fit(autos: dict, label: str = "divergences", population: str = "run",
+                    with_frames: bool = False) -> dict:
+    """A8.1: rung 0 trained on the registered training half and judged on the held-out half, with A1.4's criterion
+    (held-out AUC >= 0.90 and held-out recall at the training-half threshold >= 0.80)."""
+    from vesper.edt.cover import half
+    groups, y, _ = _design(autos, label, population, with_frames)
+    tr = np.array([half(g) == "train" for g in groups], dtype=bool)
+
+    def counts(mask):
+        return {"n": int(mask.sum()), "n_flagged": int(y[mask].sum()),
+                "n_repos": len({g for g, m in zip(groups, mask, strict=True) if m})}
+    y_te, s_te, g_te, thr = split_scores(autos, label, population, with_frames)
+    pred = s_te >= thr if thr is not None else np.zeros(len(s_te), dtype=bool)
+    tp = int((pred & (y_te == 1)).sum())
+    value = auc(s_te, y_te) if len(set(y[tr].tolist())) == 2 else None
+    ci, n_used = bootstrap_auc_ci(s_te, y_te, g_te) if value is not None else (None, 0)
+    recall = tp / int(y_te.sum()) if y_te.sum() else None
+    matches = value is not None and recall is not None and value >= SPLIT_AUC and recall >= SPLIT_RECALL
+    return {"label": label, "population": population,
+            "features": list(FEATURES + (FRAME_FEATURES if with_frames else ())),
+            "train": counts(tr), "held_out": counts(~tr), "threshold": None if thr is None else float(thr),
+            "auc": value, "auc_ci95": ci, "auc_ci95_n": n_used, "recall": recall,
+            "precision": tp / int(pred.sum()) if pred.sum() else None, "n_predicted_positive": int(pred.sum()),
+            "base_rate": float(y_te.mean()) if len(y_te) else None,
+            "criterion": f"held-out AUC >= {SPLIT_AUC} and held-out recall at precision {PRECISION_FLOOR} "
+                         f"(training-half threshold) >= {SPLIT_RECALL}",
+            "matches": bool(matches)}
+
+
+def paired_auc_diff_bootstrap(scores_a, scores_b, labels, groups, n: int = 1000) -> dict:
+    """AUC(b) - AUC(a) on the same rows, with a 95 % percentile interval from resampling whole groups (repos) with
+    replacement, both AUCs recomputed on each resample (seed 0, bootstrap_auc_ci's draws); a resample holding one
+    class is not counted. The interval is None below MIN_RESAMPLES usable resamples."""
+    a = np.asarray(scores_a, dtype=float)
+    b = np.asarray(scores_b, dtype=float)
+    y = np.asarray(labels, dtype=int)
+    auc_a, auc_b = auc(a, y), auc(b, y)
+    out = {"auc_a": auc_a, "auc_b": auc_b,
+           "diff": None if auc_a is None or auc_b is None else auc_b - auc_a,
+           "ci95": None, "n_used": 0, "resamples": n, "seed": SEED, "groups": len(set(groups))}
+    names = sorted(set(groups))
+    if out["diff"] is None or len(names) < 2:
+        return out
+    members = {g: [] for g in names}
+    for i, g in enumerate(groups):
+        members[g].append(i)
+    parts = [np.array(members[g]) for g in names]
+    rng = np.random.default_rng(SEED)
+    values = []
+    for _ in range(n):
+        idx = np.concatenate([parts[j] for j in rng.integers(0, len(parts), len(parts))])
+        va, vb = auc(a[idx], y[idx]), auc(b[idx], y[idx])
+        if va is not None and vb is not None:
+            values.append(vb - va)
+    out["n_used"] = len(values)
+    if len(values) >= MIN_RESAMPLES:
+        out["ci95"] = [float(np.percentile(values, 2.5)), float(np.percentile(values, 97.5))]
+    return out
+
 # --- rungs 1-3 against rung 4 ------------------------------------------------------------------------------------
 
 def _circ(a: float, b: float) -> float:

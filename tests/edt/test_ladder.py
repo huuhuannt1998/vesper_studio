@@ -395,3 +395,65 @@ def test_cli_ladder_reads_rung_from_each_file(tmp_path):
     assert not math.isnan(rep["rungs"]["3"]["mae_hours"])
     assert cli.main(["edt", "ladder", "--sweep", str(p3), "--out", str(out)]) == 1  # no rung 4
     assert cli.main(["edt", "ladder", "--sweep", str(p4), "--sweep", str(p4), "--out", str(out)]) == 1  # rung twice
+
+
+# --- protocol Addendum 8: the confirmatory split and the paired bootstrap ------------------------------------------
+
+def _split_autos(n=80):
+    """Run automations over many repos; the sun ones are flagged under the frame relation most of the time."""
+    from vesper.edt.cover import half
+    autos = _rung4(n)["automations"]
+    for i, a in enumerate(autos.values()):
+        a["repo"] = f"o/r{i // 2}"
+        a["bound"] = a["raw"]
+        a["frame_divergences"] = a["divergences"] if i % 7 else []
+    assert {half(a["repo"]) for a in autos.values()} == {"train", "held_out"}
+    return autos
+
+
+def test_split_fit_trains_on_the_even_half_and_judges_the_odd_half_with_the_training_threshold():
+    from vesper.edt.cover import half
+    from vesper.edt.ladder import rung0_split_fit
+    autos = _split_autos()
+    r = rung0_split_fit(autos, "frame_divergences", "run")
+    train = [a for a in autos.values() if half(a["repo"]) == "train"]
+    held = [a for a in autos.values() if half(a["repo"]) == "held_out"]
+    assert (r["train"]["n"], r["held_out"]["n"]) == (len(train), len(held))
+    assert r["held_out"]["n_flagged"] == sum(1 for a in held if a["frame_divergences"])
+    assert r["threshold"] is not None and r["auc"] is not None and r["auc"] > 0.9
+    assert set(r) >= {"auc_ci95", "recall", "precision", "base_rate", "criterion", "matches"}
+    assert r["matches"] == (r["auc"] >= 0.90 and r["recall"] >= 0.80)
+    assert r == rung0_split_fit(autos, "frame_divergences", "run")  # deterministic
+
+
+def test_split_scores_carry_the_held_out_rows_for_a_paired_comparison():
+    from vesper.edt.ladder import auc, rung0_split_fit, split_scores
+    autos = _split_autos()
+    y, s, groups, thr = split_scores(autos, "frame_divergences", "run")
+    assert len(y) == len(s) == len(groups)
+    assert abs(auc(s, y) - rung0_split_fit(autos, "frame_divergences", "run")["auc"]) < 1e-12
+
+
+def test_oof_scores_reproduce_the_a67_refit_auc():
+    from vesper.edt.ladder import auc, oof_scores, rung0_fit
+    autos = _split_autos()
+    for frames in (False, True):
+        y, s, groups = oof_scores(autos, "frame_divergences", "run", frames)
+        assert abs(auc(s, y) - rung0_fit(autos, "frame_divergences", "run", frames)["auc"]) < 1e-12
+
+
+def test_paired_bootstrap_of_an_auc_difference_resamples_repos_and_is_seeded():
+    import numpy as np
+
+    from vesper.edt.ladder import paired_auc_diff_bootstrap
+    rng = np.random.default_rng(3)
+    y = np.array([0, 1] * 60)
+    groups = [f"g{i // 4}" for i in range(120)]
+    good = y + rng.normal(0, 0.3, 120)
+    noise = rng.normal(0, 1, 120)
+    same = paired_auc_diff_bootstrap(good, good, y, groups)
+    assert same["diff"] == 0.0 and same["ci95"] == [0.0, 0.0]
+    d = paired_auc_diff_bootstrap(noise, good, y, groups)
+    assert d["diff"] > 0.3 and d["ci95"][0] > 0 and d["n_used"] == 1000
+    assert d == paired_auc_diff_bootstrap(noise, good, y, groups)
+    assert abs(d["auc_b"] - d["auc_a"] - d["diff"]) < 1e-12
