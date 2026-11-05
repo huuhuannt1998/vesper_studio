@@ -77,8 +77,9 @@ AMBIGUOUS = 0.67  # a second axis scoring this share of the best one is read too
 MAX_CELLS = 3000  # a grid side longer than this (150 m) is cropped to the floor
 
 
-class ScanError(ValueError):
-    """A scan or model VESPER cannot read as a floor plan, with the reason."""
+class ScanError(PlanError):
+    """A scan or model VESPER cannot read as a floor plan, with the reason. A PlanError, so the CLI's handling of
+    plans catches it (task B1 defines the same class in scan_roomplan.py: one of the two is to import the other)."""
 
 
 def _libs():
