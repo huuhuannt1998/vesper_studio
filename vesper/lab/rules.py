@@ -19,7 +19,8 @@ World → devices:
   without a site keeps the assumed curve: the time of day and the lamps that are on, no windows, no weather;
 - heating (a home with a site): a heating thermostat whose mode is heat (or auto, or that has no mode) heats its
   room while the room is below its setpoint (0.3 °C either side); one in a hallway heats every room that has no
-  thermostat of its own, as central heating does. Cooling is not modelled;
+  thermostat of its own, as central heating does (with the indoor model's PER_ROOM_THERMOSTAT option on, each such
+  room instead has a thermostat of its own at the hallway thermostat's setpoint and mode). Cooling is not modelled;
 - shades: a person in a window's room opens or closes its shade.
 
 Devices → world: `effects` holds what the views show, a light's or plug's on/off, a lock's state, a door's
@@ -47,6 +48,13 @@ ONOFF, LOCK_STATE = "On/Off.OnOff", "Door Lock.LockState"
 INDOOR_ASSUMED = False
 _AMBIENT = {"temperature", "local_temperature", "humidity", "illuminance", "illuminance_lux"} | {
     n for names in MATTER_AMBIENT.values() for n in names}
+
+
+def per_room_thermostat() -> bool:
+    """The indoor model's PER_ROOM_THERMOSTAT option (vesper.env.indoor; revision R8-Y, protocol Addendum 18): every
+    room a hallway thermostat would heat has a thermostat of its own at the hallway thermostat's setpoint and mode."""
+    from vesper.env import indoor
+    return bool(indoor.PER_ROOM_THERMOSTAT)
 
 
 def ambient_at(seconds_of_day: float, lamps_on: int) -> dict:
@@ -165,6 +173,9 @@ class Rules:
         self._room_of: dict[str, str] = {}  # actor -> the room it was last seen in
         self._heating: dict[str, bool] = {}  # thermostat -> heating now
         self._cooling: dict[str, bool] = {}  # thermostat -> cooling now
+        # (hallway thermostat, room) -> (heating, cooling) now: the rooms' own thermostats under the indoor model's
+        # PER_ROOM_THERMOSTAT option (revision R8-Y, protocol Addendum 18); empty when it is off
+        self._room_heating: dict[tuple[str, str], tuple[bool, bool]] = {}
 
     # -- set-up -------------------------------------------------------------------------------
     def start(self) -> None:
@@ -404,7 +415,7 @@ class Rules:
         `report` False: the thermostats' running state is not reported (the warm-up before a run)."""
         rooms = self.env.rooms
         out: dict[str, float] = {}
-        central = []
+        central, settings = [], []
         for name, dev in self.devices.items():
             t = thermostat(self.twin(name))
             if t is None or dev.room not in rooms:
@@ -422,14 +433,33 @@ class Rules:
             label = self.home.map.room(dev.room).label.lower()
             if any(w in label for w in CENTRAL_ROOMS):
                 central.append(share)
+                settings.append((name, heats, sp, cools, csp))
             out[dev.room] = share if share else out.get(dev.room, 0.0)
         if central:
             served = {d.room for n, d in self.devices.items() if thermostat(self.twin(n)) is not None}
+            if per_room_thermostat():
+                for rid in rooms:
+                    if rid not in served:
+                        out[rid] = self._own_thermostat(rid, rooms[rid].temperature, settings)
+                return out
             share = 1.0 if 1.0 in central else -1.0 if -1.0 in central else 0.0
             for rid in rooms:
                 if rid not in served:
                     out[rid] = share
         return out
+
+    def _own_thermostat(self, rid: str, temp: float, settings: list[tuple]) -> float:
+        """The indoor model's PER_ROOM_THERMOSTAT option: room `rid`'s own thermostat, at each hallway thermostat's
+        setpoints and mode, on the room's own temperature (the same rule and band as a real one). 1 heating, -1
+        cooling, 0 neither."""
+        shares = []
+        for name, heats, sp, cools, csp in settings:
+            was, wasc = self._room_heating.get((name, rid), (False, False))
+            on = heats and (temp < sp - HEAT_BAND_C or (was and temp < sp + HEAT_BAND_C))
+            cool = not on and cools and (temp > csp + HEAT_BAND_C or (wasc and temp > csp - HEAT_BAND_C))
+            self._room_heating[(name, rid)] = (on, cool)
+            shares.append(1.0 if on else -1.0 if cool else 0.0)
+        return 1.0 if 1.0 in shares else -1.0 if -1.0 in shares else 0.0
 
     def daylight(self, room: str) -> float:
         """A room's daylight without lamps, lux: the environment's (a home with a site), else the assumed curve."""

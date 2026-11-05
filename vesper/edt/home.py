@@ -154,6 +154,10 @@ VARIANTS = {  # name -> its one parameter, fixed before the variants' first run 
     "glazing-x2": {"glazing": 2.0},  # every pane's area x 2, same positions
     "plan-seed8": {"seed": 8},  # the generator's six-room plan for seed 8, the standard home's products
     "mirror-ew": {"mirror": True},  # the standard home mirrored east-west
+    # protocol Addendum 18 (A18.3): three further generated plans with other window distributions, by its rule
+    "plan-seed11": {"seed": 11},
+    "plan-seed16": {"seed": 16},
+    "plan-seed9": {"seed": 9},
 }
 PANE_GAP_M = 0.1  # two panes on one wall keep at least this apart (a mullion)
 LINTEL_M = 0.05  # a pane's top keeps at least this below the ceiling

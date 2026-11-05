@@ -175,11 +175,11 @@ BEFORE_KNOBS = "671b22a0fa68c482465b3c557564058a282263a1ed876a9fab05eb484b55d8d8
 DEFAULTS = {"DAYLIGHT_SCALE": 1.0, "CAPACITY_SCALE": 1.0, "HUMIDITY_T_OFFSET_C": 0.0, "INTERNAL_GAINS_W_PER_M2": 0.0,
             "ROOF_GROUND": 0.0, "PREWARM_DAYS": 0.0, "SOLAR_APERTURE_SCALE": 1.0, "OUTDOOR_T_OFFSET_C": 0.0,
             "HUMIDITY_CLASS": 1, "ACH": 0.5, "DIRECT_SHARE": 0.8, "RECORDED_SPLIT": 0, "GROUND_REFLECTED": 0,
-            "INDOOR_T_OFFSET_C": 0.0}
+            "INDOOR_T_OFFSET_C": 0.0, "U_WALL": 0.35, "U_WINDOW": 1.4, "PER_ROOM_THERMOSTAT": 0}
 
 
 def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
-    """Every knob (R2-a's, Addendum 7's, Addendum 9's, 13's and 14's) at its default: the model of 120f4ca, to the
+    """Every knob (R2-a's, Addendum 7's, Addendum 9's, 13's, 14's and 18's) at its default: the model of 120f4ca, to the
     bit."""
     from vesper.env import indoor
     assert set(indoor.KNOBS) == set(DEFAULTS)
@@ -192,7 +192,7 @@ def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
     assert e.prewarm(0.0, lambda: {}) == 0.0  # no warm-up at the default
     assert not {"capacity_scale", "internal_gains_w_per_m2", "roof_ground", "prewarm_days", "solar_aperture_scale",
                 "outdoor_t_offset_c", "direct_share", "recorded_split", "ground_reflected",
-                "indoor_t_offset_c"} & \
+                "indoor_t_offset_c", "per_room_thermostat"} & \
         set(e.provenance()["indoor"])
 
 
@@ -264,6 +264,23 @@ def test_a_roof_and_a_ground_floor_lose_heat_and_cool_every_room():
         assert room.h_w_per_k == pytest.approx(h0 + (0.15 + 0.25) * room.floor_m2)
     base, lossy = _day(), _day(ROOF_GROUND=1.0)
     assert all(lossy[r] < base[r] for r in base)
+
+
+def test_the_wall_and_glass_u_values_are_knobs_that_move_only_their_own_term():
+    """Revision R8-Y (protocol Addendum 18, item 5(b)): U_WALL and U_WINDOW as knobs; H moves by exactly the U change
+    times the opaque wall's and the glass's areas, and a leakier envelope cools every room with an outside wall."""
+    from vesper.env import indoor
+    room = env().rooms["bedroom"]
+    h0, glass = room.h_w_per_k, sum(w["width"] * w["height"] for w in room.windows)
+    with indoor.knobs(U_WALL=1.0):
+        assert room.h_w_per_k == pytest.approx(h0 + (1.0 - 0.35) * room.outside_wall_m2)
+        assert indoor.nondefault_knobs() == {"U_WALL": 1.0}
+    with indoor.knobs(U_WINDOW=2.8):
+        assert room.h_w_per_k == pytest.approx(h0 + (2.8 - 1.4) * glass)
+    with indoor.knobs(U_WALL=0.35, U_WINDOW=1.4):
+        assert room.h_w_per_k == h0 and indoor.nondefault_knobs() == {}
+    base, leaky = _day(), _day(U_WALL=1.0, U_WINDOW=2.8)
+    assert all(leaky[r] < base[r] for r in ("bedroom", "kitchen"))
 
 
 def test_a_larger_solar_aperture_warms_a_sunny_room_and_leaves_the_windowless_one():

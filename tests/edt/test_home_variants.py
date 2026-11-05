@@ -147,6 +147,37 @@ def test_the_other_plan_is_another_plan_with_the_same_rooms(homes):
     assert sum(std[k] != var[k] for k in std) >= 5
 
 
+# Protocol Addendum 18 (A18.3): the three further generated plans and the room -> facing of their panes, as the
+# selection rule found them (degrees clockwise from the plan's top); the standard home and seed 8 for comparison
+FACINGS = {
+    None: {"bathroom": [180], "bedroom_1": [270], "bedroom_2": [0], "kitchen": [180], "living": [0, 0], "office": [90]},
+    "plan-seed8": {"bathroom": [0], "bedroom_1": [270], "bedroom_2": [90], "kitchen": [180], "living": [0, 0],
+                   "office": [90]},
+    "plan-seed11": {"bathroom": [0], "bedroom_1": [270], "bedroom_2": [180], "kitchen": [180], "living": [0, 0],
+                    "office": [90]},
+    "plan-seed16": {"bathroom": [180], "bedroom_1": [270], "bedroom_2": [90], "kitchen": [180], "living": [0, 0],
+                    "office": [90]},
+    "plan-seed9": {"bathroom": [0], "bedroom_1": [270], "bedroom_2": [90], "kitchen": [180], "living": [0, 0],
+                   "office": [90]},
+}
+GLASS_BY_FACING = {None: {0: 5.92, 90: 1.44, 180: 1.36, 270: 1.44},
+                   "plan-seed9": {0: 4.7, 90: 2.88, 180: 1.0, 270: 1.44},
+                   "plan-seed11": {0: 4.84, 90: 1.44, 180: 2.44, 270: 1.44},
+                   "plan-seed16": {0: 4.48, 90: 2.88, 180: 1.36, 270: 1.44}}
+
+
+@pytest.mark.parametrize("variant", list(FACINGS))
+def test_the_addendum_18_plans_have_the_windows_their_selection_found(homes, variant):
+    facing: dict[str, list] = {}
+    glass: dict[int, float] = {}
+    for w in _windows(homes[variant][1]).values():
+        facing.setdefault(w["room"], []).append(w["facing"])
+        glass[w["facing"]] = glass.get(w["facing"], 0.0) + w["width"] * w["height"]
+    assert {k: sorted(v) for k, v in facing.items()} == FACINGS[variant]
+    if variant in GLASS_BY_FACING:
+        assert {k: round(v, 2) for k, v in glass.items()} == GLASS_BY_FACING[variant]
+
+
 def test_plan_home_with_the_standard_seed_is_the_standard_home(tmp_path, homes):
     """The products fixed by category and placed by the generator's rules: for seed 7 that is the standard home."""
     seven = plan_home(tmp_path, CAT, 7)
