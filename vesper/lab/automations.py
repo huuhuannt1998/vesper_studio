@@ -1509,7 +1509,14 @@ class Engine:
                 self.session.automation_skipped(a.name, why, f"it fired {LOOP_LIMIT} times at this instant: a loop")
             return
         a.running = True
+        self._note_run(a, why, "start")
         self._run(_Run(a, why, context, [_Frame(list(a.actions))]))
+
+    def _note_run(self, a: Automation, why: str, event: str) -> None:
+        """Tell a session that asks (`automation_run`, protocol Addendum 20) of a run accepted or ended early."""
+        note = getattr(self.session, "automation_run", None)
+        if note is not None:
+            note(a.name, why, event)
 
     def _holds(self, c: dict, context: dict) -> bool:
         kind = c["kind"]

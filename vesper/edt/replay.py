@@ -44,6 +44,8 @@ class Replay:
     approximations: dict[str, list[str]] = field(default_factory=dict)
     start_states: dict[str, str] = field(default_factory=dict)  # entity id -> its state when the run starts
     branches: dict[str, list[tuple[float, int, int]]] = field(default_factory=dict)  # id -> (t, step, option)
+    runs: dict[str, list[tuple[float, str]]] = field(default_factory=dict)  # id -> (t, "start" | "cancel"), A20.3
+    skipped: dict[str, list[tuple[float, str]]] = field(default_factory=dict)  # id -> (t, why a trigger was dropped)
 
 
 class _TraceRuntime:
@@ -66,6 +68,8 @@ class TraceSession:
         self.firings: list[Firing] = []
         self.branches: list[tuple[float, str, int, int]] = []  # (t, automation, choose step, option)
         self.skipped: list[tuple[str, str, str]] = []
+        self.runs: list[tuple[float, str, str]] = []  # (t, automation, event): protocol Addendum 20
+        self.skipped_at: list[float] = []  # when each `skipped` entry was made
         self._hub: list = []
         self._last: tuple | None = None  # the command being written down, and which of its parts we have seen
         self._parts: set[str] = set()
@@ -79,6 +83,7 @@ class TraceSession:
 
     def automation_skipped(self, automation: str, trigger: str, reason: str) -> None:
         self.skipped.append((automation, trigger, reason))
+        self.skipped_at.append(self.clock.now())
 
     def automation_command(self, automation: str, trigger: str, service: str, entity: str, twin_id: str,
                            feature: str, value) -> None:
@@ -95,6 +100,10 @@ class TraceSession:
             return
         self._last = None
         self.firings.append(Firing(self.clock.now(), automation, service, entity))
+
+    def automation_run(self, automation: str, trigger: str, event: str) -> None:
+        """The engine accepted a run of `automation` ("start") or ended one early ("cancel"; protocol Addendum 20)."""
+        self.runs.append((self.clock.now(), automation, event))
 
     def automation_branch(self, automation: str, step: int, option: int) -> None:
         """The engine took option `option` (-1: the default) of the automation's choose or if step `step`."""
@@ -174,7 +183,15 @@ def replay_detailed(home_yaml: Path, trace: Path, automations: dict[str, dict], 
     for t, label, step, option in session.branches:
         if DAY_S <= t < end and label in key_of:
             branches.setdefault(key_of[label], []).append((t, step, option))
-    return Replay(out, refused, approximations, start_states, branches)
+    runs: dict[str, list[tuple[float, str]]] = {}
+    for t, label, event in session.runs:
+        if DAY_S <= t < end and label in key_of:
+            runs.setdefault(key_of[label], []).append((t, event))
+    skipped: dict[str, list[tuple[float, str]]] = {}
+    for t, (label, _, reason) in zip(session.skipped_at, session.skipped, strict=True):
+        if DAY_S <= t < end and label in key_of:
+            skipped.setdefault(key_of[label], []).append((t, reason))
+    return Replay(out, refused, approximations, start_states, branches, runs, skipped)
 
 
 def replay(home_yaml: Path, trace: Path, automations: dict[str, dict], *, until: float | None = None,

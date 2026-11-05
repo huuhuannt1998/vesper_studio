@@ -379,11 +379,13 @@ def ha_automations(sample: list[str], bound: dict[str, dict], transform=None) ->
 
 
 def run_env(env: Env, sample: list[str], autos: dict, work: Path, scratch: Path, catalog_dir: str,
-            ha_python: Path, log=print, ha_transform=None) -> dict:
+            ha_python: Path, log=print, ha_transform=None, runs: bool = False) -> dict:
     """Both engines over one environment's cached trace: per automation, the comparison record, VESPER's and Home
     Assistant's oracle outcomes, the sweep's cached outcome (the reproduction check) and HA's notes.
     `ha_transform` (Addendum 15; default none): what Home Assistant is given instead of each bound automation (VESPER
-    always runs the bound automation itself)."""
+    always runs the bound automation itself). `runs` (Addendum 20; default off): each record also counts both
+    engines' run starts and cancellations over the judged window (`v_starts`, `h_starts`, `v_cancels`,
+    `h_cancels`)."""
     from vesper.edt.oracle import site_of
     from vesper.env.outdoor import RUN_DAYS
     home_yaml = work / "edt" / "home.yaml"
@@ -399,6 +401,8 @@ def run_env(env: Env, sample: list[str], autos: dict, work: Path, scratch: Path,
     log(f"{env.key}: VESPER {time.monotonic() - t:.1f} s, {len(inputs['stream'])} state changes")
     labelled, label_of = ha_automations(sample, bound, ha_transform)
     job = ha_job(_site_header(trace), inputs, labelled, end)
+    if runs:
+        job["info_messages"] = ["Restarting"]
     t = time.monotonic()
     out = run_ha(job, ha_python, scratch / env.key)
     log(f"{env.key}: Home Assistant {time.monotonic() - t:.1f} s ({out.get('wall_s')} s in the driver), "
@@ -433,6 +437,12 @@ def run_env(env: Env, sample: list[str], autos: dict, work: Path, scratch: Path,
                                and (cached.get("rich", {}).get(env.key) or {}).get("payload") == vr["payload"]))
         rec["v_firings"] = [[f.t, f.service, f.target] for f in _in(v, lo, hi)][:20]
         rec["h_firings"] = [[f.t, f.service, f.target] for f in _in(h, lo, hi)][:20]
+        if runs:
+            rec["v_starts"] = sum(ev == "start" and lo <= t < hi for t, ev in rep.runs.get(k, []))
+            rec["v_cancels"] = sum(ev == "cancel" and lo <= t < hi for t, ev in rep.runs.get(k, []))
+            rec["h_starts"] = sum(label_of.get(a) == k and lo <= t < hi for t, a, _ in out.get("triggered", []))
+            rec["h_cancels"] = sum(_log_owner(r, label_of) == k and lo <= r[0] < hi and "Restarting" in r[3]
+                                   for r in out.get("info", []))
         per[k] = rec
     sun_v = [[t, s] for t, e, s, _ in inputs["stream"] if e == "sun.sun"]
     return {"env": env.key, "per": per, "ha_version": out.get("ha_version"), "ha_wall_s": out.get("wall_s"),

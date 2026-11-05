@@ -393,3 +393,29 @@ def test_firings_keep_the_command_data_and_the_branch_taken(edt, trace4):
     morning, evening = r.firings["dim"][0].t, r.firings["dim"][1].t
     assert [(t, s, o) for t, s, o in r.branches["dim"] if t in (morning, evening)] == \
         [(morning, 0, -1), (morning, 1, -1), (evening, 0, 0)]
+
+
+def test_the_replay_records_each_accepted_run_in_the_judged_window(edt, trace4, tmp_path):
+    """Protocol Addendum 20: `Replay.runs` lists (t, event) per automation, days 1 and 2 only; a dropped trigger is no
+    run. A motion sensor turns on at 08:00:00 and 08:02:00 on days 0-2; a mode-single run holds for 300 s."""
+    from vesper.edt.replay import _home
+    from vesper.lab.automations import entity_ids
+    home, _ = _home(str(Path(edt[0]).resolve()), Path(edt[0]).stat().st_mtime_ns, str(Path("catalog/vds").resolve()))
+    motion = entity_ids(home)["office_motion"]["occupancy"]
+    twin = "zigbee:tuya:ih012-rt02@office_motion"
+    rows = []
+    for day in (0, 1, 2):
+        for at in (8 * 3600, 8 * 3600 + 120):
+            t = day * DAY + at
+            rows += [{"t": t, "twin_id": twin, "feature": "occupancy", "value": True, "observed_t": t},
+                     {"t": t + 10, "twin_id": twin, "feature": "occupancy", "value": False, "observed_t": t + 10}]
+    trace = synthetic(tmp_path, trace4, {"initial_state": {twin: {"occupancy": False}}}, rows)
+    hold = {"alias": "hold", "triggers": [{"trigger": "state", "entity_id": motion, "to": "on"}],
+            "actions": [{"action": "notify.x"}, {"delay": 300}, {"action": "notify.y"}]}
+    r = replay_detailed(edt[0], trace, {"hold": hold})
+    starts = [DAY + 8 * 3600 + 0.05, 2 * DAY + 8 * 3600 + 0.05]
+    assert [(round(t, 2), ev) for t, ev in r.runs["hold"]] == [(round(t, 2), "start") for t in starts]
+    assert len(r.firings["hold"]) == 4
+    assert [(round(t, 2), why) for t, why in r.skipped["hold"]] == [
+        (round(t + 120, 2), "already running (mode single)") for t in starts]
+    assert Replay({}).runs == {} and Replay({}).skipped == {}

@@ -34,8 +34,9 @@ YAML the harness has no file for would end its run), "automations": [...],
 "initial": {entity_id: [state, attrs]}, "stream": [[t, entity_id, state, attrs], ...] (sorted by t)}. Output (JSON):
 {"calls": [[t, alias, domain, service, [entity ids], data, nested, parent service, refused]], "triggered": [[t, alias,
 source]], "unavailable": [alias], "sun": [[t, sun.sun state]], "log": [[t, level, logger, message]], "ha_version",
-"wall_s", "error" (only when it failed)}. A call's alias is the automation whose run made it (by its context); None
-for a call no automation made. `refused`: None, or why the service raised.
+"wall_s", "error" (only when it failed), "info" (only when the job lists "info_messages": the automations' INFO lines
+containing one of them, [[t, level, logger, message]]; Addendum 20)}. A call's alias is the automation whose run made
+it (by its context); None for a call no automation made. `refused`: None, or why the service raised.
 """
 from __future__ import annotations
 
@@ -165,6 +166,25 @@ class _LogCapture(logging.Handler):
         self.out.append([round(_CLOCK["vt"], 3), record.levelname, record.name, msg[:500]])
 
 
+class _InfoCapture(logging.Handler):
+    """Protocol Addendum 20: the automations' INFO lines that contain one of `wanted` ("Restarting": a `restart`
+    automation stopping its run under way), only when the job asks for them."""
+
+    def __init__(self, out: list, wanted: list[str]):
+        super().__init__(logging.INFO)
+        self.out, self.wanted = out, wanted
+
+    def emit(self, record):
+        if record.levelno != logging.INFO:
+            return
+        try:
+            msg = record.getMessage()
+        except Exception:  # noqa: BLE001
+            msg = str(record.msg)
+        if any(w in msg for w in self.wanted):
+            self.out.append([round(_CLOCK["vt"], 3), record.levelname, record.name, msg[:500]])
+
+
 async def _run(job: dict, out: dict) -> None:
     from homeassistant import bootstrap, config_entries, core, loader
     from homeassistant.core_config import async_process_ha_core_config
@@ -278,6 +298,11 @@ def main(argv: list[str]) -> int:
     out = {"calls": [], "triggered": [], "unavailable": [], "log": [], "sun": [], "ha_version": __version__}
     logging.getLogger().addHandler(_LogCapture(out["log"]))
     logging.getLogger().setLevel(logging.WARNING)
+    if job.get("info_messages"):  # Addendum 20; absent, the driver is unchanged
+        out["info"] = []
+        automation_logger = logging.getLogger("homeassistant.components.automation")
+        automation_logger.setLevel(logging.INFO)
+        automation_logger.addHandler(_InfoCapture(out["info"], list(job["info_messages"])))
     t = _REAL_TIME()
     loop = VirtualLoop()
     asyncio.set_event_loop(loop)
