@@ -260,7 +260,7 @@ def compose_home(request: dict, catalog: dict, out: Path) -> dict:
 
 
 HOME_FILES = ("home.yaml", "map.json", "request.yaml", "scene.glb", "map.original.json", "dress", "render.json",
-              "openings.json", "furniture.json", "windows.json", "plan.json")
+              "openings.json", "furniture.json", "windows.json", "plan.json", "scan.json", "source", ".gitignore")
 
 
 def _file_name(name: str | None) -> str | None:
