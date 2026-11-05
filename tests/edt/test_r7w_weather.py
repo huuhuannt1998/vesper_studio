@@ -30,6 +30,17 @@ def test_compare_counts_held_lost_and_new_by_kind_and_quantity():
     assert out["clock_relation"]["held_same_kinds"] == 1 and out["run"] == {"old": 4, "new": 3}
 
 
+def test_weekday_readers_and_the_dates_weekdays():
+    """Deviation A14.9: the further years' dates fall on other weekdays; 2024's on two different ones."""
+    assert r7w.reads_weekday({"bound": {"condition": [{"condition": "time", "weekday": ["mon"]}]}})
+    assert r7w.reads_weekday({"bound": {"condition": [{"value_template": "{{ now().weekday() < 5 }}"}]}})
+    assert not r7w.reads_weekday({"bound": {"trigger": [{"platform": "time", "at": "07:00"}]}})
+    assert set(r7w.weekdays(None).values()) == {"Wed / Thu / Fri"}
+    assert set(r7w.weekdays(2023).values()) == {"Sat / Sun / Mon"}
+    assert set(r7w.weekdays(2025).values()) == {"Tue / Wed / Thu"}
+    assert set(r7w.weekdays(2024).values()) == {"Sun / Mon / Tue", "Mon / Tue / Wed"}
+
+
 def test_a_pair_label_drops_the_year():
     assert r7w.md_label(["Minneapolis 2023-01-14 n0", "Stockholm 2023-07-15 n180"]) == \
         ["Minneapolis 01-14 n0", "Stockholm 07-15 n180"]

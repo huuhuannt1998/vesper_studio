@@ -231,7 +231,13 @@ def setback_summary(scratch: Path, year: int, names: dict) -> dict | None:
     hit = [r for r in rows if r["caused"]]
     coldest = sorted(r["coldest_caused_room_c"] for r in hit)
     out_air = _outdoor_core(s["envs"], Path(s["cache"]))
+    commanded = [r for r in rows if r["setback_h"]]
     return {"year": year, "breaching_runs": len(hit), "denominator": len(rows),
+            # deviation A14.9 (dated 2026-11-05, after the runs): the runs whose automation commanded its setback
+            # in the measured days at all (weather-independent), and how many of those breach
+            "runs_with_setback_in_window": len(commanded),
+            "breaching_among_commanded": sum(1 for r in commanded if r["caused"]),
+            "automations_commanding_a_setback": len({r["automation"] for r in commanded}),
             "automations": len({r["automation"] for r in hit}),
             "by_env": dict(sorted(Counter(r["env"] for r in hit).items())),
             "by_city": dict(sorted(Counter(r["city"] for r in hit).items())),
@@ -452,6 +458,41 @@ def cover_pair(result: dict) -> dict:
             for name in ("clock_relation", "frame_relation")}
 
 
+def reads_weekday(a: dict | None) -> bool:
+    """Deviation A14.9 (dated 2026-11-05, after the runs): whether a bound automation reads the day of the week (a
+    time condition's `weekday`, or a template's weekday()/isoweekday()), by a text match."""
+    text = json.dumps((a or {}).get("bound"), sort_keys=True)
+    return '"weekday"' in text or "weekday()" in text
+
+
+def weekdays(year: int | None) -> dict[str, str]:
+    """Each date's weekday and those of its measured days (days 1 and 2)."""
+    from vesper.edt.trace import DATES
+    out = {}
+    for d in DATES:
+        day = dt.date.fromisoformat(d if year is None else f"{year}{d[4:]}")
+        out[day.isoformat()] = " / ".join((day + dt.timedelta(days=k)).strftime("%a") for k in range(3))
+    return out
+
+
+def weekday_split(old: dict, new: dict) -> dict:
+    """Deviation A14.9: new and lost flags (both relations) and the negative control's flags, by whether the
+    automation reads the weekday."""
+    ro, rn = ran(old), ran(new)
+    out = {}
+    for name, key in (("clock_relation", CLOCK_KEY), ("frame_relation", FRAME_KEY)):
+        fo, fn = flags(ro, key), flags(rn, key)
+        new_ = [i for i in fn if i not in fo]
+        lost = [i for i in fo if i not in fn]
+        out[name] = {"new_reading_weekday": sum(reads_weekday(rn[i]) for i in new_), "new": len(new_),
+                     "lost_reading_weekday": sum(reads_weekday(ro[i]) for i in lost), "lost": len(lost)}
+    nc = [a for a in rn.values() if a.get("negative_control") and a.get(CLOCK_KEY)]
+    out["negative_control_flagged_reading_weekday"] = sum(reads_weekday(a) for a in nc)
+    out["negative_control_flagged"] = len(nc)
+    out["run_reading_weekday"] = sum(reads_weekday(a) for a in rn.values())
+    return out
+
+
 def summary(result: dict) -> dict:
     y, nc = result["yield"], result["negative_control"]
     return {"bound": y["bound"], "run": y["run"], "failed_envs": len(result.get("failed_envs") or {}),
@@ -572,6 +613,7 @@ def report(a, scratch: Path, lab: Path) -> None:
             if i in fc:
                 clock_held[i].append(y)
         years[str(y)] = {"sweep_commit": p.stem.split("-")[-1], "summary": summary(s),
+                         "weekdays": weekdays(y), "weekday_split": weekday_split(old, s),
                          "against_published": compare(old, s),
                          "orientation_witnesses_against_published": witness_report(old, s, old_w),
                          "cover_pair": cover_pair(s)}
@@ -587,6 +629,9 @@ def report(a, scratch: Path, lab: Path) -> None:
             "flagged_in_no_year": sum(1 for v in held.values() if not v),
             "flagged_in_k_years": dict(sorted(Counter(len(v) for v in held.values()).items())),
             "same_kinds_in_every_year": sum(1 for v in held_same.values() if len(v) == ny),
+            # deviation A14.9: 2023's and 2025's dates share one weekday each (as 2026's), 2024's do not
+            "flagged_in_2023_and_2025": sum(1 for v in held.values() if 2023 in v and 2025 in v),
+            "reading_weekday": sum(reads_weekday(old["automations"][i]) for i in base199),
             "by_kind_held_in_every_year": dict(sorted(Counter(k for i, v in held.items() if len(v) == ny
                                                               for k in base199[i]).items())),
             "by_kind_held_in_no_year": dict(sorted(Counter(k for i, v in held.items() if not v
@@ -600,10 +645,13 @@ def report(a, scratch: Path, lab: Path) -> None:
             "flagged_in_some_year": sum(1 for v in clock_held.values() if v)}
     d = r4b.load(lab, "120f4ca")
     names = d["names"]
+    pop_weekday = sum(reads_weekday(d["run"][aid]) for aid in d["pop"])
     del d
     gc.collect()
     out["setback"] = {str(y): setback_summary(scratch, y, names) for y in (RECORDED_YEAR, *YEARS)}
     out["setback"]["published_r2c_nominal"] = 53
+    out["setback"]["population_reading_weekday"] = pop_weekday
+    out["weekdays"] = {str(y): weekdays(y) for y in (RECORDED_YEAR, *YEARS)}
     kh = {}
     for name in KHAT_SETTINGS:
         p = scratch / f"khat-{name}.json"
