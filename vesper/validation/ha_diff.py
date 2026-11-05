@@ -362,6 +362,22 @@ def outcome_pair(v: list[Firing], h: list[Firing], site) -> tuple:
 
 # ---- one environment ------------------------------------------------------------------------------------------------
 
+def ha_automations(sample: list[str], bound: dict[str, dict], transform=None) -> tuple[list[dict], dict[str, str]]:
+    """What Home Assistant is given: each bound automation (or `transform` of it) under the replay's label as its
+    alias, and the label -> automation map. An `id` an earlier automation already has gets a suffix (Addendum 15,
+    A15.11): Home Assistant's entity registry would otherwise create only the first."""
+    labelled, label_of, seen = [], {}, set()
+    for i, k in enumerate(sample):
+        label_of[f"edt:{i}"] = k
+        a = {**(bound[k] if transform is None else transform(bound[k])), "alias": f"edt:{i}"}
+        if "id" in a:
+            if str(a["id"]) in seen:
+                a["id"] = f"{a['id']}_edt{i}"
+            seen.add(str(a["id"]))
+        labelled.append(a)
+    return labelled, label_of
+
+
 def run_env(env: Env, sample: list[str], autos: dict, work: Path, scratch: Path, catalog_dir: str,
             ha_python: Path, log=print, ha_transform=None) -> dict:
     """Both engines over one environment's cached trace: per automation, the comparison record, VESPER's and Home
@@ -381,10 +397,7 @@ def run_env(env: Env, sample: list[str], autos: dict, work: Path, scratch: Path,
     bound = {k: autos[k]["bound"] for k in sample}
     rep = vesper_firings(home_yaml, trace, bound, catalog_dir)
     log(f"{env.key}: VESPER {time.monotonic() - t:.1f} s, {len(inputs['stream'])} state changes")
-    labelled, label_of = [], {}
-    for i, k in enumerate(sample):
-        label_of[f"edt:{i}"] = k
-        labelled.append({**(bound[k] if ha_transform is None else ha_transform(bound[k])), "alias": f"edt:{i}"})
+    labelled, label_of = ha_automations(sample, bound, ha_transform)
     job = ha_job(_site_header(trace), inputs, labelled, end)
     t = time.monotonic()
     out = run_ha(job, ha_python, scratch / env.key)

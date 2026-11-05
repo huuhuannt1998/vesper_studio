@@ -245,3 +245,15 @@ def test_the_driver_runs_home_assistant_on_the_virtual_clock(tmp_path):
     assert "edt:4" not in by  # initial_state off: never runs
     states = [s for _, s in out["sun"]]
     assert "below_horizon" in states and "above_horizon" in states
+
+
+def test_home_assistant_gets_unique_ids_and_the_replays_labels():
+    bound = {"a": {"id": "x", "trigger": []}, "b": {"id": "x", "trigger": []}, "c": {"trigger": []},
+             "d": {"id": 7, "trigger": []}}
+    labelled, label_of = ha_diff.ha_automations(["a", "b", "c", "d"], bound)
+    assert [x["alias"] for x in labelled] == ["edt:0", "edt:1", "edt:2", "edt:3"]
+    assert label_of == {"edt:0": "a", "edt:1": "b", "edt:2": "c", "edt:3": "d"}
+    assert [x.get("id") for x in labelled] == ["x", "x_edt1", None, 7]  # only a duplicate is renamed
+    assert bound["b"]["id"] == "x"
+    lab, _ = ha_diff.ha_automations(["a"], bound, transform=lambda b: {k: v for k, v in b.items() if k != "id"})
+    assert "id" not in lab[0]

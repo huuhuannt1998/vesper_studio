@@ -121,9 +121,10 @@ def vesper_reading(bound: dict) -> dict:
 
 def classify(p: dict, bound: dict, reading: dict | None, fixed: dict | None, fix: str = "") -> tuple[str, str]:
     """(class, cause) of one discrepant pair (A15.6), in order: the fixed engine agrees (an engine bug, `fix`);
-    Home Assistant given VESPER's reading agrees (HA semantics VESPER lacks, named by the key); then Addendum 10's
-    rules (`ha_diff.classify` without a fixed engine; its sub-second-offset rule only where the first firings differ,
-    by under a second); else unexplained."""
+    Home Assistant given VESPER's reading agrees (HA semantics VESPER lacks, named by the key); Home Assistant failed
+    to render the data of calls VESPER only records (A15.11(2)); then Addendum 10's rules (`ha_diff.classify`
+    without a fixed engine; its sub-second-offset rule only where the first firings differ, by under a second);
+    else unexplained."""
     if fixed is not None and not discrepant(fixed):
         return "engine bug", fix or "resolved by the engine fix"
     if reading is not None and not discrepant(reading):
@@ -134,6 +135,10 @@ def classify(p: dict, bound: dict, reading: dict | None, fixed: dict | None, fix
         if "initial_state:off" in feats:
             return "HA semantics VESPER lacks", "initial_state off: Home Assistant never runs it"
         return "HA semantics VESPER lacks", "a key VESPER ignores (max, max_exceeded, initial_state on)"
+    only_v = p.get("calls_only_v") or []
+    if ("Error rendering data template" in ha_diff._notes_text(p) and only_v
+            and all(str(s).split(".", 1)[0] not in ha_diff.HA_SERVICES for s, _ in only_v)):  # A15.11(2)
+        return "HA semantics VESPER lacks", "permissive replay records a call without rendering its data"
     cls, cause = ha_diff.classify(p, bound, None)
     if cause.startswith("the 50-500 ms") and not p["delta_s"]:
         return "unexplained", ""  # the offset moves a first firing: with none moved, it is not the cause

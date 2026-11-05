@@ -84,6 +84,13 @@ def test_classes_add_the_reading_rule_before_addendum_10s():
     assert ha_semantics.classify(p, plain, reading=p, fixed=None) == ("unexplained", "")
     sub = _pair(delta_s=-0.26, v_count=8, h_count=4)
     assert ha_semantics.classify(sub, plain, reading=sub, fixed=None)[1].startswith("the 50-500")
+    # A15.11(2): a template error in the data of a call VESPER only records
+    err = [[0, "ERROR", "x", "edt:3: Error executing script. Error rendering data template: IndexError"]]
+    rec = _pair(h_fired=False, delta_s=None, calls_equal=False, calls_only_v=[["script.x", ""]], notes=err)
+    assert ha_semantics.classify(rec, plain, reading=rec, fixed=None) == \
+        ("HA semantics VESPER lacks", "permissive replay records a call without rendering its data")
+    twin = {**rec, "calls_only_v": [["script.x", ""], ["light.turn_on", "light.y"]]}
+    assert ha_semantics.classify(twin, plain, reading=twin, fixed=None) == ("unexplained", "")
 
 
 def test_oracle_components_agree_or_not_per_pair():
