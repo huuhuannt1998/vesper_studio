@@ -127,6 +127,22 @@ def test_a_rule_the_scan_s_furniture_alone_breaks_is_a_warning_and_one_ours_brea
                for f in report["findings"])
 
 
+def test_a_scanned_piece_faces_away_from_the_wall_its_back_stands_against(tmp_path):
+    """RoomPlan's object front is its +z (a bed's head, a wardrobe's back are its -z end, against a wall): the
+    view's front, (cos facing, sin facing), points into the room. The fixture's bed has its head on the north wall
+    (z = 0), its wardrobe its back on the east wall (x = 8.5)."""
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "scan"
+    assert cli.main(["lab", "import", str(write(tmp_path, fixture())), str(out), "--catalog", str(cat)]) == 0
+    got = {i["kind"]: i for i in items(out)}
+
+    def front(item):
+        t = math.radians(item["facing"])
+        return round(math.cos(t), 6) + 0.0, round(math.sin(t), 6) + 0.0
+    assert front(got["bed"]) == (0.0, 1.0)  # south, away from the north wall
+    assert front(got["cabinet"]) == (-1.0, 0.0)  # west, away from the east wall
+
+
 def test_built_in_furniture_goes_only_into_rooms_the_scan_has_no_objects_in(tmp_path):
     cat, _ = setup(tmp_path)
     raw = fixture()
@@ -192,34 +208,86 @@ def test_a_scan_takes_no_pixel_scale_and_types_must_match_its_rooms(tmp_path, ca
 
 # --- a RoomPlan USDZ ---------------------------------------------------------------------------------------------
 
-def test_a_mesh_export_usdz_beside_its_json_reads_the_json_and_says_so(tmp_path, capsys):
+def assert_view_on_the_plan(out: Path, floor=(-0.05, 0.05)):
+    """scene.glb's nodes stand on the home's rooms (their outline, walls drawn about it), its floor at 0, with no
+    RoomPlan door in it (VESPER draws the doors)."""
+    from vesper.lab.layoutcheck import glb_boxes
+    plan = json.loads((out / "plan.json").read_text())
+    xs = [p[0] for r in plan["rooms"] for p in r["polygon"]]
+    zs = [p[1] for r in plan["rooms"] for p in r["polygon"]]
+    boxes = glb_boxes(out / "scene.glb")
+    assert boxes and not any(n.startswith(("Door", "Opening")) for n, _ in boxes)
+    for name, (x0, y0, z0, x1, y1, z1) in boxes:
+        assert min(xs) - 0.25 <= x0 <= x1 <= max(xs) + 0.25 and min(zs) - 0.25 <= z0 <= z1 <= max(zs) + 0.25, name
+    floors = [b for n, b in boxes if n.startswith("Floor")]  # the floor's top (its slab drawn below it) at 0
+    assert floor[0] <= (max(b[4] for b in floors) if floors else min(b[1] for _, b in boxes)) <= floor[1]
+    return boxes
+
+
+def phone_export(tmp_path, export="mesh", with_json=True) -> Path:
+    """B1's fixture as a RoomPlan app writes it: room.usdz (mesh export) or room_p.usdz, and room.json beside."""
     pytest.importorskip("pxr")
+    pytest.importorskip("trimesh")
     from tests.lab.test_scan_usd import usdz, write_usd
-    cat, _ = setup(tmp_path)
     folder = tmp_path / "phone"
-    folder.mkdir()
-    given = usdz(write_usd(fixture(), folder / "room.usda", export="mesh"))
-    write(folder, fixture(), "room.json")
+    folder.mkdir(exist_ok=True)
+    given = usdz(write_usd(fixture(), folder / ("room.usda" if export == "mesh" else "room_p.usda"), export=export))
+    if with_json:
+        write(folder, fixture(), "room.json")
+    return given
+
+
+def test_a_mesh_export_usdz_beside_its_json_reads_the_json_and_draws_the_export(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    given = phone_export(tmp_path)
     out = tmp_path / "scan"
     assert cli.main(["lab", "import", str(given), str(out), "--catalog", str(cat)]) == 0
     said = capsys.readouterr().out
     assert "room.usdz is RoomPlan's mesh export" in said and "room.json beside it is read instead" in said
-    assert json.loads((out / "scan.json").read_text())["kind"] == "roomplan-json"
+    prov = json.loads((out / "scan.json").read_text())
+    assert prov["kind"] == "roomplan-json" and prov["scene"] == "scene.glb"
     assert {p.name for p in (out / "source").iterdir()} == {"room.usdz", "room.json"}
+    names = {n for n, _ in assert_view_on_the_plan(out)}
+    assert {"Wall0", "Window0"} <= names and any(n.startswith("Bed") for n in names)
+    assert [i["source"] for i in items(out)] == ["scan"] * 3  # with the scan drawn, no built-in furniture
 
 
-def test_a_parametric_usdz_imports_and_keeps_the_built_in_view(tmp_path, capsys):
-    pytest.importorskip("pxr")
-    from tests.lab.test_scan_usd import usdz, write_usd
+def test_a_roomplan_json_with_its_mesh_export_beside_is_drawn_by_it(tmp_path, capsys):
     cat, _ = setup(tmp_path)
-    given = usdz(write_usd(fixture(), tmp_path / "room_p.usda", export="parametric"))
+    phone_export(tmp_path)
+    out = tmp_path / "scan"
+    assert cli.main(["lab", "import", str(tmp_path / "phone" / "room.json"), str(out), "--catalog", str(cat)]) == 0
+    assert "3D view:" in capsys.readouterr().out
+    assert_view_on_the_plan(out)
+    cat2 = tmp_path / "alone"
+    cat2.mkdir()
+    write(cat2, fixture(), "room.json")  # a JSON alone: no geometry, VESPER draws the home, and nothing to say
+    assert cli.main(["lab", "import", str(cat2 / "room.json"), str(tmp_path / "plain"), "--catalog", str(cat)]) == 0
+    assert "scene.glb is left out" not in capsys.readouterr().out and not (tmp_path / "plain" / "scene.glb").exists()
+
+
+def test_a_parametric_usdz_alone_is_drawn_from_its_boxes(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    given = phone_export(tmp_path, export="parametric", with_json=False)
     out = tmp_path / "scan"
     assert cli.main(["lab", "import", str(given), str(out), "--catalog", str(cat)]) == 0
-    said = capsys.readouterr().out
-    assert "2 rooms (living, bedroom)" in said
-    assert "warning: scene.glb is left out" in said  # trimesh reads no USD: VESPER draws the home
-    assert not (out / "scene.glb").exists() and (out / "source" / "room_p.usdz").is_file()
+    assert "2 rooms (living, bedroom)" in capsys.readouterr().out
+    assert_view_on_the_plan(out)
+    assert (out / "source" / "room_p.usdz").is_file()
     assert sorted(i["kind"] for i in items(out)) == ["bed", "cabinet", "sofa"]
+
+
+def test_without_usd_core_a_usdz_is_built_with_vesper_s_view_and_says_so(tmp_path, capsys, monkeypatch):
+    cat, _ = setup(tmp_path)
+    phone_export(tmp_path)
+    import importlib.util
+    real = importlib.util.find_spec
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name, *a: None if name == "pxr" else real(name, *a))
+    out = tmp_path / "scan"
+    assert cli.main(["lab", "import", str(tmp_path / "phone" / "room.json"), str(out), "--catalog", str(cat)]) == 0
+    assert "warning: scene.glb is left out: making the 3D view from the USDZ needs usd-core" in \
+        capsys.readouterr().out
+    assert not (out / "scene.glb").exists()
 
 
 # --- any mesh ----------------------------------------------------------------------------------------------------
@@ -347,3 +415,12 @@ def test_the_darwin_bedroom_imports_its_doors_kept_clear_of_its_stepped_wall_s_c
     assert "stands by a corner where its room's wall turns out past it" in capsys.readouterr().out
     home = load_lab_home(out / "home.yaml", load_catalog(cat))
     assert {r.id for r in home.map.rooms} == {"bedroom", "porch", "porch_2"}
+    # the real bed faces into the room: its head (its back, -front) is at a wall, its foot is not
+    from vesper.lab.generate import _edges, _gap
+    ring = [tuple(p) for p in home.map.room("bedroom").polygon]
+    bed = next(i for i in items(out) if i["kind"] == "bed")
+    f = (math.cos(math.radians(bed["facing"])), math.sin(math.radians(bed["facing"])))
+    head = (bed["x"] - f[0] * bed["d"] / 2, bed["z"] - f[1] * bed["d"] / 2)
+    foot = (bed["x"] + f[0] * bed["d"] / 2, bed["z"] + f[1] * bed["d"] / 2)
+    to_wall = lambda p: min(_gap(e, p) for e in _edges(ring))  # noqa: E731
+    assert to_wall(head) < 0.2 < to_wall(foot)

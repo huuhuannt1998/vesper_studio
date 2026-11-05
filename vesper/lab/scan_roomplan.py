@@ -63,11 +63,13 @@ class ScanError(PlanError):
 class ScanWarnings(list):
     """The warnings (sentences), and `heights`: {"doors": [...], "windows": [...]}, one {"bottom", "top"} (metres
     from the floor) per door and window of the plan, in the plan's order. `load_plan` takes no other keys on a door or
-    window, so the heights travel here. (`rectify` may leave doors or windows out; their heights stay in this order.)"""
+    window, so the heights travel here. (`rectify` may leave doors or windows out; their heights stay in this order.)
+    `floor_y`: the floor's height in the scan's own frame (y up, metres), where the plan's heights start."""
 
     def __init__(self, items=(), heights: dict | None = None):
         super().__init__(items)
         self.heights = heights if heights is not None else {"doors": [], "windows": []}
+        self.floor_y: float | None = None
 
 
 # --- the RoomPlan file -------------------------------------------------------------------------------------------
@@ -186,6 +188,7 @@ def read_roomplan_json(raw: dict) -> tuple[dict, list[dict], list[str]]:
     plan, pieces, more = plan_from_parts(walls, openings("doors"), openings("windows"), openings("openings"), secs,
                                          objects)
     more[:0] = warnings
+    more.floor_y = floor_y
     return plan, pieces, more
 
 

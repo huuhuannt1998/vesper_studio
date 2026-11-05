@@ -1168,9 +1168,10 @@ def _lab_import_scan(args, catalog, src: Path, out: Path) -> int:
         model = None
         if scan.model is not None:
             model = {"path": scan.model, "transform": scan.meta["transform"]}
-        elif src.suffix.lower() == ".usdz":
-            warnings.append("scene.glb is left out: trimesh reads no USDZ, so VESPER draws the home from its plan "
-                            "(the scan is kept in source/)")
+        elif src.suffix.lower() == ".usdz" or any(src.parent.glob(f"{src.stem.removesuffix('_p')}*.usdz")):
+            from vesper.lab.scan_roomplan import EXTRA
+            warnings.append(f"scene.glb is left out: making the 3D view from the USDZ needs usd-core and trimesh "
+                            f"({EXTRA}), so VESPER draws the home from its plan")
         for w in warnings:
             print(f"warning: {w}", flush=True)
         if problems:

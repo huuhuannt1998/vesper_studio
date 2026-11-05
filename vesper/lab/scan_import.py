@@ -57,11 +57,26 @@ def is_roomplan(raw) -> bool:
 def _usdz_is_mesh_export(path: Path) -> bool | None:
     """Whether a USDZ is RoomPlan's mesh export (no parametric group), or None when that cannot be told (usd-core
     missing, the file unreadable or not RoomPlan's): the reader then says what is wrong."""
-    try:
-        from vesper.lab.scan_usd import _open, _source
-        return _source(_open(path))[1]
-    except (ScanError, ImportError):
-        return None
+    from vesper.lab.scan_usd import is_mesh_export
+    return is_mesh_export(path)
+
+
+def _can_draw() -> bool:
+    """usd-core, trimesh and numpy are installed: a RoomPlan USDZ can become the home's 3D view."""
+    import importlib.util
+    return all(importlib.util.find_spec(m) is not None for m in ("pxr", "trimesh", "numpy"))
+
+
+def view_file(src: Path) -> Path | None:
+    """The RoomPlan export the home's 3D view is made from: the mesh export (RoomPlan's own meshes of the walls, with
+    the windows cut into them, and of the objects) when `src` is one or one lies beside it as `<stem>.usdz`, else
+    the parametric export (`src`, or `<stem>_p.usdz` beside it); None when there is neither (a JSON alone) or
+    usd-core cannot tell. A RoomPlan app writes its JSON and USDZ of one capture in one frame."""
+    stem = src.stem[:-2] if src.stem.endswith("_p") else src.stem
+    found = [f for f in dict.fromkeys([src, src.with_name(f"{stem}.usdz"), src.with_name(f"{stem}_p.usdz")])
+             if f.suffix.lower() == ".usdz" and f.is_file()]
+    kinds = {f: _usdz_is_mesh_export(f) for f in found}
+    return next((f for f in found if kinds[f] is True), next((f for f in found if kinds[f] is False), None))
 
 
 def choose(src: Path) -> tuple[Path, str | None]:
@@ -123,7 +138,15 @@ def read_scan(src: Path, scale: float | None = None) -> Scan:
         plan, pieces, warnings = read_roomplan_usdz(read)
         kind = "roomplan-usdz"
     heights = getattr(warnings, "heights", None) or {"doors": [], "windows": []}
-    return Scan(kind, read, src, plan, pieces, list(warnings), heights, notes=[note] if note else [])
+    scan = Scan(kind, read, src, plan, pieces, list(warnings), heights, notes=[note] if note else [])
+    view = view_file(src) if _can_draw() else None
+    floor_y = getattr(warnings, "floor_y", None)
+    if view is not None and floor_y is not None:  # the export in the plan as read: its floor at 0
+        scan.model = view
+        scan.meta = {"up": "y", "scale": 1.0, "floor_y": round(float(floor_y), 4), "ceiling_y": None,
+                     "transform": [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, -float(floor_y)], [0.0, 0.0, 1.0, 0.0],
+                                   [0.0, 0.0, 0.0, 1.0]]}
+    return scan
 
 
 def set_types(plan: dict, types: list[str]) -> None:
@@ -172,8 +195,14 @@ def model_matrix(transform, turn: dict) -> list[list[float]]:
 def furniture_items(pieces: list[dict], turn: dict, rooms: dict[str, str]) -> list[dict]:
     """The scan's pieces as furniture.json items in the rectified plan's frame, `source: scan`. Each centre turns
     with the plan and its yaw takes the same angle; a piece within SNAP_DEG of the walls' directions stands square to
-    them. `facing` is the view's (furnishing.py: the width runs along (sin f, -cos f)), so facing = yaw + 90; `box`
-    is the turned footprint's bounding box. `rooms`: the plan's room ids to the home's (generate.typed_ids)."""
+    them. `box` is the turned footprint's bounding box. `rooms`: the plan's room ids to the home's
+    (generate.typed_ids).
+
+    `facing` is the view's: a model's front is its +z, turned so its width runs along (sin f, -cos f) and its front
+    along (cos f, sin f) (furniture3d.js, devices3d.js facingYaw). A RoomPlan object's front is its own +z: in the
+    three LiteReality scans every bed's, sofa's, cabinet's and sink's -z end stands against a wall (0.00-0.24 m from
+    one) and most chairs' +z points at the nearest table. Its width runs along (cos yaw, sin yaw), so its front along
+    (-sin yaw, cos yaw): facing = yaw + 90."""
     out = []
     for p in pieces:
         x0, z0, x1, z1 = p["box"]
@@ -197,6 +226,15 @@ def furniture_items(pieces: list[dict], turn: dict, rooms: dict[str, str]) -> li
 # --- the model and the original --------------------------------------------------------------------------------
 
 def write_model(src: Path, matrix, out: Path) -> None:
+    """The model at `src` (a mesh, or a RoomPlan USDZ) moved by `matrix` into the home's frame, as `out` (GLB)."""
+    if Path(src).suffix.lower() == ".usdz":
+        from vesper.lab.scan_usd import write_glb
+        write_glb(Path(src), out, matrix)
+        return
+    _write_mesh(src, matrix, out)
+
+
+def _write_mesh(src: Path, matrix, out: Path) -> None:
     """The model at `src` (with its materials) moved by `matrix` (row-major 4x4, on column vectors) into the home's
     frame and written as a glTF binary at `out`. The move is baked into every node's vertices (each node then has no
     transform of its own), so the file's boxes are its geometry's boxes in the home's frame (layoutcheck.glb_boxes)."""

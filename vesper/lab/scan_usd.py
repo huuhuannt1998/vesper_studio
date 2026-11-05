@@ -225,4 +225,82 @@ def read_roomplan_usdz(path: Path) -> tuple[dict, list[dict], list[str]]:
     plan, pieces, more = plan_from_parts(walls, elements("doors"), elements("windows"), elements("openings"),
                                          sections, objects)
     more[:0] = warnings  # a ScanWarnings: the doors' and windows' heights travel in it
+    more.floor_y = floor_y
     return plan, pieces, more
+
+
+# --- the export as the home's 3D view ----------------------------------------------------------------------------
+
+LEFT_TO_VESPER = re.compile(r"^(Door|Opening)\d+$")  # VESPER draws its own doors (they open and close)
+
+
+def is_mesh_export(path: Path) -> bool | None:
+    """Whether a USDZ is RoomPlan's mesh export (no parametric group): True, False, or None when that cannot be told
+    (usd-core missing, the file unreadable or not RoomPlan's)."""
+    try:
+        return _source(_open(Path(path)))[1]
+    except (ScanError, ImportError):
+        return None
+
+
+def write_glb(path: Path, out: Path, matrix) -> int:
+    """The export's geometry (each mesh, or each cube of the parametric export) in the stage's frame turned to y up
+    and metres, moved by `matrix` (row-major 4x4 on column vectors: the stage to the home), written as a glTF binary
+    at `out`, each prim one node coloured by its displayColor (and displayOpacity). RoomPlan's doors and openings are
+    left out: VESPER draws its own doors, which open. Returns how many prims were drawn; a ScanError when none is."""
+    Gf, Usd, UsdGeom = _pxr()
+    try:
+        import numpy as np
+        import trimesh
+    except ImportError as e:
+        raise ScanError(f"writing the 3D view needs trimesh and numpy: {EXTRA}") from e
+    stage = _open(Path(path))
+    fix, time = _correction(stage), Usd.TimeCode.Default()
+    m = np.asarray(matrix, dtype=np.float64)
+    scene = trimesh.Scene()
+    names: set[str] = set()
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdGeom.Gprim) or LEFT_TO_VESPER.match(prim.GetName()):
+            continue
+        img = UsdGeom.Imageable(prim)
+        if img.ComputeVisibility(time) == UsdGeom.Tokens.invisible or img.ComputePurpose() == UsdGeom.Tokens.guide:
+            continue
+        if prim.IsA(UsdGeom.Mesh):
+            mesh = UsdGeom.Mesh(prim)
+            pts = np.asarray(mesh.GetPointsAttr().Get(time) or [], dtype=np.float64).reshape(-1, 3)
+            counts = list(mesh.GetFaceVertexCountsAttr().Get(time) or [])
+            idx = list(mesh.GetFaceVertexIndicesAttr().Get(time) or [])
+            faces, at = [], 0
+            for n in counts:  # each polygon as a fan of triangles
+                faces += [[idx[at], idx[at + i], idx[at + i + 1]] for i in range(1, n - 1)]
+                at += n
+        elif prim.IsA(UsdGeom.Cube):
+            size = UsdGeom.Cube(prim).GetSizeAttr().Get(time) or 2.0
+            box = trimesh.creation.box(extents=[size] * 3)
+            pts, faces = np.asarray(box.vertices, dtype=np.float64), box.faces.tolist()
+        else:
+            continue
+        if not faces or not len(pts):
+            continue
+        world = np.asarray(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(time) * fix, dtype=np.float64)
+        v = np.c_[pts, np.ones(len(pts))] @ world  # USD's row vectors
+        v = (np.c_[v[:, :3], np.ones(len(v))] @ m.T)[:, :3]
+        if np.linalg.det(world[:3, :3] @ m[:3, :3].T) < 0:  # a mirroring transform: keep the faces outward
+            faces = [f[::-1] for f in faces]
+        tri = trimesh.Trimesh(vertices=v, faces=np.asarray(faces), process=False)
+        pv = UsdGeom.PrimvarsAPI(prim)
+        color = pv.GetPrimvar("displayColor").Get(time) if pv.HasPrimvar("displayColor") else None
+        alpha = pv.GetPrimvar("displayOpacity").Get(time) if pv.HasPrimvar("displayOpacity") else None
+        rgb = [float(c) for c in color[0]] if color else [0.85, 0.85, 0.85]
+        a = float(alpha[0]) if alpha else 1.0
+        tri.visual.face_colors = [int(round(255 * min(max(c, 0.0), 1.0))) for c in (*rgb, a)]
+        name = prim.GetName()
+        k = 2
+        while name in names:
+            name, k = f"{prim.GetName()}_{k}", k + 1
+        names.add(name)
+        scene.add_geometry(tri, node_name=name, geom_name=name)
+    if not scene.geometry:
+        raise ScanError(f"{Path(path).name} has no geometry to draw")
+    Path(out).write_bytes(scene.export(file_type="glb"))
+    return len(scene.geometry)
