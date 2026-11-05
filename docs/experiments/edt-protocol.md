@@ -2313,6 +2313,4 @@ all three are done.
 probes), the humidity series of 48 traces, and Monte Carlo over saved records. At most 3 workers under nice. Any
 deviation is dated below this addendum.
 
-**A19 deviation (dated 2026-11-05, after the computations of A19.1-A19.3).** A19.4 (a), (b) and (c) are not reported
-with this addendum's results. The lane was closed while (b)'s probes were still running, and (a) and (c) had not been
-run. Their code and tests are committed. Nothing registered in A19.1-A19.3 changed.
+**A19 note (dated 2026-11-05, after the computations).** A19.4 (a), (b) and (c) ran after the first results commit (`ce9a316`), which had recorded them as not run: (b)'s probes were then still running and (a) and (c) had not started. They ran as registered, with nothing changed, and are reported in `results/edt/r9z-ce9a316.json` and the R9-Z section. Nothing in A19.1-A19.3 changed.

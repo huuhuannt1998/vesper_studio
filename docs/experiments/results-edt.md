@@ -3037,7 +3037,7 @@ window arrangement.
 **Post hoc: written after the sixth internal review, before its runs.** Registered as protocol Addendum 19 at
 `1418968`, committed alone before any number below was computed. Script: `scripts/revision/r9z_analyses.py` (tests
 `tests/edt/test_r9z_analyses.py`, written first; the oracle's new `h_sun_min` is bit-identical at its default).
-Numbers: `results/edt/r9z-736ef83.json` (aggregates only). At most 3 workers, under nice. Review 6's item numbers are
+Numbers: `results/edt/r9z-736ef83.json` (items 2, 3, 5(a)) and `results/edt/r9z-ce9a316.json` (all items, item 10 added). At most 3 workers, under nice. Review 6's item numbers are
 in brackets.
 
 ### Item 2: the setback headline at a realistic internal-gains setting (A19.1)
@@ -3171,6 +3171,61 @@ fires_somewhere_only is 185, night_light 30 and flaps 8: the tolerances move onl
 
 ### Item 10: the cached-data checks (A19.4)
 
-Not reported here; see A19.4's dated deviation. The dead-rule probes (b) were still running when this section was
-committed. The humidity-clamp check (a) and the environment-blocked propagation (c) are coded and tested, but were not
-run.
+Run after the first results commit (`ce9a316`); see A19.4's dated note. All three read saved outcomes or cached traces
+only.
+
+**(a) The humidity clamp against the 36 humidity frame flags.** All 36 read an indoor room's humidity role, and none
+reads the porch's. Over the 1,728 (flag, environment) cells:
+
+- **7 of the 36 have a first firing at a clamped reading** (22 cells: Singapore 13, Phoenix 9). Which bound, the 85 %
+  ceiling or the 15 % floor, is not split here.
+- **None** has an A8.5 crossing instant at a clamped value.
+- **None** has a numeric bound at or beyond the clamp.
+- Every one of the 36 reads a series that reaches the clamp somewhere in days 1-2 (403 cells, Phoenix and Singapore
+  only). That is the upper bound, and it says only that the clamp is reached in those two cities.
+
+So the part of the class that can rest on the clamp is at most **7 of 36**. In those 7 the rule fires while its sensor
+sits at a clamp; no humidity threshold is crossed because of one.
+
+**(b) Multiply caused dead rules.** A6.6's cascade, in the order it is applied:
+
+1. the actions end before any call;
+2. a condition never holds when a trigger fires (blocking condition named by drop-one probes);
+3. not derived;
+4. trigger entities never change;
+5. threshold out of the observed range in every environment;
+6. never armed;
+7. threshold unreachable or never armed, by environment;
+8. armed numeric_state never crosses in the judged window.
+
+The three predicates were evaluated independently (1,170 probes over the 48 cached traces, 9.9 min). *Check:* T, the
+triggers never fire, holds for all 303 trigger-stage reasons and for none of the 87 action or condition reasons.
+
+| Predicates that hold | T only | C only | A only | T+C | T+A | C+A | none |
+|---|---|---|---|---|---|---|---|
+| Automations (of 390) | 257 | 75 | 4 | 32 | 14 | 3 | 5 |
+
+- **49 of the 390 (12.6 %) are multiply caused** (two predicates hold), and 39 of them are A6.6's "trigger entities
+  never change". Table VII's distribution therefore depends on its order for about one dead rule in eight.
+- Of the 240 "never change" automations, 25 also have a condition that never holds and 14 have actions that make no
+  call.
+- *Not evaluable:* C for 2 automations (a condition names the trigger), A for 34 (an action names the trigger).
+- *Limit:* the 5-minute pattern can miss a condition that holds for less than 5 minutes.
+- The 5 with no predicate are action- or condition-stage reasons that neither pattern probe confirms: a
+  5-minute probe finds their conditions holding, or their actions calling, at some instant that is not a trigger's.
+
+**(c) The engine-discrepancy propagation, blocked by environment.** The recomputation reproduces R6-C's registered and
+by-automation summaries exactly (1,052 pairs, 8 artifact pairs).
+
+| Propagation (1,000 replicates) | Frame flags changed: mean, 95 % range (of 199) | time_spread (of 8) | Against A10.7's limit (p97.5 at most 9) |
+|---|---|---|---|
+| registered (per environment, independent) | 6.5, 3-10 | 2.7, 0-5 | fails by 1 |
+| **environment-blocked** (A19.4(c)) | **6.5, 3-10** | 2.7, 0-5 | **fails by 1** |
+| by automation (R6-C, post hoc) | 2.2, 0-5 | 0.08, 0-1 | passes |
+
+Blocking by environment changes nothing: the mean is 6.49 against 6.52, the 97.5th percentile is 10 in both and 23
+flags ever change against 24. So the independence assumption does not bias the propagated count in either direction,
+and the criterion fails by 1, not by more. The registered propagation's excess comes from scattering automation-level
+discrepancies (the two automations Home Assistant never runs) over a flag's environments. Drawing by automation removes
+it; drawing by environment does not. With only 4 compared environments, a site- and date-systematic defect has few
+blocks to show itself in; that limit is stated.
