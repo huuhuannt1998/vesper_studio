@@ -1,0 +1,6577 @@
+{
+ "analysis": "R4-B (protocol Addendum 7, post hoc): the setback population over the error-budget corners, the aperture / outdoor / humidity-class propagation, isolation vs the rule set",
+ "commit_of_inputs": "120f4ca",
+ "item4_setback_corners": {
+  "checks": {
+   "monotone_vs_screen_corner": {
+    "1": {
+     "corners_with_such_runs": 0,
+     "runs_breaching_at_a_corner_not_at_the_screen_corner": 0
+    },
+    "10": {
+     "corners_with_such_runs": 0,
+     "runs_breaching_at_a_corner_not_at_the_screen_corner": 0
+    },
+    "5": {
+     "corners_with_such_runs": 0,
+     "runs_breaching_at_a_corner_not_at_the_screen_corner": 0
+    },
+    "pss": {
+     "corners_with_such_runs": 0,
+     "runs_breaching_at_a_corner_not_at_the_screen_corner": 0
+    }
+   },
+   "nominal_reproduces_r2c_step2": {
+    "breaching_runs_here": 53,
+    "breaching_runs_r2c": 53,
+    "exact": true,
+    "field_mismatches": 0,
+    "same_runs": true
+   },
+   "screen_runs_in_E_reused_in_stage_2": true
+  },
+  "design": {
+   "E": [
+    "Minneapolis 2026-01-14 n0",
+    "Minneapolis 2026-01-14 n180",
+    "Minneapolis 2026-10-14 n0",
+    "Seattle 2026-01-14 n0",
+    "Seattle 2026-01-14 n180",
+    "Stockholm 2026-01-14 n0",
+    "Stockholm 2026-01-14 n180",
+    "Stockholm 2026-10-14 n0",
+    "Stockholm 2026-10-14 n180"
+   ],
+   "J": [
+    "Minneapolis 2026-01-14 n0",
+    "Minneapolis 2026-01-14 n180",
+    "Seattle 2026-01-14 n0",
+    "Seattle 2026-01-14 n180",
+    "Stockholm 2026-01-14 n0",
+    "Stockholm 2026-01-14 n180"
+   ],
+   "automations": 22,
+   "baseline_setpoint_c": 20.0,
+   "core": [
+    "Minneapolis 2026-01-14 n0",
+    "Minneapolis 2026-01-14 n180",
+    "Stockholm 2026-01-14 n0",
+    "Stockholm 2026-01-14 n180"
+   ],
+   "corners": 120,
+   "factors": {
+    "capacity_kj_m2k": [
+     80,
+     110,
+     165,
+     260,
+     370
+    ],
+    "internal_gains_w_m2": [
+     0.0,
+     2.0,
+     5.0
+    ],
+    "roof_ground": [
+     "off",
+     "on"
+    ],
+    "warmup": [
+     "1",
+     "5",
+     "10",
+     "pss"
+    ]
+   },
+   "note": "E holds 9 environments (> 8): outside the core only warm-up 1 day and periodic were run (A7.2), so a W5 or W10 corner has a core count and no J or 48 count",
+   "outside_E": "counted as no breach (A7.2); checked by monotonicity on E",
+   "reduced_outside_core": true,
+   "rooms_start_c": 20.5,
+   "screen_corners": [
+    "G0-Fon-W1-C80",
+    "G0-Fon-W5-C80",
+    "G0-Fon-W10-C80",
+    "G0-Fon-Wpss-C80"
+   ],
+   "screen_environments": 48,
+   "thermostat": "hallway, heats every indoor room, band 0.3 K, 100 W/m2 of floor"
+  },
+  "elapsed_s": {
+   "full": 11730.2,
+   "screen": 5692.6
+  },
+  "per_corner": {
+   "G0-Foff-W1-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": 57,
+    "breaching_runs_J": 57,
+    "breaching_runs_core": 57,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 24
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 12,
+     "Stockholm 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 375,
+    "coldest_caused_room_per_run_c": [
+     -0.7,
+     6.4,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G0-Foff-W1-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.6,
+    "breaching_runs_48": 53,
+    "breaching_runs_J": 53,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 315,
+    "coldest_caused_room_per_run_c": [
+     2.7,
+     8.1,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G0-Foff-W1-C260": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 16.4,
+    "breaching_runs_48": 23,
+    "breaching_runs_J": 23,
+    "breaching_runs_core": 23,
+    "by_city": {
+     "Minneapolis": 23
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 149,
+    "coldest_caused_room_per_run_c": [
+     6.0,
+     7.4,
+     8.6
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G0-Foff-W1-C370": {
+    "automations": 8,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 17.0,
+    "breaching_runs_48": 11,
+    "breaching_runs_J": 11,
+    "breaching_runs_core": 11,
+    "by_city": {
+     "Minneapolis": 11
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 6,
+     "Minneapolis 2026-01-14 n180": 5
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 26,
+    "coldest_caused_room_per_run_c": [
+     8.6,
+     9.4,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G0-Foff-W1-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.7,
+    "breaching_runs_48": 64,
+    "breaching_runs_J": 64,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Seattle": 1,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Seattle 2026-01-14 n0": 1,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 443,
+    "coldest_caused_room_per_run_c": [
+     -3.1,
+     5.9,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G0-Foff-W10-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.3,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 57,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 24
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 12,
+     "Stockholm 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 374,
+    "coldest_caused_room_per_run_c": [
+     -0.8,
+     6.3,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G0-Foff-W10-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.6,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 319,
+    "coldest_caused_room_per_run_c": [
+     3.2,
+     8.1,
+     9.7
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G0-Foff-W10-C260": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 144,
+    "coldest_caused_room_per_run_c": [
+     5.6,
+     7.2,
+     8.1
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G0-Foff-W10-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 18,
+    "by_city": {
+     "Minneapolis": 18
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 7,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 37,
+    "coldest_caused_room_per_run_c": [
+     8.1,
+     9.3,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G0-Foff-W10-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.4,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 439,
+    "coldest_caused_room_per_run_c": [
+     -3.5,
+     5.8,
+     9.3
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G0-Foff-W5-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.3,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 54,
+    "by_city": {
+     "Minneapolis": 32,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 371,
+    "coldest_caused_room_per_run_c": [
+     -0.9,
+     6.15,
+     9.5
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G0-Foff-W5-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.5,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 317,
+    "coldest_caused_room_per_run_c": [
+     2.4,
+     8.1,
+     9.6
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G0-Foff-W5-C260": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 144,
+    "coldest_caused_room_per_run_c": [
+     5.7,
+     7.25,
+     8.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G0-Foff-W5-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.3,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 20,
+    "by_city": {
+     "Minneapolis": 20
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 9,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 42,
+    "coldest_caused_room_per_run_c": [
+     8.2,
+     9.4,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G0-Foff-W5-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.4,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 441,
+    "coldest_caused_room_per_run_c": [
+     -3.1,
+     5.8,
+     9.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G0-Foff-Wpss-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.3,
+    "breaching_runs_48": 57,
+    "breaching_runs_J": 57,
+    "breaching_runs_core": 57,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 24
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 12,
+     "Stockholm 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 374,
+    "coldest_caused_room_per_run_c": [
+     -0.8,
+     6.4,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G0-Foff-Wpss-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.6,
+    "breaching_runs_48": 53,
+    "breaching_runs_J": 53,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 310,
+    "coldest_caused_room_per_run_c": [
+     3.3,
+     8.2,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G0-Foff-Wpss-C260": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": 22,
+    "breaching_runs_J": 22,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 143,
+    "coldest_caused_room_per_run_c": [
+     5.7,
+     7.25,
+     8.0
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G0-Foff-Wpss-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.0,
+    "breaching_runs_48": 18,
+    "breaching_runs_J": 18,
+    "breaching_runs_core": 18,
+    "by_city": {
+     "Minneapolis": 18
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 7,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 38,
+    "coldest_caused_room_per_run_c": [
+     8.2,
+     9.35,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G0-Foff-Wpss-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.5,
+    "breaching_runs_48": 64,
+    "breaching_runs_J": 64,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Seattle": 1,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Seattle 2026-01-14 n0": 1,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 442,
+    "coldest_caused_room_per_run_c": [
+     -3.1,
+     5.8,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G0-Fon-W1-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.3,
+    "breaching_runs_48": 69,
+    "breaching_runs_J": 69,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Seattle": 6,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Seattle 2026-01-14 n0": 5,
+     "Seattle 2026-01-14 n180": 1,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 457,
+    "coldest_caused_room_per_run_c": [
+     -4.0,
+     6.4,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G0-Fon-W1-C165": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.9,
+    "breaching_runs_48": 54,
+    "breaching_runs_J": 54,
+    "breaching_runs_core": 54,
+    "by_city": {
+     "Minneapolis": 32,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 370,
+    "coldest_caused_room_per_run_c": [
+     -1.0,
+     6.3,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G0-Fon-W1-C260": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 16.6,
+    "breaching_runs_48": 52,
+    "breaching_runs_J": 52,
+    "breaching_runs_core": 52,
+    "by_city": {
+     "Minneapolis": 30,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 14,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 314,
+    "coldest_caused_room_per_run_c": [
+     2.8,
+     8.1,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G0-Fon-W1-C370": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 17.1,
+    "breaching_runs_48": 25,
+    "breaching_runs_J": 25,
+    "breaching_runs_core": 25,
+    "by_city": {
+     "Minneapolis": 23,
+     "Stockholm": 2
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12,
+     "Stockholm 2026-01-14 n0": 1,
+     "Stockholm 2026-01-14 n180": 1
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 167,
+    "coldest_caused_room_per_run_c": [
+     5.6,
+     6.7,
+     9.7
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G0-Fon-W1-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.2,
+    "breaching_runs_48": 93,
+    "breaching_runs_J": 84,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Seattle": 21,
+     "Stockholm": 39
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Seattle 2026-01-14 n0": 11,
+     "Seattle 2026-01-14 n180": 10,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15,
+     "Stockholm 2026-10-14 n0": 5,
+     "Stockholm 2026-10-14 n180": 4
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 607,
+    "coldest_caused_room_per_run_c": [
+     -5.7,
+     6.3,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G0-Fon-W10-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 441,
+    "coldest_caused_room_per_run_c": [
+     -4.0,
+     5.6,
+     9.0
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G0-Fon-W10-C165": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 54,
+    "by_city": {
+     "Minneapolis": 32,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 369,
+    "coldest_caused_room_per_run_c": [
+     -1.3,
+     6.3,
+     9.6
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G0-Fon-W10-C260": {
+    "automations": 15,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.4,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 52,
+    "by_city": {
+     "Minneapolis": 30,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 15,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 315,
+    "coldest_caused_room_per_run_c": [
+     3.7,
+     8.25,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G0-Fon-W10-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.6,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 26,
+    "by_city": {
+     "Minneapolis": 22,
+     "Stockholm": 4
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11,
+     "Stockholm 2026-01-14 n0": 2,
+     "Stockholm 2026-01-14 n180": 2
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 164,
+    "coldest_caused_room_per_run_c": [
+     5.0,
+     6.7,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G0-Fon-W10-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 441,
+    "coldest_caused_room_per_run_c": [
+     -6.0,
+     5.3,
+     7.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G0-Fon-W5-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 441,
+    "coldest_caused_room_per_run_c": [
+     -4.0,
+     5.6,
+     9.0
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G0-Fon-W5-C165": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 54,
+    "by_city": {
+     "Minneapolis": 32,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 370,
+    "coldest_caused_room_per_run_c": [
+     -1.3,
+     6.2,
+     9.7
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G0-Fon-W5-C260": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.5,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 312,
+    "coldest_caused_room_per_run_c": [
+     3.6,
+     8.0,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G0-Fon-W5-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.7,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 26,
+    "by_city": {
+     "Minneapolis": 22,
+     "Stockholm": 4
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11,
+     "Stockholm 2026-01-14 n0": 2,
+     "Stockholm 2026-01-14 n180": 2
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 164,
+    "coldest_caused_room_per_run_c": [
+     4.9,
+     6.65,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G0-Fon-W5-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 441,
+    "coldest_caused_room_per_run_c": [
+     -6.0,
+     5.3,
+     7.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G0-Fon-Wpss-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": 70,
+    "breaching_runs_J": 70,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Seattle": 7,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Seattle 2026-01-14 n0": 5,
+     "Seattle 2026-01-14 n180": 2,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 457,
+    "coldest_caused_room_per_run_c": [
+     -4.0,
+     6.4,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G0-Fon-Wpss-C165": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": 54,
+    "breaching_runs_J": 54,
+    "breaching_runs_core": 54,
+    "by_city": {
+     "Minneapolis": 32,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 369,
+    "coldest_caused_room_per_run_c": [
+     -1.3,
+     6.3,
+     9.7
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G0-Fon-Wpss-C260": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.4,
+    "breaching_runs_48": 53,
+    "breaching_runs_J": 53,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 311,
+    "coldest_caused_room_per_run_c": [
+     3.8,
+     8.4,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     24.77,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G0-Fon-Wpss-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.6,
+    "breaching_runs_48": 26,
+    "breaching_runs_J": 26,
+    "breaching_runs_core": 26,
+    "by_city": {
+     "Minneapolis": 22,
+     "Stockholm": 4
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11,
+     "Stockholm 2026-01-14 n0": 2,
+     "Stockholm 2026-01-14 n180": 2
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 164,
+    "coldest_caused_room_per_run_c": [
+     5.0,
+     6.6,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G0-Fon-Wpss-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": 94,
+    "breaching_runs_J": 84,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 34,
+     "Seattle": 21,
+     "Stockholm": 39
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Minneapolis 2026-10-14 n0": 1,
+     "Seattle 2026-01-14 n0": 11,
+     "Seattle 2026-01-14 n180": 10,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15,
+     "Stockholm 2026-10-14 n0": 5,
+     "Stockholm 2026-10-14 n180": 4
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 601,
+    "coldest_caused_room_per_run_c": [
+     -6.0,
+     6.3,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 0.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G2-Foff-W1-C110": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": 53,
+    "breaching_runs_J": 53,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 360,
+    "coldest_caused_room_per_run_c": [
+     1.0,
+     7.6,
+     9.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G2-Foff-W1-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.6,
+    "breaching_runs_48": 37,
+    "breaching_runs_J": 37,
+    "breaching_runs_core": 37,
+    "by_city": {
+     "Minneapolis": 29,
+     "Stockholm": 8
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 13,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 4,
+     "Stockholm 2026-01-14 n180": 4
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 196,
+    "coldest_caused_room_per_run_c": [
+     4.1,
+     6.3,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G2-Foff-W1-C260": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 16.4,
+    "breaching_runs_48": 23,
+    "breaching_runs_J": 23,
+    "breaching_runs_core": 23,
+    "by_city": {
+     "Minneapolis": 23
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 102,
+    "coldest_caused_room_per_run_c": [
+     7.2,
+     8.6,
+     9.5
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G2-Foff-W1-C370": {
+    "automations": 1,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 17.0,
+    "breaching_runs_48": 2,
+    "breaching_runs_J": 2,
+    "breaching_runs_core": 2,
+    "by_city": {
+     "Minneapolis": 2
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 1,
+     "Minneapolis 2026-01-14 n180": 1
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 3,
+    "coldest_caused_room_per_run_c": [
+     9.6,
+     9.75,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 1,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     47.0,
+     47.0
+    ],
+    "warmup": 1
+   },
+   "G2-Foff-W1-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.7,
+    "breaching_runs_48": 59,
+    "breaching_runs_J": 59,
+    "breaching_runs_core": 59,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 26
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 13,
+     "Stockholm 2026-01-14 n180": 13
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 395,
+    "coldest_caused_room_per_run_c": [
+     -1.1,
+     6.0,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G2-Foff-W10-C110": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.3,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 359,
+    "coldest_caused_room_per_run_c": [
+     0.9,
+     7.4,
+     9.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G2-Foff-W10-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.6,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 38,
+    "by_city": {
+     "Minneapolis": 30,
+     "Stockholm": 8
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 14,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 4,
+     "Stockholm 2026-01-14 n180": 4
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 197,
+    "coldest_caused_room_per_run_c": [
+     3.8,
+     6.3,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G2-Foff-W10-C260": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 100,
+    "coldest_caused_room_per_run_c": [
+     6.9,
+     8.3,
+     9.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G2-Foff-W10-C370": {
+    "automations": 4,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 6,
+    "by_city": {
+     "Minneapolis": 6
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 2,
+     "Minneapolis 2026-01-14 n180": 4
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 9,
+    "coldest_caused_room_per_run_c": [
+     9.0,
+     9.5,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.5,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G2-Foff-W10-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.4,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 59,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 26
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 13,
+     "Stockholm 2026-01-14 n180": 13
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 395,
+    "coldest_caused_room_per_run_c": [
+     -1.2,
+     6.0,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G2-Foff-W5-C110": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.4,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 360,
+    "coldest_caused_room_per_run_c": [
+     0.9,
+     7.3,
+     9.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G2-Foff-W5-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.6,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 38,
+    "by_city": {
+     "Minneapolis": 30,
+     "Stockholm": 8
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 14,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 4,
+     "Stockholm 2026-01-14 n180": 4
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 201,
+    "coldest_caused_room_per_run_c": [
+     4.5,
+     6.55,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G2-Foff-W5-C260": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 102,
+    "coldest_caused_room_per_run_c": [
+     6.8,
+     8.35,
+     9.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G2-Foff-W5-C370": {
+    "automations": 3,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.3,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 5,
+    "by_city": {
+     "Minneapolis": 5
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 2,
+     "Minneapolis 2026-01-14 n180": 3
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 7,
+    "coldest_caused_room_per_run_c": [
+     9.1,
+     9.5,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.5,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G2-Foff-W5-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.4,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 57,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 24
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 12,
+     "Stockholm 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 393,
+    "coldest_caused_room_per_run_c": [
+     -1.2,
+     5.9,
+     9.5
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G2-Foff-Wpss-C110": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.4,
+    "breaching_runs_48": 53,
+    "breaching_runs_J": 53,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 360,
+    "coldest_caused_room_per_run_c": [
+     1.0,
+     7.3,
+     9.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G2-Foff-Wpss-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.6,
+    "breaching_runs_48": 38,
+    "breaching_runs_J": 38,
+    "breaching_runs_core": 38,
+    "by_city": {
+     "Minneapolis": 30,
+     "Stockholm": 8
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 14,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 4,
+     "Stockholm 2026-01-14 n180": 4
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 197,
+    "coldest_caused_room_per_run_c": [
+     4.7,
+     6.55,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G2-Foff-Wpss-C260": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": 22,
+    "breaching_runs_J": 22,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 101,
+    "coldest_caused_room_per_run_c": [
+     6.8,
+     8.3,
+     9.3
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G2-Foff-Wpss-C370": {
+    "automations": 5,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.0,
+    "breaching_runs_48": 7,
+    "breaching_runs_J": 7,
+    "breaching_runs_core": 7,
+    "by_city": {
+     "Minneapolis": 7
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 2,
+     "Minneapolis 2026-01-14 n180": 5
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 10,
+    "coldest_caused_room_per_run_c": [
+     9.1,
+     9.7,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.5,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G2-Foff-Wpss-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.4,
+    "breaching_runs_48": 57,
+    "breaching_runs_J": 57,
+    "breaching_runs_core": 57,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 24
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 12,
+     "Stockholm 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 390,
+    "coldest_caused_room_per_run_c": [
+     -1.2,
+     6.0,
+     9.7
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G2-Fon-W1-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.3,
+    "breaching_runs_48": 63,
+    "breaching_runs_J": 63,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 427,
+    "coldest_caused_room_per_run_c": [
+     -2.6,
+     5.9,
+     9.7
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G2-Fon-W1-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.9,
+    "breaching_runs_48": 53,
+    "breaching_runs_J": 53,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 365,
+    "coldest_caused_room_per_run_c": [
+     0.2,
+     6.8,
+     8.4
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G2-Fon-W1-C260": {
+    "automations": 15,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 16.6,
+    "breaching_runs_48": 41,
+    "breaching_runs_J": 41,
+    "breaching_runs_core": 41,
+    "by_city": {
+     "Minneapolis": 27,
+     "Stockholm": 14
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 12,
+     "Minneapolis 2026-01-14 n180": 15,
+     "Stockholm 2026-01-14 n0": 7,
+     "Stockholm 2026-01-14 n180": 7
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 217,
+    "coldest_caused_room_per_run_c": [
+     3.8,
+     5.9,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G2-Fon-W1-C370": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 17.1,
+    "breaching_runs_48": 23,
+    "breaching_runs_J": 23,
+    "breaching_runs_core": 23,
+    "by_city": {
+     "Minneapolis": 23
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 161,
+    "coldest_caused_room_per_run_c": [
+     6.2,
+     7.5,
+     8.4
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G2-Fon-W1-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.2,
+    "breaching_runs_48": 66,
+    "breaching_runs_J": 66,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Seattle": 3,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Seattle 2026-01-14 n0": 1,
+     "Seattle 2026-01-14 n180": 2,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 450,
+    "coldest_caused_room_per_run_c": [
+     -4.3,
+     5.4,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G2-Fon-W10-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.0,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 429,
+    "coldest_caused_room_per_run_c": [
+     -3.0,
+     5.8,
+     9.7
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G2-Fon-W10-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 363,
+    "coldest_caused_room_per_run_c": [
+     -0.2,
+     6.7,
+     8.4
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G2-Fon-W10-C260": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.5,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 42,
+    "by_city": {
+     "Minneapolis": 28,
+     "Stockholm": 14
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 12,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 7,
+     "Stockholm 2026-01-14 n180": 7
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 223,
+    "coldest_caused_room_per_run_c": [
+     4.5,
+     5.8,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G2-Fon-W10-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.6,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 148,
+    "coldest_caused_room_per_run_c": [
+     5.7,
+     7.0,
+     8.1
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G2-Fon-W10-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.2,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 441,
+    "coldest_caused_room_per_run_c": [
+     -4.3,
+     5.4,
+     8.1
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G2-Fon-W5-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.0,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 421,
+    "coldest_caused_room_per_run_c": [
+     -2.7,
+     5.8,
+     9.7
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G2-Fon-W5-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 363,
+    "coldest_caused_room_per_run_c": [
+     -0.2,
+     6.7,
+     8.4
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G2-Fon-W5-C260": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.5,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 44,
+    "by_city": {
+     "Minneapolis": 30,
+     "Stockholm": 14
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 14,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 7,
+     "Stockholm 2026-01-14 n180": 7
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 216,
+    "coldest_caused_room_per_run_c": [
+     4.7,
+     7.25,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     26.58,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G2-Fon-W5-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.7,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 150,
+    "coldest_caused_room_per_run_c": [
+     5.7,
+     6.95,
+     8.1
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G2-Fon-W5-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.2,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 441,
+    "coldest_caused_room_per_run_c": [
+     -4.3,
+     5.4,
+     8.1
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G2-Fon-Wpss-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.0,
+    "breaching_runs_48": 63,
+    "breaching_runs_J": 63,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 418,
+    "coldest_caused_room_per_run_c": [
+     -2.7,
+     5.8,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G2-Fon-Wpss-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": 53,
+    "breaching_runs_J": 53,
+    "breaching_runs_core": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 364,
+    "coldest_caused_room_per_run_c": [
+     -0.2,
+     6.7,
+     8.4
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G2-Fon-Wpss-C260": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.4,
+    "breaching_runs_48": 42,
+    "breaching_runs_J": 42,
+    "breaching_runs_core": 42,
+    "by_city": {
+     "Minneapolis": 28,
+     "Stockholm": 14
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 12,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 7,
+     "Stockholm 2026-01-14 n180": 7
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 225,
+    "coldest_caused_room_per_run_c": [
+     4.6,
+     5.8,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     26.33,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G2-Fon-Wpss-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.6,
+    "breaching_runs_48": 22,
+    "breaching_runs_J": 22,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 150,
+    "coldest_caused_room_per_run_c": [
+     5.7,
+     6.95,
+     8.0
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G2-Fon-Wpss-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": 66,
+    "breaching_runs_J": 66,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Seattle": 3,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Seattle 2026-01-14 n0": 1,
+     "Seattle 2026-01-14 n180": 2,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 451,
+    "coldest_caused_room_per_run_c": [
+     -4.5,
+     5.4,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 2.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G5-Foff-W1-C110": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.8,
+    "breaching_runs_48": 31,
+    "breaching_runs_J": 31,
+    "breaching_runs_core": 31,
+    "by_city": {
+     "Minneapolis": 31
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 187,
+    "coldest_caused_room_per_run_c": [
+     3.7,
+     6.2,
+     9.5
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G5-Foff-W1-C165": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.6,
+    "breaching_runs_48": 23,
+    "breaching_runs_J": 23,
+    "breaching_runs_core": 23,
+    "by_city": {
+     "Minneapolis": 23
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 142,
+    "coldest_caused_room_per_run_c": [
+     6.1,
+     7.6,
+     9.1
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G5-Foff-W1-C260": {
+    "automations": 6,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 16.4,
+    "breaching_runs_48": 8,
+    "breaching_runs_J": 8,
+    "breaching_runs_core": 8,
+    "by_city": {
+     "Minneapolis": 8
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 4,
+     "Minneapolis 2026-01-14 n180": 4
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 17,
+    "coldest_caused_room_per_run_c": [
+     8.9,
+     9.55,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.5,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G5-Foff-W1-C370": {
+    "automations": 0,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 17.0,
+    "breaching_runs_48": 0,
+    "breaching_runs_J": 0,
+    "breaching_runs_core": 0,
+    "by_city": {},
+    "by_env": {},
+    "capacity_kj_m2k": 370,
+    "caused_cells": 0,
+    "coldest_caused_room_per_run_c": null,
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 0,
+    "roof_ground": false,
+    "setback_h_breaching": null,
+    "warmup": 1
+   },
+   "G5-Foff-W1-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.7,
+    "breaching_runs_48": 43,
+    "breaching_runs_J": 43,
+    "breaching_runs_core": 43,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 10
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 5,
+     "Stockholm 2026-01-14 n180": 5
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 257,
+    "coldest_caused_room_per_run_c": [
+     1.7,
+     5.5,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G5-Foff-W10-C110": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.4,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 31,
+    "by_city": {
+     "Minneapolis": 31
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 188,
+    "coldest_caused_room_per_run_c": [
+     3.5,
+     6.3,
+     9.4
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G5-Foff-W10-C165": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.5,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 23,
+    "by_city": {
+     "Minneapolis": 23
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 137,
+    "coldest_caused_room_per_run_c": [
+     6.0,
+     7.7,
+     9.0
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     39.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G5-Foff-W10-C260": {
+    "automations": 5,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 9,
+    "by_city": {
+     "Minneapolis": 9
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 5,
+     "Minneapolis 2026-01-14 n180": 4
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 19,
+    "coldest_caused_room_per_run_c": [
+     8.8,
+     9.3,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.5,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G5-Foff-W10-C370": {
+    "automations": 0,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 0,
+    "by_city": {},
+    "by_env": {},
+    "capacity_kj_m2k": 370,
+    "caused_cells": 0,
+    "coldest_caused_room_per_run_c": null,
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 0,
+    "roof_ground": false,
+    "setback_h_breaching": null,
+    "warmup": 10
+   },
+   "G5-Foff-W10-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.5,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 43,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 10
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 5,
+     "Stockholm 2026-01-14 n180": 5
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 255,
+    "coldest_caused_room_per_run_c": [
+     1.7,
+     5.5,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G5-Foff-W5-C110": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.4,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 31,
+    "by_city": {
+     "Minneapolis": 31
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 189,
+    "coldest_caused_room_per_run_c": [
+     3.5,
+     6.2,
+     9.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G5-Foff-W5-C165": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.5,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 23,
+    "by_city": {
+     "Minneapolis": 23
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 138,
+    "coldest_caused_room_per_run_c": [
+     6.1,
+     7.7,
+     9.0
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     37.68,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G5-Foff-W5-C260": {
+    "automations": 6,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 10,
+    "by_city": {
+     "Minneapolis": 10
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 5,
+     "Minneapolis 2026-01-14 n180": 5
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 19,
+    "coldest_caused_room_per_run_c": [
+     8.8,
+     9.6,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.5,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G5-Foff-W5-C370": {
+    "automations": 0,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.3,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 0,
+    "by_city": {},
+    "by_env": {},
+    "capacity_kj_m2k": 370,
+    "caused_cells": 0,
+    "coldest_caused_room_per_run_c": null,
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 0,
+    "roof_ground": false,
+    "setback_h_breaching": null,
+    "warmup": 5
+   },
+   "G5-Foff-W5-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.5,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 43,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 10
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 5,
+     "Stockholm 2026-01-14 n180": 5
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 257,
+    "coldest_caused_room_per_run_c": [
+     1.7,
+     5.5,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G5-Foff-Wpss-C110": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.4,
+    "breaching_runs_48": 31,
+    "breaching_runs_J": 31,
+    "breaching_runs_core": 31,
+    "by_city": {
+     "Minneapolis": 31
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 187,
+    "coldest_caused_room_per_run_c": [
+     3.5,
+     6.2,
+     9.5
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G5-Foff-Wpss-C165": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.6,
+    "breaching_runs_48": 23,
+    "breaching_runs_J": 23,
+    "breaching_runs_core": 23,
+    "by_city": {
+     "Minneapolis": 23
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 139,
+    "coldest_caused_room_per_run_c": [
+     6.1,
+     7.7,
+     8.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     37.97,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G5-Foff-Wpss-C260": {
+    "automations": 5,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs_48": 9,
+    "breaching_runs_J": 9,
+    "breaching_runs_core": 9,
+    "by_city": {
+     "Minneapolis": 9
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 5,
+     "Minneapolis 2026-01-14 n180": 4
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 20,
+    "coldest_caused_room_per_run_c": [
+     8.6,
+     9.3,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 2,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     46.5,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G5-Foff-Wpss-C370": {
+    "automations": 0,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.0,
+    "breaching_runs_48": 0,
+    "breaching_runs_J": 0,
+    "breaching_runs_core": 0,
+    "by_city": {},
+    "by_env": {},
+    "capacity_kj_m2k": 370,
+    "caused_cells": 0,
+    "coldest_caused_room_per_run_c": null,
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 0,
+    "roof_ground": false,
+    "setback_h_breaching": null,
+    "warmup": "pss"
+   },
+   "G5-Foff-Wpss-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 14.5,
+    "breaching_runs_48": 43,
+    "breaching_runs_J": 43,
+    "breaching_runs_core": 43,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 10
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 5,
+     "Stockholm 2026-01-14 n180": 5
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 256,
+    "coldest_caused_room_per_run_c": [
+     1.7,
+     5.5,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": false,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G5-Fon-W1-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.3,
+    "breaching_runs_48": 55,
+    "breaching_runs_J": 55,
+    "breaching_runs_core": 55,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 385,
+    "coldest_caused_room_per_run_c": [
+     -0.6,
+     6.1,
+     8.6
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G5-Fon-W1-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.9,
+    "breaching_runs_48": 47,
+    "breaching_runs_J": 47,
+    "breaching_runs_core": 47,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 16
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 8,
+     "Stockholm 2026-01-14 n180": 8
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 280,
+    "coldest_caused_room_per_run_c": [
+     1.9,
+     7.6,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G5-Fon-W1-C260": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 16.6,
+    "breaching_runs_48": 23,
+    "breaching_runs_J": 23,
+    "breaching_runs_core": 23,
+    "by_city": {
+     "Minneapolis": 23
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 161,
+    "coldest_caused_room_per_run_c": [
+     5.2,
+     6.2,
+     7.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G5-Fon-W1-C370": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 17.1,
+    "breaching_runs_48": 23,
+    "breaching_runs_J": 23,
+    "breaching_runs_core": 23,
+    "by_city": {
+     "Minneapolis": 23
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 112,
+    "coldest_caused_room_per_run_c": [
+     7.4,
+     8.6,
+     9.4
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G5-Fon-W1-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.3,
+    "breaching_runs_48": 63,
+    "breaching_runs_J": 63,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 433,
+    "coldest_caused_room_per_run_c": [
+     -2.2,
+     5.5,
+     9.5
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 1
+   },
+   "G5-Fon-W10-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 55,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 385,
+    "coldest_caused_room_per_run_c": [
+     -0.6,
+     5.9,
+     8.6
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G5-Fon-W10-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.2,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 47,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 16
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 8,
+     "Stockholm 2026-01-14 n180": 8
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 276,
+    "coldest_caused_room_per_run_c": [
+     1.7,
+     7.2,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G5-Fon-W10-C260": {
+    "automations": 15,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.4,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 26,
+    "by_city": {
+     "Minneapolis": 26
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 162,
+    "coldest_caused_room_per_run_c": [
+     5.1,
+     6.25,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G5-Fon-W10-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.6,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 103,
+    "coldest_caused_room_per_run_c": [
+     7.0,
+     8.2,
+     9.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G5-Fon-W10-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.2,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 435,
+    "coldest_caused_room_per_run_c": [
+     -2.2,
+     5.5,
+     9.5
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 10
+   },
+   "G5-Fon-W5-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.0,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 55,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 385,
+    "coldest_caused_room_per_run_c": [
+     -0.6,
+     6.0,
+     8.6
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G5-Fon-W5-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 47,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 16
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 8,
+     "Stockholm 2026-01-14 n180": 8
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 279,
+    "coldest_caused_room_per_run_c": [
+     1.5,
+     7.4,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G5-Fon-W5-C260": {
+    "automations": 12,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.5,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 23,
+    "by_city": {
+     "Minneapolis": 23
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 12
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 158,
+    "coldest_caused_room_per_run_c": [
+     5.1,
+     6.1,
+     8.4
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     37.5,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G5-Fon-W5-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.7,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 105,
+    "coldest_caused_room_per_run_c": [
+     7.1,
+     8.25,
+     9.3
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G5-Fon-W5-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": null,
+    "breaching_runs_J": null,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 431,
+    "coldest_caused_room_per_run_c": [
+     -2.2,
+     5.5,
+     9.6
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 4,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": 5
+   },
+   "G5-Fon-Wpss-C110": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": 55,
+    "breaching_runs_J": 55,
+    "breaching_runs_core": 55,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 110,
+    "caused_cells": 385,
+    "coldest_caused_room_per_run_c": [
+     -0.6,
+     5.9,
+     8.6
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G5-Fon-Wpss-C165": {
+    "automations": 16,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": 47,
+    "breaching_runs_J": 47,
+    "breaching_runs_core": 47,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 16
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 8,
+     "Stockholm 2026-01-14 n180": 8
+    },
+    "capacity_kj_m2k": 165,
+    "caused_cells": 285,
+    "coldest_caused_room_per_run_c": [
+     1.7,
+     7.4,
+     9.7
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     36.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G5-Fon-Wpss-C260": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.4,
+    "breaching_runs_48": 22,
+    "breaching_runs_J": 22,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 260,
+    "caused_cells": 154,
+    "coldest_caused_room_per_run_c": [
+     5.1,
+     6.05,
+     6.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G5-Fon-Wpss-C370": {
+    "automations": 11,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.6,
+    "breaching_runs_48": 22,
+    "breaching_runs_J": 22,
+    "breaching_runs_core": 22,
+    "by_city": {
+     "Minneapolis": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 11,
+     "Minneapolis 2026-01-14 n180": 11
+    },
+    "capacity_kj_m2k": 370,
+    "caused_cells": 105,
+    "coldest_caused_room_per_run_c": [
+     7.1,
+     8.2,
+     9.2
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 2,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     46.0,
+     48.0
+    ],
+    "warmup": "pss"
+   },
+   "G5-Fon-Wpss-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.2,
+    "breaching_runs_48": 63,
+    "breaching_runs_J": 63,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "capacity_kj_m2k": 80,
+    "caused_cells": 433,
+    "coldest_caused_room_per_run_c": [
+     -2.2,
+     5.5,
+     9.6
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 9,
+    "gains_w_m2": 5.0,
+    "repositories": 3,
+    "roof_ground": true,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ],
+    "warmup": "pss"
+   }
+  },
+  "stage1_all_48": {
+   "G0-Fon-W1-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.2,
+    "breaching_runs_48": 93,
+    "breaching_runs_J": 84,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Seattle": 21,
+     "Stockholm": 39
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Seattle 2026-01-14 n0": 11,
+     "Seattle 2026-01-14 n180": 10,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15,
+     "Stockholm 2026-10-14 n0": 5,
+     "Stockholm 2026-10-14 n180": 4
+    },
+    "caused_cells": 607,
+    "coldest_caused_room_per_run_c": [
+     -5.7,
+     6.3,
+     9.8
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 48,
+    "repositories": 3,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ]
+   },
+   "G0-Fon-W10-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": 93,
+    "breaching_runs_J": 84,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Seattle": 21,
+     "Stockholm": 39
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Seattle 2026-01-14 n0": 11,
+     "Seattle 2026-01-14 n180": 10,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15,
+     "Stockholm 2026-10-14 n0": 5,
+     "Stockholm 2026-10-14 n180": 4
+    },
+    "caused_cells": 606,
+    "coldest_caused_room_per_run_c": [
+     -6.0,
+     6.3,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 48,
+    "repositories": 3,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ]
+   },
+   "G0-Fon-W5-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": 92,
+    "breaching_runs_J": 84,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 34,
+     "Seattle": 21,
+     "Stockholm": 37
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Minneapolis 2026-10-14 n0": 1,
+     "Seattle 2026-01-14 n0": 11,
+     "Seattle 2026-01-14 n180": 10,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15,
+     "Stockholm 2026-10-14 n0": 4,
+     "Stockholm 2026-10-14 n180": 3
+    },
+    "caused_cells": 601,
+    "coldest_caused_room_per_run_c": [
+     -6.0,
+     6.3,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 48,
+    "repositories": 3,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ]
+   },
+   "G0-Fon-Wpss-C80": {
+    "automations": 17,
+    "baseline_cells_below_10": 0,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs_48": 94,
+    "breaching_runs_J": 84,
+    "breaching_runs_core": 63,
+    "by_city": {
+     "Minneapolis": 34,
+     "Seattle": 21,
+     "Stockholm": 39
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Minneapolis 2026-10-14 n0": 1,
+     "Seattle 2026-01-14 n0": 11,
+     "Seattle 2026-01-14 n180": 10,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15,
+     "Stockholm 2026-10-14 n0": 5,
+     "Stockholm 2026-10-14 n180": 4
+    },
+    "caused_cells": 601,
+    "coldest_caused_room_per_run_c": [
+     -6.0,
+     6.3,
+     9.9
+    ],
+    "denominator_48": 1056,
+    "denominator_J": 132,
+    "denominator_core": 88,
+    "environments_run": 48,
+    "repositories": 3,
+    "setback_h_breaching": [
+     10.0,
+     48.0
+    ]
+   }
+  },
+  "summary": {
+   "48": {
+    "best_corners": [
+     "G5-Foff-W1-C370",
+     "G5-Foff-Wpss-C370"
+    ],
+    "corners": 60,
+    "corners_with_no_breach": 2,
+    "denominator": 1056,
+    "max": 94,
+    "min": 0,
+    "nominal": 53,
+    "worst_corners": [
+     "G0-Fon-Wpss-C80"
+    ]
+   },
+   "J": {
+    "best_corners": [
+     "G5-Foff-W1-C370",
+     "G5-Foff-Wpss-C370"
+    ],
+    "corners": 60,
+    "corners_with_no_breach": 2,
+    "denominator": 132,
+    "max": 84,
+    "min": 0,
+    "nominal": 53,
+    "worst_corners": [
+     "G0-Fon-W1-C80",
+     "G0-Fon-Wpss-C80"
+    ]
+   },
+   "city_breaches_at_every_corner_core": {
+    "Minneapolis": false,
+    "Stockholm": false
+   },
+   "core": {
+    "best_corners": [
+     "G5-Foff-W1-C370",
+     "G5-Foff-W10-C370",
+     "G5-Foff-W5-C370",
+     "G5-Foff-Wpss-C370"
+    ],
+    "corners": 120,
+    "corners_with_no_breach": 4,
+    "denominator": 88,
+    "max": 63,
+    "min": 0,
+    "nominal": 53,
+    "worst_corners": [
+     "G0-Foff-W1-C80",
+     "G0-Foff-W10-C80",
+     "G0-Foff-W5-C80",
+     "G0-Foff-Wpss-C80",
+     "G0-Fon-W1-C110",
+     "G0-Fon-W1-C80",
+     "G0-Fon-W10-C110",
+     "G0-Fon-W10-C80",
+     "G0-Fon-W5-C110",
+     "G0-Fon-W5-C80",
+     "G0-Fon-Wpss-C110",
+     "G0-Fon-Wpss-C80",
+     "G2-Fon-W1-C110",
+     "G2-Fon-W1-C80",
+     "G2-Fon-W10-C110",
+     "G2-Fon-W10-C80",
+     "G2-Fon-W5-C110",
+     "G2-Fon-W5-C80",
+     "G2-Fon-Wpss-C110",
+     "G2-Fon-Wpss-C80",
+     "G5-Fon-W1-C80",
+     "G5-Fon-W10-C80",
+     "G5-Fon-W5-C80",
+     "G5-Fon-Wpss-C80"
+    ]
+   },
+   "marginal_core": {
+    "capacity_kj_m2k": {
+     "110": {
+      "max": 63,
+      "mean": 53.54,
+      "min": 31
+     },
+     "165": {
+      "max": 54,
+      "mean": 44.62,
+      "min": 23
+     },
+     "260": {
+      "max": 53,
+      "mean": 28.62,
+      "min": 8
+     },
+     "370": {
+      "max": 26,
+      "mean": 15.33,
+      "min": 0
+     },
+     "80": {
+      "max": 63,
+      "mean": 58.83,
+      "min": 43
+     }
+    },
+    "internal_gains_w_m2": {
+     "0.0": {
+      "max": 63,
+      "mean": 46.95,
+      "min": 11
+     },
+     "2.0": {
+      "max": 63,
+      "mean": 41.95,
+      "min": 2
+     },
+     "5.0": {
+      "max": 63,
+      "mean": 31.68,
+      "min": 0
+     }
+    },
+    "roof_ground": {
+     "0": {
+      "max": 63,
+      "mean": 32.88,
+      "min": 0
+     },
+     "1": {
+      "max": 63,
+      "mean": 47.5,
+      "min": 22
+     }
+    },
+    "warmup": {
+     "1": {
+      "max": 63,
+      "mean": 39.9,
+      "min": 0
+     },
+     "10": {
+      "max": 63,
+      "mean": 40.37,
+      "min": 0
+     },
+     "5": {
+      "max": 63,
+      "mean": 40.27,
+      "min": 0
+     },
+     "pss": {
+      "max": 63,
+      "mean": 40.23,
+      "min": 0
+     }
+    }
+   },
+   "seattle_breaches_at_every_J_corner": {
+    "Seattle": false
+   }
+  }
+ },
+ "item5_humidity_clamp": {
+  "elapsed_s": 1036.1,
+  "per_setting": {
+   "ap0.25": {
+    "cities_at_clamp": [
+     [
+      "Singapore",
+      8
+     ],
+     [
+      "Sydney",
+      2
+     ]
+    ],
+    "environments_with_a_series_at_clamp": 10,
+    "reach_pct": {
+     "55": 251,
+     "70": 111,
+     "85": 66
+    },
+    "series": 336,
+    "share_of_minutes_at_clamp": 0.1425
+   },
+   "ap0.5": {
+    "cities_at_clamp": [
+     [
+      "Singapore",
+      8
+     ]
+    ],
+    "environments_with_a_series_at_clamp": 8,
+    "reach_pct": {
+     "55": 245,
+     "70": 95,
+     "85": 56
+    },
+    "series": 336,
+    "share_of_minutes_at_clamp": 0.1008
+   },
+   "ap1": {
+    "cities_at_clamp": [
+     [
+      "Singapore",
+      8
+     ]
+    ],
+    "environments_with_a_series_at_clamp": 8,
+    "reach_pct": {
+     "55": 215,
+     "70": 79,
+     "85": 51
+    },
+    "series": 336,
+    "share_of_minutes_at_clamp": 0.0395
+   },
+   "ap2": {
+    "cities_at_clamp": [
+     [
+      "Singapore",
+      5
+     ]
+    ],
+    "environments_with_a_series_at_clamp": 5,
+    "reach_pct": {
+     "55": 159,
+     "70": 55,
+     "85": 21
+    },
+    "series": 336,
+    "share_of_minutes_at_clamp": 0.0085
+   },
+   "hc2": {
+    "cities_at_clamp": [
+     [
+      "Singapore",
+      8
+     ]
+    ],
+    "environments_with_a_series_at_clamp": 8,
+    "reach_pct": {
+     "55": 231,
+     "70": 92,
+     "85": 51
+    },
+    "series": 336,
+    "share_of_minutes_at_clamp": 0.0395
+   },
+   "hc3": {
+    "cities_at_clamp": [
+     [
+      "Singapore",
+      8
+     ]
+    ],
+    "environments_with_a_series_at_clamp": 8,
+    "reach_pct": {
+     "55": 283,
+     "70": 150,
+     "85": 51
+    },
+    "series": 336,
+    "share_of_minutes_at_clamp": 0.0395
+   },
+   "out+2": {
+    "cities_at_clamp": [
+     [
+      "Singapore",
+      6
+     ]
+    ],
+    "environments_with_a_series_at_clamp": 6,
+    "reach_pct": {
+     "55": 189,
+     "70": 64,
+     "85": 41
+    },
+    "series": 336,
+    "share_of_minutes_at_clamp": 0.0299
+   },
+   "out-2": {
+    "cities_at_clamp": [
+     [
+      "Singapore",
+      8
+     ]
+    ],
+    "environments_with_a_series_at_clamp": 8,
+    "reach_pct": {
+     "55": 214,
+     "70": 92,
+     "85": 56
+    },
+    "series": 336,
+    "share_of_minutes_at_clamp": 0.0651
+   }
+  },
+  "setting_knobs": {
+   "ap0.25": {
+    "SOLAR_APERTURE_SCALE": 0.25
+   },
+   "ap0.5": {
+    "SOLAR_APERTURE_SCALE": 0.5
+   },
+   "ap1": {},
+   "ap2": {
+    "SOLAR_APERTURE_SCALE": 2.0
+   },
+   "hc2": {
+    "HUMIDITY_CLASS": 2
+   },
+   "hc3": {
+    "HUMIDITY_CLASS": 3
+   },
+   "out+2": {
+    "OUTDOOR_T_OFFSET_C": 2.0
+   },
+   "out-2": {
+    "OUTDOOR_T_OFFSET_C": -2.0
+   }
+  }
+ },
+ "item5_open_loop": {
+  "affected_set": {
+   "automations": 281,
+   "humidity_flagged": 37,
+   "humidity_read": 63,
+   "orientation_witnessed": 129,
+   "temperature_flagged": 128,
+   "temperature_read": 214
+  },
+  "reference_ap1_against_published": {
+   "failed_environments": 0,
+   "flag_mismatches": 0,
+   "kind_mismatches": 0,
+   "orientation_witnesses": 129,
+   "outcome_mismatches_exact": 0,
+   "outcomes": 13488
+  },
+  "settings": {
+   "ap0.25": {
+    "affected_flag_gained": 0,
+    "affected_flag_lost": 20,
+    "affected_kinds_changed": 35,
+    "affected_outcomes_changed": 2297,
+    "elapsed_s": 535.9,
+    "failed_environments": 0,
+    "humidity_flagged": {
+     "kinds_changed": 5,
+     "lost": 0,
+     "published": 37,
+     "still_flagged": 37
+    },
+    "new_orientation_witnesses": 0,
+    "orientation_witnesses_kept": 66,
+    "orientation_witnesses_kept_by_read_kind": {
+     "humidity": [
+      27,
+      32
+     ],
+     "neither": [
+      4,
+      8
+     ],
+     "temperature": [
+      36,
+      90
+     ]
+    },
+    "orientation_witnesses_of": 129,
+    "temperature_flagged": {
+     "kinds_changed": 29,
+     "lost": 19,
+     "published": 128,
+     "still_flagged": 109
+    }
+   },
+   "ap0.5": {
+    "affected_flag_gained": 0,
+    "affected_flag_lost": 10,
+    "affected_kinds_changed": 26,
+    "affected_outcomes_changed": 2110,
+    "elapsed_s": 514.2,
+    "failed_environments": 0,
+    "humidity_flagged": {
+     "kinds_changed": 6,
+     "lost": 0,
+     "published": 37,
+     "still_flagged": 37
+    },
+    "new_orientation_witnesses": 0,
+    "orientation_witnesses_kept": 111,
+    "orientation_witnesses_kept_by_read_kind": {
+     "humidity": [
+      32,
+      32
+     ],
+     "neither": [
+      7,
+      8
+     ],
+     "temperature": [
+      73,
+      90
+     ]
+    },
+    "orientation_witnesses_of": 129,
+    "temperature_flagged": {
+     "kinds_changed": 19,
+     "lost": 9,
+     "published": 128,
+     "still_flagged": 119
+    }
+   },
+   "ap2": {
+    "affected_flag_gained": 2,
+    "affected_flag_lost": 15,
+    "affected_kinds_changed": 26,
+    "affected_outcomes_changed": 2575,
+    "check_outside_affected": {
+     "automations": 5653,
+     "automations_with_a_change": 3,
+     "flags_changed": 1,
+     "outcomes_changed": 50
+    },
+    "elapsed_s": 2564.4,
+    "failed_environments": 0,
+    "humidity_flagged": {
+     "kinds_changed": 7,
+     "lost": 1,
+     "published": 37,
+     "still_flagged": 36
+    },
+    "new_orientation_witnesses": 3,
+    "orientation_witnesses_kept": 109,
+    "orientation_witnesses_kept_by_read_kind": {
+     "humidity": [
+      27,
+      32
+     ],
+     "neither": [
+      7,
+      8
+     ],
+     "temperature": [
+      76,
+      90
+     ]
+    },
+    "orientation_witnesses_of": 129,
+    "temperature_flagged": {
+     "kinds_changed": 16,
+     "lost": 13,
+     "published": 128,
+     "still_flagged": 115
+    }
+   },
+   "hc2": {
+    "affected_flag_gained": 0,
+    "affected_flag_lost": 0,
+    "affected_kinds_changed": 0,
+    "affected_outcomes_changed": 380,
+    "elapsed_s": 518.0,
+    "failed_environments": 0,
+    "humidity_flagged": {
+     "kinds_changed": 0,
+     "lost": 0,
+     "published": 37,
+     "still_flagged": 37
+    },
+    "new_orientation_witnesses": 0,
+    "orientation_witnesses_kept": 129,
+    "orientation_witnesses_kept_by_read_kind": {
+     "humidity": [
+      32,
+      32
+     ],
+     "neither": [
+      8,
+      8
+     ],
+     "temperature": [
+      90,
+      90
+     ]
+    },
+    "orientation_witnesses_of": 129,
+    "temperature_flagged": {
+     "kinds_changed": 0,
+     "lost": 0,
+     "published": 128,
+     "still_flagged": 128
+    }
+   },
+   "hc3": {
+    "affected_flag_gained": 0,
+    "affected_flag_lost": 1,
+    "affected_kinds_changed": 2,
+    "affected_outcomes_changed": 488,
+    "elapsed_s": 502.4,
+    "failed_environments": 0,
+    "humidity_flagged": {
+     "kinds_changed": 2,
+     "lost": 1,
+     "published": 37,
+     "still_flagged": 36
+    },
+    "new_orientation_witnesses": 0,
+    "orientation_witnesses_kept": 128,
+    "orientation_witnesses_kept_by_read_kind": {
+     "humidity": [
+      31,
+      32
+     ],
+     "neither": [
+      8,
+      8
+     ],
+     "temperature": [
+      90,
+      90
+     ]
+    },
+    "orientation_witnesses_of": 129,
+    "temperature_flagged": {
+     "kinds_changed": 0,
+     "lost": 0,
+     "published": 128,
+     "still_flagged": 128
+    }
+   },
+   "out+2": {
+    "affected_flag_gained": 0,
+    "affected_flag_lost": 1,
+    "affected_kinds_changed": 6,
+    "affected_outcomes_changed": 2237,
+    "check_outside_affected": {
+     "automations": 5653,
+     "automations_with_a_change": 1,
+     "flags_changed": 0,
+     "outcomes_changed": 48
+    },
+    "elapsed_s": 2523.6,
+    "failed_environments": 0,
+    "humidity_flagged": {
+     "kinds_changed": 5,
+     "lost": 1,
+     "published": 37,
+     "still_flagged": 36
+    },
+    "new_orientation_witnesses": 1,
+    "orientation_witnesses_kept": 125,
+    "orientation_witnesses_kept_by_read_kind": {
+     "humidity": [
+      30,
+      32
+     ],
+     "neither": [
+      7,
+      8
+     ],
+     "temperature": [
+      89,
+      90
+     ]
+    },
+    "orientation_witnesses_of": 129,
+    "temperature_flagged": {
+     "kinds_changed": 1,
+     "lost": 0,
+     "published": 128,
+     "still_flagged": 128
+    }
+   },
+   "out-2": {
+    "affected_flag_gained": 0,
+    "affected_flag_lost": 15,
+    "affected_kinds_changed": 18,
+    "affected_outcomes_changed": 2273,
+    "elapsed_s": 487.8,
+    "failed_environments": 0,
+    "humidity_flagged": {
+     "kinds_changed": 2,
+     "lost": 0,
+     "published": 37,
+     "still_flagged": 37
+    },
+    "new_orientation_witnesses": 0,
+    "orientation_witnesses_kept": 112,
+    "orientation_witnesses_kept_by_read_kind": {
+     "humidity": [
+      31,
+      32
+     ],
+     "neither": [
+      6,
+      8
+     ],
+     "temperature": [
+      76,
+      90
+     ]
+    },
+    "orientation_witnesses_of": 129,
+    "temperature_flagged": {
+     "kinds_changed": 16,
+     "lost": 14,
+     "published": 128,
+     "still_flagged": 114
+    }
+   }
+  }
+ },
+ "item6_context": {
+  "corpus_check": {
+   "corpus_automations_not_in_sweep": 0,
+   "repositories": 147,
+   "repositories_matching_sweep_counts": 147
+  },
+  "elapsed_s": 4428.8,
+  "night_light": {
+   "nl_div": {
+    "automations": 30,
+    "automations_lost_everywhere": 21,
+    "automations_lost_everywhere_only_by_other_author_entity": 6,
+    "automations_night_light_alone": 29,
+    "automations_night_light_in_context_somewhere": 9,
+    "closed_loop_alone_night_light": 802,
+    "companions_per_automation": [
+     4,
+     53
+    ],
+    "context_night_light": 147,
+    "lost": 701,
+    "lost_off_by_same_author_entity": 460,
+    "lost_off_only_by_other_author_entity": 241,
+    "new_in_context": 46,
+    "runs": 848,
+    "survive": 101,
+    "why_lost": {
+     "turned_off_by_companion": 701
+    }
+   },
+   "nl_static": {
+    "automations": 226,
+    "automations_lost_everywhere": 97,
+    "automations_lost_everywhere_only_by_other_author_entity": 18,
+    "automations_night_light_alone": 211,
+    "automations_night_light_in_context_somewhere": 122,
+    "closed_loop_alone_night_light": 422,
+    "companions_per_automation": [
+     0,
+     119
+    ],
+    "context_night_light": 244,
+    "lost": 194,
+    "lost_off_by_same_author_entity": 156,
+    "lost_off_only_by_other_author_entity": 36,
+    "new_in_context": 16,
+    "runs": 452,
+    "survive": 228,
+    "why_lost": {
+     "no_lamp_on_in_context": 2,
+     "turned_off_by_companion": 192
+    }
+   }
+  },
+  "repositories": {
+   "automations_parsed": 11111,
+   "bound": 2808,
+   "involved": 147,
+   "run": 2193
+  },
+  "rule": "context = every other automation of the repository in the sweep that binds and runs at rung 4; closed loop, one session; the target's outcome from its own firings, a lamp it turned on off when any automation of the run turned it off",
+  "setback": {
+   "automations_breaching_alone": 16,
+   "automations_breaching_in_context": 4,
+   "automations_own_in_context": 1,
+   "breaching_alone": 53,
+   "breaching_in_context": 15,
+   "context_without_it_breaches": 12,
+   "environments": [
+    "Minneapolis 2026-01-14 n0",
+    "Minneapolis 2026-01-14 n180",
+    "Stockholm 2026-01-14 n0",
+    "Stockholm 2026-01-14 n180"
+   ],
+   "lost": 48,
+   "lost_restorer_only_other_author_entity": 0,
+   "lost_restorer_same_author_entity": 48,
+   "new_in_context": 10,
+   "per_run": [
+    {
+     "automation": "A1",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 17,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A1",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 17,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A1",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 17,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A1",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 17,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A2",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.25,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A2",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.25,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A2",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.25,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A2",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.25,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A3",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 46.5,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A3",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 46.5,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A3",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 46.5,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A3",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 46.5,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A4",
+     "breach_alone": false,
+     "breach_context": true,
+     "companions": 27,
+     "context_without_it_breaches": true,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A4",
+     "breach_alone": false,
+     "breach_context": true,
+     "companions": 27,
+     "context_without_it_breaches": true,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A4",
+     "breach_alone": false,
+     "breach_context": true,
+     "companions": 27,
+     "context_without_it_breaches": true,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A4",
+     "breach_alone": false,
+     "breach_context": true,
+     "companions": 27,
+     "context_without_it_breaches": true,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A5",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 3.5,
+     "setback_h_context": 33.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A5",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 3.5,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A5",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 3.5,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A5",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 3.5,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A6",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.5,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A6",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.5,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A6",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.5,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A6",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.5,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A7",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A7",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A7",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A7",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A8",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 11,
+     "restorers": 11,
+     "setback_h_alone": 36.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A8",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 36.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A8",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 36.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A8",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 36.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A9",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A9",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A9",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A9",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A10",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 12,
+     "restorers": 12,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A10",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A10",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A10",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A11",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 11,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A11",
+     "breach_alone": true,
+     "breach_context": true,
+     "companions": 11,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": true,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 48.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A11",
+     "breach_alone": false,
+     "breach_context": true,
+     "companions": 11,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": true,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A11",
+     "breach_alone": false,
+     "breach_context": true,
+     "companions": 11,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": true,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A12",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 11,
+     "restorers": 11,
+     "setback_h_alone": 36.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A12",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 36.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A12",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 36.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A12",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 36.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A13",
+     "breach_alone": true,
+     "breach_context": true,
+     "companions": 64,
+     "context_without_it_breaches": true,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 48.0,
+     "setback_h_context": 48.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A13",
+     "breach_alone": true,
+     "breach_context": true,
+     "companions": 64,
+     "context_without_it_breaches": true,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 48.0,
+     "setback_h_context": 48.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A13",
+     "breach_alone": true,
+     "breach_context": true,
+     "companions": 64,
+     "context_without_it_breaches": true,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 48.0,
+     "setback_h_context": 48.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A13",
+     "breach_alone": true,
+     "breach_context": true,
+     "companions": 64,
+     "context_without_it_breaches": true,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 48.0,
+     "setback_h_context": 48.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A14",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 13,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A14",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 13,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A14",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 13,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A14",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 13,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A15",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A15",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A15",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A15",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A16",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 12,
+     "restorers": 12,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A16",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A16",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A16",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A17",
+     "breach_alone": false,
+     "breach_context": true,
+     "companions": 27,
+     "context_without_it_breaches": true,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A17",
+     "breach_alone": false,
+     "breach_context": true,
+     "companions": 27,
+     "context_without_it_breaches": true,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A17",
+     "breach_alone": false,
+     "breach_context": true,
+     "companions": 27,
+     "context_without_it_breaches": true,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A17",
+     "breach_alone": false,
+     "breach_context": true,
+     "companions": 27,
+     "context_without_it_breaches": true,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 0.0,
+     "setback_h_context": 0.0,
+     "why_lost": null
+    },
+    {
+     "automation": "A18",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 40.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A18",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 40.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A18",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 40.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A18",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 40.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A19",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 10.0,
+     "setback_h_context": 33.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A19",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 10.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A19",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 10.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A19",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 10.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A20",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A20",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A20",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A20",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 47.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A21",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 14,
+     "restorers": 14,
+     "setback_h_alone": 38.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A21",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 38.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A21",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 38.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A21",
+     "breach_alone": false,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 0,
+     "restorers": 0,
+     "setback_h_alone": 38.0,
+     "setback_h_context": 34.67,
+     "why_lost": null
+    },
+    {
+     "automation": "A22",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A22",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Minneapolis 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 13,
+     "restorers": 13,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 33.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A22",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n0",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    },
+    {
+     "automation": "A22",
+     "breach_alone": true,
+     "breach_context": false,
+     "companions": 20,
+     "context_without_it_breaches": false,
+     "env": "Stockholm 2026-01-14 n180",
+     "own_in_context": false,
+     "restorer_other_author_entity": 0,
+     "restorer_same_author_entity": 15,
+     "restorers": 15,
+     "setback_h_alone": 46.0,
+     "setback_h_context": 34.67,
+     "why_lost": "restored_by_companion"
+    }
+   ],
+   "runs": 88,
+   "setback_h_breaching_alone": [
+    36.0,
+    48.0
+   ],
+   "setback_h_context_of_those": [
+    0.0,
+    48.0
+   ],
+   "survive": 5,
+   "survive_and_own": 1,
+   "why_lost": {
+    "restored_by_companion": 48
+   }
+  }
+ }
+}

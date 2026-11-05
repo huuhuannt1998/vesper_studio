@@ -1236,3 +1236,209 @@ Unflagged automations that differ between the environments where they fire:
 | of them environment-coupled | 14 | 44 |
 
 So the projected outcome hides little beyond itself. Over all run automations: count 169, payload 9, branch 11.
+
+## Revision R4-B (Addendum 7): the error-budget corners, propagating the physics errors, and the rule set
+
+**Post hoc** (after the second internal review), registered before its runs as protocol Addendum 7
+(`docs/experiments/edt-protocol.md`; the change to its periodic steady state, made before any corner run, is dated there). Base: the ERA5 sweep
+`120f4ca` (rung 4), its home and recorded weather, R2-c's setback population. New indoor-model knobs (all set through
+`vesper.env.indoor.knobs`; at their defaults the model is bit-identical, by the pinned fingerprint test):
+`INTERNAL_GAINS_W_PER_M2`, `ROOF_GROUND` (U 0.15 roof, 0.25 ground, over the floor, to the outdoor air),
+`PREWARM_DAYS` (warm-up days before the run on its first day's weather; inf: a 30-day periodic steady state),
+`SOLAR_APERTURE_SCALE` (on G_SOLAR x glass), `OUTDOOR_T_OFFSET_C` (vapour pressure kept) and `HUMIDITY_CLASS`.
+`vesper.edt.confirm.closed_loop` gained `companions` (several automations in one session, firings attributed by
+index; tested). Every open-loop setting recorded its traces in a cache of its own, and a trace's reuse key now also
+names the knobs set away from their defaults (`vesper.edt.trace`, tested), so no trace can be served across settings.
+Script: `scripts/revision/r4b_error_budget.py`; numbers: `results/edt/error-budget-r4b-120f4ca.json`
+(aggregates; automations A1-A22 as in R2-c, repositories R1-R6).
+
+**Stated conditions** (the review asked): every room starts at **20.5 C** (START_C) at the first instant of the
+warm-up; the baseline (no automation) thermostat is the hallway's, at its own setpoint **20 C**, band 0.3 K, heating
+every indoor room at up to 100 W/m² of floor; the integration step is 60 s; days 1-2 are judged.
+
+### Item 4: the setback population over the error-budget corners (closed loop, A7.2)
+
+The 22 setback automations of R2-c, each alone, against the same corner's baseline in the same environment, R2-c's
+causal rule. **The nominal corner (gains 0, no roof or ground, 1-day warm-up, 165 kJ/(m² K)) reproduces R2-c step 2
+exactly**: the same 53 breaching runs, every coldest room, caused-cell count, baseline minimum, setback length and
+drop identical. No baseline room falls below 10 C at any corner (coldest 14.3 C).
+
+*Design as registered.* Stage 1 ran the four screen corners (gains 0, roof and ground on, 80 kJ/(m² K), each warm-up)
+in all 48 environments (4,416 runs): 92-94 breaching runs of 1,056, in **9 environments**: Minneapolis and Stockholm
+January (both orientations), Seattle January (both), Stockholm October (both) and Minneapolis October n0. E therefore
+holds 9 environments (more than 8), so stage 2 ran all 120 corners in R2-c's four ("the core") and the warm-ups 1 day
+and periodic only (60 corners) in the other five (17,342 runs, plus 598 reused from stage 1). Outside E every corner
+counts as no breach; the check holds: **at no corner does any run breach that does not breach at the screen corner of
+the same warm-up** (0 of 120 corners). Denominators, the same environments for every corner: the core, 22 x 4 = 88
+runs (all 120 corners); J, the January environments with a breach at any corner (Minneapolis, Stockholm, Seattle,
+both orientations), 22 x 6 = 132 runs (60 corners); all 48 environments, 1,056 runs (60 corners).
+
+| Gains W/m² | Roof + ground | C kJ/(m² K) | Core (of 88), warm-up 1 / 5 / 10 days / periodic | J (of 132), 1 day / periodic | All 48 (of 1,056), 1 day / periodic | Minneapolis / Stockholm / Seattle (1 day, over E) | Automations (1 day) | Coldest caused room per run, min / median / max (1 day) |
+|---|---|---|---|---|---|---|---|---|
+| 0 | off | 80 | 63/63/63/63 | 64 / 64 | 64 / 64 | 33 / 30 / 1 | 17 | [-3.1, 5.9, 9.9] |
+| 0 | off | 110 | 57/54/57/57 | 57 / 57 | 57 / 57 | 33 / 24 / 0 | 17 | [-0.7, 6.4, 9.9] |
+| 0 | off | 165 | 53/53/53/53 | 53 / 53 | 53 / 53 | 31 / 22 / 0 | 16 | [2.7, 8.1, 9.8] |
+| 0 | off | 260 | 23/22/22/22 | 23 / 22 | 23 / 22 | 23 / 0 / 0 | 12 | [6.0, 7.4, 8.6] |
+| 0 | off | 370 | 11/20/18/18 | 11 / 18 | 11 / 18 | 11 / 0 / 0 | 8 | [8.6, 9.4, 9.9] |
+| 0 | on | 80 | 63/63/63/63 | 84 / 84 | 93 / 94 | 33 / 39 / 21 | 17 | [-5.7, 6.3, 9.8] |
+| 0 | on | 110 | 63/63/63/63 | 69 / 70 | 69 / 70 | 33 / 30 / 6 | 17 | [-4.0, 6.4, 9.8] |
+| 0 | on | 165 | 54/54/54/54 | 54 / 54 | 54 / 54 | 32 / 22 / 0 | 17 | [-1.0, 6.3, 9.8] |
+| 0 | on | 260 | 52/53/52/53 | 52 / 53 | 52 / 53 | 30 / 22 / 0 | 16 | [2.8, 8.1, 9.9] |
+| 0 | on | 370 | 25/26/26/26 | 25 / 26 | 25 / 26 | 23 / 2 / 0 | 12 | [5.6, 6.7, 9.7] |
+| 2 | off | 80 | 59/57/59/57 | 59 / 57 | 59 / 57 | 33 / 26 / 0 | 17 | [-1.1, 6.0, 9.9] |
+| 2 | off | 110 | 53/53/53/53 | 53 / 53 | 53 / 53 | 31 / 22 / 0 | 16 | [1.0, 7.6, 9.2] |
+| 2 | off | 165 | 37/38/38/38 | 37 / 38 | 37 / 38 | 29 / 8 / 0 | 16 | [4.1, 6.3, 9.9] |
+| 2 | off | 260 | 23/22/22/22 | 23 / 22 | 23 / 22 | 23 / 0 / 0 | 12 | [7.2, 8.6, 9.5] |
+| 2 | off | 370 | 2/5/6/7 | 2 / 7 | 2 / 7 | 2 / 0 / 0 | 1 | [9.6, 9.75, 9.9] |
+| 2 | on | 80 | 63/63/63/63 | 66 / 66 | 66 / 66 | 33 / 30 / 3 | 17 | [-4.3, 5.4, 9.9] |
+| 2 | on | 110 | 63/63/63/63 | 63 / 63 | 63 / 63 | 33 / 30 / 0 | 17 | [-2.6, 5.9, 9.7] |
+| 2 | on | 165 | 53/53/53/53 | 53 / 53 | 53 / 53 | 31 / 22 / 0 | 16 | [0.2, 6.8, 8.4] |
+| 2 | on | 260 | 41/44/42/42 | 41 / 42 | 41 / 42 | 27 / 14 / 0 | 15 | [3.8, 5.9, 9.9] |
+| 2 | on | 370 | 23/22/22/22 | 23 / 22 | 23 / 22 | 23 / 0 / 0 | 12 | [6.2, 7.5, 8.4] |
+| 5 | off | 80 | 43/43/43/43 | 43 / 43 | 43 / 43 | 33 / 10 / 0 | 17 | [1.7, 5.5, 9.9] |
+| 5 | off | 110 | 31/31/31/31 | 31 / 31 | 31 / 31 | 31 / 0 / 0 | 16 | [3.7, 6.2, 9.5] |
+| 5 | off | 165 | 23/23/23/23 | 23 / 23 | 23 / 23 | 23 / 0 / 0 | 12 | [6.1, 7.6, 9.1] |
+| 5 | off | 260 | 8/10/9/9 | 8 / 9 | 8 / 9 | 8 / 0 / 0 | 6 | [8.9, 9.55, 9.8] |
+| 5 | off | 370 | 0/0/0/0 | 0 / 0 | 0 / 0 | 0 / 0 / 0 | 0 | None |
+| 5 | on | 80 | 63/63/63/63 | 63 / 63 | 63 / 63 | 33 / 30 / 0 | 17 | [-2.2, 5.5, 9.5] |
+| 5 | on | 110 | 55/55/55/55 | 55 / 55 | 55 / 55 | 33 / 22 / 0 | 17 | [-0.6, 6.1, 8.6] |
+| 5 | on | 165 | 47/47/47/47 | 47 / 47 | 47 / 47 | 31 / 16 / 0 | 16 | [1.9, 7.6, 9.8] |
+| 5 | on | 260 | 23/23/26/22 | 23 / 22 | 23 / 22 | 23 / 0 / 0 | 12 | [5.2, 6.2, 7.2] |
+| 5 | on | 370 | 23/22/22/22 | 23 / 22 | 23 / 22 | 23 / 0 / 0 | 12 | [7.4, 8.6, 9.4] |
+
+**The interval.** Over the core, the breaching runs range from **0 to 63 of 88** across the 120 corners (nominal 53);
+over J from **0 to 84 of 132** (nominal 53); over all 48 environments from **0 to 94 of 1,056** (nominal 53).
+- *Worst corner*: no internal gains, roof and ground on, 80 kJ/(m² K), periodic warm-up: 94 of 1,056 (84 of J), in
+  Minneapolis and Stockholm January (63), Seattle January (21), Stockholm October (9) and Minneapolis October (1);
+  the coldest caused room reaches -6.0 C. In the core, 63 of 88 is reached by 24 corners: it is the ceiling of what
+  the 17 automations that command their setback in the cold days can do.
+- *Best corner*: 5 W/m² of internal gains, no roof or ground, 370 kJ/(m² K) (very heavy), at every warm-up: 0.
+- **Minneapolis breaches at 116 of the 120 corners** (all but the four best); **Stockholm at 76**; Seattle only at 8
+  of the 60 J corners (80-110 kJ/(m² K), 6 of them with roof and ground on).
+
+*What moves it* (core mean over the other factors): capacity 80 / 110 / 165 / 260 / 370 kJ/(m² K): 58.8 / 53.5 /
+44.6 / 28.6 / 15.3; internal gains 0 / 2 / 5 W/m²: 47.0 / 42.0 / 31.7; roof and ground off / on: 32.9 / 47.5;
+warm-up 1 / 5 / 10 days / periodic: 39.9 / 40.3 / 40.4 / 40.2. The warm-up hardly matters, because the
+hallway thermostat holds the house at 20 C before the setback whatever the start (its largest effect is at 370 kJ/(m²
+K) and no gains, 11 runs at 1 day against 18-20 with a longer warm-up: from 20.5 C the heavy house starts warmer than
+its periodic state). The review's two big terms point the ways it said: internal gains fewer breaches, roof and ground
+more, of similar size (-15 and +15 runs on the core mean); capacity over the physical ISO 13790 range is the largest
+term, and with it Stockholm drops out at 260-370 kJ/(m² K) unless the roof and ground are on.
+
+### Item 5: propagating the solar-aperture, outdoor-temperature and humidity-class errors (open loop, A7.3)
+
+The affected set: 281 automations that run at rung 4 and read a temperature (214) or a humidity (63) by their names
+as written, or have an orientation witness (129); 128 flagged temperature and 37 flagged humidity automations among
+them. Each setting re-recorded all 48 traces in its own cache and replayed the set with the sweep's worker. **The
+reference (aperture x1, recorded afresh) reproduces the published sweep exactly**: 13,488 outcomes, 0 flag, kind or
+outcome mismatches, the same 129 orientation witnesses, no failed environment.
+
+| Setting | Orientation witnesses kept (of 129): temperature / humidity / other | Temperature flags kept (of 128) | Humidity flags kept (of 37) | Affected: flags lost / gained, kinds changed | Outcomes changed (of 13,488) |
+|---|---|---|---|---|---|
+| aperture x0.25 | 66: 36 of 90 / 27 of 32 / 4 of 8 (new: 0) | 109 | 37 | 20 / 0, 35 | 2,297 |
+| aperture x0.5 | 111: 73 of 90 / 32 of 32 / 7 of 8 (new: 0) | 119 | 37 | 10 / 0, 26 | 2,110 |
+| aperture x2 | 109: 76 of 90 / 27 of 32 / 7 of 8 (new: 3) | 115 | 36 | 15 / 2, 26 | 2,575 |
+
+Reading: halving the solar aperture keeps 111 of the 129 orientation witnesses; a quarter keeps 66. The humidity
+side is the robust one: every humidity witness survives a halved aperture and 27 of 32 a quartered one, and **no
+humidity flag is lost at a smaller aperture** (one at x2). The temperature side is the fragile one: 73 of 90 temperature witnesses
+survive x0.5, 36 of 90 survive x0.25, and 9 (x0.5) or 19 (x0.25) of the 128 temperature flags are lost. A smaller
+aperture creates no new flag or witness; doubling it creates 2 flags and 3 witnesses and loses 13 temperature flags. The review's reading holds for the orientation witnesses that read
+a temperature: they are the findings most exposed to the term that fails validation (B's ~7 C warm bias); if the true
+aperture is half the model's, about one in five of them goes; if a quarter, three in five.
+
+**Outdoor air +-2 K** (ERA5's disclosed bias at home B):
+
+| Offset | Temperature flags kept (of 128): lost / kinds changed | Humidity flags (of 37): lost / kinds changed | Orientation witnesses kept (of 129) | Outcomes changed |
+|---|---|---|---|---|
+| -2 K | 114: 14 / 16 | 0 / 2 | 112 | 2,273 |
+| +2 K | 128: 0 / 1 | 1 / 5 | 125 | 2,237 |
+
+A colder outdoor air (-2 K) loses 14 of the 128 temperature flags and 17 orientation witnesses; a warmer one (+2 K)
+none and 4: the flags sit nearer a cold-side threshold than a warm one. No humidity flag is lost at -2 K.
+
+**Humidity class** (EN ISO 13788, 270 / 540 / 810 Pa per class at 0 C or below outside; class 1 is the model):
+
+class 2 (540 Pa) changes no flag, no kind and no orientation witness (380 outcomes move, first firing times); class 3 (810 Pa) loses 1 of the 37 humidity flags and one orientation witness, changes the kinds of 2 (488 outcomes move). The humidity flags are insensitive to the fitted class.
+
+**The 85 % clamp.** Room relative-humidity series of the baseline home (7 indoor rooms x 48 environments = 336
+series, days 1-2):
+
+| Setting | Series reaching 85 % (the clamp) | ... reaching 70 % | ... reaching 55 % | Minutes at the clamp | Environments with a series at the clamp |
+|---|---|---|---|---|---|
+| as built (aperture x1, class 1, offset 0) | 51 | 79 | 215 | 4.0 % | 8 |
+| class 2 (540 Pa) | 51 | 92 | 231 | 4.0 % | 8 |
+| class 3 (810 Pa) | 51 | 150 | 283 | 4.0 % | 8 |
+| aperture x0.25 | 66 | 111 | 251 | 14.2 % | 10 |
+| aperture x0.5 | 56 | 95 | 245 | 10.1 % | 8 |
+| aperture x2 | 21 | 55 | 159 | 0.9 % | 5 |
+| outdoor -2 K | 56 | 92 | 214 | 6.5 % | 8 |
+| outdoor +2 K | 41 | 64 | 189 | 3.0 % | 6 |
+
+The clamp is reached only in Singapore (and, with the aperture at a quarter, in two Sydney environments): 51 of 336
+series at the model as built, all 8 Singapore environments, 4 % of all room-minutes. It does not move with the
+humidity class, because the class's moisture excess falls to zero at an outdoor temperature of 20 C and Singapore is
+above it; what moves it is the room temperature (aperture x0.25: 66 series; x2: 21). The 70 % threshold the reported
+automations use is crossed by 79 series as built and 150 at class 3.
+
+*Check of the affected set* (every automation that runs, replayed at x2 and at +2 K): outside the 281, 3 of 5,653 automations change an outcome at x2 (50 outcomes, 1 flag) and 1 at +2 K (48 outcomes, 0 flags). The set chosen by the names as written misses a few automations that the binder puts on a room's temperature or humidity sensor (5 of the 8 orientation witnesses outside the temperature and humidity groups read one): the counts above are therefore complete for the 129, 128 and 37 they are stated over, and the whole corpus moves by at most one flag more.
+
+### Item 6: isolation versus the rule set (closed loop, A7.4)
+
+`closed_loop(..., companions=[...])` runs several automations in one session (one engine; tested). The context of an
+automation is every other automation of its repository that binds and runs at rung 4. The 147 repositories involved
+hold 11,111 parsed automations, of which 2,808 bind and 2,193 run: **about four in five of an author's rules cannot
+run in the standard home**, so every context below is partial (a missing companion might restore, or switch off,
+what the present ones do not). Counting the corpus directly gives the same
+per-repository counts as the sweep for all 147 (no automation outside the sweep). Every run is also made "alone"
+through the same labelled path; alone, the setback population gives **53 breaching runs again, exactly R2-c's**.
+
+**Setback (the 22, R2-c's four breach environments, 88 runs).**
+
+| | Runs | Automations |
+|---|---|---|
+| Caused breach alone (R2-c) | 53 | 16 |
+| ... that survive with the context | **5** | 2 (A13 4, A11 1) |
+| ... of which the automation's own (no breach with the context alone) | **1** | 1 (A11) |
+| Lost with the context | 48 | 14 |
+| New breaches with the context | 10 | 3 |
+| Breaching runs with the context, in all | 15 | 4 |
+| ... of which the automation's own | 3 | 1 (A11) |
+
+Why the 48 go away: **every one is restored by a companion** that commands the same author thermostat back to
+18-19 C between the 7 C commands (the 14 lost automations are R2's: its setbacks alternate with heating schedules on
+the same entity; the commanded setpoint is below 10 C for 34-35 of the 48 hours in context, but never for long
+enough). None depends on a binding collision (a companion's thermostat that was a different author entity): 0 of 48.
+What survives is not a setback: A13's companions turn the thermostat off (`climate.turn_off`), so its rooms reach
+2.3 C with or without A13; A11 turns the thermostat off before setting 5 C, and its companions set 19-22 C but never
+turn it back on, so its rooms fall to 3.0 C with the whole rule set (3 runs, two of them new) and to 15.6 C without
+it. A4 and A17 breach only in context, again through companions' `climate.turn_off`.
+
+**night_light.** An automation's lamp counts as off when any automation of the run turns it off before 01:00.
+
+| Population | Runs | night_light alone (closed loop) | Survive in context | Lost: off by the same author lamp / only by another author lamp bound onto it | New in context | Automations: alone / in context somewhere |
+|---|---|---|---|---|---|---|
+| night_light divergence (30), every env with one | 848 | 802 | **101** | 460 / 241 | 46 | 29 / 9 |
+| static night_light (226), 2 envs each | 452 | 422 | **228** | 156 / 36 | 16 | 211 / 122 |
+
+For the 30 automations flagged with a night_light divergence the finding is mostly an isolation artifact: 701 of
+802 night_light runs go away with the rule set, 460 of them because a companion turns **the same author lamp** off
+(the off-rule the review predicted); 241 go away only through a companion that turns off a different author lamp the
+binder put on the same home lamp (a binding collision: those losses are an artifact of the standard home, not
+evidence either way). 9 of the 29 keep a night_light somewhere with their repository present (21 lose it in every
+environment run; 6 of the 21 only through collisions). The static night_light (226) is more robust: 228 of 422 runs
+and 122 of 211 automations keep it.
+
+### The setback finding, restated (review items 4 and 6)
+
+Over the 120 error-budget corners (internal gains 0-5 W/m², roof and ground off or on, warm-up 1 day to periodic,
+heat capacity 80-370 kJ/(m² K)), 0 to 63 of the 88 Minneapolis and Stockholm January runs breach (53 at the model as
+built; 0 to 94 of all 1,056 runs), Minneapolis at 116 of the 120 corners and Stockholm at 76, but run with the rest of
+their repository's rules, 48 of the nominal 53 breaching runs go away because a companion rule restores the
+setpoint, and the 15 breaching runs that remain come from rules that turn the thermostat off, not from a setback.
+
+*Concerns, stated.* The ground loss goes to the outdoor air (pessimistic); the warm-up repeats the run's first day;
+about four in five of a repository's automations cannot run in the standard home, so a context is partial; every
+setback automation's repository puts its climate entities on one hallway thermostat (no restore here depended on a
+different author entity, but the night_light losses partly do); the aperture knob scales the solar heat, not the
+daylight (which has its own knob and changes one flag in 797 at rung 3).
