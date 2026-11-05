@@ -782,21 +782,74 @@ def _dedupe(ring):
 
 
 
-def _read(tris, scale, np):
-    """Read the model with the most likely up direction; when the shape alone cannot tell (a bare shell: a second
-    axis scores close to the best, or no furniture shows which way is up), read it each way and keep the plan with
-    the most doors and windows, then rooms (said in a warning)."""
-    import scipy.ndimage as ndi
+def _clean(tris, np):
+    """The triangles with an area, their unit normals and areas; ScanError when none has an area."""
     normals, areas = _normals(tris, np)
     keep = areas > 0
-    tris, normals, areas = tris[keep], normals[keep], areas[keep]
-    if len(tris) == 0:
+    if not keep.any():
         raise ScanError("the model's triangles all have no area")
+    return tris[keep], normals[keep], areas[keep]
+
+
+def _tries(tris, normals, areas, np) -> list[str]:
+    """The up directions to read the model with, best first: the best axis's signs, then those of any axis scoring
+    AMBIGUOUS of it."""
     ranked = _orientations(tris, normals, areas, np)
     tries = list(ranked[0][1])
     for score, signs in ranked[1:]:
         if score >= AMBIGUOUS * ranked[0][0] and score > 0:
             tries += signs
+    return tries
+
+
+def upright_mesh(path: Path, scale: float | None = None):
+    """The model at `path` upright, in metres, its floor at height 0 and its walls along x and z, before any plan is
+    read from it: (triangles (n, 3, 3) in that frame, their unit normals, their areas in m², meta, warnings). meta is
+    read_mesh's ("up", "scale", "floor_y", "ceiling_y", "transform") with "ceiling" (the ceiling's height above the
+    floor, or None) and "transform" taking a point of the file to this frame (no shift: the plan's rooms are not known
+    yet). The up direction, storey, scale and wall direction are read_mesh's own; when the shape alone cannot tell
+    which way is up, read_mesh's full reading decides (the way finding the most doors and windows), else the first
+    way that can be scaled. Used by the top-down render (scan_render.py) Claude reads."""
+    np, ndi, trimesh = _libs()
+    path = Path(path)
+    if path.suffix.lower() not in SUFFIXES:
+        raise ScanError(f"{path.name}: a mesh must be one of {', '.join(SUFFIXES)}")
+    if scale is not None and (isinstance(scale, bool) or not isinstance(scale, (int, float))
+                              or not math.isfinite(scale) or not 0 < scale < 1e9):
+        raise ScanError(f"the scale {scale!r} must be a number of metres per unit above 0")
+    tris, normals, areas = _clean(_load(path, np, trimesh), np)
+    tries = _tries(tris, normals, areas, np)
+    lead: list[str] = []
+    if len(tries) > 1:
+        try:
+            _, meta, _ = _read(tris, scale, np)
+            tries = [meta["up"]] + [t for t in tries if t != meta["up"]]
+            lead.append(f"the shape alone does not show which way is up: {meta['up']} up, the way the geometric "
+                        f"reading finds the most doors and windows (of {', '.join(tries)})")
+        except ScanError:
+            lead.append(f"the shape alone does not show which way is up: {tries[0]} up is taken (of "
+                        f"{', '.join(tries)})")
+    first_error = None
+    for up in tries:
+        try:
+            f = _frame(tris, normals, areas, up, scale, np, ndi)
+        except ScanError as e:
+            first_error = first_error or e
+            continue
+        meta = {"up": up, "scale": f["s"], "floor_y": round(f["floor_m"], 4),
+                "ceiling_y": None if f["ceiling_m"] is None else round(f["ceiling_m"], 4),
+                "ceiling": f["ceiling_rel"], "transform": [[float(v) for v in row] for row in f["matrix"]]}
+        return f["tris"], f["normals"], f["areas"], meta, lead + f["warnings"]
+    raise first_error
+
+
+def _read(tris, scale, np):
+    """Read the model with the most likely up direction; when the shape alone cannot tell (a bare shell: a second
+    axis scores close to the best, or no furniture shows which way is up), read it each way and keep the plan with
+    the most doors and windows, then rooms (said in a warning)."""
+    import scipy.ndimage as ndi
+    tris, normals, areas = _clean(tris, np)
+    tries = _tries(tris, normals, areas, np)
     if len(tries) == 1:
         return _read_up(tris, normals, areas, tries[0], scale, np, ndi)
     best, first_error = None, None
@@ -818,7 +871,11 @@ def _read(tris, scale, np):
     return plan, meta, warnings
 
 
-def _read_up(tris, normals, areas, up, scale, np, ndi):
+def _frame(tris, normals, areas, up, scale, np, ndi) -> dict:
+    """The model turned with `up` up, its storey found and scaled to metres, its floor at 0 and its walls along x and
+    z: {"tris", "normals", "areas" (m²), "s", "floor_m", "ceiling_m", "ceiling_rel" (above the floor, or None),
+    "measured" (the doors' width in units when they set the scale, else None), "turn", "yaw", "matrix" (4x4: the
+    file to this frame), "warnings"}; ScanError when the scale cannot be told."""
     warnings: list[str] = []
     turn = np.asarray(_TURN[up], dtype=np.float64)
     tris = tris @ turn.T
@@ -876,10 +933,21 @@ def _read_up(tris, normals, areas, up, scale, np, ndi):
     ceiling_rel = None if ceiling_m is None else ceiling_m - floor_m
     angle = _dominant_angle(_segments(up_scaled, WALL_SLICE_M, np), np)
     yaw = _yaw(angle, np)
-    up_scaled = up_scaled @ yaw.T
-    norm2 = normals @ yaw.T
+    m = np.eye(4)
+    m[:3, :3] = yaw @ (np.eye(3) * s) @ turn
+    m[:3, 3] = [0.0, -floor_m, 0.0]
+    return {"tris": up_scaled @ yaw.T, "normals": normals @ yaw.T, "areas": areas * s * s, "s": s,
+            "floor_m": floor_m, "ceiling_m": ceiling_m, "ceiling_rel": ceiling_rel, "measured": measured,
+            "turn": turn, "yaw": yaw, "matrix": m, "warnings": warnings}
 
-    g = _Grids(up_scaled, norm2, areas * s * s, ceiling_rel, np, ndi)
+
+def _read_up(tris, normals, areas, up, scale, np, ndi):
+    f = _frame(tris, normals, areas, up, scale, np, ndi)
+    warnings, s, measured = f["warnings"], f["s"], f["measured"]
+    up_scaled, norm2, ceiling_rel = f["tris"], f["normals"], f["ceiling_rel"]
+    floor_m, ceiling_m, turn, yaw = f["floor_m"], f["ceiling_m"], f["turn"], f["yaw"]
+
+    g = _Grids(up_scaled, norm2, f["areas"], ceiling_rel, np, ndi)
     openings = _openings(g)
     labels, rooms, edge, barrier = _regions(g, openings)
     if not rooms:

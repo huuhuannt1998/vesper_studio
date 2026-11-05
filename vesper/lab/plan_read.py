@@ -225,7 +225,7 @@ def summary(plan_m: dict, numbers: list[int] | None = None, floors_drawn: int | 
 
 
 def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: float = TIMEOUT_S,
-                    stop=None, meta: dict | None = None) -> dict:
+                    stop=None, meta: dict | None = None, context: str | None = None) -> dict:
     """A validated `vesper-plan/1` (in pixels) read from the floor-plan image or PDF at `path`.
 
     The file must be a PNG, JPEG or PDF by its first bytes. A copy of it goes into a fresh temporary directory as
@@ -238,7 +238,9 @@ def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: 
     when two answers in a row are not a valid plan (the message carries Claude's last text or stated reason).
     `stop` (a threading.Event, the lobby's Stop reading): once set, no further answer is asked for and the default
     runner kills the CLI at once; ReadingStopped is raised. `meta` (a dict, when given) gets "floors_drawn": how many
-    floors Claude says the image draws (None when the answer gave no count); the plan returned is one floor."""
+    floors Claude says the image draws (None when the answer gave no count); the plan returned is one floor.
+    `context` (a short text, when given) is added to the prompt after the instructions, saying what kind of picture
+    this is (the top-down render of a 3D scan, scan_render.py); the instructions themselves are unchanged."""
     path = Path(path)
     if not path.is_file():
         raise PlanError(f"{_label(str(path))}: no such file")
@@ -257,7 +259,8 @@ def read_plan_image(path: Path, runner=None, model: str | None = None, timeout: 
         for attempt in range(2):
             if stop is not None and stop.is_set():
                 raise ReadingStopped("the reading was stopped")
-            prompt = f"{PROMPT}\nThe image: {copy}\n"
+            about = f"\nAbout this image: {context.strip()}\n" if context else ""
+            prompt = f"{PROMPT}{about}\nThe image: {copy}\n"
             if attempt:
                 prompt += (f"\nYour previous answer was:\n{text}\n\nVESPER cannot use it: {problem}\n"
                            "(\"door N\" is the N-th entry of \"doors\", counting from 1.)\n\n"
