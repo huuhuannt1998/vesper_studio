@@ -3535,6 +3535,6 @@ Script `scripts/revision/r11k_agreement.py`; aggregates in `results/edt/r11k-90a
 - **Sun locations.** On the same 25, location precision is 16 of 25 ([0.45, 0.80]) for the first rater and 14 of 23
   ([0.41, 0.78]) for the second.
 - **Where they differ.** Every disagreement involves an "uncertain" label on one side, except one dead-rule case
-  (genuine for one rater, a site or date effect for the other).
+  (genuine, G1, for one rater; a binding or standard-home artefact, B, for the other).
 - **Reading.** The audits that set the binder discount and the location precision reproduce under a second, blind
   rater.
