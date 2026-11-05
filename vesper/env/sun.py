@@ -16,6 +16,9 @@ from astral import Observer
 from astral.sun import azimuth, elevation
 
 LUMINOUS_EFFICACY = 110.0  # lm/W, global daylight (assumed; Perez et al. 1990 range ~100-125)
+# the beam share of horizontal irradiance under a clear sky (assumed); a sensitivity knob (revision R6-B, protocol
+# Addendum 9), set only through vesper.env.indoor.knobs; 0.8 as built
+DIRECT_SHARE = 0.8
 
 
 @dataclass(frozen=True)
@@ -53,9 +56,9 @@ def lux(ghi_w_m2: float) -> float:
 
 def direct_fraction(cloud_cover_pct: float | None) -> float:
     """The share of horizontal irradiance that comes straight from the sun, not from the sky: about 0.8 under a clear
-    sky, falling to 0 under overcast (assumed linear in cloud cover)."""
+    sky (DIRECT_SHARE), falling to 0 under overcast (assumed linear in cloud cover)."""
     c = 0.0 if cloud_cover_pct is None else min(max(cloud_cover_pct, 0.0), 100.0) / 100
-    return 0.8 * (1 - c)
+    return DIRECT_SHARE * (1 - c)
 
 
 def sun_events(site, day: int) -> dict[str, float | None]:

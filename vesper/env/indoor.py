@@ -20,8 +20,9 @@ for the error budget (revision R4-B, protocol Addendum 7): INTERNAL_GAINS_W_PER_
 ROOF_GROUND (1: a roof and a ground floor lose heat to the outdoor air, U_ROOF and U_GROUND over the floor),
 PREWARM_DAYS (extra warm-up days on the first day's weather before the run, `HomeEnvironment.prewarm`; inf: its
 periodic steady state), SOLAR_APERTURE_SCALE (on the solar heat through the glass), OUTDOOR_T_OFFSET_C (on the outdoor
-air temperature, its vapour pressure kept) and HUMIDITY_CLASS. At their defaults the model is the one built, to the
-bit.
+air temperature, its vapour pressure kept) and HUMIDITY_CLASS; and (revision R6-B, protocol Addendum 9) ACH (the
+ventilation's air changes per hour) and DIRECT_SHARE (the beam share's coefficient, which lives in vesper.env.sun). At
+their defaults the model is the one built, to the bit.
 """
 from __future__ import annotations
 
@@ -30,6 +31,7 @@ import math
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 
+from vesper.env import sun as _sun
 from vesper.env.outdoor import RUN_DAYS, Outdoor, OutdoorState
 
 CEILING_M = 2.5
@@ -42,7 +44,7 @@ G_SOLAR = 0.6  # solar energy transmittance of the glazing (assumed)
 SOLAR_TO_AIR = 1.0  # share of the solar gain that warms the room's own air and mass; the rest the rest of the house
 SHADE_LIGHT, SHADE_SOLAR = 0.1, 0.4  # what a closed shade lets through of light and of solar heat (assumed)
 U_WALL, U_WINDOW = 0.35, 1.4  # W/m²K, a recent house's walls and double glazing (assumed)
-ACH = 0.5  # air changes per hour (assumed)
+ACH = 0.5  # air changes per hour (assumed); a knob (revision R6-B, protocol Addendum 9)
 C_PER_M2 = 165_000.0  # J/K per m² of floor (EN ISO 13790 "medium")
 CAPACITY_SCALE = 1.0  # a sensitivity knob on every room's heat capacity C (revision R2-a; 1.0 as built)
 HEAT_W_PER_M2 = 100.0  # a room's heating at full output (assumed)
@@ -72,15 +74,35 @@ OUTDOOR_T_OFFSET_C = 0.0  # kelvin added to the outdoor air temperature (its vap
 
 
 KNOBS = ("DAYLIGHT_SCALE", "CAPACITY_SCALE", "HUMIDITY_T_OFFSET_C", "INTERNAL_GAINS_W_PER_M2", "ROOF_GROUND",
-         "PREWARM_DAYS", "SOLAR_APERTURE_SCALE", "OUTDOOR_T_OFFSET_C", "HUMIDITY_CLASS")
-KNOB_DEFAULTS = {k: globals()[k] for k in KNOBS}  # the model as built
+         "PREWARM_DAYS", "SOLAR_APERTURE_SCALE", "OUTDOOR_T_OFFSET_C", "HUMIDITY_CLASS", "ACH", "DIRECT_SHARE")
+_KNOB_HOME = {"DIRECT_SHARE": _sun}  # a knob that lives in another module; every other one is this module's
+
+
+def _home(name: str):
+    return _KNOB_HOME.get(name)
+
+
+def knob_value(name: str):
+    """A knob's current value, wherever it lives."""
+    home = _home(name)
+    return globals()[name] if home is None else getattr(home, name)
+
+
+def _set_knob(name: str, value) -> None:
+    home = _home(name)
+    if home is None:
+        globals()[name] = value
+    else:
+        setattr(home, name, value)
+
+
+KNOB_DEFAULTS = {k: knob_value(k) for k in KNOBS}  # the model as built
 
 
 def nondefault_knobs() -> dict:
     """The knobs set away from the model as built, {name: value} (empty at the defaults): what a cached result
     computed under them must be keyed by (vesper.edt.trace)."""
-    module = globals()
-    return {k: module[k] for k in KNOBS if module[k] != KNOB_DEFAULTS[k]}
+    return {k: knob_value(k) for k in KNOBS if knob_value(k) != KNOB_DEFAULTS[k]}
 
 
 @contextmanager
@@ -90,13 +112,14 @@ def knobs(**values: float):
     unknown = set(values) - set(KNOBS)
     if unknown:
         raise ValueError(f"not a knob: {sorted(unknown)}")
-    module = globals()
-    old = {k: module[k] for k in values}
+    old = {k: knob_value(k) for k in values}
     try:
-        module.update(values)
+        for k, v in values.items():
+            _set_knob(k, v)
         yield
     finally:
-        module.update(old)
+        for k, v in old.items():
+            _set_knob(k, v)
 
 
 def e_sat(t_c: float) -> float:
@@ -324,5 +347,6 @@ class HomeEnvironment:
                                             ("INTERNAL_GAINS_W_PER_M2", INTERNAL_GAINS_W_PER_M2, 0.0),
                                             ("ROOF_GROUND", ROOF_GROUND, 0.0), ("PREWARM_DAYS", PREWARM_DAYS, 0.0),
                                             ("SOLAR_APERTURE_SCALE", SOLAR_APERTURE_SCALE, 1.0),
-                                            ("OUTDOOR_T_OFFSET_C", OUTDOOR_T_OFFSET_C, 0.0)) if v != d},
+                                            ("OUTDOOR_T_OFFSET_C", OUTDOOR_T_OFFSET_C, 0.0),
+                                            ("DIRECT_SHARE", _sun.DIRECT_SHARE, 0.8)) if v != d},
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}

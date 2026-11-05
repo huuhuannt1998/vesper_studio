@@ -174,21 +174,22 @@ BEFORE_KNOBS = "671b22a0fa68c482465b3c557564058a282263a1ed876a9fab05eb484b55d8d8
 
 DEFAULTS = {"DAYLIGHT_SCALE": 1.0, "CAPACITY_SCALE": 1.0, "HUMIDITY_T_OFFSET_C": 0.0, "INTERNAL_GAINS_W_PER_M2": 0.0,
             "ROOF_GROUND": 0.0, "PREWARM_DAYS": 0.0, "SOLAR_APERTURE_SCALE": 1.0, "OUTDOOR_T_OFFSET_C": 0.0,
-            "HUMIDITY_CLASS": 1}
+            "HUMIDITY_CLASS": 1, "ACH": 0.5, "DIRECT_SHARE": 0.8}
 
 
 def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
-    """Every knob (R2-a's and Addendum 7's) at its default: the model of 120f4ca, to the bit."""
+    """Every knob (R2-a's, Addendum 7's and Addendum 9's) at its default: the model of 120f4ca, to the bit."""
     from vesper.env import indoor
     assert set(indoor.KNOBS) == set(DEFAULTS)
-    assert {k: getattr(indoor, k) for k in DEFAULTS} == DEFAULTS
+    assert {k: indoor.knob_value(k) for k in DEFAULTS} == DEFAULTS == indoor.KNOB_DEFAULTS
+    assert indoor.nondefault_knobs() == {}
     assert _fingerprint() == BEFORE_KNOBS
     with indoor.knobs(**DEFAULTS):
         assert _fingerprint() == BEFORE_KNOBS
     e = env()
     assert e.prewarm(0.0, lambda: {}) == 0.0  # no warm-up at the default
     assert not {"capacity_scale", "internal_gains_w_per_m2", "roof_ground", "prewarm_days", "solar_aperture_scale",
-                "outdoor_t_offset_c"} & set(e.provenance()["indoor"])
+                "outdoor_t_offset_c", "direct_share"} & set(e.provenance()["indoor"])
 
 
 def test_knobs_restore_their_values_even_when_the_block_fails():
@@ -335,3 +336,43 @@ def test_a_longer_warm_up_brings_the_rooms_nearer_their_periodic_state():
         assert e.prewarm(0.0, heating) == 0.0  # only before the first step
     with indoor.knobs(PREWARM_DAYS=1.5), pytest.raises(ValueError):
         env().prewarm(0.0, heating)
+
+
+# -- Addendum 9's knobs (revision R6-B): infiltration and the beam share --------------------------------------------
+def test_ach_is_a_knob_that_sets_the_ventilation_loss_and_cools_a_winter_room():
+    from vesper.env import indoor
+    room = env().rooms["bedroom"]
+    h0 = room.h_w_per_k
+    with indoor.knobs(ACH=1.0):
+        assert room.h_w_per_k == pytest.approx(h0 + 0.34 * 0.5 * room.volume)
+        assert indoor.nondefault_knobs() == {"ACH": 1.0}
+    assert indoor.ACH == 0.5 and indoor.nondefault_knobs() == {}
+    base, leaky, tight = _day(), _day(ACH=1.0), _day(ACH=0.3)
+    assert all(leaky[r] < base[r] < tight[r] for r in base)
+
+
+def test_the_direct_share_knob_sets_the_beam_split_in_the_sun_module_and_is_restored():
+    from vesper.env import indoor
+    from vesper.env import sun as sunmod
+    assert sunmod.direct_fraction(None) == 0.8 and sunmod.direct_fraction(50) == 0.4
+    with indoor.knobs(DIRECT_SHARE=0.6):
+        assert sunmod.direct_fraction(None) == 0.6 and sunmod.direct_fraction(50) == pytest.approx(0.3)
+        assert indoor.nondefault_knobs() == {"DIRECT_SHARE": 0.6}
+        assert indoor.knob_value("DIRECT_SHARE") == 0.6
+        f = env().outdoor.at(12 * 3600)  # no weather: cloud unknown, taken as clear
+        assert f.direct_fraction == 0.6
+    assert sunmod.DIRECT_SHARE == 0.8 and sunmod.direct_fraction(None) == 0.8
+    with pytest.raises(RuntimeError), indoor.knobs(DIRECT_SHARE=0.95):
+        raise RuntimeError
+    assert sunmod.DIRECT_SHARE == 0.8
+
+
+def test_a_larger_direct_share_moves_heat_into_the_sun_facing_room():
+    e = env()
+    from vesper.env import indoor
+    with indoor.knobs(DIRECT_SHARE=0.95):
+        sunny = e.outdoor_at(12 * 3600)
+    with indoor.knobs(DIRECT_SHARE=0.6):
+        dull = e.outdoor_at(12 * 3600)
+    assert sunny.direct_fraction > dull.direct_fraction
+    assert e._solar_w(e.rooms["bedroom"], sunny) > e._solar_w(e.rooms["bedroom"], dull)
