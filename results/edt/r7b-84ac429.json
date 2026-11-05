@@ -1,0 +1,3196 @@
+{
+ "analysis": "R7-B (protocol Addendum 13, post hoc): the open-loop screen over R4-B's 120 corners, the indoor-temperature offset, the second illuminance product",
+ "base_flags_in_replay_set": {
+  "clock": 785,
+  "frame": 199
+ },
+ "code_commit": "84ac429",
+ "inputs": {
+  "published_memberships_and_reference": "r6d-5b54586",
+  "reporting_rule": "device",
+  "sweep": "8fcd672"
+ },
+ "item11b_illuminance": {
+  "automations_with_an_outcome_change": 16,
+  "clock": {
+   "flagged_reference": 15,
+   "flagged_reference_among_swapped": 15,
+   "flagged_swapped": 15,
+   "flagged_swapped_among_swapped": 15,
+   "gained": 0,
+   "kinds_changed": 1,
+   "lost": 0
+  },
+  "elapsed_s": {
+   "ref": 55.0,
+   "swap": 60.8
+  },
+  "entities_replaced": 79,
+  "failed_environments": {
+   "ref": 0,
+   "swap": 0
+  },
+  "fire_somewhere": {
+   "ref": 17,
+   "swap": 17
+  },
+  "frame": {
+   "flagged_reference": 7,
+   "flagged_reference_among_swapped": 7,
+   "flagged_swapped": 7,
+   "flagged_swapped_among_swapped": 7,
+   "gained": 0,
+   "kinds_changed": 0,
+   "lost": 0
+  },
+  "outcomes_changed": 526,
+  "product": "zigbee:tuya:s-lux-zb",
+  "readers": 67,
+  "reference_against_published": {
+   "clock_kind_mismatches": 0,
+   "frame_kind_mismatches": 0,
+   "membership_mismatches": 0,
+   "outcome_mismatches_exact": 0,
+   "outcomes": 3216
+  },
+  "replaced_product": "zigbee:aqara:rtcgq11lm",
+  "sensors_added": 8,
+  "swapped": 65
+ },
+ "item6a_corners": {
+  "bracket": {
+   "clock_flags": {
+    "gained_somewhere": 2,
+    "lost_somewhere": 57,
+    "per_setting_max": 785,
+    "per_setting_min": 751,
+    "possible_set": 787,
+    "published": 785,
+    "reference_equals_published": true,
+    "robust_core": 728,
+    "settings": 120
+   },
+   "clock_outcome_orientation_witnesses": {
+    "gained_somewhere": 6,
+    "lost_somewhere": 75,
+    "per_setting_max": 123,
+    "per_setting_min": 91,
+    "possible_set": 129,
+    "published": 123,
+    "reference_equals_published": true,
+    "robust_core": 48,
+    "settings": 120
+   },
+   "frame_flags": {
+    "gained_somewhere": 1,
+    "kinds_changed_somewhere": 44,
+    "lost_somewhere": 40,
+    "per_setting_max": 199,
+    "per_setting_min": 182,
+    "possible_set": 200,
+    "published": 199,
+    "reference_equals_published": true,
+    "robust_core": 159,
+    "settings": 120
+   },
+   "frame_humidity_flags": {
+    "gained_somewhere": 0,
+    "lost_somewhere": 15,
+    "per_setting_max": 36,
+    "per_setting_min": 21,
+    "possible_set": 36,
+    "published": 36,
+    "reference_equals_published": true,
+    "robust_core": 21,
+    "settings": 120
+   },
+   "frame_orientation_witnesses": {
+    "gained_somewhere": 9,
+    "lost_somewhere": 58,
+    "per_setting_max": 101,
+    "per_setting_min": 80,
+    "possible_set": 109,
+    "published": 100,
+    "reference_equals_published": true,
+    "robust_core": 42,
+    "settings": 120
+   },
+   "frame_room_model_flags": {
+    "gained_somewhere": 1,
+    "lost_somewhere": 39,
+    "per_setting_max": 104,
+    "per_setting_min": 87,
+    "possible_set": 105,
+    "published": 104,
+    "reference_equals_published": true,
+    "robust_core": 65,
+    "settings": 120
+   },
+   "frame_temperature_flags": {
+    "gained_somewhere": 1,
+    "lost_somewhere": 24,
+    "per_setting_max": 105,
+    "per_setting_min": 91,
+    "possible_set": 105,
+    "published": 104,
+    "reference_equals_published": true,
+    "robust_core": 80,
+    "settings": 120
+   }
+  },
+  "marginals": {
+   "clock_flags": {
+    "corners_at_max": [
+     "G0-Foff-W1-C165",
+     "G0-Fon-W1-C110",
+     "G2-Foff-W1-C165",
+     "G2-Fon-W1-C165"
+    ],
+    "corners_at_min": [
+     "G0-Fon-Wpss-C370",
+     "G5-Foff-W10-C165",
+     "G5-Foff-W10-C260"
+    ],
+    "max": 785,
+    "mean_by_level": {
+     "capacity_kj_m2k": {
+      "110": 761.79,
+      "165": 763.04,
+      "260": 762.71,
+      "370": 762.75,
+      "80": 762.42
+     },
+     "gains_w_m2": {
+      "0.0": 765.12,
+      "2.0": 761.88,
+      "5.0": 760.62
+     },
+     "roof_ground": {
+      "0": 761.5,
+      "1": 763.58
+     },
+     "warm_up": {
+      "1": 773.73,
+      "10": 757.83,
+      "5": 759.97,
+      "pss": 758.63
+     }
+    },
+    "min": 751
+   },
+   "clock_outcome_orientation_witnesses": {
+    "corners_at_max": [
+     "G0-Foff-W1-C165"
+    ],
+    "corners_at_min": [
+     "G5-Foff-W10-C165",
+     "G5-Foff-W10-C260"
+    ],
+    "max": 123,
+    "mean_by_level": {
+     "capacity_kj_m2k": {
+      "110": 100.75,
+      "165": 100.33,
+      "260": 101.29,
+      "370": 100.71,
+      "80": 100.58
+     },
+     "gains_w_m2": {
+      "0.0": 103.12,
+      "2.0": 100.22,
+      "5.0": 98.85
+     },
+     "roof_ground": {
+      "0": 100.52,
+      "1": 100.95
+     },
+     "warm_up": {
+      "1": 110.47,
+      "10": 96.43,
+      "5": 98.63,
+      "pss": 97.4
+     }
+    },
+    "min": 91
+   },
+   "frame_flags": {
+    "corners_at_max": [
+     "G0-Foff-W1-C165",
+     "G2-Foff-W1-C165",
+     "G2-Fon-W1-C165"
+    ],
+    "corners_at_min": [
+     "G0-Fon-Wpss-C370",
+     "G5-Foff-W10-C165",
+     "G5-Foff-W10-C260",
+     "G5-Foff-Wpss-C260"
+    ],
+    "max": 199,
+    "mean_by_level": {
+     "capacity_kj_m2k": {
+      "110": 189.54,
+      "165": 190.71,
+      "260": 189.67,
+      "370": 188.67,
+      "80": 189.71
+     },
+     "gains_w_m2": {
+      "0.0": 190.8,
+      "2.0": 189.95,
+      "5.0": 188.22
+     },
+     "roof_ground": {
+      "0": 188.77,
+      "1": 190.55
+     },
+     "warm_up": {
+      "1": 192.47,
+      "10": 188.57,
+      "5": 189.33,
+      "pss": 188.27
+     }
+    },
+    "min": 182
+   },
+   "frame_humidity_flags": {
+    "corners_at_max": [
+     "G0-Foff-W1-C110",
+     "G0-Foff-W1-C165",
+     "G0-Foff-W1-C260",
+     "G0-Foff-W1-C370",
+     "G0-Fon-W1-C110",
+     "G0-Fon-W1-C165",
+     "G0-Fon-W1-C260",
+     "G0-Fon-W1-C370",
+     "G2-Foff-W1-C165",
+     "G2-Foff-W1-C260",
+     "G2-Foff-W1-C370",
+     "G2-Fon-W1-C165",
+     "G2-Fon-W1-C260",
+     "G2-Fon-W1-C370",
+     "G5-Foff-W1-C260",
+     "G5-Foff-W1-C370",
+     "G5-Fon-W1-C260",
+     "G5-Fon-W1-C370"
+    ],
+    "corners_at_min": [
+     "G5-Foff-W10-C165",
+     "G5-Foff-W10-C260",
+     "G5-Foff-W10-C80",
+     "G5-Foff-W5-C165",
+     "G5-Foff-W5-C80",
+     "G5-Foff-Wpss-C165",
+     "G5-Foff-Wpss-C260",
+     "G5-Foff-Wpss-C370",
+     "G5-Foff-Wpss-C80"
+    ],
+    "max": 36,
+    "mean_by_level": {
+     "capacity_kj_m2k": {
+      "110": 27.54,
+      "165": 27.92,
+      "260": 28.71,
+      "370": 29.17,
+      "80": 26.92
+     },
+     "gains_w_m2": {
+      "0.0": 29.57,
+      "2.0": 28.35,
+      "5.0": 26.23
+     },
+     "roof_ground": {
+      "0": 27.42,
+      "1": 28.68
+     },
+     "warm_up": {
+      "1": 33.57,
+      "10": 26.07,
+      "5": 26.7,
+      "pss": 25.87
+     }
+    },
+    "min": 21
+   },
+   "frame_orientation_witnesses": {
+    "corners_at_max": [
+     "G0-Fon-W1-C110"
+    ],
+    "corners_at_min": [
+     "G0-Foff-W1-C370"
+    ],
+    "max": 101,
+    "mean_by_level": {
+     "capacity_kj_m2k": {
+      "110": 92.79,
+      "165": 92.96,
+      "260": 91.38,
+      "370": 89.96,
+      "80": 92.58
+     },
+     "gains_w_m2": {
+      "0.0": 93.95,
+      "2.0": 91.9,
+      "5.0": 89.95
+     },
+     "roof_ground": {
+      "0": 91.87,
+      "1": 92
+     },
+     "warm_up": {
+      "1": 92.63,
+      "10": 91.33,
+      "5": 92.47,
+      "pss": 91.3
+     }
+    },
+    "min": 80
+   },
+   "frame_room_model_flags": {
+    "corners_at_max": [
+     "G0-Foff-W1-C165",
+     "G2-Foff-W1-C165",
+     "G2-Fon-W1-C165"
+    ],
+    "corners_at_min": [
+     "G0-Fon-Wpss-C370",
+     "G5-Foff-W10-C165",
+     "G5-Foff-W10-C260",
+     "G5-Foff-Wpss-C260"
+    ],
+    "max": 104,
+    "mean_by_level": {
+     "capacity_kj_m2k": {
+      "110": 94.54,
+      "165": 95.71,
+      "260": 94.88,
+      "370": 93.92,
+      "80": 94.71
+     },
+     "gains_w_m2": {
+      "0.0": 95.9,
+      "2.0": 95.05,
+      "5.0": 93.3
+     },
+     "roof_ground": {
+      "0": 93.85,
+      "1": 95.65
+     },
+     "warm_up": {
+      "1": 97.83,
+      "10": 93.57,
+      "5": 94.33,
+      "pss": 93.27
+     }
+    },
+    "min": 87
+   },
+   "frame_temperature_flags": {
+    "corners_at_max": [
+     "G0-Foff-W10-C165",
+     "G0-Foff-Wpss-C80",
+     "G0-Fon-W10-C110",
+     "G0-Fon-W10-C165",
+     "G0-Fon-W5-C260",
+     "G0-Fon-Wpss-C165",
+     "G2-Foff-W10-C165",
+     "G2-Foff-W10-C80",
+     "G2-Foff-W5-C260",
+     "G2-Foff-W5-C80",
+     "G2-Foff-Wpss-C80",
+     "G2-Fon-W10-C165",
+     "G2-Fon-W10-C260",
+     "G2-Fon-W5-C110",
+     "G2-Fon-W5-C260",
+     "G2-Fon-Wpss-C165",
+     "G2-Fon-Wpss-C260",
+     "G5-Foff-W10-C80",
+     "G5-Foff-W5-C80",
+     "G5-Foff-Wpss-C370",
+     "G5-Foff-Wpss-C80",
+     "G5-Fon-W10-C165",
+     "G5-Fon-W10-C260",
+     "G5-Fon-W10-C370",
+     "G5-Fon-W5-C165",
+     "G5-Fon-W5-C260",
+     "G5-Fon-Wpss-C110",
+     "G5-Fon-Wpss-C165",
+     "G5-Fon-Wpss-C260",
+     "G5-Fon-Wpss-C370"
+    ],
+    "corners_at_min": [
+     "G0-Foff-W1-C370"
+    ],
+    "max": 105,
+    "mean_by_level": {
+     "capacity_kj_m2k": {
+      "110": 103,
+      "165": 103.79,
+      "260": 102.17,
+      "370": 100.75,
+      "80": 103.79
+     },
+     "gains_w_m2": {
+      "0.0": 102.33,
+      "2.0": 102.7,
+      "5.0": 103.08
+     },
+     "roof_ground": {
+      "0": 102.43,
+      "1": 102.97
+     },
+     "warm_up": {
+      "1": 100.27,
+      "10": 103.5,
+      "5": 103.63,
+      "pss": 103.4
+     }
+    },
+    "min": 91
+   }
+  },
+  "per_setting": {
+   "G0-Foff-W1-C110": {
+    "counts": {
+     "clock_flags": 767,
+     "clock_outcome_orientation_witnesses": 107,
+     "frame_flags": 196,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 98,
+     "frame_room_model_flags": 101,
+     "frame_temperature_flags": 101
+    },
+    "elapsed_s": 106.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W1-C165": {
+    "counts": {
+     "clock_flags": 785,
+     "clock_outcome_orientation_witnesses": 123,
+     "frame_flags": 199,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 100,
+     "frame_room_model_flags": 104,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 105.1,
+    "failed_environments": 0,
+    "knobs": {}
+   },
+   "G0-Foff-W1-C260": {
+    "counts": {
+     "clock_flags": 778,
+     "clock_outcome_orientation_witnesses": 120,
+     "frame_flags": 192,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 98,
+     "frame_room_model_flags": 98,
+     "frame_temperature_flags": 98
+    },
+    "elapsed_s": 111.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W1-C370": {
+    "counts": {
+     "clock_flags": 771,
+     "clock_outcome_orientation_witnesses": 107,
+     "frame_flags": 185,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 80,
+     "frame_room_model_flags": 91,
+     "frame_temperature_flags": 91
+    },
+    "elapsed_s": 112.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W1-C80": {
+    "counts": {
+     "clock_flags": 780,
+     "clock_outcome_orientation_witnesses": 119,
+     "frame_flags": 198,
+     "frame_humidity_flags": 35,
+     "frame_orientation_witnesses": 99,
+     "frame_room_model_flags": 103,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 112.1,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W10-C110": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 129.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W10-C165": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 97,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 142.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W10-C260": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 140.9,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W10-C370": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 188,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 137.7,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W10-C80": {
+    "counts": {
+     "clock_flags": 761,
+     "clock_outcome_orientation_witnesses": 101,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 127.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W5-C110": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 137.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W5-C165": {
+    "counts": {
+     "clock_flags": 757,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 188,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 140.9,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W5-C260": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 102,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 133.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W5-C370": {
+    "counts": {
+     "clock_flags": 764,
+     "clock_outcome_orientation_witnesses": 101,
+     "frame_flags": 193,
+     "frame_humidity_flags": 31,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 98,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 131.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-W5-C80": {
+    "counts": {
+     "clock_flags": 772,
+     "clock_outcome_orientation_witnesses": 114,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 128.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-Wpss-C110": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 164.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-Wpss-C165": {
+    "counts": {
+     "clock_flags": 755,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 187,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 132.5,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-Wpss-C260": {
+    "counts": {
+     "clock_flags": 755,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 187,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 144.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-Wpss-C370": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 97,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 157.7,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Foff-Wpss-C80": {
+    "counts": {
+     "clock_flags": 773,
+     "clock_outcome_orientation_witnesses": 115,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 96,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 172.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G0-Fon-W1-C110": {
+    "counts": {
+     "clock_flags": 785,
+     "clock_outcome_orientation_witnesses": 118,
+     "frame_flags": 198,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 101,
+     "frame_room_model_flags": 103,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 106.7,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W1-C165": {
+    "counts": {
+     "clock_flags": 770,
+     "clock_outcome_orientation_witnesses": 106,
+     "frame_flags": 197,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 96,
+     "frame_room_model_flags": 102,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 117.9,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W1-C260": {
+    "counts": {
+     "clock_flags": 777,
+     "clock_outcome_orientation_witnesses": 116,
+     "frame_flags": 191,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 97,
+     "frame_temperature_flags": 97
+    },
+    "elapsed_s": 109.9,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W1-C370": {
+    "counts": {
+     "clock_flags": 773,
+     "clock_outcome_orientation_witnesses": 112,
+     "frame_flags": 187,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 87,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 93
+    },
+    "elapsed_s": 100.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W1-C80": {
+    "counts": {
+     "clock_flags": 778,
+     "clock_outcome_orientation_witnesses": 102,
+     "frame_flags": 196,
+     "frame_humidity_flags": 35,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 101,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 104.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W10-C110": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 101,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 121.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W10-C165": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 100,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 99.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W10-C260": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 96,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 96.7,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W10-C370": {
+    "counts": {
+     "clock_flags": 757,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 188,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 106.5,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W10-C80": {
+    "counts": {
+     "clock_flags": 761,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 191,
+     "frame_humidity_flags": 29,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 123.7,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W5-C110": {
+    "counts": {
+     "clock_flags": 775,
+     "clock_outcome_orientation_witnesses": 100,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 114.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W5-C165": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 111.9,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W5-C260": {
+    "counts": {
+     "clock_flags": 764,
+     "clock_outcome_orientation_witnesses": 100,
+     "frame_flags": 195,
+     "frame_humidity_flags": 31,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 100,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 111.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W5-C370": {
+    "counts": {
+     "clock_flags": 765,
+     "clock_outcome_orientation_witnesses": 104,
+     "frame_flags": 194,
+     "frame_humidity_flags": 31,
+     "frame_orientation_witnesses": 99,
+     "frame_room_model_flags": 99,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 108.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-W5-C80": {
+    "counts": {
+     "clock_flags": 761,
+     "clock_outcome_orientation_witnesses": 99,
+     "frame_flags": 192,
+     "frame_humidity_flags": 29,
+     "frame_orientation_witnesses": 93,
+     "frame_room_model_flags": 97,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 110.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-Wpss-C110": {
+    "counts": {
+     "clock_flags": 774,
+     "clock_outcome_orientation_witnesses": 112,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 93,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 141.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-Wpss-C165": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 100,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 93,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 112.7,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-Wpss-C260": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 100,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 107.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-Wpss-C370": {
+    "counts": {
+     "clock_flags": 751,
+     "clock_outcome_orientation_witnesses": 92,
+     "frame_flags": 182,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 86,
+     "frame_room_model_flags": 87,
+     "frame_temperature_flags": 96
+    },
+    "elapsed_s": 107.7,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G0-Fon-Wpss-C80": {
+    "counts": {
+     "clock_flags": 774,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 191,
+     "frame_humidity_flags": 29,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 145.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 0.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Foff-W1-C110": {
+    "counts": {
+     "clock_flags": 764,
+     "clock_outcome_orientation_witnesses": 104,
+     "frame_flags": 192,
+     "frame_humidity_flags": 31,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 97,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 77.1,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W1-C165": {
+    "counts": {
+     "clock_flags": 785,
+     "clock_outcome_orientation_witnesses": 108,
+     "frame_flags": 199,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 104,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 82.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W1-C260": {
+    "counts": {
+     "clock_flags": 778,
+     "clock_outcome_orientation_witnesses": 114,
+     "frame_flags": 192,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 89,
+     "frame_room_model_flags": 98,
+     "frame_temperature_flags": 98
+    },
+    "elapsed_s": 75.1,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W1-C370": {
+    "counts": {
+     "clock_flags": 777,
+     "clock_outcome_orientation_witnesses": 114,
+     "frame_flags": 191,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 97,
+     "frame_temperature_flags": 97
+    },
+    "elapsed_s": 71.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W1-C80": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 100,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 78.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W10-C110": {
+    "counts": {
+     "clock_flags": 755,
+     "clock_outcome_orientation_witnesses": 93,
+     "frame_flags": 187,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 89,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 65.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W10-C165": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 61.1,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W10-C260": {
+    "counts": {
+     "clock_flags": 756,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 187,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 89,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 101
+    },
+    "elapsed_s": 58.7,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W10-C370": {
+    "counts": {
+     "clock_flags": 756,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 186,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 89,
+     "frame_room_model_flags": 91,
+     "frame_temperature_flags": 100
+    },
+    "elapsed_s": 56.5,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W10-C80": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 67.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W5-C110": {
+    "counts": {
+     "clock_flags": 756,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 188,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 58.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W5-C165": {
+    "counts": {
+     "clock_flags": 755,
+     "clock_outcome_orientation_witnesses": 93,
+     "frame_flags": 187,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 55.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W5-C260": {
+    "counts": {
+     "clock_flags": 761,
+     "clock_outcome_orientation_witnesses": 100,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 52.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W5-C370": {
+    "counts": {
+     "clock_flags": 761,
+     "clock_outcome_orientation_witnesses": 99,
+     "frame_flags": 188,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 53.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-W5-C80": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 61.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-Wpss-C110": {
+    "counts": {
+     "clock_flags": 756,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 188,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 73.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-Wpss-C165": {
+    "counts": {
+     "clock_flags": 756,
+     "clock_outcome_orientation_witnesses": 93,
+     "frame_flags": 188,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 73.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-Wpss-C260": {
+    "counts": {
+     "clock_flags": 755,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 187,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 87,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 101
+    },
+    "elapsed_s": 72.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-Wpss-C370": {
+    "counts": {
+     "clock_flags": 755,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 187,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 71.5,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Foff-Wpss-C80": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 75.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G2-Fon-W1-C110": {
+    "counts": {
+     "clock_flags": 766,
+     "clock_outcome_orientation_witnesses": 106,
+     "frame_flags": 193,
+     "frame_humidity_flags": 31,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 98,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 52.7,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W1-C165": {
+    "counts": {
+     "clock_flags": 785,
+     "clock_outcome_orientation_witnesses": 122,
+     "frame_flags": 199,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 99,
+     "frame_room_model_flags": 104,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 50.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W1-C260": {
+    "counts": {
+     "clock_flags": 775,
+     "clock_outcome_orientation_witnesses": 114,
+     "frame_flags": 189,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 88,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 95
+    },
+    "elapsed_s": 49.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W1-C370": {
+    "counts": {
+     "clock_flags": 775,
+     "clock_outcome_orientation_witnesses": 107,
+     "frame_flags": 189,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 83,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 95
+    },
+    "elapsed_s": 48.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W1-C80": {
+    "counts": {
+     "clock_flags": 762,
+     "clock_outcome_orientation_witnesses": 104,
+     "frame_flags": 191,
+     "frame_humidity_flags": 29,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 53.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W10-C110": {
+    "counts": {
+     "clock_flags": 757,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 188,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 60.1,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W10-C165": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 58.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W10-C260": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 93,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 57.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W10-C370": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 100,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 55.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W10-C80": {
+    "counts": {
+     "clock_flags": 762,
+     "clock_outcome_orientation_witnesses": 101,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 89,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 61.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W5-C110": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 101,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 55.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W5-C165": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 96,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 93,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 54.5,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W5-C260": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 99,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 94,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 53.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W5-C370": {
+    "counts": {
+     "clock_flags": 761,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 89,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 53.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-W5-C80": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 100,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 57.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-Wpss-C110": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 100,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 93,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 74.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-Wpss-C165": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 74.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-Wpss-C260": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 99,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 93,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 71.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-Wpss-C370": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 99,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 70.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G2-Fon-Wpss-C80": {
+    "counts": {
+     "clock_flags": 763,
+     "clock_outcome_orientation_witnesses": 102,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 76.9,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 2.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Foff-W1-C110": {
+    "counts": {
+     "clock_flags": 772,
+     "clock_outcome_orientation_witnesses": 113,
+     "frame_flags": 186,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 88,
+     "frame_room_model_flags": 91,
+     "frame_temperature_flags": 101
+    },
+    "elapsed_s": 50.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W1-C165": {
+    "counts": {
+     "clock_flags": 782,
+     "clock_outcome_orientation_witnesses": 119,
+     "frame_flags": 197,
+     "frame_humidity_flags": 35,
+     "frame_orientation_witnesses": 96,
+     "frame_room_model_flags": 102,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 50.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W1-C260": {
+    "counts": {
+     "clock_flags": 778,
+     "clock_outcome_orientation_witnesses": 117,
+     "frame_flags": 196,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 97,
+     "frame_room_model_flags": 101,
+     "frame_temperature_flags": 101
+    },
+    "elapsed_s": 49.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W1-C370": {
+    "counts": {
+     "clock_flags": 775,
+     "clock_outcome_orientation_witnesses": 116,
+     "frame_flags": 189,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 89,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 95
+    },
+    "elapsed_s": 47.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W1-C80": {
+    "counts": {
+     "clock_flags": 762,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 188,
+     "frame_humidity_flags": 25,
+     "frame_orientation_witnesses": 89,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 50.9,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W10-C110": {
+    "counts": {
+     "clock_flags": 756,
+     "clock_outcome_orientation_witnesses": 96,
+     "frame_flags": 187,
+     "frame_humidity_flags": 25,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 56.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W10-C165": {
+    "counts": {
+     "clock_flags": 751,
+     "clock_outcome_orientation_witnesses": 91,
+     "frame_flags": 182,
+     "frame_humidity_flags": 21,
+     "frame_orientation_witnesses": 84,
+     "frame_room_model_flags": 87,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 55.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W10-C260": {
+    "counts": {
+     "clock_flags": 751,
+     "clock_outcome_orientation_witnesses": 91,
+     "frame_flags": 182,
+     "frame_humidity_flags": 21,
+     "frame_orientation_witnesses": 84,
+     "frame_room_model_flags": 87,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 54.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W10-C370": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 187,
+     "frame_humidity_flags": 25,
+     "frame_orientation_witnesses": 89,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 54.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W10-C80": {
+    "counts": {
+     "clock_flags": 755,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 185,
+     "frame_humidity_flags": 21,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 90,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 57.1,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W5-C110": {
+    "counts": {
+     "clock_flags": 756,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 187,
+     "frame_humidity_flags": 25,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 53.1,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W5-C165": {
+    "counts": {
+     "clock_flags": 754,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 184,
+     "frame_humidity_flags": 21,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 89,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 51.2,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W5-C260": {
+    "counts": {
+     "clock_flags": 757,
+     "clock_outcome_orientation_witnesses": 96,
+     "frame_flags": 187,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 88,
+     "frame_room_model_flags": 92,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 50.9,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W5-C370": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 99,
+     "frame_flags": 186,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 91,
+     "frame_temperature_flags": 101
+    },
+    "elapsed_s": 50.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-W5-C80": {
+    "counts": {
+     "clock_flags": 755,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 185,
+     "frame_humidity_flags": 21,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 90,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 53.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-Wpss-C110": {
+    "counts": {
+     "clock_flags": 754,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 185,
+     "frame_humidity_flags": 25,
+     "frame_orientation_witnesses": 87,
+     "frame_room_model_flags": 90,
+     "frame_temperature_flags": 101
+    },
+    "elapsed_s": 71.5,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-Wpss-C165": {
+    "counts": {
+     "clock_flags": 753,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 184,
+     "frame_humidity_flags": 21,
+     "frame_orientation_witnesses": 85,
+     "frame_room_model_flags": 89,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 71.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-Wpss-C260": {
+    "counts": {
+     "clock_flags": 752,
+     "clock_outcome_orientation_witnesses": 92,
+     "frame_flags": 182,
+     "frame_humidity_flags": 21,
+     "frame_orientation_witnesses": 87,
+     "frame_room_model_flags": 87,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 70.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-Wpss-C370": {
+    "counts": {
+     "clock_flags": 755,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 185,
+     "frame_humidity_flags": 21,
+     "frame_orientation_witnesses": 87,
+     "frame_room_model_flags": 90,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 69.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Foff-Wpss-C80": {
+    "counts": {
+     "clock_flags": 755,
+     "clock_outcome_orientation_witnesses": 96,
+     "frame_flags": 185,
+     "frame_humidity_flags": 21,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 90,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 72.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 0.0
+    }
+   },
+   "G5-Fon-W1-C110": {
+    "counts": {
+     "clock_flags": 761,
+     "clock_outcome_orientation_witnesses": 102,
+     "frame_flags": 188,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 102
+    },
+    "elapsed_s": 50.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W1-C165": {
+    "counts": {
+     "clock_flags": 778,
+     "clock_outcome_orientation_witnesses": 101,
+     "frame_flags": 194,
+     "frame_humidity_flags": 31,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 99,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 50.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W1-C260": {
+    "counts": {
+     "clock_flags": 779,
+     "clock_outcome_orientation_witnesses": 116,
+     "frame_flags": 193,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 95,
+     "frame_room_model_flags": 99,
+     "frame_temperature_flags": 99
+    },
+    "elapsed_s": 48.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W1-C370": {
+    "counts": {
+     "clock_flags": 777,
+     "clock_outcome_orientation_witnesses": 112,
+     "frame_flags": 191,
+     "frame_humidity_flags": 36,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 97,
+     "frame_temperature_flags": 97
+    },
+    "elapsed_s": 47.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W1-C80": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 189,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 51.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 0.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W10-C110": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 189,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 58.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W10-C165": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 93,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 56.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W10-C260": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 87,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 55.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W10-C370": {
+    "counts": {
+     "clock_flags": 760,
+     "clock_outcome_orientation_witnesses": 94,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 86,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 55.6,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W10-C80": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 188,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 58.8,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 9.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W5-C110": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 98,
+     "frame_flags": 189,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 53.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W5-C165": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 53.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W5-C260": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 93,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 89,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 52.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W5-C370": {
+    "counts": {
+     "clock_flags": 763,
+     "clock_outcome_orientation_witnesses": 103,
+     "frame_flags": 190,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 90,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 51.3,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-W5-C80": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 189,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 94,
+     "frame_temperature_flags": 104
+    },
+    "elapsed_s": 55.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": 4.0,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-Wpss-C110": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 73.0,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.6666666666666666,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-Wpss-C165": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 97,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 92,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 71.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.0,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-Wpss-C260": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 93,
+     "frame_flags": 190,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 88,
+     "frame_room_model_flags": 95,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 71.5,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 1.5757575757575757,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-Wpss-C370": {
+    "counts": {
+     "clock_flags": 759,
+     "clock_outcome_orientation_witnesses": 95,
+     "frame_flags": 191,
+     "frame_humidity_flags": 27,
+     "frame_orientation_witnesses": 88,
+     "frame_room_model_flags": 96,
+     "frame_temperature_flags": 105
+    },
+    "elapsed_s": 70.7,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 2.242424242424242,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   },
+   "G5-Fon-Wpss-C80": {
+    "counts": {
+     "clock_flags": 758,
+     "clock_outcome_orientation_witnesses": 96,
+     "frame_flags": 188,
+     "frame_humidity_flags": 26,
+     "frame_orientation_witnesses": 91,
+     "frame_room_model_flags": 93,
+     "frame_temperature_flags": 103
+    },
+    "elapsed_s": 74.4,
+    "failed_environments": 0,
+    "knobs": {
+     "CAPACITY_SCALE": 0.48484848484848486,
+     "INTERNAL_GAINS_W_PER_M2": 5.0,
+     "PREWARM_DAYS": Infinity,
+     "ROOF_GROUND": 1.0
+    }
+   }
+  },
+  "published": {
+   "clock_flags": 785,
+   "clock_outcome_orientation_witnesses": 123,
+   "frame_flags": 199,
+   "frame_humidity_flags": 36,
+   "frame_orientation_witnesses": 100,
+   "frame_room_model_flags": 104,
+   "frame_temperature_flags": 104
+  },
+  "reference_against_published": {
+   "clock_kind_mismatches": 0,
+   "frame_kind_mismatches": 0,
+   "membership_mismatches": 0,
+   "outcome_mismatches_exact": 0,
+   "outcomes": 45792
+  },
+  "settings_run": 120
+ },
+ "item6b_indoor_offset": {
+  "both_signs": {
+   "bracket": {
+    "clock_flags": {
+     "gained_somewhere": 6,
+     "lost_somewhere": 56,
+     "per_setting_max": 788,
+     "per_setting_min": 737,
+     "possible_set": 791,
+     "published": 785,
+     "reference_equals_published": true,
+     "robust_core": 729,
+     "settings": 9
+    },
+    "clock_outcome_orientation_witnesses": {
+     "gained_somewhere": 10,
+     "lost_somewhere": 59,
+     "per_setting_max": 127,
+     "per_setting_min": 75,
+     "possible_set": 133,
+     "published": 123,
+     "reference_equals_published": true,
+     "robust_core": 64,
+     "settings": 9
+    },
+    "frame_flags": {
+     "gained_somewhere": 5,
+     "kinds_changed_somewhere": 62,
+     "lost_somewhere": 58,
+     "per_setting_max": 202,
+     "per_setting_min": 148,
+     "possible_set": 204,
+     "published": 199,
+     "reference_equals_published": true,
+     "robust_core": 141,
+     "settings": 9
+    },
+    "frame_humidity_flags": {
+     "gained_somewhere": 0,
+     "lost_somewhere": 17,
+     "per_setting_max": 36,
+     "per_setting_min": 19,
+     "possible_set": 36,
+     "published": 36,
+     "reference_equals_published": true,
+     "robust_core": 19,
+     "settings": 9
+    },
+    "frame_orientation_witnesses": {
+     "gained_somewhere": 13,
+     "lost_somewhere": 67,
+     "per_setting_max": 106,
+     "per_setting_min": 49,
+     "possible_set": 113,
+     "published": 100,
+     "reference_equals_published": true,
+     "robust_core": 33,
+     "settings": 9
+    },
+    "frame_room_model_flags": {
+     "gained_somewhere": 5,
+     "lost_somewhere": 57,
+     "per_setting_max": 107,
+     "per_setting_min": 54,
+     "possible_set": 109,
+     "published": 104,
+     "reference_equals_published": true,
+     "robust_core": 47,
+     "settings": 9
+    },
+    "frame_temperature_flags": {
+     "gained_somewhere": 5,
+     "lost_somewhere": 40,
+     "per_setting_max": 107,
+     "per_setting_min": 71,
+     "possible_set": 109,
+     "published": 104,
+     "reference_equals_published": true,
+     "robust_core": 64,
+     "settings": 9
+    }
+   },
+   "per_setting": {
+    "ref": {
+     "counts": {
+      "clock_flags": 785,
+      "clock_outcome_orientation_witnesses": 123,
+      "frame_flags": 199,
+      "frame_humidity_flags": 36,
+      "frame_orientation_witnesses": 100,
+      "frame_room_model_flags": 104,
+      "frame_temperature_flags": 104
+     },
+     "elapsed_s": 55.3,
+     "failed_environments": 0,
+     "knobs": {}
+    },
+    "tin+0.9": {
+     "counts": {
+      "clock_flags": 779,
+      "clock_outcome_orientation_witnesses": 121,
+      "frame_flags": 193,
+      "frame_humidity_flags": 36,
+      "frame_orientation_witnesses": 91,
+      "frame_room_model_flags": 99,
+      "frame_temperature_flags": 99
+     },
+     "elapsed_s": 75.6,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": 0.9
+     }
+    },
+    "tin+1.7": {
+     "counts": {
+      "clock_flags": 772,
+      "clock_outcome_orientation_witnesses": 108,
+      "frame_flags": 185,
+      "frame_humidity_flags": 36,
+      "frame_orientation_witnesses": 81,
+      "frame_room_model_flags": 91,
+      "frame_temperature_flags": 91
+     },
+     "elapsed_s": 73.9,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": 1.7
+     }
+    },
+    "tin+2": {
+     "counts": {
+      "clock_flags": 773,
+      "clock_outcome_orientation_witnesses": 112,
+      "frame_flags": 185,
+      "frame_humidity_flags": 35,
+      "frame_orientation_witnesses": 86,
+      "frame_room_model_flags": 91,
+      "frame_temperature_flags": 92
+     },
+     "elapsed_s": 78.1,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": 2.0
+     }
+    },
+    "tin+7": {
+     "counts": {
+      "clock_flags": 737,
+      "clock_outcome_orientation_witnesses": 75,
+      "frame_flags": 148,
+      "frame_humidity_flags": 19,
+      "frame_orientation_witnesses": 49,
+      "frame_room_model_flags": 54,
+      "frame_temperature_flags": 71
+     },
+     "elapsed_s": 73.5,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": 7.0
+     }
+    },
+    "tin-0.9": {
+     "counts": {
+      "clock_flags": 785,
+      "clock_outcome_orientation_witnesses": 126,
+      "frame_flags": 199,
+      "frame_humidity_flags": 36,
+      "frame_orientation_witnesses": 103,
+      "frame_room_model_flags": 104,
+      "frame_temperature_flags": 104
+     },
+     "elapsed_s": 68.0,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": -0.9
+     }
+    },
+    "tin-1.7": {
+     "counts": {
+      "clock_flags": 786,
+      "clock_outcome_orientation_witnesses": 126,
+      "frame_flags": 200,
+      "frame_humidity_flags": 36,
+      "frame_orientation_witnesses": 103,
+      "frame_room_model_flags": 105,
+      "frame_temperature_flags": 105
+     },
+     "elapsed_s": 65.6,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": -1.7
+     }
+    },
+    "tin-2": {
+     "counts": {
+      "clock_flags": 788,
+      "clock_outcome_orientation_witnesses": 127,
+      "frame_flags": 202,
+      "frame_humidity_flags": 36,
+      "frame_orientation_witnesses": 106,
+      "frame_room_model_flags": 107,
+      "frame_temperature_flags": 107
+     },
+     "elapsed_s": 81.2,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": -2.0
+     }
+    },
+    "tin-7": {
+     "counts": {
+      "clock_flags": 783,
+      "clock_outcome_orientation_witnesses": 116,
+      "frame_flags": 197,
+      "frame_humidity_flags": 36,
+      "frame_orientation_witnesses": 95,
+      "frame_room_model_flags": 102,
+      "frame_temperature_flags": 102
+     },
+     "elapsed_s": 85.5,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": -7.0
+     }
+    }
+   },
+   "published": {
+    "clock_flags": 785,
+    "clock_outcome_orientation_witnesses": 123,
+    "frame_flags": 199,
+    "frame_humidity_flags": 36,
+    "frame_orientation_witnesses": 100,
+    "frame_room_model_flags": 104,
+    "frame_temperature_flags": 104
+   },
+   "reference_against_published": {
+    "clock_kind_mismatches": 0,
+    "frame_kind_mismatches": 0,
+    "membership_mismatches": 0,
+    "outcome_mismatches_exact": 0,
+    "outcomes": 45792
+   },
+   "settings_run": 9
+  },
+  "registered": {
+   "bracket": {
+    "clock_flags": {
+     "gained_somewhere": 3,
+     "lost_somewhere": 51,
+     "per_setting_max": 786,
+     "per_setting_min": 737,
+     "possible_set": 788,
+     "published": 785,
+     "reference_equals_published": true,
+     "robust_core": 734,
+     "settings": 5
+    },
+    "clock_outcome_orientation_witnesses": {
+     "gained_somewhere": 7,
+     "lost_somewhere": 54,
+     "per_setting_max": 126,
+     "per_setting_min": 75,
+     "possible_set": 130,
+     "published": 123,
+     "reference_equals_published": true,
+     "robust_core": 69,
+     "settings": 5
+    },
+    "frame_flags": {
+     "gained_somewhere": 2,
+     "kinds_changed_somewhere": 56,
+     "lost_somewhere": 53,
+     "per_setting_max": 200,
+     "per_setting_min": 148,
+     "possible_set": 201,
+     "published": 199,
+     "reference_equals_published": true,
+     "robust_core": 146,
+     "settings": 5
+    },
+    "frame_humidity_flags": {
+     "gained_somewhere": 0,
+     "lost_somewhere": 17,
+     "per_setting_max": 36,
+     "per_setting_min": 19,
+     "possible_set": 36,
+     "published": 36,
+     "reference_equals_published": true,
+     "robust_core": 19,
+     "settings": 5
+    },
+    "frame_orientation_witnesses": {
+     "gained_somewhere": 9,
+     "lost_somewhere": 60,
+     "per_setting_max": 103,
+     "per_setting_min": 49,
+     "possible_set": 109,
+     "published": 100,
+     "reference_equals_published": true,
+     "robust_core": 40,
+     "settings": 5
+    },
+    "frame_room_model_flags": {
+     "gained_somewhere": 2,
+     "lost_somewhere": 52,
+     "per_setting_max": 105,
+     "per_setting_min": 54,
+     "possible_set": 106,
+     "published": 104,
+     "reference_equals_published": true,
+     "robust_core": 52,
+     "settings": 5
+    },
+    "frame_temperature_flags": {
+     "gained_somewhere": 2,
+     "lost_somewhere": 35,
+     "per_setting_max": 105,
+     "per_setting_min": 71,
+     "possible_set": 106,
+     "published": 104,
+     "reference_equals_published": true,
+     "robust_core": 69,
+     "settings": 5
+    }
+   },
+   "per_setting": {
+    "ref": {
+     "counts": {
+      "clock_flags": 785,
+      "clock_outcome_orientation_witnesses": 123,
+      "frame_flags": 199,
+      "frame_humidity_flags": 36,
+      "frame_orientation_witnesses": 100,
+      "frame_room_model_flags": 104,
+      "frame_temperature_flags": 104
+     },
+     "elapsed_s": 55.3,
+     "failed_environments": 0,
+     "knobs": {}
+    },
+    "tin+2": {
+     "counts": {
+      "clock_flags": 773,
+      "clock_outcome_orientation_witnesses": 112,
+      "frame_flags": 185,
+      "frame_humidity_flags": 35,
+      "frame_orientation_witnesses": 86,
+      "frame_room_model_flags": 91,
+      "frame_temperature_flags": 92
+     },
+     "elapsed_s": 78.1,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": 2.0
+     }
+    },
+    "tin+7": {
+     "counts": {
+      "clock_flags": 737,
+      "clock_outcome_orientation_witnesses": 75,
+      "frame_flags": 148,
+      "frame_humidity_flags": 19,
+      "frame_orientation_witnesses": 49,
+      "frame_room_model_flags": 54,
+      "frame_temperature_flags": 71
+     },
+     "elapsed_s": 73.5,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": 7.0
+     }
+    },
+    "tin-0.9": {
+     "counts": {
+      "clock_flags": 785,
+      "clock_outcome_orientation_witnesses": 126,
+      "frame_flags": 199,
+      "frame_humidity_flags": 36,
+      "frame_orientation_witnesses": 103,
+      "frame_room_model_flags": 104,
+      "frame_temperature_flags": 104
+     },
+     "elapsed_s": 68.0,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": -0.9
+     }
+    },
+    "tin-1.7": {
+     "counts": {
+      "clock_flags": 786,
+      "clock_outcome_orientation_witnesses": 126,
+      "frame_flags": 200,
+      "frame_humidity_flags": 36,
+      "frame_orientation_witnesses": 103,
+      "frame_room_model_flags": 105,
+      "frame_temperature_flags": 105
+     },
+     "elapsed_s": 65.6,
+     "failed_environments": 0,
+     "knobs": {
+      "INDOOR_T_OFFSET_C": -1.7
+     }
+    }
+   },
+   "published": {
+    "clock_flags": 785,
+    "clock_outcome_orientation_witnesses": 123,
+    "frame_flags": 199,
+    "frame_humidity_flags": 36,
+    "frame_orientation_witnesses": 100,
+    "frame_room_model_flags": 104,
+    "frame_temperature_flags": 104
+   },
+   "reference_against_published": {
+    "clock_kind_mismatches": 0,
+    "frame_kind_mismatches": 0,
+    "membership_mismatches": 0,
+    "outcome_mismatches_exact": 0,
+    "outcomes": 45792
+   },
+   "settings_run": 5
+  }
+ },
+ "references_against_8fcd672": {
+  "c": {
+   "clock_kind_mismatches": 5,
+   "frame_kind_mismatches": 0,
+   "membership_mismatches": 5,
+   "outcome_mismatches_exact": 3012,
+   "outcomes": 45791
+  },
+  "t": {
+   "clock_kind_mismatches": 5,
+   "frame_kind_mismatches": 0,
+   "membership_mismatches": 5,
+   "outcome_mismatches_exact": 3012,
+   "outcomes": 45791
+  }
+ },
+ "replay_set": {
+  "automations": 954,
+  "clock_flags": 790,
+  "era5_only_frame_flags": 42,
+  "frame_flags": 199,
+  "reads_humidity": 63,
+  "reads_illuminance": 67,
+  "reads_temperature": 206,
+  "sensor_reading": 332
+ }
+}

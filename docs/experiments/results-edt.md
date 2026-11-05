@@ -2529,3 +2529,186 @@ weather's. Every frame flag of every year is covered by some pair.
   (2024: 47 new frame flags, 30 negative-control flags, all weekday readers). A3.1's choice of one weekday for every
   date is what keeps the registered sweeps free of this; a multi-year design must keep the weekday fixed or exempt
   weekday readers.
+
+## Revision R7-B (Addendum 13): the room-model terms behind the flags
+
+**Post hoc** (after the fourth internal review, items 6(a-c) and 11(b)), registered before its runs as protocol
+Addendum 13 (`docs/experiments/edt-protocol.md`, commit `8dfc59e`), with one dated deviation (A13.6, below). New
+knob: `INDOOR_T_OFFSET_C` (`vesper.env.indoor`). It adds a constant to every indoor room's temperature as its sensors
+read it, and the humidity is read at that temperature; the heating control and the daylight are unchanged. It is
+bit-identical at 0 by the extended fingerprint test. Script: `scripts/revision/r7b_room_terms.py`; numbers:
+`results/edt/r7b-84ac429.json` (aggregates only).
+
+Every setting recorded all 48 traces afresh in a cache of its own and replayed the **replay set** with the sweep's
+worker (reporting rule `device`). The replay set is 954 run automations: the 199 frame flags, the 790 clock flags of
+`8fcd672`, and every automation reading a temperature (206), a humidity (63) or an illuminance (67). It ran with 4
+workers under nice; the 120 corners took 2.7 h, and no environment failed at any setting.
+
+**The reference, and the deviation (A13.6).** The current code carries Addendum 10's two engine fixes, so a reference
+recorded now reproduces R6-D's engine-corrected sweep `5b54586`, not `8fcd672`'s clock outcomes.
+- Each of the three references (corners, offsets, the illuminance home) reproduces `5b54586` exactly: 0 of 45,792
+  outcomes differ (0 of 3,216 for the 67 illuminance readers), and every family below is identical.
+- Against `8fcd672` they reproduce the frame divergences exactly: 0 kind mismatches, so the 199 and the 100 frame
+  orientation witnesses are identical. They differ in 3,012 of 45,791 outcomes (66 automations) and in the clock
+  divergences of 5 (R6-D's 790 -> 785).
+- So every robust core and possible set below is set against `5b54586`'s memberships. For the frame relation these
+  are `8fcd672`'s exactly; the clock relation's are 785. The replay set and R4-A's rung-2.5 partition stay
+  `8fcd672`'s.
+
+**Families** (A13.1):
+- frame flags (199);
+- orientation witnesses under the frame relation: frame flags with two bearings of one city and date over which the
+  frame-restricted divergences are not empty (100, R4-A's count);
+- temperature flags: frame flags reading a temperature (104);
+- humidity flags: frame flags reading a humidity (36);
+- sensor-driven room-model flags: frame flags reading a sensed quantity and not frame-flagged at rung 2.5 (104);
+- secondary: the clock flags (785), and the clock relation's outcome-class orientation witnesses (Table XI's and
+  R6-B's definition; 123).
+
+The **robust core** is the set flagged at every setting of the bracket, the reference included; the **possible set**
+is the set flagged at any. The possible set is taken within the replay set, so it is a lower bound on the corpus-wide
+union.
+
+### Item 6(a): the flags over R4-B's 120 corners (A13.1)
+
+The corners: gains 0/2/5 W/m² x roof and ground off/on x warm-up 1/5/10 days/periodic x capacity
+80/110/165/260/370 kJ/(m² K). Open loop, every trace recorded afresh.
+
+| Family | Published | Robust core (all 120) | Possible set (any of 120) | Lost somewhere / gained somewhere | Per corner, min-max |
+|---|---|---|---|---|---|
+| Frame flags | 199 | **159** | **200** | 40 / 1 | 182-199 |
+| Orientation witnesses, frame relation | 100 | **42** | **109** | 58 / 9 | 80-101 |
+| Temperature flags | 104 | **80** | **105** | 24 / 1 | 91-105 |
+| Humidity flags | 36 | **21** | **36** | 15 / 0 | 21-36 |
+| Sensor-driven room-model flags | 104 | **65** | **105** | 39 / 1 | 87-104 |
+| Clock flags (secondary) | 785 | 728 | 787 | 57 / 2 | 751-785 |
+| Clock outcome-class orientation witnesses (secondary) | 123 | 48 | 129 | 75 / 6 | 91-123 |
+
+44 of the 199 frame flags change their kinds at some corner.
+
+*What moves it* (mean count per level, over the other three factors):
+
+| Family | Warm-up 1 / 5 / 10 days / periodic | Gains 0 / 2 / 5 W/m² | Roof and ground off / on | Capacity 80 / 110 / 165 / 260 / 370 |
+|---|---|---|---|---|
+| Frame flags | 192.5 / 189.3 / 188.6 / 188.3 | 190.8 / 190.0 / 188.2 | 188.8 / 190.6 | 189.7 / 189.5 / 190.7 / 189.7 / 188.7 |
+| Orientation witnesses, frame | 92.6 / 92.5 / 91.3 / 91.3 | 94.0 / 91.9 / 90.0 | 91.9 / 92.0 | 92.6 / 92.8 / 93.0 / 91.4 / 90.0 |
+| Temperature flags | 100.3 / 103.6 / 103.5 / 103.4 | 102.3 / 102.7 / 103.1 | 102.4 / 103.0 | 103.8 / 103.0 / 103.8 / 102.2 / 100.8 |
+| Humidity flags | **33.6 / 26.7 / 26.1 / 25.9** | 29.6 / 28.4 / 26.2 | 27.4 / 28.7 | 26.9 / 27.5 / 27.9 / 28.7 / 29.2 |
+| Room-model flags | 97.8 / 94.3 / 93.6 / 93.3 | 95.9 / 95.1 / 93.3 | 93.9 / 95.7 | 94.7 / 94.5 / 95.7 / 94.9 / 93.9 |
+
+- The frame flags hold up per corner (182-199 of 199) but less well as a set: 40 are lost at some corner, so the
+  robust core is 159. Most of the orientation witnesses move: 42 of 100 are witnesses at every corner, 109 at some.
+- **The warm-up is the largest single term for the humidity flags.** All 36 hold only at the 1-day warm-up (18 of its
+  30 corners). At 5 days or more no corner keeps more than 31, and most keep 26-27.
+- The fewest humidity flags (21) are at 9 corners, all with 5 W/m² of gains, no roof or ground, and a warm-up of 5 days
+  or more. So about a third of the humidity flags rest on the run's start state (every room at 20.5 C at the first
+  instant), not on the climate alone. The internal gains are second (fewer flags with more gains).
+- Capacity, the largest term for the setback population (R4-B), moves the mean flag counts by at most 4.
+- Extremes: frame flags fall to 182 at four corners (G0-Fon-Wpss-C370, G5-Foff-W10-C165, G5-Foff-W10-C260,
+  G5-Foff-Wpss-C260). Witnesses range from 80 (G0-Foff-W1-C370) to 101 (G0-Fon-W1-C110). The count is not monotone in
+  any factor, as R6-B found for the aperture.
+
+### Item 6(b): an indoor-temperature offset (A13.2)
+
+The registered values are the review's:
+- -1.7 and -0.9 K: home A's rooms are simulated 0.9-1.7 C too cold (R2-a, and the validation report's "T on A");
+- +7 K: home B's rooms are about 7 K too warm (b(1) = +7.29 K, R6-B);
+- +2 K: **no indoor residual of +2 K is measured**. It is Reviewer 3's "±2 K for symmetry".
+
+The values are residuals (model minus measured). An offset of the residual's sign adds to the error; the correcting
+offset has the opposite sign. So the opposite signs were run as a secondary set.
+
+| Offset (K) | Frame flags (of 199) | Orientation witnesses, frame (of 100) | Temperature flags (of 104) | Humidity flags (of 36) | Room-model flags (of 104) | Clock flags (of 785) |
+|---|---|---|---|---|---|---|
+| -7 (secondary) | 197 | 95 | 102 | 36 | 102 | 783 |
+| -2 (secondary) | 202 | 106 | 107 | 36 | 107 | 788 |
+| **-1.7** | 200 | 103 | 105 | 36 | 105 | 786 |
+| **-0.9** | 199 | 103 | 104 | 36 | 104 | 785 |
+| 0 (reference) | 199 | 100 | 104 | 36 | 104 | 785 |
+| +0.9 (secondary) | 193 | 91 | 99 | 36 | 99 | 779 |
+| +1.7 (secondary) | 185 | 81 | 91 | 36 | 91 | 772 |
+| **+2** | 185 | 86 | 92 | 35 | 91 | 773 |
+| **+7** | 148 | 49 | 71 | **19** | **54** | 737 |
+
+| Family | Published | Registered {0, -1.7, -0.9, +2, +7}: robust core / possible set | All nine values: robust core / possible set |
+|---|---|---|---|
+| Frame flags | 199 | **146 / 201** | 141 / 204 |
+| Orientation witnesses, frame relation | 100 | **40 / 109** | 33 / 113 |
+| Temperature flags | 104 | **69 / 106** | 64 / 109 |
+| **Humidity flags** | 36 | **19 / 36** | 19 / 36 |
+| **Sensor-driven room-model flags** | 104 | **52 / 106** | 47 / 109 |
+| Clock flags (secondary) | 785 | 734 / 788 | 729 / 791 |
+| Clock outcome-class orientation witnesses (secondary) | 123 | 69 / 130 | 64 / 133 |
+
+The review was right that this is a governing term.
+- Colder readings (down to -7 K) change little: every humidity flag holds, and the room-model count stays within 3 of
+  the reference.
+- Warmer readings remove flags, steadily. +0.9 K takes the room-model count from 104 to 99, +2 K to 91.
+- **At +7 K (home B's residual) 17 of the 36 humidity flags and 50 of the 104 room-model flags go**, and 51 of the 199
+  frame flags in all.
+- 56 of the 199 frame flags change their kinds at some registered value.
+
+So 19 of the 36 humidity flags survive every offset run; the other 17 are all lost at +7 K (one of them also at +2 K).
+Of the 104 room-model flags, 52 survive the registered bracket. These flags sit on one side of a threshold: they need
+the rooms no warmer (or no drier) than the model makes them.
+
+### Item 6(c): the humidity class (A13.3)
+
+**The class is fitted.** EN ISO 13788's class was chosen by the environment validation's Addendum 2
+(`docs/experiments/environment-validation.md`, registered at `3bc6cda` before the fit).
+- On dataset A it is the class among 0-5 with the smallest H median RMSE: class 0 9.3, **class 1 8.2**, 2 14.2, 3
+  22.0, 4 30.0, 5 37.1 points.
+- It was judged once on B (16.2 -> 14.9 points) and so adopted by the addendum's rule
+  (`results/environment/fit-humidity-20261104T065407Z.json`, commits `c383b91` and `36a13f9`).
+- `vesper/env/indoor.py` says so ("1: fitted on dataset A and held out on B"). `results-2026-11-04-environment.md`
+  adds that the standard describes class 1 as "unoccupied buildings, storage of dry goods", calls it "a fitted
+  value, not a description of the homes", and notes it was chosen with A's cold bias in place.
+- The phrase "deliberately conservative", or anything like it about the class, appears nowhere in `vesper/` or
+  `docs/`. It is the manuscript's alone, and the repository contradicts it.
+
+R4-B's class 2 and 3 runs and A13.2 above are the bracket around it.
+
+### Item 11(b): illuminance with a change-reporting sensor (A13.4)
+
+- Only the catalog's Zigbee products have illuminance (none in Z-Wave, Matter or Tasmota). 143 of them expose no
+  occupancy, and every illuminance product with a reporting rule has the catalog's library default: on change, at
+  most every 10 s, at least hourly.
+- The product run is `zigbee:tuya:s-lux-zb` ("Light sensor", L1), placed as `<room>_lux1` beside each of the 8
+  RTCGQ11LM sensors (7 rooms and the porch).
+- Under the `device` rule it reports on change; the RTCGQ11LM reports only with motion or on its hourly heartbeat.
+  The new sensor's rule is assumed (the library default), not measured.
+
+| The 67 run illuminance readers, rung 4, 48 environments | RTCGQ11LM (reference) | Change-reporting sensor |
+|---|---|---|
+| Frame flags | 7 | 7 (0 lost, 0 gained, 0 kinds changed) |
+| Clock flags | 15 | 15 (0 lost, 0 gained, 1 kinds changed) |
+| Fire in some environment | 17 | 17 |
+
+- 65 of the 67 name an RTCGQ11LM illuminance entity (79 entities replaced); the other 2 name none.
+- The change-reporting sensor moves 526 of the 3,216 outcomes, in 16 automations: first firings move, because the
+  readings now arrive within seconds instead of within the hour.
+- But no flag is gained or lost, and the same 17 fire somewhere. So the illuminance path's few flags are not an
+  artefact of the RTCGQ11LM's heartbeat.
+- 50 of the 67 still fire nowhere with either sensor. That is the resident-free home's doing (no motion, no lamps
+  switched), not the sensor's: the illuminance class stays mostly outside what the instrument can test.
+
+### What this changes, stated
+
+- Over R4-B's 120 corners, **159 of the 199 frame flags are flagged at every corner**, and 200 at some. By family
+  (robust core / possible set): temperature 80 / 105 of 104, humidity 21 / 36 of 36, room-model 65 / 105 of 104,
+  frame orientation witnesses 42 / 109 of 100.
+- The humidity flags' governing terms are the indoor temperature level and the run's start state, not the aperture
+  or the class. 19 of 36 survive the registered offset bracket and 21 of 36 survive the corners; a warm-up of 5 days
+  or more takes 5-15 of them.
+- The core over both brackets together was not computed (Addendum 13 registered each bracket alone). In each family
+  it is at most the smaller of the two cores.
+- The class is fitted, not "deliberately conservative".
+- A change-reporting lux sensor changes no flag among the 67 illuminance readers.
+
+*Concerns, stated.*
+- The offset holds the heating trajectory fixed. What it brackets is a reading error of +7 K with the true room at
+  the model's temperature, not a house that is really 7 K warmer (such a house would heat less).
+- The corners and offsets are open loop over a 954-automation replay set, so flags outside it are not seen.
+- The warm-up's large effect is partly the start temperature (20.5 C) every run assumes, which Addendum 13 did not
+  vary on its own.
+- The light sensor's reporting is the catalog default, not a measured rule.
