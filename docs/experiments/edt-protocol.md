@@ -897,6 +897,31 @@ cache and both relations.
 - *Budget:* if the five sweeps would take more than about 2.5 h of wall time, the variants not run are listed and
   skipped.
 
+**A8.9 Deviations and additions after the runs (2026-11-05).** Each was made after the numbers it concerns had been
+seen. None changes a registered rule.
+
+- *A8.8's check is not exact.* The standard home swept at `ba8a54c` gives the same flags as `8fcd672` under both
+  relations, for every automation. It also gives the same yield. But 4 automations differ in one environment's outcome
+  and 4 more in the rich cache only.
+  - The 4 outcome differences are refusals by the engine's wall-clock template-compile budget (0.5 s), present in one
+    run and not the other. They are load-dependent and none is flagged.
+  - The 4 rich-only differences are the firing count (by one) or the branch set of automations that fire every
+    minute or so.
+  - The cause is found, so the variants are used, with this stated. The check's exactness criterion as written is
+    not met.
+- *Where the sweeps ran.* A8.8's sweeps ran at `ba8a54c`, the first commit of this addendum's implementation. The
+  later commits change only `vesper.edt.ladder` (new functions) and `vesper.edt.oracle` (A8.5's option, off by
+  default, and new functions), none of which a sweep calls with a non-default argument.
+- *A8.3's "other" reasons are named.* Two sun exemptions fell under "other" and were named from what they read: a
+  `sun.sun` state that is neither `above_horizon` nor `below_horizon`. The rule allows a named "other".
+- *A8.5 adds no flag.* The option adds no automation to the 199. It does add `time_spread` to 8 of them, so A8.5's
+  "those added" and its two categories are reported for these 8 kind changes.
+- *A8.1: an unregistered diagnostic.* The held-out AUC of the eight-feature model (0.85) is well above A6.7's pooled
+  out-of-fold AUC (0.78). To show why, two things are reported beside the registered numbers, labelled as not
+  registered:
+  - each A6.7 fold's AUC of its own model;
+  - the split run the other way (trained on the held-out half, judged on the training half).
+
 ## Addendum 9 (2026-11-05, post hoc, after the third internal review; before any of its runs)
 
 **Post hoc**: written after the third internal review asked for it (its items 3(a, b), 8(a-c), 9 and 16(a, b, e)) and

@@ -1443,6 +1443,209 @@ setback automation's repository puts its climate entities on one hallway thermos
 different author entity, but the night_light losses partly do); the aperture knob scales the solar heat, not the
 daylight (which has its own knob and changes one flag in 797 at rung 3).
 
+## Revision R6-A (Addendum 8): the confirmatory rung-0 test, the paired AUC bootstrap, the exemptions, the frame switch, the crossing-time reference, humidity at rung 2.5, the dead-rule interval, the home variants
+
+**Post hoc** (after the third internal review). Every analysis was registered as protocol Addendum 8
+(`docs/experiments/edt-protocol.md`), committed alone before any of its numbers was computed. The deviations found
+after the runs are dated there (A8.9).
+
+- *Inputs:* the cached `8fcd672` sweeps (rung 4 and 2.5, with the rich outcome cache) and their rung-4 traces, the
+  R4-C dead-rule audit, and A8.8's five new rung-4 sweeps.
+- *Code:*
+  - `vesper.edt.ladder` (`rung0_split_fit`, `split_scores`, `oof_scores`, `paired_auc_diff_bootstrap`);
+  - `vesper.edt.oracle` (the `sensed_crossing` option of the frame relation, off by default; `sensed_crossing_refs`,
+    `first_crossing`, `crossing_instant`, `first_firing_frames`);
+  - `vesper.edt.trace.trace_file`, which `record_trace` now writes through, so analyses read traces by the sweep's key.
+
+  All of it is tested, and the published frame relation is unchanged at the default: with the option off, all 5,926
+  run automations reproduce their `frame_divergences`.
+- *Script and numbers:* `scripts/revision/r6a_analyses.py`, `results/edt/r6a-d169ae5.json` (aggregates only).
+  Review 3's item numbers are in brackets.
+
+### Item 1(c): the confirmatory rung-0 test on the registered split (A8.1)
+
+The split is section 6's repository halves. The model is fitted once on the training half. Its threshold is the best
+recall at precision >= 0.55 on the training half's own scores, applied unchanged to the held-out half.
+
+The criterion, written before the held-out half was scored, is A1.4's: *rung 0 matches rung 4 under the frame
+relation iff its held-out AUC >= 0.90 and its held-out recall at precision 0.55 >= 0.80.* It is a pre-specified
+secondary analysis of a post hoc relation.
+
+Primary population, frame relation: the run automations. The training half has 3,149 automations (113 flagged, 367
+repositories), the held-out half 2,777 (86 flagged, 355 repositories).
+
+| Flags / population | Features | Held-out AUC [repo bootstrap 95 %] | Recall (flagged found) | Realised precision | Matches? |
+|---|---|---|---|---|---|
+| **frame / run** | **8** | **0.849** [0.781, 0.906] | **0.628** (54 / 86) | 0.454 | **no** |
+| frame / run | 8+4 | 0.841 [0.724, 0.929] | 0.698 (60 / 86) | 0.403 | no |
+| frame / bound | 8 | 0.877 [0.824, 0.927] | 0.628 (54 / 86) | 0.432 | no |
+| frame / bound | 8+4 | 0.866 [0.767, 0.945] | 0.698 (60 / 86) | 0.397 | no |
+| frame / env-coupled run | 8 | 0.859 [0.787, 0.918] | 0.806 (58 / 72) | 0.427 | no (AUC) |
+| frame / env-coupled run | 8+4 | 0.894 [0.838, 0.933] | 0.833 (60 / 72) | 0.405 | no (AUC) |
+| clock / run | 8 | 0.934 [0.904, 0.961] | 0.899 (328 / 365) | 0.642 | yes |
+| clock / run | 8+4 | 0.953 [0.928, 0.975] | 0.956 (349 / 365) | 0.611 | yes |
+| clock / bound | 8 | 0.928 [0.900, 0.955] | 0.907 (331 / 365) | 0.577 | yes |
+| clock / env-coupled run | 8 | 0.857 [0.804, 0.901] | 1.000 (347 / 347) | 0.664 | no (AUC) |
+
+- **The verdict.** Under the frame relation, the eight-feature rung 0 does not match rung 4 on the registered split:
+  held-out AUC 0.849 and recall 0.628, both below A1.4's thresholds. So, as a secondary analysis on this split, **the
+  physics is necessary for detecting frame-relation divergences.**
+- **Under the clock relation** the same procedure matches (0.934 and 0.899), which repeats the registered A1.4
+  verdict on the held-out half.
+- Every frame-relation row fails, the 8+4 linter's too. The closest is the environment-coupled 8+4 row (AUC 0.894,
+  recall 0.833).
+- The realised held-out precision is below 0.55 in every frame row (0.40-0.45). A training-half threshold does not
+  keep its precision on the other half.
+- **The frame features do not help on this split.** The paired held-out difference AUC(8+4) - AUC(8) is **-0.007**
+  [-0.097, 0.072] (355 held-out repositories) on the run automations. It is +0.035 [-0.003, 0.083] on the
+  environment-coupled ones.
+
+### Item 7(b): the paired bootstrap of the AUC difference (A8.2)
+
+A6.7's out-of-fold scores (5 folds of whole repositories, seed 0): the same folds and rows, 8 against 8+4 features.
+Repositories are resampled with replacement (1,000 resamples, seed 0). The point AUCs reproduce A6.7's.
+
+| Flags / population | AUC 8 | AUC 8+4 | Difference [paired repo bootstrap 95 %] |
+|---|---|---|---|
+| **frame / run (5,926; 199)** | 0.782 | 0.919 | **+0.137 [0.083, 0.193]** |
+| frame / env-coupled run (1,205; 184) | 0.783 | 0.831 | +0.048 [0.025, 0.075] |
+| clock / run (5,926; 790) | 0.946 | 0.981 | +0.035 [0.021, 0.050] |
+| clock / env-coupled run (1,205; 771) | 0.847 | 0.846 | -0.001 [-0.005, 0.003] |
+
+So within A6.7's cross-validation, "the frames raise it to 0.92" is supported by a paired interval that excludes 0.
+
+**Not registered: why A8.1 and A8.2 disagree** (added after both were seen; A8.9).
+
+- *The eight-feature model, per fold.* Each A6.7 fold's own model scores 0.881, 0.877, 0.814, 0.862 and 0.919 on its
+  own test rows, but the five folds pooled give 0.782. The pooled out-of-fold AUC mixes five differently calibrated
+  models, and that costs the eight-feature model about 0.07-0.10.
+- *With the frame features,* the per-fold AUCs are 0.961, 0.911, 0.964, 0.949 and 0.922, and pooled 0.919: here the
+  pooling costs little.
+- *The split run the other way* (trained on the held-out half) gives 0.866 (8 features) and 0.969 (8+4). The gain from
+  the frame features therefore depends on which repositories train the model: about +0.10 one way, -0.01 the other.
+
+The robust statement is the verdict, not the size of the gain. Neither syntactic linter reaches A1.4's bar under the
+frame relation on either the registered split or the cross-validation. The "0.78 -> 0.92" contrast overstates the
+frame features' contribution: about half of it is the pooling artifact of the eight-feature model.
+
+### Items 5(c) and 5(e): the exemptions and the ambiguities (A8.3)
+
+- **The sun exemption.** 7 of the 5,926 run automations have a sun frame with no computable reference.
+  - Reasons: a template reading `sun.sun` (5; elevation or state in a template condition), or a `sun.sun` state that
+    is neither horizon state (2: `unavailable`, and a misspelt `below_horizion`).
+  - None reads the azimuth.
+  - **None of the 7 is flagged under either relation** (0 of 790 clock flags, 0 of 199 frame flags), so the second
+    exemption removes no flag in this corpus.
+- **The sensed frame among the flags.** 148 of the 199 frame flags declare a sensed frame: sensed 94, clock+sensed
+  48, sensed+sun 5, clock+sensed+sun 1. Review 3's 147 omits the last. Of the 790 clock flags 177 do, and of the 5,926
+  run automations 355.
+- **Two different sun events** (all are sunrise and sunset):
+  - 98 run automations name both in the references the relation uses: 34 clock flags, 3 frame flags. The code
+    measures the sun-relative minutes from the nearest of all the named instants (on the firing's day or a
+    neighbouring one).
+  - 7 run automations name different events in their triggers and their conditions: 7 clock flags, 3 frame flags. The
+    code uses the triggers' references and ignores the conditions'.
+- **A template reading both `now()` and `sun.sun`.** 1 run automation, flagged under neither relation. Such a template
+  adds both the clock and the sun frame but supplies no sun reference. This automation's sun frame is computable
+  through another step.
+
+### Item 14: the frame-switch re-tabulation (A8.4)
+
+The population is the **595** automations flagged under the clock relation and not under the frame relation.
+
+**The rich cache records the first firing's instant, not which trigger fired.** The frame of each first firing was
+therefore inferred from the instant, the triggers and the cached traces, by A8.4's rules (time of day, time pattern,
+sun instant, a change of a trigger entity, or a template's entity or minute).
+
+- **Only 40 of the 595 have triggers in more than one frame.** The rest cannot switch: 519 are sun-only, 24
+  sensed-only, 12 clock-only.
+- Of the 28,560 first firings, 28,314 were inferred, 0 were ambiguous and 246 were uninferred (an action delay, for
+  instance). Every first firing was inferred for 587 of the 595, including all 40 that could switch.
+- **frame_switch: 3 automations** (all clock+sun triggers, every firing inferred). For example, "at 18:30 or at sunset
+  minus 20 min" fires first by the sun in January and October and by the clock in April and July.
+- This is below A8.4's threshold of 10, so **frame_switch is not registered as a kind.** The masking risk the review
+  raised (a frame disjunction hiding a switch of trigger) is 3 automations of 595 here.
+
+### Item 13: the crossing-time sensed reference (A8.5; an option, off by default)
+
+- **Which automations it reaches.** 157 run automations have a numeric_state trigger on a sensed entity with a numeric
+  bound, so their sensed frame becomes computable: **91 of the 148 sensed-frame flags.**
+  - The other 57 sensed-frame flags read their quantity through a state trigger, a template or a condition, and stay
+    exempt.
+  - Of the 157, 100 fire. 95 have a θ_sen in at least two environments, and 57 never fire.
+- **θ_sen spread over the 95:**
+  - median 0 min; 84 exactly 0 (the firing is at the first crossing, in every environment);
+  - 2 in (0, 60] min, none in (60, 720];
+  - **9 above 720 min** (max 2,864).
+- **Flags.** The frame relation with the option on still flags **199 automations: none added.** But **8 of the 199
+  gain time_spread** (spreads 1,277-2,864 min):
+  - by frame: 7 clock+sensed, 1 sensed+sun;
+  - by quantity: 7 temperature, 1 illuminance;
+  - before, all 8 were flagged fires_somewhere_only only (one with night_light too).
+- **What the new findings are,** by A8.5's rule:
+  - **4 are environment-dependent latency, gated by a condition.** In some environments the first crossing happens
+    outside the automation's time window ("after 17:30, before 06:30", or "after sunrise, before sunset"), so it fires
+    at a later crossing, up to a day and a half later.
+  - **4 "precede":** a clock trigger in the same automation (a time pattern) fires before the first crossing in some
+    environments.
+
+  So the crossing reference turns the exemption into a real frame for 91 of the 148 sensed-frame flags. The only new
+  class it surfaces is condition-gated latency, and in this corpus it is small (4 automations).
+
+### Item 16(d): humidity flags at rung 2.5 (A8.6)
+
+The rung-2.5 sweep (porch on ERA5, indoor rooms on the assumed curve) is cached from R4-A.
+
+- **Of the 36 frame-relation humidity flags, 0 are flagged at rung 2.5.**
+- Of the 37 clock-relation humidity flags, 1 is (with the same kinds); it is the only one that names a porch sensor.
+
+So the humidity findings are not ERA5-grounded: they all rest on the room model's humidity. They stay in the
+room-model-dependent class, and do not move to the ERA5-grounded one.
+
+### Item 15(b): the dead-rule headline (A8.7)
+
+R4-C labelled 6 of a seeded sample of 100 (70 repositories) of the 391 environment-coupled dead automations at
+`120f4ca` as genuinely dead. The estimate is 391 x 6 / 100 = 23.5, with three intervals:
+
+| Interval method | Genuinely dead, of 391 |
+|---|---|
+| **exact finite-population (hypergeometric inversion; the headline)** | **11-45** |
+| Wilson 95 % on 6/100, times 391 (R4-C's "11-49") | 10.9-48.8 |
+| repository-clustered bootstrap (70 repositories, 1,000 resamples, seed 0), times 391 | 7.5-44.9 |
+
+**Headline: about 23 genuinely dead rules (exact 95 % interval 11-45) of 391.** R4-C's 11-49 used Wilson, which
+ignores that the sample was drawn without replacement from 391. The clustered bootstrap's lower end is lower (7.5):
+the 6 come from few repositories.
+
+At `8fcd672` the population is 390, and 99 of the 100 sampled and all 6 genuinely dead ones are still in it.
+
+### Item 16(h): the frame relation on the four home variants (A8.8)
+
+A5.1's four variants were swept again at rung 4 with the main run's settings (current binder, device reporting rule,
+rich cache, both relations), 4 workers. The five sweeps (with the check) took 76 min of wall time.
+
+**The check is not exact (A8.9).** The standard home swept again with the `8fcd672` traces gives **the same flags
+under both relations for every automation**, and the same yield. But 4 automations differ in one environment's
+outcome, by a load-dependent refusal from the engine's 0.5 s wall-clock template-compile budget; none of them is
+flagged. And 4 differ in the rich cache only, by a firing count of one or a branch set. The cause is found, so the
+variants are used with this stated.
+
+| Variant | Run | Clock flags | Frame flags | Of the 199 still frame-flagged (same kinds) | New frame flags |
+|---|---|---|---|---|---|
+| standard (`8fcd672`) | 5,926 | 790 | 199 | | |
+| glazing x0.5 | 5,926 | 779 | 190 | 190 (190) | 0 |
+| glazing x2 | 5,926 | 776 | 198 | 196 (196) | 2 |
+| plan seed 8 | 5,926 | 772 | 196 | 196 (196) | 0 |
+| mirror east-west | 5,926 | 790 | 199 | 199 (199) | 0 |
+
+- **187 of the 199 frame flags hold in all four variants, and none is lost in all four.**
+- The mirrored home reproduces the frame relation exactly.
+- Halving the glazing loses 9, doubling it loses 3 and adds 2, and the other plan loses 3.
+- The negative control flags 0 in every variant.
+
+So the frame relation's findings are a property of the automations far more than of this one home's plan and windows.
+The 12 that do not hold everywhere are the glazing- and plan-sensitive ones.
+
 ## Revision R6-B (Addendum 9): infiltration, home A free-floating, the implied aperture, the daylight chain, the beam share
 
 **Post hoc** (after the third internal review), registered before its runs as protocol Addendum 9

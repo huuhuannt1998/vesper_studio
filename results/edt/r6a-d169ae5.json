@@ -1,0 +1,1046 @@
+{
+ "commit": "d169ae5",
+ "base": "8fcd672",
+ "post_hoc": true,
+ "protocol": "docs/experiments/edt-protocol.md, Addendum 8",
+ "confirmatory": {
+  "frame_relation/run": {
+   "8": {
+    "label": "frame_divergences",
+    "population": "run",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions"
+    ],
+    "train": {
+     "n": 3149,
+     "n_flagged": 113,
+     "n_repos": 367
+    },
+    "held_out": {
+     "n": 2777,
+     "n_flagged": 86,
+     "n_repos": 355
+    },
+    "threshold": -1.9669886183566034,
+    "auc": 0.8485,
+    "auc_ci95": [
+     0.7811,
+     0.9062
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.6279,
+    "precision": 0.4538,
+    "n_predicted_positive": 119,
+    "base_rate": 0.031,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": false
+   },
+   "8_plus_4": {
+    "label": "frame_divergences",
+    "population": "run",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions",
+     "frame_clock",
+     "frame_sun",
+     "frame_sensed",
+     "frame_mixed"
+    ],
+    "train": {
+     "n": 3149,
+     "n_flagged": 113,
+     "n_repos": 367
+    },
+    "held_out": {
+     "n": 2777,
+     "n_flagged": 86,
+     "n_repos": 355
+    },
+    "threshold": -1.414183400998529,
+    "auc": 0.8411,
+    "auc_ci95": [
+     0.7238,
+     0.9294
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.6977,
+    "precision": 0.4027,
+    "n_predicted_positive": 149,
+    "base_rate": 0.031,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": false
+   },
+   "paired_difference_held_out": {
+    "auc_a": 0.8485,
+    "auc_b": 0.8411,
+    "diff": -0.0074,
+    "ci95": [
+     -0.0969,
+     0.0718
+    ],
+    "n_used": 1000,
+    "resamples": 1000,
+    "seed": 0,
+    "groups": 355
+   }
+  },
+  "frame_relation/bound": {
+   "8": {
+    "label": "frame_divergences",
+    "population": "bound",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions"
+    ],
+    "train": {
+     "n": 5498,
+     "n_flagged": 113,
+     "n_repos": 421
+    },
+    "held_out": {
+     "n": 4017,
+     "n_flagged": 86,
+     "n_repos": 400
+    },
+    "threshold": -2.2730816997589383,
+    "auc": 0.8774,
+    "auc_ci95": [
+     0.8238,
+     0.9265
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.6279,
+    "precision": 0.432,
+    "n_predicted_positive": 125,
+    "base_rate": 0.0214,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": false
+   },
+   "8_plus_4": {
+    "label": "frame_divergences",
+    "population": "bound",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions",
+     "frame_clock",
+     "frame_sun",
+     "frame_sensed",
+     "frame_mixed"
+    ],
+    "train": {
+     "n": 5498,
+     "n_flagged": 113,
+     "n_repos": 421
+    },
+    "held_out": {
+     "n": 4017,
+     "n_flagged": 86,
+     "n_repos": 400
+    },
+    "threshold": -1.4792989727087331,
+    "auc": 0.8659,
+    "auc_ci95": [
+     0.7667,
+     0.9446
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.6977,
+    "precision": 0.3974,
+    "n_predicted_positive": 151,
+    "base_rate": 0.0214,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": false
+   },
+   "paired_difference_held_out": {
+    "auc_a": 0.8774,
+    "auc_b": 0.8659,
+    "diff": -0.0115,
+    "ci95": [
+     -0.0921,
+     0.0628
+    ],
+    "n_used": 1000,
+    "resamples": 1000,
+    "seed": 0,
+    "groups": 400
+   }
+  },
+  "frame_relation/coupled_run": {
+   "8": {
+    "label": "frame_divergences",
+    "population": "coupled_run",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions"
+    ],
+    "train": {
+     "n": 633,
+     "n_flagged": 112,
+     "n_repos": 192
+    },
+    "held_out": {
+     "n": 572,
+     "n_flagged": 72,
+     "n_repos": 176
+    },
+    "threshold": -1.5800939846967061,
+    "auc": 0.8591,
+    "auc_ci95": [
+     0.7867,
+     0.9177
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.8056,
+    "precision": 0.4265,
+    "n_predicted_positive": 136,
+    "base_rate": 0.1259,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": false
+   },
+   "8_plus_4": {
+    "label": "frame_divergences",
+    "population": "coupled_run",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions",
+     "frame_clock",
+     "frame_sun",
+     "frame_sensed",
+     "frame_mixed"
+    ],
+    "train": {
+     "n": 633,
+     "n_flagged": 112,
+     "n_repos": 192
+    },
+    "held_out": {
+     "n": 572,
+     "n_flagged": 72,
+     "n_repos": 176
+    },
+    "threshold": -1.427446807007909,
+    "auc": 0.8942,
+    "auc_ci95": [
+     0.838,
+     0.933
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.8333,
+    "precision": 0.4054,
+    "n_predicted_positive": 148,
+    "base_rate": 0.1259,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": false
+   },
+   "paired_difference_held_out": {
+    "auc_a": 0.8591,
+    "auc_b": 0.8942,
+    "diff": 0.0351,
+    "ci95": [
+     -0.0028,
+     0.0834
+    ],
+    "n_used": 1000,
+    "resamples": 1000,
+    "seed": 0,
+    "groups": 176
+   }
+  },
+  "clock_relation/run": {
+   "8": {
+    "label": "divergences",
+    "population": "run",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions"
+    ],
+    "train": {
+     "n": 3149,
+     "n_flagged": 425,
+     "n_repos": 367
+    },
+    "held_out": {
+     "n": 2777,
+     "n_flagged": 365,
+     "n_repos": 355
+    },
+    "threshold": -2.4905223675437433,
+    "auc": 0.9338,
+    "auc_ci95": [
+     0.9044,
+     0.9611
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.8986,
+    "precision": 0.6419,
+    "n_predicted_positive": 511,
+    "base_rate": 0.1314,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": true
+   },
+   "8_plus_4": {
+    "label": "divergences",
+    "population": "run",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions",
+     "frame_clock",
+     "frame_sun",
+     "frame_sensed",
+     "frame_mixed"
+    ],
+    "train": {
+     "n": 3149,
+     "n_flagged": 425,
+     "n_repos": 367
+    },
+    "held_out": {
+     "n": 2777,
+     "n_flagged": 365,
+     "n_repos": 355
+    },
+    "threshold": -4.06464130977594,
+    "auc": 0.9531,
+    "auc_ci95": [
+     0.9283,
+     0.9745
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.9562,
+    "precision": 0.6112,
+    "n_predicted_positive": 571,
+    "base_rate": 0.1314,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": true
+   },
+   "paired_difference_held_out": {
+    "auc_a": 0.9338,
+    "auc_b": 0.9531,
+    "diff": 0.0194,
+    "ci95": [
+     0.0045,
+     0.0377
+    ],
+    "n_used": 1000,
+    "resamples": 1000,
+    "seed": 0,
+    "groups": 355
+   }
+  },
+  "clock_relation/bound": {
+   "8": {
+    "label": "divergences",
+    "population": "bound",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions"
+    ],
+    "train": {
+     "n": 5498,
+     "n_flagged": 425,
+     "n_repos": 421
+    },
+    "held_out": {
+     "n": 4017,
+     "n_flagged": 365,
+     "n_repos": 400
+    },
+    "threshold": -2.8979707720942165,
+    "auc": 0.9284,
+    "auc_ci95": [
+     0.9003,
+     0.9554
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.9068,
+    "precision": 0.5767,
+    "n_predicted_positive": 574,
+    "base_rate": 0.0909,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": true
+   },
+   "8_plus_4": {
+    "label": "divergences",
+    "population": "bound",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions",
+     "frame_clock",
+     "frame_sun",
+     "frame_sensed",
+     "frame_mixed"
+    ],
+    "train": {
+     "n": 5498,
+     "n_flagged": 425,
+     "n_repos": 421
+    },
+    "held_out": {
+     "n": 4017,
+     "n_flagged": 365,
+     "n_repos": 400
+    },
+    "threshold": -2.995142710841421,
+    "auc": 0.9689,
+    "auc_ci95": [
+     0.9547,
+     0.9799
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.9507,
+    "precision": 0.5579,
+    "n_predicted_positive": 622,
+    "base_rate": 0.0909,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": true
+   },
+   "paired_difference_held_out": {
+    "auc_a": 0.9284,
+    "auc_b": 0.9689,
+    "diff": 0.0404,
+    "ci95": [
+     0.0202,
+     0.0627
+    ],
+    "n_used": 1000,
+    "resamples": 1000,
+    "seed": 0,
+    "groups": 400
+   }
+  },
+  "clock_relation/coupled_run": {
+   "8": {
+    "label": "divergences",
+    "population": "coupled_run",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions"
+    ],
+    "train": {
+     "n": 633,
+     "n_flagged": 424,
+     "n_repos": 192
+    },
+    "held_out": {
+     "n": 572,
+     "n_flagged": 347,
+     "n_repos": 176
+    },
+    "threshold": -1.8878309718001223,
+    "auc": 0.857,
+    "auc_ci95": [
+     0.8038,
+     0.9012
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 1.0,
+    "precision": 0.6635,
+    "n_predicted_positive": 523,
+    "base_rate": 0.6066,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": false
+   },
+   "8_plus_4": {
+    "label": "divergences",
+    "population": "coupled_run",
+    "features": [
+     "sun_trigger",
+     "sun_condition",
+     "numeric_state_illuminance",
+     "numeric_state_temperature",
+     "numeric_state_humidity",
+     "numeric_state_weather",
+     "time_trigger",
+     "n_conditions",
+     "frame_clock",
+     "frame_sun",
+     "frame_sensed",
+     "frame_mixed"
+    ],
+    "train": {
+     "n": 633,
+     "n_flagged": 424,
+     "n_repos": 192
+    },
+    "held_out": {
+     "n": 572,
+     "n_flagged": 347,
+     "n_repos": 176
+    },
+    "threshold": -1.5966462323195363,
+    "auc": 0.8514,
+    "auc_ci95": [
+     0.7981,
+     0.896
+    ],
+    "auc_ci95_n": 1000,
+    "recall": 0.9942,
+    "precision": 0.6818,
+    "n_predicted_positive": 506,
+    "base_rate": 0.6066,
+    "criterion": "held-out AUC >= 0.9 and held-out recall at precision 0.55 (training-half threshold) >= 0.8",
+    "matches": false
+   },
+   "paired_difference_held_out": {
+    "auc_a": 0.857,
+    "auc_b": 0.8514,
+    "diff": -0.0056,
+    "ci95": [
+     -0.0123,
+     0.0005
+    ],
+    "n_used": 1000,
+    "resamples": 1000,
+    "seed": 0,
+    "groups": 176
+   }
+  },
+  "verdict": {
+   "frame_relation/run": false,
+   "frame_relation/bound": false,
+   "frame_relation/coupled_run": false,
+   "clock_relation/run": true,
+   "clock_relation/bound": true,
+   "clock_relation/coupled_run": false
+  }
+ },
+ "confirmatory_diagnostics_unregistered": {
+  "frame_relation/run/8": {
+   "a67_per_fold_auc": [
+    0.8811,
+    0.877,
+    0.814,
+    0.8621,
+    0.9192
+   ],
+   "reverse_split_auc": 0.8664
+  },
+  "frame_relation/run/8_plus_4": {
+   "a67_per_fold_auc": [
+    0.9606,
+    0.9113,
+    0.9644,
+    0.9485,
+    0.922
+   ],
+   "reverse_split_auc": 0.9689
+  },
+  "clock_relation/run/8": {
+   "a67_per_fold_auc": [
+    0.9573,
+    0.8989,
+    0.976,
+    0.9308,
+    0.9733
+   ],
+   "reverse_split_auc": 0.9604
+  },
+  "clock_relation/run/8_plus_4": {
+   "a67_per_fold_auc": [
+    0.982,
+    0.9737,
+    0.9881,
+    0.9793,
+    0.9829
+   ],
+   "reverse_split_auc": 0.9884
+  }
+ },
+ "paired_auc": {
+  "frame_relation/run": {
+   "auc_a": 0.7824,
+   "auc_b": 0.9194,
+   "diff": 0.137,
+   "ci95": [
+    0.0825,
+    0.1929
+   ],
+   "n_used": 1000,
+   "resamples": 1000,
+   "seed": 0,
+   "groups": 722,
+   "reproduces_a67_aucs": true,
+   "n": 5926,
+   "n_flagged": 199
+  },
+  "frame_relation/coupled_run": {
+   "auc_a": 0.7832,
+   "auc_b": 0.8315,
+   "diff": 0.0483,
+   "ci95": [
+    0.0251,
+    0.0747
+   ],
+   "n_used": 1000,
+   "resamples": 1000,
+   "seed": 0,
+   "groups": 368,
+   "reproduces_a67_aucs": true,
+   "n": 1205,
+   "n_flagged": 184
+  },
+  "clock_relation/run": {
+   "auc_a": 0.9459,
+   "auc_b": 0.9809,
+   "diff": 0.035,
+   "ci95": [
+    0.0209,
+    0.0503
+   ],
+   "n_used": 1000,
+   "resamples": 1000,
+   "seed": 0,
+   "groups": 722,
+   "reproduces_a67_aucs": true,
+   "n": 5926,
+   "n_flagged": 790
+  },
+  "clock_relation/coupled_run": {
+   "auc_a": 0.8469,
+   "auc_b": 0.8456,
+   "diff": -0.0013,
+   "ci95": [
+    -0.0049,
+    0.0027
+   ],
+   "n_used": 1000,
+   "resamples": 1000,
+   "seed": 0,
+   "groups": 368,
+   "reproduces_a67_aucs": true,
+   "n": 1205,
+   "n_flagged": 771
+  }
+ },
+ "exemptions": {
+  "sun_frame_not_computable": {
+   "run": {
+    "n": 7,
+    "by_reason": {
+     "template": 5,
+     "other: a sun.sun state that is neither above_horizon nor below_horizon": 2
+    },
+    "by_frames": {
+     "sun": 7
+    }
+   },
+   "clock_flagged": {
+    "n": 0,
+    "by_reason": {},
+    "by_frames": {}
+   },
+   "frame_flagged": {
+    "n": 0,
+    "by_reason": {},
+    "by_frames": {}
+   },
+   "frame_flagged_kinds": {},
+   "clock_flagged_kinds": {}
+  },
+  "sensed_frame": {
+   "run": {
+    "n": 355,
+    "by_frames": {
+     "sensed": 254,
+     "clock+sensed": 78,
+     "sensed+sun": 18,
+     "clock+sensed+sun": 5
+    }
+   },
+   "clock_flagged": {
+    "n": 177,
+    "by_frames": {
+     "sensed": 117,
+     "clock+sensed": 50,
+     "sensed+sun": 7,
+     "clock+sensed+sun": 3
+    }
+   },
+   "frame_flagged": {
+    "n": 148,
+    "by_frames": {
+     "sensed": 94,
+     "clock+sensed": 48,
+     "sensed+sun": 5,
+     "clock+sensed+sun": 1
+    }
+   }
+  },
+  "two_sun_events_in_the_references_used": {
+   "run": {
+    "n": 98,
+    "by_events": {
+     "sunrise+sunset": 98
+    }
+   },
+   "clock_flagged": {
+    "n": 34,
+    "by_events": {
+     "sunrise+sunset": 34
+    }
+   },
+   "frame_flagged": {
+    "n": 3,
+    "by_events": {
+     "sunrise+sunset": 3
+    }
+   }
+  },
+  "trigger_and_condition_events_differ_conditions_unused": {
+   "run": {
+    "n": 7
+   },
+   "clock_flagged": {
+    "n": 7
+   },
+   "frame_flagged": {
+    "n": 3
+   }
+  },
+  "template_reading_now_and_sun": {
+   "run": {
+    "n": 1,
+    "sun_frame_computable_elsewhere": 1,
+    "by_frames": {
+     "clock+sun": 1
+    }
+   },
+   "clock_flagged": {
+    "n": 0,
+    "sun_frame_computable_elsewhere": 0,
+    "by_frames": {}
+   },
+   "frame_flagged": {
+    "n": 0,
+    "sun_frame_computable_elsewhere": 0,
+    "by_frames": {}
+   }
+  },
+  "treatment": {
+   "sun_frame_not_computable": "counted as invariant (A6.3), so the automation's timing is never flagged in the sun frame; with another frame it is judged by that frame alone",
+   "two_sun_events": "the sun-relative minutes are measured from the nearest of every named reference instant on the firing's day or a neighbouring day (sun_relative_min)",
+   "trigger_and_condition_events_differ": "the triggers' references are used and the conditions' ignored (frames_of: trigger references first)",
+   "template_reading_now_and_sun": "the template adds both the clock and the sun frame; it supplies no sun reference, so its sun frame is computable only through another step"
+  }
+ },
+ "frame_switch": {
+  "population_clock_only": 595,
+  "rich_cache_records_the_trigger": false,
+  "first_firings": {
+   "total": 28560,
+   "inferred": 28314,
+   "ambiguous": 0,
+   "uninferred": 246
+  },
+  "with_triggers_in_more_than_one_frame": 40,
+  "trigger_frames_of_the_population": {
+   "sun": 519,
+   "sensed": 24,
+   "none+sun": 20,
+   "clock+sun": 15,
+   "clock": 12,
+   "none+sensed": 2,
+   "none+sensed+sun": 1,
+   "clock+none+sensed+sun": 1,
+   "clock+none+sun": 1
+  },
+  "every_first_firing_inferred": 587,
+  "every_first_firing_inferred_with_triggers_in_more_than_one_frame": 40,
+  "frame_switch": 3,
+  "frame_switch_every_firing_inferred": 3,
+  "frame_switch_by_frames": {
+   "clock+sun": 3
+  },
+  "frame_switch_by_environment_kind": {
+   "sun": 3
+  },
+  "frame_switch_clock_kinds": {
+   "time_spread": 3
+  },
+  "registered_as_a_kind": false,
+  "registration_rule": "registered as an outcome kind iff at least 10 automations show it (A8.4)"
+ },
+ "crossing": {
+  "option_off_reproduces_the_published_frame_relation": true,
+  "mismatches": 0,
+  "computable_sensed_frame": {
+   "run": 157,
+   "of_the_frame_flags": 91,
+   "of_the_sensed_frame_flags": 91,
+   "sensed_frame_flags": 148,
+   "with_two_or_more_values": 95,
+   "with_no_value": 57,
+   "with_no_value_that_fire": 0
+  },
+  "spread_min": {
+   "all": {
+    "n": 95,
+    "min": 0.0,
+    "p25": 0.0,
+    "median": 0.0,
+    "p75": 0.0,
+    "p90": 0.0,
+    "max": 2864.0
+   },
+   "bins_all": {
+    "0": 84,
+    "(0, 60]": 2,
+    "(60, 180]": 0,
+    "(180, 720]": 0,
+    "> 720": 9
+   },
+   "frame_flags": {
+    "n": 86,
+    "min": 0.0,
+    "p25": 0.0,
+    "median": 0.0,
+    "p75": 0.0,
+    "p90": 0.0,
+    "max": 2864.0
+   },
+   "bins_frame_flags": {
+    "0": 76,
+    "(0, 60]": 2,
+    "(60, 180]": 0,
+    "(180, 720]": 0,
+    "> 720": 8
+   }
+  },
+  "frame_relation_with_the_option": {
+   "n": 199,
+   "published": 199,
+   "added": 0,
+   "frame_flags_whose_kinds_change": 8,
+   "added_by_frames": {},
+   "added_by_environment_kind": {},
+   "added_by_kinds": {},
+   "added_by_category": {},
+   "added_clock_relation_flagged": 0,
+   "added_spread_min": null,
+   "time_spread_gained": 8,
+   "time_spread_gained_on_published_flags": 8,
+   "time_spread_gained_by_frames": {
+    "clock+sensed": 7,
+    "sensed+sun": 1
+   },
+   "time_spread_gained_by_environment_kind": {
+    "temperature": 7,
+    "illuminance": 1,
+    "sun": 1
+   },
+   "time_spread_gained_published_kinds": {
+    "fires_somewhere_only": 7,
+    "fires_somewhere_only+night_light": 1
+   },
+   "time_spread_gained_by_category": {
+    "latency (with conditions)": 4,
+    "precedes (some first firing before the first crossing)": 4
+   },
+   "time_spread_gained_spread_min": {
+    "n": 8,
+    "min": 1277.0,
+    "p25": 1920.0,
+    "median": 2410.4,
+    "p75": 2770.1,
+    "p90": 2819.2,
+    "max": 2864.0
+   },
+   "time_spread_gained_theta_min": {
+    "n": 100,
+    "min": -2800.0,
+    "p25": 0.0,
+    "median": 0.0,
+    "p75": 416.0,
+    "p90": 1740.0,
+    "max": 2340.0
+   }
+  }
+ },
+ "humidity_2_5": {
+  "frame_relation": {
+   "humidity_flags_rung4": 36,
+   "flagged_at_rung2_5": 0,
+   "same_kinds_at_rung2_5": 0,
+   "naming_a_porch_sensor": 0,
+   "kept_naming_a_porch_sensor": 0
+  },
+  "clock_relation": {
+   "humidity_flags_rung4": 37,
+   "flagged_at_rung2_5": 1,
+   "same_kinds_at_rung2_5": 1,
+   "naming_a_porch_sensor": 1,
+   "kept_naming_a_porch_sensor": 1
+  }
+ },
+ "dead_rules": {
+  "population_120f4ca": 391,
+  "sample": 100,
+  "seed": 20261104,
+  "genuinely_dead": 6,
+  "sample_repositories": 70,
+  "point": 23.5,
+  "wilson95_scaled": [
+   10.9,
+   48.8
+  ],
+  "hypergeometric_exact95": [
+   11,
+   45
+  ],
+  "repository_bootstrap95_scaled": [
+   7.5,
+   44.9
+  ],
+  "headline": "the hypergeometric interval (sampling without replacement from a finite population, A8.7)",
+  "population_8fcd672": 390,
+  "sample_still_dead_at_8fcd672": 99,
+  "genuine_still_dead_at_8fcd672": 6
+ },
+ "variants": {
+  "sweeps_commit": "ba8a54c",
+  "check": {
+   "outcomes": 4,
+   "clock": 0,
+   "frame": 0,
+   "rich": 8,
+   "ids": false,
+   "passed": false,
+   "differences_by_cause": {
+    "rich only: firing count or branches": 4,
+    "outcome: a wall-clock template-compile refusal in one run only": 4
+   },
+   "flags_identical": true,
+   "used_with_the_stated_deviation": true
+  },
+  "glazing-x0.5": {
+   "run": 5926,
+   "clock_flagged": 779,
+   "frame_flagged": 190,
+   "of_the_199_frame_flagged": 190,
+   "of_the_199_run": 199,
+   "of_the_199_same_kinds": 190,
+   "frame_flagged_not_in_the_199": 0,
+   "negative_control": {
+    "n": 3466,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   }
+  },
+  "glazing-x2": {
+   "run": 5926,
+   "clock_flagged": 776,
+   "frame_flagged": 198,
+   "of_the_199_frame_flagged": 196,
+   "of_the_199_run": 199,
+   "of_the_199_same_kinds": 196,
+   "frame_flagged_not_in_the_199": 2,
+   "negative_control": {
+    "n": 3466,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   }
+  },
+  "plan-seed8": {
+   "run": 5926,
+   "clock_flagged": 772,
+   "frame_flagged": 196,
+   "of_the_199_frame_flagged": 196,
+   "of_the_199_run": 199,
+   "of_the_199_same_kinds": 196,
+   "frame_flagged_not_in_the_199": 0,
+   "negative_control": {
+    "n": 3466,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   }
+  },
+  "mirror-ew": {
+   "run": 5926,
+   "clock_flagged": 790,
+   "frame_flagged": 199,
+   "of_the_199_frame_flagged": 199,
+   "of_the_199_run": 199,
+   "of_the_199_same_kinds": 199,
+   "frame_flagged_not_in_the_199": 0,
+   "negative_control": {
+    "n": 3466,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   }
+  },
+  "of_the_199_in_all_four": 187,
+  "of_the_199_in_none": 0,
+  "main_frame_flags": 199
+ }
+}
