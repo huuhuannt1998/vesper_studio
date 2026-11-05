@@ -220,3 +220,14 @@ test("a window is cut out of its wall: the wall either side, under the sill and 
   const side = { side: "x1", x: 6, z: 2, width: 1, sill: 1, height: 1 };
   assert.equal(cutWindows([5.9, 0, 6.1, 4], [side], 2.5).length, 4);
 });
+
+import { skyGradient } from "../../../vesper/lab/ui/scene3d.js";
+
+test("the sky is a gradient: a day's zenith deeper blue than its horizon, a low sun's horizon warm, night dark", () => {
+  const rgb = (c) => [c >> 16, (c >> 8) & 0xff, c & 0xff], sum = (c) => rgb(c).reduce((a, b) => a + b);
+  const day = skyGradient(45), dusk = skyGradient(1), night = skyGradient(-20);
+  assert.ok(rgb(day.zenith)[2] > rgb(day.zenith)[0] && sum(day.zenith) < sum(day.horizon));
+  assert.ok(rgb(dusk.horizon)[0] > rgb(dusk.horizon)[2]); // a low sun: a warm horizon
+  assert.ok(sum(night.zenith) < sum(day.zenith) && sum(night.horizon) < sum(day.horizon));
+  assert.deepEqual(skyGradient(90), skyGradient(120)); // above the last stop: the same
+});

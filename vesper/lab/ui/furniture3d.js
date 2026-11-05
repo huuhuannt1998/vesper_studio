@@ -26,6 +26,39 @@ export const KINDS = ["sofa", "coffee_table", "rug", "tv_stand", "armchair", "bo
 const OAK = 0xb48a5a, WALNUT = 0x6e4b33, WHITE = 0xf4f3ef, CERAMIC = 0xfbfbfa, STEEL = 0xc9ccce, DARK = 0x2a2e33;
 const FABRIC = 0x7d8b8f, LINEN = 0xe8e2d6, CUSHION = 0x96a3a6, GREEN = 0x4f7a4a, STONE = 0x4a4d50, BLUE = 0x5d7389;
 
+// The finish a part is painted with (play-view environment design 2026-11-05, §2), from its piece, its name and its
+// colour: wood grain, a fabric weave, brushed steel, glazed ceramic or an appliance's enamel; null for plain paint.
+// view3d.js paints each on a canvas; the part's colour tints it.
+const FABRICS = new Set([FABRIC, CUSHION, LINEN, BLUE]);
+const SOFT = /mattress|duvet|pillow|cushion/;
+const APPLIANCES = new Set(["washer", "dryer"]);
+const SANITARY = new Set(["bath", "toilet", "vanity"]);
+export function finishFor(kind, name, color) {
+  if (SOFT.test(name || "")) return "fabric";
+  if (color === OAK || color === WALNUT) return "wood";
+  if (FABRICS.has(color)) return "fabric";
+  if (color === STEEL) return "steel";
+  if (APPLIANCES.has(kind) && color === WHITE) return "enamel";
+  if (color === CERAMIC && (SANITARY.has(kind) || name === "basin")) return "ceramic";
+  return null;
+}
+
+// Texture coordinates in metres on each face's own plane (the face's two axes other than its normal's), so a painted
+// pattern keeps its size on a piece of any size. Returns the geometry.
+export function planarUV(geometry, metres = 1) {
+  const pos = geometry.attributes.position, nor = geometry.attributes.normal;
+  const uv = new Float32Array(pos.count * 2);
+  for (let k = 0; k < pos.count; k++) {
+    const ax = Math.abs(nor.getX(k)), ay = Math.abs(nor.getY(k)), az = Math.abs(nor.getZ(k));
+    const [u, v] = ax >= ay && ax >= az ? [pos.getZ(k), pos.getY(k)] : ay >= az ? [pos.getX(k), pos.getZ(k)]
+      : [pos.getX(k), pos.getY(k)];
+    uv[2 * k] = u / metres;
+    uv[2 * k + 1] = v / metres;
+  }
+  geometry.setAttribute("uv", new geometry.attributes.position.constructor(uv, 2));
+  return geometry;
+}
+
 export function buildFurniture(T, item) {
   const { kind, w, d, h } = item;
   const g = new T.Group();
@@ -35,6 +68,7 @@ export function buildFurniture(T, item) {
     const m = new T.Mesh(new T.BoxGeometry(bw, bh, bd), typeof color === "object" ? color : mat(color, extra));
     m.position.set(x, y + bh / 2, z);
     if (name) m.name = name;
+    if (typeof color !== "object") m.material.userData.finish = finishFor(kind, name, color);
     g.add(m);
     return m;
   };
@@ -42,6 +76,7 @@ export function buildFurniture(T, item) {
     const m = new T.Mesh(new T.CylinderGeometry(r, r, ch, 20), mat(color, extra));
     m.position.set(x, y + ch / 2, z);
     if (name) m.name = name;
+    m.material.userData.finish = finishFor(kind, name, color);
     g.add(m);
     return m;
   };

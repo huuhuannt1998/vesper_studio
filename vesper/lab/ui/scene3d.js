@@ -282,6 +282,24 @@ export function skyColor(elevation) {
 }
 const hexOf = ([r, g, b]) => (r << 16) | (g << 8) | b;
 
+// The sky as a gradient (play-view environment design 2026-11-05, §2): {zenith, horizon} (0xRRGGBB) for the sun's
+// elevation: night, twilight, a low sun's warm horizon, a day's deep blue overhead fading to a pale horizon.
+const SKY_STOPS = [[-12, [0x08, 0x0e, 0x1e], [0x16, 0x1f, 0x36]], [-4, [0x22, 0x2c, 0x52], [0x55, 0x4f, 0x6e]],
+  [1, [0x4f, 0x6a, 0x9e], [0xf0, 0xa8, 0x70]], [8, [0x5c, 0x8c, 0xc8], [0xf2, 0xd2, 0xae]],
+  [25, [0x4a, 0x86, 0xcf], [0xc8, 0xdc, 0xec]], [90, [0x3f, 0x7c, 0xc9], [0xc2, 0xd8, 0xea]]];
+export function skyGradient(elevation) {
+  const at = (k) => ({ zenith: hexOf(SKY_STOPS[k][1]), horizon: hexOf(SKY_STOPS[k][2]) });
+  if (elevation <= SKY_STOPS[0][0]) return at(0);
+  for (let k = 1; k < SKY_STOPS.length; k++) {
+    const [e1, z1, h1] = SKY_STOPS[k], [e0, z0, h0] = SKY_STOPS[k - 1];
+    if (elevation <= e1) {
+      const f = (elevation - e0) / (e1 - e0), mix = (a, b) => hexOf(a.map((v, i) => Math.round(v + (b[i] - v) * f)));
+      return { zenith: mix(z0, z1), horizon: mix(h0, h1) };
+    }
+  }
+  return at(SKY_STOPS.length - 1);
+}
+
 // A wall box [x0, z0, x1, z1] (from 0 to wallH high) with the windows that stand in it cut out: the pieces left,
 // [x0, z0, x1, z1, y0, y1] each, the sill's and the lintel's within the window's span. A window stands in the box
 // when its centre lies inside the box (within `slack` across the wall).

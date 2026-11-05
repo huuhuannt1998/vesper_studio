@@ -58,3 +58,36 @@ test("a free model fills its piece's footprint; a headboard or a chair's back ma
   // a model whose footprint scale would make it taller than a room is capped at MAX_MODEL_H
   assert.ok(Math.abs(fitScale({ x: 0.2, y: 1.0, z: 0.2 }, { w: 0.6, d: 0.6, h: 1.0 }) - MAX_MODEL_H / 1.0) < 1e-9);
 });
+
+// -- painted finishes (play-view environment design 2026-11-05, §2) ----------------------------------------------
+import { finishFor, planarUV } from "../../../vesper/lab/ui/furniture3d.js";
+
+const finishes = (kind) => {
+  const [w, d, h] = SIZES[kind] || [1, 0.6, 0.9], out = {};
+  buildFurniture(THREE, { kind, w, d, h }).traverse((o) => {
+    if (o.isMesh && o.name) out[o.name] = o.material.userData.finish || null;
+  });
+  return out;
+};
+
+test("each part gets the finish its material is: wood, fabric, brushed steel or ceramic", () => {
+  assert.equal(finishes("bed").frame, "wood");
+  assert.equal(finishes("bed").mattress, "fabric");
+  assert.equal(finishes("bed").duvet, "fabric");
+  assert.equal(finishes("sofa").cushion, "fabric");
+  assert.equal(finishes("fridge").body, "steel");
+  assert.equal(finishes("toilet").seat, "ceramic");
+  assert.equal(finishes("bath").body, "ceramic");
+  assert.equal(finishes("tv_stand").body, "wood");
+  assert.equal(finishes("counter").sink, "steel");
+  assert.equal(finishes("washer").body, "enamel");
+  assert.equal(finishFor("sofa", "plinth", 0x2a2e33), null); // a dark plinth: plain paint
+});
+
+test("a painted texture keeps its size on a piece: coordinates in metres, on each face's own plane", () => {
+  const geo = planarUV(new THREE.BoxGeometry(2, 1, 0.5), 1);
+  const uv = geo.attributes.uv, us = [], vs = [];
+  for (let k = 0; k < uv.count; k++) { us.push(uv.getX(k)); vs.push(uv.getY(k)); }
+  assert.ok(Math.abs(Math.max(...us) - Math.min(...us) - 2) < 1e-9); // the 2 m side spans 2 repeats
+  assert.ok(Math.max(...vs) - Math.min(...vs) <= 1 + 1e-9);
+});
