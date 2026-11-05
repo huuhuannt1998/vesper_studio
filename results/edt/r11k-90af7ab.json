@@ -1,0 +1,69 @@
+{
+ "binder": {
+  "agree": 46,
+  "binary": {
+   "agree": 45,
+   "kappa": 1.0,
+   "n": 45
+  },
+  "first_misbind_share": {
+   "decided": 49,
+   "misbind": 12,
+   "wilson": [
+    0.146,
+    0.381
+   ]
+  },
+  "kappa": 0.8792999396499698,
+  "misbind_class_agree": {
+   "agree": 10,
+   "n": 11
+  },
+  "n": 50,
+  "second_misbind_share": {
+   "decided": 45,
+   "misbind": 11,
+   "wilson": [
+    0.142,
+    0.387
+   ]
+  }
+ },
+ "dead": {
+  "agree": 29,
+  "binary": {
+   "agree": 29,
+   "kappa": 0.8387096774193549,
+   "n": 30
+  },
+  "kappa": 0.9503311258278145,
+  "n": 30
+ },
+ "protocol": "docs/experiments/edt-protocol.md, Addendum 24",
+ "sunloc": {
+  "agree": 23,
+  "binary": {
+   "agree": 23,
+   "kappa": 1.0,
+   "n": 23
+  },
+  "first_location_precision": {
+   "decided": 25,
+   "located": 16,
+   "wilson": [
+    0.445,
+    0.798
+   ]
+  },
+  "kappa": 0.8437500000000001,
+  "n": 25,
+  "second_location_precision": {
+   "decided": 23,
+   "located": 14,
+   "wilson": [
+    0.408,
+    0.778
+   ]
+  }
+ }
+}

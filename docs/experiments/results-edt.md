@@ -3513,3 +3513,28 @@ What moves, by anonymous index among the 67 (kinds are the oracle's names):
   catalog default (R7-B).
 - The trade-off curve's pooled scores come from five fold models; the split's held-out half is one model on 2,777 rows,
   and the two give budgets that differ by a factor of two in opposite directions for the frame flags.
+
+## Revision R11-K (Addendum 24): a blind second rater
+
+**Post hoc** (Addendum 24, `90af7ab`, written before any comparison). The second rater did not build the binder and
+never saw the first rater's labels. It labelled seeded samples (seed 20261105) by the first audits' definitions:
+- 50 of the 179 binder cases;
+- 30 of the 100 dead-rule cases;
+- 25 of the 44 sun-reader locations.
+
+Script `scripts/revision/r11k_agreement.py`; aggregates in `results/edt/r11k-90af7ab.json`. The labels stay local.
+
+| Audit | n | raw agreement | Cohen's κ | binary (uncertain dropped) |
+|---|---|---|---|---|
+| binder (4-way label) | 50 | 46 | 0.88 | misbind vs not: 45 of 45, κ 1.00 |
+| dead-rule reason (class) | 30 | 29 | 0.95 | genuine vs not: 29 of 30, κ 0.84 |
+| sun-reader location | 25 | 23 | 0.84 | located vs mislocated: 23 of 23, κ 1.00 |
+
+- **Binder.** On the same 50 cases the misbind share is 12 of 49 decided (Wilson [0.15, 0.38]) for the first rater and
+  11 of 45 ([0.14, 0.39]) for the second. Where both call a case a misbind, they agree on its class in 10 of 11.
+- **Sun locations.** On the same 25, location precision is 16 of 25 ([0.45, 0.80]) for the first rater and 14 of 23
+  ([0.41, 0.78]) for the second.
+- **Where they differ.** Every disagreement involves an "uncertain" label on one side, except one dead-rule case
+  (genuine for one rater, a site or date effect for the other).
+- **Reading.** The audits that set the binder discount and the location precision reproduce under a second, blind
+  rater.
