@@ -144,10 +144,15 @@ _TOL = 1e-6
 
 def typed_ids(plan_m: dict) -> tuple[dict, list[tuple[str, str, str]]]:
     """The plan with its rooms renamed as a generated home's are, by type (living, bedroom_1, bedroom_2, ...: the
-    device placer and a request's `at:` read a room's type from its id), and (new id, plan id, name) per room."""
+    device placer and a request's `at:` read a room's type from its id; an entrance porch, `porch`), and (new id,
+    plan id, name) per room."""
     import copy
+
+    from vesper.lab.plan import entrance_porch
     plan = copy.deepcopy(plan_m)
-    stems = [PLAN_STEMS.get(r["type"], r["type"]) for r in plan["rooms"]]
+    porch = entrance_porch(plan)
+    stems = ["porch" if porch is not None and r["id"] == porch[1] else PLAN_STEMS.get(r["type"], r["type"])
+             for r in plan["rooms"]]
     seen: dict[str, int] = {}
     rename, out = {}, []
     for r, stem in zip(plan["rooms"], stems, strict=True):
@@ -168,10 +173,13 @@ def floor_plan_from(plan_m: dict, scene: str, numbers: list[int] | None = None) 
     outline taken in by half a wall (WALL), as a generated room's is, so a wall between two rooms is solid floor-less
     cells; each door opens the wall across its width; an outside door gets an outdoor room before it (the entrance's
     `porch`, PORCH deep and wide when it fits, any other `porch_2`, ...; doors close together on one wall share one,
-    `_porch_for`); a balcony is an outdoor room. The map lists the indoor rooms, then the porches, then the
-    balconies (the porch is the home's first outdoor room: where a resident goes out). Rooms may be any simple
-    polygon. Doors are named as `vesper.lab.plan.door_name` names them (`numbers`: as rectify's)."""
-    from vesper.lab.plan import PlanError, door_name, load_plan
+    `_porch_for`); a balcony is an outdoor room. An entrance porch (`vesper.lab.plan.entrance_porch`: the entrance
+    leads into a balcony with one door into the home) is the home's porch: labelled as one, first outdoors, its
+    door into the home the front door; no porch is built beyond it (its doors to the outside stay in the plan, not on
+    the map). The map lists the indoor rooms, then the porches, then the balconies (the porch is the home's first
+    outdoor room: where a resident goes out). Rooms may be any simple polygon. Doors are named as
+    `vesper.lab.plan.door_name` names them (`numbers`: as rectify's)."""
+    from vesper.lab.plan import PlanError, door_name, entrance_porch, load_plan
     try:
         load_plan(plan_m, numbers)
     except PlanError as e:
@@ -180,13 +188,14 @@ def floor_plan_from(plan_m: dict, scene: str, numbers: list[int] | None = None) 
         raise GenerateError("the plan is in pixels: scale it to metres first (vesper.lab.plan.scale_plan)")
     from vesper.lab.plan import OUTDOOR_TYPES
     outlines = {r["id"]: _outline(r["polygon"]) for r in plan_m["rooms"]}
+    kuisti = (entrance_porch(plan_m) or (None, None))[1]  # an entrance porch: the home's porch
     rooms = []
     for r in plan_m["rooms"]:
         inner = _inset(outlines[r["id"]], WALL)
         if inner is None:
             raise GenerateError(f"room {r['id']!r}: a part of it is narrower than its walls ({2 * WALL:.1f} m)")
-        rooms.append(Room(r["id"], PLAN_LABELS[r["type"]], tuple((round(x, 3), round(z, 3)) for x, z in inner),
-                          outdoor=r["type"] in OUTDOOR_TYPES))
+        rooms.append(Room(r["id"], PORCH_LABEL if r["id"] == kuisti else PLAN_LABELS[r["type"]],
+                          tuple((round(x, 3), round(z, 3)) for x, z in inner), outdoor=r["type"] in OUTDOOR_TYPES))
     doors = plan_m.get("doors") or []
     entrance = plan_m.get("entrance")
     order = ([entrance] if entrance is not None else []) + [k for k in range(len(doors)) if k != entrance]
@@ -196,6 +205,8 @@ def floor_plan_from(plan_m: dict, scene: str, numbers: list[int] | None = None) 
     for k in order:
         d = doors[k]
         sides = [s for s in d["rooms"] if s != "outside"]
+        if "outside" in d["rooms"] and sides == [kuisti]:
+            continue  # the porch's own way in: it is outdoors already, and no porch is built beyond it
         where = min(((s, e) for s in sides for e in _edges(outlines[s])), key=lambda se: _gap(se[1], d["at"]))
         (a, b), along = where[1], _unit(where[1])
         openings.append((tuple(d["at"]), along, d["width"]))
@@ -206,8 +217,9 @@ def floor_plan_from(plan_m: dict, scene: str, numbers: list[int] | None = None) 
                                numbers)
             pair.add(porch["id"])
         joins[k] = pair
-    every = [*(r for r in rooms if not r.outdoor), *(Room(p["id"], PORCH_LABEL, p["polygon"], outdoor=True)
-                                                      for p in porches), *(r for r in rooms if r.outdoor)]
+    every = [*(r for r in rooms if not r.outdoor), *(r for r in rooms if r.id == kuisti),
+             *(Room(p["id"], PORCH_LABEL, p["polygon"], outdoor=True) for p in porches),
+             *(r for r in rooms if r.outdoor and r.id != kuisti)]
     polys = [*outlines.values(), *(p["polygon"] for p in porches)]
     xs, zs = [x for poly in polys for x, _ in poly], [z for poly in polys for _, z in poly]
     ox, oz = (round(math.floor((v - MARGIN) / CELL + _TOL) * CELL, 6) for v in (min(xs), min(zs)))
@@ -535,7 +547,7 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
     `numbers` (as rectify's) names the doors in a refusal as the plan as read numbers them."""
     import json
 
-    from vesper.lab.plan import PlanError, check_house
+    from vesper.lab.plan import PlanError, check_house, entrance_porch
     from vesper.lab.windows import from_plan, write_windows
     if request.scene is not None:
         raise GenerateError("an imported home's rooms come from the plan: a request for it names no scene")
@@ -551,7 +563,8 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
     windows = from_plan(plan, world_map)
     indoor = [r.id for r in world_map.rooms if not r.outdoor]
     entrance = plan.get("entrance")
-    inside = [s for s in plan["doors"][entrance]["rooms"] if s != "outside"] if entrance is not None else []
+    house_door = (entrance_porch(plan) or (entrance, None))[0]  # through an entrance porch: its door into the home
+    inside = [s for s in plan["doors"][house_door]["rooms"] if s in indoor] if house_door is not None else []
     start = "living" if "living" in indoor else (inside or indoor)[0]
     one_line = lambda text: " ".join(str(text).split())  # noqa: E731  a name never breaks the comment
     lines = [f"# Imported from {one_line(Path(source).name)} (floor-plan import): {len(indoor)} rooms, their doors",

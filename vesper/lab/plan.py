@@ -792,10 +792,13 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
     What the image cannot support is left out or narrowed, never invented, and a sentence saying so is appended to
     `warnings` (when a list is given): a window on no outside wall, or in an outdoor room, is left out; a door or
     window wider than its wall is narrowed to the wall's length less 10 cm (a door's wall must be 60 cm long); two
-    doors meeting end to end on one wall are narrowed to leave 10 cm of wall between them; a door between rooms with
-    no wall in common is left out when no room needs it to be reached from the entrance. A PlanError names what is
+    doors meeting end to end on one wall are narrowed to leave 10 cm of wall between them; two doors on the two walls
+    of one corner are moved along their walls to leave CORNER_M of wall at the corner (narrowed, and said, only when
+    a wall is too short); a door between rooms with no wall in common is left out when no room needs it to be reached
+    from the entrance. An entrance into an entrance porch (`entrance_porch`) is said. A PlanError names what is
     left: a door more than 50 cm from its wall, on a wall shorter than 60 cm, between rooms with no wall in common
-    that a room needs, or between two rooms that cannot be straightened.
+    that a room needs, two doors at a corner with too little wall for CORNER_M, or between two rooms that cannot be
+    straightened.
 
     Doors are named as `door_name` names them: `numbers` is each door's place in the plan as read (None: this plan
     is the plan as read); a list given is updated in place to the doors kept."""
@@ -1104,6 +1107,13 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
                 and _longest(_outside_walls(r, rings, outdoor)) >= 0.5 + 2 * WINDOW_CORNER_M):
             warnings[at] += "; the room gets a rule window"
 
+    if (porch := entrance_porch(plan)) is not None:
+        k, room = porch
+        inside = next(s for s in plan["doors"][k]["rooms"] if s != room)
+        say(f"the entrance opens into the balcony {named(room)}, an entrance porch: the house door is "
+            f"{door_name(k, numbers)}, from it into {named(inside)}; {named(room)} is built as the porch "
+            "in front of it")
+
     for r, ring in zip(plan["rooms"], rings, strict=True):
         r["polygon"] = [[x, z] for x, z in ring]
     return plan
@@ -1111,9 +1121,29 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
 
 # --- is it a house -----------------------------------------------------------------------------------------------
 
+def entrance_porch(plan_m: dict) -> tuple[int, str] | None:
+    """(the house door, the porch) when the entrance leads from outside into an outdoor room (a balcony) that has
+    exactly one door into an indoor room: that outdoor room is an entrance porch (a Finnish kuisti, a veranda), the
+    door from it into the home is the house door, and the entrance (its door to the outside) stays the way in. None
+    when the entrance leads straight indoors, or the outdoor room has no door into the home or several."""
+    doors = plan_m.get("doors") or []
+    ent = plan_m.get("entrance")
+    if ent is None or not 0 <= ent < len(doors) or "outside" not in doors[ent]["rooms"]:
+        return None
+    types = {r["id"]: r["type"] for r in plan_m["rooms"]}
+    room = next((s for s in doors[ent]["rooms"] if s != "outside"), None)
+    if types.get(room) not in OUTDOOR_TYPES:
+        return None
+    into = [k for k, d in enumerate(doors)
+            if room in d["rooms"] and any(s not in ("outside", room) and types.get(s) not in OUTDOOR_TYPES
+                                          for s in d["rooms"])]
+    return (into[0], room) if len(into) == 1 else None
+
+
 def check_house(plan_m: dict, numbers: list[int] | None = None, warnings: list[str] | None = None) -> list[str]:
     """Every way a plan in metres is not a house (an empty list when it is): rooms that overlap, a room under 0.5 m²
-    (a mis-read, not a room), a scale that cannot be right, no entrance (a door to the outside), and rooms not
+    (a mis-read, not a room), a scale that cannot be right, no entrance (a door to the outside; one into a
+    balcony only when the balcony is an entrance porch, `entrance_porch`), and rooms not
     reachable from it through doors. Doors are named as `door_name` names them (`numbers`: as `rectify`'s).
 
     The scale cannot be right when the rooms are on the whole far from their usual size: the median, over the indoor
@@ -1161,7 +1191,7 @@ def check_house(plan_m: dict, numbers: list[int] | None = None, warnings: list[s
         return problems
     door = doors[ent]
     inside = next((r for r in rooms if r["id"] in door["rooms"] and r["type"] in OUTDOOR_TYPES), None)
-    if "outside" in door["rooms"] and inside is not None:
+    if "outside" in door["rooms"] and inside is not None and entrance_porch(plan_m) is None:
         problems.append(f"the entrance opens into the balcony {room_names(rooms)(inside['id'])}: choose the door from "
                         f"it into the home")
     if "outside" not in door["rooms"]:

@@ -209,6 +209,12 @@ def test_the_prompt_types_outdoor_spaces_as_balconies_and_their_windows_light_th
     assert "balcony" in PROMPT.split("one of", 1)[1].split("\n", 1)[0]  # in the type list itself
 
 
+def test_the_prompt_types_an_entrance_porch_as_a_balcony_entered_by_its_outside_door():
+    flat = " ".join(PROMPT.split())
+    assert ('An entrance porch at the main door (a kuisti, a veranda, a mudroom open to the outside) is a "balcony", '
+            'and the entrance is its door to the outside') in flat
+
+
 def test_the_prompt_names_the_schema_the_types_and_the_things_to_read():
     for needle in ('"vesper-plan/1"', '"units": "px"', "m_per_px", "length_m", "area_m2", "polygon", "entrance",
                    "outside", "living", "kitchen", "laundry", "corridor", "hall", "other", "windows", "doors",

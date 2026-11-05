@@ -662,16 +662,57 @@ def test_a_room_s_light_switch_is_by_its_front_door_not_its_balcony_door(tmp_pat
     assert math.dist(switch, front) < 1.0 < math.dist(switch, balcony)
 
 
-def test_an_entrance_through_a_balcony_is_refused_before_anything_is_built(tmp_path, capsys):
-    cat, _ = setup(tmp_path)
+def kuisti_plan() -> dict:
+    """balcony_plan() entered from the garden through the balcony (an entrance porch, a Finnish kuisti, as three of
+    the 50 CubiCasa5K plans): door 4, on the balcony's east wall, is the entrance; door 3 leads into the living room."""
     plan = balcony_plan()
-    plan["doors"].append({"at": [5, 4.8], "width": 0.9, "rooms": ["bal", "outside"]})  # into the garden
+    plan["rooms"][2]["name"] = "Kuisti"
+    plan["doors"].append({"at": [5, 4.8], "width": 0.9, "rooms": ["bal", "outside"]})
     plan["entrance"] = 3
+    return plan
+
+
+def test_an_entrance_through_an_entrance_porch_builds_it_as_the_porch_before_the_house_door(tmp_path, capsys):
+    import yaml
+    from types import SimpleNamespace
+
+    from vesper.lab.resident import Resident
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "k"
+    assert cli.main(["lab", "import", str(write(tmp_path, kuisti_plan(), "k.json")), str(out), "--catalog",
+                     str(cat)]) == 0
+    assert ("warning: the entrance opens into the balcony 'Kuisti', an entrance porch: the house door is door 3, "
+            "from it into 'Living room'; 'Kuisti' is built as the porch in front of it") in capsys.readouterr().out
+    home = load_lab_home(out / "home.yaml", load_catalog(cat))
+    # the balcony is the porch, first outdoors; no porch beyond it; the living room's own door gets one of its own
+    assert [r.id for r in home.map.rooms] == ["living", "bedroom", "porch", "porch_2"]
+    porch = home.map.room("porch")
+    assert porch.outdoor and porch.label == "porch/terrace/deck/driveway"
+    assert min(z for _, z in porch.polygon) > 4  # the balcony's own floor, north of the living room
+    assert sorted(d.id for d in home.map.doorways) == ["bedroom-living", "living-porch", "living-porch_2"]
+    devices = yaml.safe_load((out / "home.yaml").read_text())["devices"]
+    fronts = [d["at"]["door"] for d in devices if d["name"].startswith("front_door")]
+    assert fronts and set(fronts) == {"living-porch"}  # the lock and the contact on the house door
+    resident = Resident.__new__(Resident)
+    resident.home = home
+    resident.world = SimpleNamespace(doors=dict.fromkeys(("bedroom-living", "living-porch", "living-porch_2"), False))
+    assert resident._front_door() == "living-porch" and resident._outdoors() == "porch"
+    assert cli.main(["lab", "layout", str(out / "home.yaml"), "--catalog", str(cat)]) == 0
+    assert "0 error(s)" in capsys.readouterr().out
+
+
+def test_an_entrance_into_a_balcony_with_no_door_into_the_home_is_refused_before_anything_is_built(tmp_path,
+                                                                                                  capsys):
+    cat, _ = setup(tmp_path)
+    plan = kuisti_plan()
+    del plan["doors"][2]  # the balcony's door into the living room
+    plan["entrance"] = 2
     out = tmp_path / "bal"
     assert cli.main(["lab", "import", str(write(tmp_path, plan, "bal.json")), str(out), "--catalog", str(cat)]) == 1
-    assert ("the entrance opens into the balcony 'Balcony': choose the door from it into the home"
+    assert ("the entrance opens into the balcony 'Kuisti': choose the door from it into the home"
             in capsys.readouterr().err)
     assert not out.exists()
+    plan = kuisti_plan()
     plan["entrance"] = 0  # the living room's own front door: the balcony's door to the garden is just a door
     assert cli.main(["lab", "import", str(write(tmp_path, plan, "bal.json")), str(out), "--catalog", str(cat)]) == 0
 

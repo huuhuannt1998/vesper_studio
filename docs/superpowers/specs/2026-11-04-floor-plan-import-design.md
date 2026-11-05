@@ -25,9 +25,14 @@ the 3D view, a site (place and date) if given, and the layout check run on it.
    close gaps narrower than a wall, remove overlaps between rooms (the smaller room keeps the contested strip), move
    each door onto the wall the two rooms share, and turn pixels into metres from the scale (a stated length, the
    home's area, or a scale bar Claude read; refused with a clear message when there is none).
-3. **Check it is a house.** Every room reachable from the entrance through doors; each room's area within its type's
-   plausible range (the generator's AREAS, widened); ceiling 2.5 m. Failures are listed by room; `--review` shows
-   them on the image.
+3. **Check it is a house.** Every room reachable from the entrance through doors; no indoor room under 0.5 m² (a
+   mis-read, not a room); a plausible scale: the median, over the rooms of a type with a typical area (the
+   generator's AREAS), of a room's area divided by the middle of its type's range is within 0.4 to 2.5, else "the
+   scale looks wrong: rooms are on the whole N times their usual size; give --scale or --area"; ceiling 2.5 m.
+   Failures are listed by room; `--review` shows them on the image. A room outside its type's plausible range (the
+   generator's AREAS, widened: 0.5 x the smallest to 1.5 x the largest) is a warning, shown with the others, and is
+   built as read (task A7): real rooms are often smaller or larger than a generated home's. The generator's own homes
+   are not affected.
 4. **Build.** A `WorldMap` from the rectified plan (rooms, walkable floor, doorways, a porch at the entrance), the
    plan's windows in `windows.json` (rooms with none on an outside wall get windows by rule, marked so), then the
    existing pipeline: devices (`place_devices`), built-in furniture or Claude + Blender, the layout checker, the 3D
@@ -52,6 +57,14 @@ scaling, and the share of imports that pass the layout check with no error. Repo
   them; a door between rooms that do not touch is left out when no room needs it to be reached, else refused. The
   warnings follow the summary in the CLI and stand under Problems in the lobby, without blocking Generate. A plan
   drawing several floors is read as its entrance floor only (the prompt asks for it).
+- Real plans (task A7, after the 50-plan evaluation): a room's area outside its type's plausible range is a warning,
+  not a refusal, unless the scale itself is implausible (step 3) or the room is under 0.5 m². Two doors on the two
+  walls of one corner keep 25 cm of wall from it (moved along their walls, narrowed with a warning only when the wall
+  is too short), else their openings meet in the corner's wall as one gap into three rooms. An entrance into a
+  balcony that has exactly one door into the home is an entrance porch (a Finnish *kuisti*): the house door is that
+  door, and the balcony is built as the home's porch in front of it, entered by the entrance's outside door (a
+  warning says so); with no such door, or several, the import still asks which is the house door. The prompt types
+  an entrance porch (kuisti, veranda, mudroom open to the outside) as `balcony`, its outside door the entrance.
 
 ## Files
 

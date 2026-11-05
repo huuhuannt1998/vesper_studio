@@ -1064,12 +1064,37 @@ def test_a_refusal_names_the_door_by_its_place_in_the_plan_as_read():
 
 # --- round 3 (task A6): an entrance through a balcony; rule windows said; names in warnings; no entrance ---------
 
-def test_an_entrance_through_a_balcony_is_a_problem_naming_it():
+def kuisti():
+    """with_balcony() entered from the garden through the balcony, an entrance porch (a Finnish kuisti): the
+    entrance is door 3, the balcony's outside door; door 2 leads from it into the living room."""
     p = with_balcony()
     p["doors"].append({"at": [5, 5], "width": 0.9, "rooms": ["bal", "outside"]})
     p["entrance"] = 2
-    p["rooms"][1]["name"] = "Terrace"
-    assert check_house(p) == ["the entrance opens into the balcony 'Terrace': choose the door from it into the home"]
+    p["rooms"][1]["name"] = "Kuisti"
+    return p
+
+
+def test_an_entrance_through_an_entrance_porch_makes_its_one_door_into_the_home_the_house_door():
+    from vesper.lab.plan import entrance_porch
+    warnings = []
+    out = rectify(kuisti(), warnings)
+    assert check_house(out) == [] and entrance_porch(out) == (1, "bal")
+    assert out["entrance"] == 2  # the entrance stays the way in: the porch's outside door
+    assert warnings == ["the entrance opens into the balcony 'Kuisti', an entrance porch: the house door is door 2, "
+                        "from it into 'living'; 'Kuisti' is built as the porch in front of it"]
+    assert entrance_porch(with_balcony()) is None  # the living room's own front door
+
+
+def test_an_entrance_into_a_balcony_with_no_door_into_the_home_or_several_is_a_problem_naming_it():
+    from vesper.lab.plan import entrance_porch
+    refused = ["the entrance opens into the balcony 'Kuisti': choose the door from it into the home"]
+    p = kuisti()
+    del p["doors"][1]  # no door from the balcony into the home
+    p["entrance"] = 1
+    assert check_house(p)[0] == refused[0] and entrance_porch(p) is None
+    p = kuisti()
+    p["doors"].append({"at": [1, 4.1], "width": 0.9, "rooms": ["living", "bal"]})  # two doors into the home
+    assert check_house(p) == refused and entrance_porch(p) is None
     p["entrance"] = 0
     assert check_house(p) == []  # the balcony's own door to the garden is fine
 

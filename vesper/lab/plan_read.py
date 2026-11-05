@@ -52,9 +52,11 @@ How to fill it:
   joins two rooms; the rooms must be joined so that every room can be reached from the entrance.
 - Every window: "at" its middle in the wall, "width" in pixels, "room" the room it lights (a window between a room
   and a balcony lights the room). Leave "windows" empty if the plan shows none.
-- "entrance" is the index (counting from 0) of the main door to the outdoors in your "doors" list. If no outside
-  door is drawn, do not refuse: add a door to "outside" at the most plausible front-door position (on an outside wall
-  of the hall, living room or corridor, whichever a visitor would enter by) and make that the entrance.
+- "entrance" is the index (counting from 0) of the main door to the outdoors in your "doors" list. An entrance porch
+  at the main door (a kuisti, a veranda, a mudroom open to the outside) is a "balcony", and the entrance is its door
+  to the outside; give its door into the home too. If no outside door is drawn, do not refuse: add a door to
+  "outside" at the most plausible front-door position (on an outside wall of the hall, living room or corridor,
+  whichever a visitor would enter by) and make that the entrance.
 - The scale: if the image prints dimension text for rooms or walls, or a scale bar, or the home's total floor area,
   put it into "scale": a scale bar or a measured length as {{"length_m": metres, "from": [x, y], "to": [x, y]}} (the two
   pixel points the length spans, along a straight line), a printed total area as {{"area_m2": number}}. Lengths are
