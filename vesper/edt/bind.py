@@ -809,10 +809,18 @@ def _without_sets(node, found: set):
     return out
 
 
+def _disabled_at_startup(value) -> bool:
+    """Whether `initial_state` starts the automation off, as Home Assistant reads it (a boolean; YAML 1.1's off/false
+    may reach us as a string)."""
+    return value is False or (isinstance(value, str) and value.strip().lower() in ("off", "false"))
+
+
 def bind_with_assumptions(raw: dict, roles: dict, variant: int) -> tuple[dict, list[str]] | Unbindable:
     """`raw` bound as `bind` does, with its helper gates held open: (the bound automation, the assumptions, i.e. the
     state each removed gate requires); or why it cannot be bound. The engine refuses unknown top-level keys, so the
     assumptions come beside the bound automation, not in it."""
+    if _disabled_at_startup(raw.get("initial_state")):  # protocol A16: nothing in one automation's replay enables it
+        return Unbindable("disabled at startup (initial_state: off)")
     raw = copy.deepcopy(raw)
     reqs: dict = {}
     for k in ("condition", "conditions"):

@@ -932,3 +932,15 @@ def test_the_120f4ca_binder_rules_stay_available(edt):
         assert isinstance(bind(one("sensor.server_room_temperature"), roles, 0), dict)
     assert bind_module.BINDER_RULES == "current"
     assert infer_role("sensor.weather_bedroom_temperature") == ("temperature", "bedroom_1")
+
+
+@pytest.mark.parametrize("off", [False, "off", "false", "Off"])
+def test_an_automation_disabled_at_startup_is_refused(edt, off):
+    """Protocol A16: Home Assistant starts an automation with `initial_state: off` disabled, and nothing in a
+    single-automation replay turns it on, so it is refused as disabled at startup (not run, not a dead rule)."""
+    _, roles, _, _ = edt
+    raw = {"alias": "w", "initial_state": off, "triggers": [{"trigger": "sun", "event": "sunset"}],
+           "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.kitchen"}}]}
+    assert bind(raw, roles, 0) == Unbindable("disabled at startup (initial_state: off)")
+    on = {**raw, "initial_state": True}
+    assert not isinstance(bind(on, roles, 0), Unbindable)
