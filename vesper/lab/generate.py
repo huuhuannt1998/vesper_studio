@@ -538,21 +538,34 @@ def generate_home(request: Request, catalog: dict, out: Path, export=None) -> No
 
 
 def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path, source: str = "plan.json",
-                       numbers: list[int] | None = None) -> None:
+                       numbers: list[int] | None = None, objects: list[dict] | None = None,
+                       model: dict | None = None, scan: dict | None = None) -> None:
     """Write the home of a rectified plan in metres into `out`, a new directory, as `generate_home` writes a generated
     one: its rooms renamed by type (`typed_ids`, listed in home.yaml's header), the map (`floor_plan_from`), the plan's
     windows and rule windows where a room has none (vesper.lab.windows.from_plan), the request's devices placed by
     rule, the built-in furniture, and the plan itself (`plan.json`, with the map's room ids). `source` is the plan's
     file name: the scene is `imported/<its stem>`. The request's program is not used: the rooms are the plan's.
-    `numbers` (as rectify's) names the doors in a refusal as the plan as read numbers them."""
+    `numbers` (as rectify's) names the doors in a refusal as the plan as read numbers them.
+
+    A scan or a 3D model (scan import, vesper.lab.scan_import) passes `scan`, its provenance: {"turn": rectify's turn
+    (`plan.plan_transform` of the plan as read), "heights": {"doors": [...], "windows": [...]} (each kept door's and
+    window's measured bottom and top, in the rectified plan's order, None where unmeasured), "files": the originals
+    to keep, and what else is to be written to `scan.json`}. Then the plan is in metres (a far-off scale is not
+    refused: `check_house(metric=True)`), `objects` (its pieces `{kind, room, box, h, yaw}` in the plan as read) become
+    furniture.json items with `source: scan`, turned as the plan was, and built-in furniture goes only into the rooms
+    with none of them; the windows keep their measured sills and heights; `model` ({"path": the mesh, "transform":
+    the 4x4 from its file to the plan as read}) is written in the home's frame as `scene.glb`, the home's 3D view (it
+    draws its own furniture, so none is built in); the originals go into `source/`, and `.gitignore` lists both."""
     import json
 
     from vesper.lab.plan import PlanError, check_house, entrance_porch
     from vesper.lab.windows import from_plan, write_windows
     if request.scene is not None:
         raise GenerateError("an imported home's rooms come from the plan: a request for it names no scene")
+    if (objects or model) and scan is None:
+        raise GenerateError("a scan's objects or model come with its provenance (scan)")
     try:
-        problems = check_house(plan_m, numbers)
+        problems = check_house(plan_m, numbers, metric=scan is not None)
     except PlanError as e:
         raise GenerateError(str(e)) from None
     if problems:
@@ -560,17 +573,28 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
     plan, names = typed_ids(plan_m)
     world_map = floor_plan_from(plan, f"imported/{Path(source).stem}", numbers)
     devices = place_devices(world_map, request, catalog)
-    windows = from_plan(plan, world_map)
+    heights = (scan or {}).get("heights") or {}
+    windows = from_plan(plan, world_map, heights.get("windows"))
+    scan_items = []
+    if scan is not None:
+        from vesper.lab.scan_import import furniture_items
+        scan_items = furniture_items(objects or [], scan["turn"], {old: new for new, old, _ in names})
     indoor = [r.id for r in world_map.rooms if not r.outdoor]
     entrance = plan.get("entrance")
     house_door = (entrance_porch(plan) or (entrance, None))[0]  # through an entrance porch: its door into the home
     inside = [s for s in plan["doors"][house_door]["rooms"] if s in indoor] if house_door is not None else []
     start = "living" if "living" in indoor else (inside or indoor)[0]
     one_line = lambda text: " ".join(str(text).split())  # noqa: E731  a name never breaks the comment
-    lines = [f"# Imported from {one_line(Path(source).name)} (floor-plan import): {len(indoor)} rooms, their doors",
-             "# and windows as the plan draws them, its walls straightened; the porch, windows marked source: rule,",
-             f"# the furniture and every device's position are by rule (assumed), seed {request.seed}. The rooms (the "
-             "plan's id and name):"]
+    if scan is None:
+        lines = [f"# Imported from {one_line(Path(source).name)} (floor-plan import): {len(indoor)} rooms, their "
+                 "doors", "# and windows as the plan draws them, its walls straightened; the porch, windows marked "
+                 "source: rule,", f"# the furniture and every device's position are by rule (assumed), seed "
+                 f"{request.seed}. The rooms (the plan's id and name):"]
+    else:
+        lines = [f"# Imported from {one_line(Path(source).name)} (scan import, scan.json): {len(indoor)} rooms, their "
+                 "doors,", "# windows and furniture (source: scan) as measured, its walls straightened; the porch, "
+                 "windows marked", f"# source: rule, other furniture and every device's position are by rule "
+                 f"(assumed), seed {request.seed}. The rooms", "# (the scan's id and name):"]
     for new, old, name in names:
         lines.append(f"#   {new}: {one_line(old)}" + (f" ({one_line(name)})" if one_line(name) else ""))
     lines += ["version: 2", f"scene: {world_map.scene}", "map: map.json", f"seed: {request.seed}",
@@ -586,12 +610,38 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
         write_windows(out, windows)
         (out / "plan.json").write_text(json.dumps(plan, indent=1) + "\n")
         (out / "home.yaml").write_text("\n".join(lines) + "\n")
-        if request.furnish:
-            _furnish(out, catalog)
+        if scan is None:
+            if request.furnish:
+                _furnish(out, catalog)
+        else:
+            _scan_files(out, catalog, request, scan, plan, numbers, scan_items, model, heights)
     except BaseException:
         import shutil
         shutil.rmtree(out, ignore_errors=True)
         raise
+
+
+def _scan_files(out: Path, catalog: dict, request: Request, scan: dict, plan: dict, numbers, scan_items: list[dict],
+                model: dict | None, heights: dict) -> None:
+    """A scan's own files beside its home: scene.glb (a mesh, in the home's frame), source/ and .gitignore, the
+    furniture (the scan's, then built-in in rooms with none, unless the model draws its own) and scan.json."""
+    import json
+
+    from vesper.lab.plan import door_name
+    from vesper.lab.scan_import import FORMAT, keep_source, model_matrix, write_model
+    drawn = model is not None and model.get("transform") is not None
+    if drawn:
+        write_model(Path(model["path"]), model_matrix(model["transform"], scan["turn"]), out / "scene.glb")
+    kept = keep_source(out, [Path(f) for f in scan.get("files") or []],
+                       Path(model["path"]) if model is not None else None)
+    _furnish(out, catalog, scan_items, built_in=request.furnish and not drawn)
+    door_heights = heights.get("doors") or []
+    doors = [{"door": door_name(k, numbers), "rooms": d["rooms"],
+              **(door_heights[k] if k < len(door_heights) and door_heights[k] else {"bottom": None, "top": None})}
+             for k, d in enumerate(plan["doors"])]
+    record = {"format": FORMAT, **{k: v for k, v in scan.items() if k not in ("heights", "files")}, "source": kept,
+              "scene": "scene.glb" if drawn else None, "doors": doors, "furniture": len(scan_items)}
+    (out / "scan.json").write_text(json.dumps(record, indent=1) + "\n")
 
 
 def _site_lines(request: Request) -> list[str]:
@@ -600,20 +650,26 @@ def _site_lines(request: Request) -> list[str]:
     return [f"site: {yaml.safe_dump(request.site, default_flow_style=True, sort_keys=False, width=1000).strip()}"]
 
 
-def _furnish(out: Path, catalog: dict) -> None:
+def _furnish(out: Path, catalog: dict, scanned: list[dict] | None = None, built_in: bool = True) -> None:
     """Furnish the generated home (vesper.lab.furnishing): `furniture.json` beside it, the floor under each solid
     piece taken off `map.json`, the plan without furniture kept as `map.original.json` (as `vesper lab renav`),
     marked `"bare": true`: a plan VESPER drew, with no furniture in it (an HSSD house's map.original.json is HSSD's
-    own walking map, its furniture in it: vesper.lab.layoutcheck tells them apart by this)."""
+    own walking map, its furniture in it: vesper.lab.layoutcheck tells them apart by this). `scanned`: a scan's own
+    pieces (source: scan), on the floor first; the built-in furniture (when `built_in`) only in rooms with none."""
     import json
 
     from vesper.lab.furnishing import FORMAT, block, furnish
     from vesper.lab.home import load_lab_home
     from vesper.lab.windows import load_windows
     home = load_lab_home(out / "home.yaml", catalog)
-    items = furnish(home.map, home.devices, home.avatar["start"], load_windows(out))
+    scanned = list(scanned or [])
     (out / "map.original.json").write_text(json.dumps({**json.loads((out / "map.json").read_text()), "bare": True}))
+    block(home.map, scanned)
+    rooms = {i["room"] for i in scanned}
+    items = [i for i in furnish(home.map, home.devices, home.avatar["start"], load_windows(out))
+             if i["room"] not in rooms] if built_in else []
     block(home.map, items)
+    items = scanned + items
     home.map.save(out / "map.json")
     (out / "furniture.json").write_text(json.dumps({"format": FORMAT, "items": items}, indent=1) + "\n")
 

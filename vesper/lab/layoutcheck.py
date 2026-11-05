@@ -45,16 +45,20 @@ def kind_of(name: str) -> str:
 
 # -- the pieces of a home -----------------------------------------------------------------------------------------
 def pieces_of(home) -> tuple[list[dict], str]:
-    """The home's furniture as pieces {name, kind, room, box, h}, and where they came from."""
+    """The home's furniture as pieces {name, kind, room, box, h} (and `scan: True` for a scan's own piece), and where
+    they came from. A home imported from a scan or a 3D model (`scan.json` beside it) is judged by its furniture.json:
+    its scene.glb is the scan's whole model, walls and floor and all, whose boxes are no pieces of furniture (and a
+    scan's objects would be in both: they are counted once, from furniture.json, each one piece of its kind)."""
     here = Path(home.path).parent
     glb = here / "scene.glb"
-    if glb.is_file() and not (here / "render.json").is_file():
+    if glb.is_file() and not (here / "render.json").is_file() and not (here / "scan.json").is_file():
         return glb_pieces(glb, home.map), "scene.glb"
     f = here / "furniture.json"
     if f.is_file():
         items = json.loads(f.read_text()).get("items") or []
         out = [{"name": f"{i['kind']}@{i['room']}", "kind": i["kind"], "room": i["room"], "box": i["box"],
-                "h": i["h"] if i.get("solid", True) else 0.0} for i in items]
+                "h": i["h"] if i.get("solid", True) else 0.0, **({"scan": True} if i.get("source") == "scan" else {})}
+               for i in items]
         return out + [p for i in items if i["kind"] == "counter" for p in _counter_parts(i)], "furniture.json"
     return [], "none"
 
@@ -159,8 +163,28 @@ def _finding(rule, ok, message, severity="error", where=None) -> dict:
     return {"rule": rule, "ok": ok, "severity": severity, "where": where, "message": message}
 
 
+AS_SCANNED = " (the scan's own furniture, where it was measured: a warning, not VESPER's placing)"
+
+
+def _blame(bad: list[dict]) -> tuple[str, str]:
+    """An error, or a warning when every piece at fault is a scan's own (`scan`): the real home's furniture stands
+    where it was measured, and the check says so rather than fail a home VESPER did not lay out."""
+    return ("warning", AS_SCANNED) if bad and all(p.get("scan") for p in bad) else ("error", "")
+
+
+def _scan_spared(found: list[dict], without: list[dict]) -> list[dict]:
+    """Findings that fail only because of a scan's own pieces (the same rule passes with them taken away) made
+    warnings, said so; the rest as they are. `without`: the same rule's findings with no scan piece (a room or a
+    device is spared when none of them is an error there)."""
+    still = {g["where"] for g in without if not g["ok"] and g["severity"] == "error"}
+    return [{**f, "severity": "warning", "message": f["message"] + AS_SCANNED}
+            if not f["ok"] and f["severity"] == "error" and f["where"] not in still else f for f in found]
+
+
 def check(home, pieces: list[dict] | None = None, windows: list[dict] | None = None) -> dict:
-    """The home's findings, rule by rule, and a summary: {source, findings, errors, warnings, checked}."""
+    """The home's findings, rule by rule, and a summary: {source, findings, errors, warnings, checked}. A scan's own
+    pieces (`scan: True`, furniture.json's `source: scan`) stand where the real home has them: a rule they alone
+    break is a warning, not an error (VESPER placed the devices and any built-in furniture; the scan placed those)."""
     source = "given"
     if pieces is None:
         pieces, source = pieces_of(home)
@@ -171,14 +195,16 @@ def check(home, pieces: list[dict] | None = None, windows: list[dict] | None = N
         # a piece blocks a door only from a room the door opens into (one behind a wall does not); a model's
         # piece outside every room is kept, to be safe
         bad = [p for p in solid if p["room"] in (*d.rooms, None) and _gap(p["box"], d.center) < DOOR_CLEAR_M]
+        severity, why = _blame(bad)
         findings.append(_finding("door", not bad, f"doorway {d.id}: " + (
-            ", ".join(f"{p['kind']} ({p['name']}) {(_gap(p['box'], d.center)):.2f} m from it" for p in bad)
-            if bad else f"clear for {DOOR_CLEAR_M} m"), where=d.id))
+            ", ".join(f"{p['kind']} ({p['name']}) {(_gap(p['box'], d.center)):.2f} m from it" for p in bad) + why
+            if bad else f"clear for {DOOR_CLEAR_M} m"), severity=severity, where=d.id))
     for w in windows:
         bad = [p for p in solid if p["room"] == w["room"] and blocks(p["box"], w, p["h"])]
+        severity, why = _blame(bad)
         findings.append(_finding("window", not bad, f"window {w['id']}: " + (
             ", ".join(f"{p['kind']} ({p['name']}, {p['h']:.2f} m tall) in front of its {w['sill']:.2f} m sill"
-                      for p in bad) if bad else "clear"), where=w["id"]))
+                      for p in bad) + why if bad else "clear"), severity=severity, where=w["id"]))
     for p in solid:
         if p["kind"] != "bed" or p["room"] is None:
             continue
@@ -188,8 +214,12 @@ def check(home, pieces: list[dict] | None = None, windows: list[dict] | None = N
         findings.append(_finding("bed", against, f"{p['name']}: " + ("against a wall" if against else
                                                                      "stands free of every wall"),
                                  severity="warning", where=p["room"]))
-    findings += _walkways(home, solid)
-    findings += _reach(home, solid)
+    ours = [p for p in solid if not p.get("scan")]
+    for rule in (_walkways, _reach):
+        found = rule(home, solid)
+        if len(ours) < len(solid) and any(not f["ok"] for f in found):
+            found = _scan_spared(found, rule(home, ours))
+        findings += found
     findings += _kitchen(pieces)
     errors = [f for f in findings if not f["ok"] and f["severity"] == "error"]
     warnings = [f for f in findings if not f["ok"] and f["severity"] == "warning"]

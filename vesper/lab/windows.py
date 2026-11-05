@@ -8,7 +8,8 @@ size is not given, so they are taken as RULES' default pane and the wall they fa
 
 `windows.json` beside home.yaml: {"format": "vesper-windows/1", "items": [window...]}, a window being
 {id, room, x, z (the wall's centre line), width, sill, height (m), facing (the outward normal, degrees clockwise from
-the plan's top), side (z0|z1|x0|x1 of its room), source ("rule" | "hssd")}. Every size is assumed (a typical one).
+the plan's top), side (z0|z1|x0|x1 of its room), source ("rule" | "hssd" | "plan" | "scan")}. Every size is assumed
+(a typical one), but for a scan's window (source "scan"), whose sill and height are measured.
 """
 from __future__ import annotations
 
@@ -121,13 +122,16 @@ def from_openings(world_map, openings: list[dict]) -> list[dict]:
     return out
 
 
-def from_plan(plan_m: dict, world_map) -> list[dict]:
+def from_plan(plan_m: dict, world_map, heights: list[dict | None] | None = None) -> list[dict]:
     """An imported home's windows (floor-plan import): each of the plan's windows where the plan puts it (on its
     room's outline, the wall's centre line) at the plan's width, the sill and height its room's kind has by RULES
     (DEFAULT_PANE for a hall or another room), facing out of the wall it is on (source "plan"); then, in a room of a
     RULES kind with none, windows by rule (source "rule"): `plan_windows`' for a rectangle, else (or when those give
     none) `_on_real_walls`', so every such room with an outside wall gets one. A hall, a corridor or another room
-    gets none by rule, as a generated hallway. The map's room ids are the plan's (generate.floor_plan_from)."""
+    gets none by rule, as a generated hallway. The map's room ids are the plan's (generate.floor_plan_from).
+
+    `heights`: a scan's measured bottom and top (m from the floor) per plan window, in the plan's order (None, or a
+    None in it, where there is none): such a window keeps its sill and height as measured (source "scan")."""
     from vesper.lab.furnishing import room_kind
     from vesper.lab.generate import _edges, _gap, _outline
     outlines = {r["id"]: _outline(r["polygon"]) for r in plan_m["rooms"]}
@@ -135,16 +139,21 @@ def from_plan(plan_m: dict, world_map) -> list[dict]:
     count = {w["room"]: sum(1 for x in windows if x["room"] == w["room"]) for w in windows}
     seen: dict[str, int] = {}
     out = []
-    for w in windows:
+    for k, w in enumerate(windows):
         rid, at = w["room"], (float(w["at"][0]), float(w["at"][1]))
         ring = outlines[rid]
         facing, side = _facing(ring, min(_edges(ring), key=lambda e: _gap(e, at)))
         kind = room_kind(world_map.room(rid))
         sill, height = RULES[kind][2:] if kind in RULES else DEFAULT_PANE[1:]
+        source = "plan"
+        measured = heights[k] if heights is not None and k < len(heights) else None
+        if measured and measured.get("bottom") is not None and measured.get("top") is not None \
+                and 0 <= measured["bottom"] < measured["top"]:
+            sill, height, source = round(measured["bottom"], 2), round(measured["top"] - measured["bottom"], 2), "scan"
         seen[rid] = seen.get(rid, 0) + 1
         out.append({"id": f"{rid}_window{seen[rid] if count[rid] > 1 else ''}", "room": rid, "x": round(at[0], 3),
                     "z": round(at[1], 3), "width": round(float(w["width"]), 2), "sill": sill, "height": height,
-                    "facing": facing, "side": side, "source": "plan"})
+                    "facing": facing, "side": side, "source": source})
     by_rule = plan_windows(world_map)
     for room in world_map.rooms:
         rid = room.id

@@ -994,14 +994,26 @@ def _lab_import(args, catalog) -> int:
     from vesper.lab.generate import GenerateError, Request, generate_from_plan, load_request, starter
     from vesper.lab.home import load_lab_home
     from vesper.lab.plan import PlanError, check_house, load_plan, rectify, scale_plan
+    from vesper.lab.scan_import import SUFFIXES as SCAN_SUFFIXES, is_roomplan
     src, out = Path(args.src), Path(args.dir)
     is_image = src.suffix.lower() in (".png", ".jpg", ".jpeg", ".pdf")
-    if not is_image and src.suffix.lower() != ".json":
-        print(f"vesper lab import: {src.name}: expected a vesper-plan/1 .json file (or a floor-plan image)",
-              file=sys.stderr)
+    if not is_image and src.suffix.lower() not in SCAN_SUFFIXES:
+        print(f"vesper lab import: {src.name}: expected a vesper-plan/1 .json file, a floor-plan image (.png .jpg "
+              f".pdf), a RoomPlan scan (.json .usdz) or a 3D model ({' '.join(SCAN_SUFFIXES[2:])})", file=sys.stderr)
         return 2
     if out.exists():
         print(f"FAILED: {out} already exists", file=sys.stderr)
+        return 1
+    if src.suffix.lower() != ".json" and not is_image:
+        return _lab_import_scan(args, catalog, src, out)
+    if src.suffix.lower() == ".json":
+        try:
+            if is_roomplan(json.loads(src.read_text())):
+                return _lab_import_scan(args, catalog, src, out)
+        except (OSError, ValueError):
+            pass  # said below, as a plan file's
+    if getattr(args, "types", None):
+        print("FAILED: --types is for a scan or a 3D model (a plan names its rooms' types)", file=sys.stderr)
         return 1
     save = Path(args.save_plan) if args.save_plan else out.with_name(out.name + ".plan.json")
     if is_image and save.exists():  # an earlier paid reading is never overwritten
@@ -1101,6 +1113,122 @@ def _lab_import(args, catalog) -> int:
         print(f"FAILED: {e}", file=sys.stderr)
         if saved:
             retry_hint()
+        return 1
+
+
+SCAN_KINDS = {"roomplan-json": "a RoomPlan scan", "roomplan-usdz": "a RoomPlan scan (USDZ)", "mesh": "a 3D model"}
+
+
+def _lab_import_scan(args, catalog, src: Path, out: Path) -> int:
+    """`vesper lab import` of a scan or a 3D model (scan import, task B4): a RoomPlan JSON or USDZ, or a mesh
+    (vesper.lab.scan_import), read into a plan in metres, straightened and checked as a plan is (a scale far from the
+    usual only said: a scan is measured), then built with its objects as furniture, a mesh as the home's 3D view
+    (scene.glb), the original in source/ and both in the home's .gitignore."""
+    import dataclasses
+    import math
+
+    import yaml
+
+    from vesper.lab.generate import GenerateError, Request, generate_from_plan, load_request, starter
+    from vesper.lab.home import load_lab_home
+    from vesper.lab.plan import PlanError, check_house, door_name, plan_transform, rectify
+    from vesper.lab.scan_import import read_scan, set_types
+    from vesper.lab.scan_mesh import SUFFIXES as MESH
+    mesh = src.suffix.lower() in MESH
+    if args.area is not None:
+        print("FAILED: --area is for a plan in pixels; a scan is in metres" + (" (a 3D model in other units takes "
+              "--scale, metres per unit)" if mesh else ""), file=sys.stderr)
+        return 1
+    scale = None
+    if args.scale is not None:
+        if not mesh:
+            print(f"FAILED: {src.name} is a RoomPlan scan, in metres: --scale is for a 3D model in other units",
+                  file=sys.stderr)
+            return 1
+        try:
+            scale = float(args.scale)
+        except ValueError:
+            scale = math.nan
+        if not math.isfinite(scale) or scale <= 0:
+            print(f"FAILED: --scale {args.scale!r}: a 3D model's scale is a number of metres per unit, such as 0.01 "
+                  "for a model in centimetres", file=sys.stderr)
+            return 1
+    try:
+        scan = read_scan(src, scale)
+        if args.types:
+            set_types(scan.plan, [t.strip() for t in args.types.split(",")])
+        for note in scan.notes:
+            print(note, flush=True)
+        warnings = list(scan.warnings)
+        turn = plan_transform(scan.plan)  # rectify's turn: the objects and the model turn with the walls
+        numbers = list(range(len(scan.plan.get("doors") or [])))
+        window_numbers = list(range(len(scan.plan.get("windows") or [])))
+        plan = rectify(scan.plan, warnings, numbers, window_numbers)
+        problems = check_house(plan, numbers, warnings, metric=True)
+        model = None
+        if scan.model is not None:
+            model = {"path": scan.model, "transform": scan.meta["transform"]}
+        elif src.suffix.lower() == ".usdz":
+            warnings.append("scene.glb is left out: trimesh reads no USDZ, so VESPER draws the home from its plan "
+                            "(the scan is kept in source/)")
+        for w in warnings:
+            print(f"warning: {w}", flush=True)
+        if problems:
+            print(f"FAILED: {src.name} is not a house VESPER can build ({len(problems)} problem"
+                  f"{'s' if len(problems) != 1 else ''}):", file=sys.stderr)
+            for p in problems:
+                print(f"  - {p}", file=sys.stderr)
+            return 1
+        # each kept door's and window's measured bottom and top, found by its place in the plan as read
+        md, mw = scan.heights.get("doors") or [], scan.heights.get("windows") or []
+        heights = {"doors": [md[n] if n < len(md) else None for n in numbers],
+                   "windows": [mw[n] if n < len(mw) else None for n in window_numbers]}
+        types = [r["type"] for r in plan["rooms"]]
+        if args.request:
+            request = load_request(Path(args.request))
+            spec = yaml.safe_load(Path(args.request).read_text())
+            if any(spec.get(k) is not None for k in ("rooms", "program", "scene")):
+                raise GenerateError("an imported home's rooms come from the scan: a request for it names no rooms, "
+                                    "program or scene")
+            request = dataclasses.replace(request, program=types)
+        else:
+            request = Request(Path("."), types, 0, [])
+        request, left = _with_starter(request, catalog, starter)
+        meta = scan.meta or {}
+        provenance = {"kind": scan.kind, "given": src.name, "read": scan.read.name, "turn": turn, "heights": heights,
+                      "files": [src, scan.read], "notes": scan.notes, "warnings": warnings,
+                      "model": ({k: meta.get(k) for k in ("up", "scale", "floor_y", "ceiling_y", "transform")}
+                                if scan.model is not None else None)}
+        generate_from_plan(plan, request, catalog, out, source=src.name, numbers=numbers, objects=scan.pieces,
+                           model=model, scan=provenance)
+        home = load_lab_home(out / "home.yaml", catalog)
+        pieces = sum(1 for _ in scan.pieces)
+        print(f"{len(types)} rooms ({', '.join(types)}), {len(home.devices)} devices, {pieces} piece"
+              f"{'s' if pieces != 1 else ''} of the scan's furniture: {out / 'home.yaml'} (imported from {src.name}, "
+              f"{SCAN_KINDS[scan.kind]}; device positions by rule)")
+        ent = plan.get("entrance")
+        if ent is not None:
+            d = plan["doors"][ent]
+            names = {r["id"]: r["name"] for r in plan["rooms"]}
+            room = next(names[s] for s in d["rooms"] if s != "outside")
+            out_doors = sum(1 for x in plan["doors"] if "outside" in x["rooms"])
+            line = (f"entrance: {door_name(ent, numbers)} ({d['width']:.2f} m) from the {room} to the outside, as the "
+                    "reader chose it")
+            if len(plan["rooms"]) == 1 and out_doors > 1:
+                line += (f"; a one-room scan, so all {out_doors} of its doors count as doors to the outside (rooms "
+                         "beyond them were not scanned)")
+            print(line)
+        if (out / "scene.glb").is_file():
+            print(f"3D view: {out / 'scene.glb'} (the model in the home's frame); the original in {out / 'source'}; "
+                  "both in the home's .gitignore: the model is yours, and VESPER never redistributes it")
+        else:
+            print(f"the original is kept in {out / 'source'} (in the home's .gitignore: the scan is yours)")
+        if left:
+            print(f"starter devices left out (none in the catalog, or no such room): {', '.join(left)}")
+        _warn_range(home)
+        return 0
+    except (GenerateError, PlanError) as e:
+        print(f"FAILED: {e}", file=sys.stderr)
         return 1
 
 
@@ -2167,13 +2295,19 @@ def main(argv: list[str] | None = None) -> int:
     lab_generate.add_argument("--seed", type=int, default=0)
     lab_generate.add_argument("--count", type=int, help="make this many homes (seeds seed, seed+1, ...)")
     lab_generate.add_argument("--catalog", default="catalog/vds")
-    lab_import = lab_actions.add_parser("import", help="a home from a floor plan: a vesper-plan/1 file or an image "
-                                        "Claude reads (rooms, doors, windows), its walls straightened, then "
-                                        "devices and furniture as generate's")
-    lab_import.add_argument("src", help="the plan: a vesper-plan/1 .json file, or a floor-plan image (.png .jpg .pdf) "
-                                        "that Claude reads (sent to Anthropic through your Claude Code login)")
+    lab_import = lab_actions.add_parser("import", help="a home from a floor plan (a vesper-plan/1 file or an image "
+                                        "Claude reads), a RoomPlan scan or a 3D model: its rooms, doors and windows, "
+                                        "its walls straightened, then devices and furniture as generate's")
+    lab_import.add_argument("src", help="the plan: a vesper-plan/1 .json file, a floor-plan image (.png .jpg .pdf) "
+                                        "that Claude reads (sent to Anthropic through your Claude Code login), a "
+                                        "RoomPlan scan (.json .usdz: Polycam's Room mode, the 3D Scanner App) or a "
+                                        "3D model (.glb .gltf .obj .ply; needs pip install 'vesper[scan]')")
     lab_import.add_argument("dir", help="the new home's directory")
-    lab_import.add_argument("--scale", help="a plan in pixels: a room's dimension, such as 'kitchen width 3.2 m'")
+    lab_import.add_argument("--scale", help="a plan in pixels: a room's dimension, such as 'kitchen width 3.2 m'; a "
+                                            "3D model: metres per unit, such as 0.01 (a RoomPlan scan is in metres)")
+    lab_import.add_argument("--types", help="a scan or 3D model: its rooms' types in the order it lists them, "
+                                            "comma-separated (a model's rooms are 'other' until named), such as "
+                                            "living,kitchen,bedroom")
     lab_import.add_argument("--area", type=float, help="a plan in pixels: the home's floor area (m²)")
     lab_import.add_argument("--model", default=None, help="an image plan: the Claude model that reads it (default: "
                                                           "Claude Code's own; sonnet is faster and cheaper but reads "
