@@ -167,3 +167,94 @@ def test_rich_outcome_counts_payloads_and_branches():
     assert rich_divergences({JAN: r, JUL: r}) == set()
     assert rich_divergences({JAN: r, JUL: r2}) == {"count_differs", "payload_differs", "branch_differs"}
     assert rich_divergences({JAN: r, JUL: rich_outcome([])}) == set()  # a silent environment is not compared
+
+
+# ---- protocol Addendum 8: the crossing-time sensed reference (A8.5) and the first firing's frame (A8.4) -----------
+
+TEMP = "sensor.living_room_temperature"
+HEAT = {"trigger": [{"platform": "numeric_state", "entity_id": TEMP, "above": 20}], "action": ACTION}
+
+
+def test_sensed_crossing_refs_are_numeric_state_triggers_with_numeric_bounds():
+    from vesper.edt.oracle import SensedRef, sensed_crossing_refs
+    assert sensed_crossing_refs(HEAT) == (SensedRef((TEMP,), None, 20.0, None),)
+    both = {"trigger": [{"platform": "numeric_state", "entity_id": [TEMP, "binary_sensor.hallway_motion"],
+                         "above": "10", "below": 25, "attribute": "x"}]}
+    assert sensed_crossing_refs(both) == (SensedRef((TEMP,), "x", 10.0, 25.0),)
+    assert sensed_crossing_refs({"trigger": [{"platform": "numeric_state", "entity_id": TEMP,
+                                              "above": "input_number.target"}]}) == ()
+    assert sensed_crossing_refs({"trigger": [{"platform": "numeric_state", "entity_id": TEMP, "above": 1,
+                                              "value_template": "{{ state.state }}"}]}) == ()
+    assert sensed_crossing_refs({"trigger": [{"platform": "state", "entity_id": TEMP}],
+                                 "condition": [{"condition": "numeric_state", "entity_id": TEMP, "above": 3}]}) == ()
+    assert sensed_crossing_refs({"trigger": [{"platform": "sun", "event": "sunset"}]}) == ()
+
+
+def test_first_crossing_is_the_first_entry_into_the_range_in_the_window():
+    from vesper.edt.oracle import first_crossing
+    lo, hi = DAY, 3 * DAY
+    series = [(0.0, "18"), (DAY + 100, "19"), (DAY + 200, "21"), (DAY + 300, "19"), (DAY + 400, "22")]
+    assert first_crossing(series, 20.0, None, lo, hi) == DAY + 200
+    assert first_crossing([(0.0, "18"), (100.0, "21"), (DAY + 5, "19"), (DAY + 50, "22")], 20.0, None, lo, hi) \
+        == DAY + 50  # a crossing on day 0 is not in the judged window
+    assert first_crossing([(0.0, "unknown"), (DAY + 1, "21")], 20.0, None, lo, hi) is None
+    assert first_crossing([(0.0, "25"), (DAY + 9, "15")], 10.0, 20.0, lo, hi) == DAY + 9
+    assert first_crossing([(0.0, "25"), (DAY + 9, "15")], None, 20.0, lo, hi) == DAY + 9
+    assert first_crossing([(0.0, "21"), (DAY + 9, "22")], 20.0, None, lo, hi) is None  # never armed
+    assert first_crossing([(0.0, "18"), (3 * DAY, "22")], 20.0, None, lo, hi) is None  # at the run's end
+
+
+def test_crossing_instant_is_the_earliest_over_refs_and_entities():
+    from vesper.edt.oracle import SensedRef, crossing_instant
+    refs = (SensedRef(("sensor.a", "sensor.b"), None, 20.0, None), SensedRef(("sensor.c",), "t", None, 5.0))
+    series = {"sensor.a": [(0.0, "18"), (DAY + 900, "21")], "sensor.b": [(0.0, "18"), (DAY + 700, "21")],
+              "sensor.c|t": [(0.0, "8"), (DAY + 800, "4")]}
+    assert crossing_instant(refs, series, DAY, 3 * DAY) == DAY + 700
+    assert crossing_instant(refs, {}, DAY, 3 * DAY) is None
+
+
+def test_the_crossing_reference_is_off_by_default_and_flags_an_environment_dependent_latency():
+    outs = {JAN: outcome(fire(DAY + 6 * H), site_of(JAN)), JUL: outcome(fire(DAY + 14 * H), site_of(JUL))}
+    first_t = {JAN: DAY + 6 * H, JUL: DAY + 14 * H}
+    f = frames_of(HEAT)
+    assert frame_divergences(outs, first_t, f) == set()  # as published: the sensed frame is exempt
+    assert frame_divergences(outs, first_t, f, sensed_crossing=None) == set()
+    # the firing follows the crossing at once in both: invariant in the sensed frame
+    at_once = {JAN: DAY + 6 * H, JUL: DAY + 14 * H}
+    assert frame_divergences(outs, first_t, f, sensed_crossing=at_once) == set()
+    # crossed at 06:00 in both, fired 8 h later in July: an environment-dependent latency
+    late = {JAN: DAY + 6 * H, JUL: DAY + 6 * H}
+    assert frame_divergences(outs, first_t, f, sensed_crossing=late) == {"time_spread"}
+    assert frame_invariance(outs, first_t, f, sensed_crossing=late) == {SENSED: False}
+    # fewer than two environments with a crossing: invariant
+    assert frame_divergences(outs, first_t, f, sensed_crossing={JAN: DAY, JUL: None}) == set()
+    # a clock+sensed automation needs both frames to diverge
+    mixed = frames_of({**HEAT, "condition": [{"condition": "time", "after": "05:00"}]})
+    assert frame_divergences(outs, first_t, mixed, sensed_crossing=late) == {"time_spread"}
+    near = {JAN: DAY + 6 * H, JUL: DAY + 7 * H}
+    outs2 = {JAN: outcome(fire(DAY + 6 * H), site_of(JAN)), JUL: outcome(fire(DAY + 7 * H), site_of(JUL))}
+    assert frame_divergences(outs2, {JAN: DAY + 6 * H, JUL: DAY + 7 * H}, mixed, sensed_crossing=near) == set()
+
+
+def test_first_firing_frames_name_the_triggers_that_could_have_fired_then():
+    from vesper.edt.oracle import first_firing_frames
+    bound = {"trigger": [{"platform": "time", "at": "07:00:00"}, {"platform": "sun", "event": "sunset"},
+                         {"platform": "numeric_state", "entity_id": TEMP, "above": 20, "for": "00:05:00"},
+                         {"platform": "state", "entity_id": "binary_sensor.hallway_motion", "to": "on"}],
+             "action": ACTION}
+    site = site_of(JAN)
+    changes = {TEMP: [DAY + 3 * H + 0.05], "binary_sensor.hallway_motion": [DAY + 4 * H]}
+    assert first_firing_frames(bound, DAY + 7 * H, site, changes) == {CLOCK}
+    assert first_firing_frames(bound, sunset(JAN), site, changes) == {SUN}
+    assert first_firing_frames(bound, DAY + 3 * H + 0.05 + 300, site, changes) == {SENSED}
+    assert first_firing_frames(bound, DAY + 4 * H, site, changes) == {"none"}
+    assert first_firing_frames(bound, DAY + 5 * H + 17, site, changes) == set()  # e.g. after a delay
+    pattern = {"trigger": [{"platform": "time_pattern", "minutes": "/15"}, {"platform": "time", "at": "06:30"}]}
+    assert first_firing_frames(pattern, DAY + 6 * H + 30 * 60, site, {}) == {CLOCK}
+    assert first_firing_frames(pattern, DAY + 6 * H + 31 * 60, site, {}) == set()
+    sun_state = {"trigger": [{"platform": "state", "entity_id": "sun.sun", "to": "below_horizon"}]}
+    assert first_firing_frames(sun_state, sunset(JAN) + 1, site, {}) == {SUN}
+    tpl = {"trigger": [{"platform": "template", "value_template": f"{{{{ states('{TEMP}')|float > 20 }}}}"},
+                       {"platform": "template", "value_template": "{{ now().hour == 7 }}"}]}
+    assert first_firing_frames(tpl, DAY + 3 * H + 0.05, site, changes) == {SENSED}
+    assert first_firing_frames(tpl, DAY + 7 * H, site, changes) == {CLOCK}

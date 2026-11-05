@@ -388,10 +388,13 @@ def frame_values(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], f
 
 
 def frame_invariance(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
-                     h: float = TIME_SPREAD_H, sensed_invariant: bool = True) -> dict[str, bool]:
+                     h: float = TIME_SPREAD_H, sensed_invariant: bool = True,
+                     sensed_crossing: dict | None = None) -> dict[str, bool]:
     """Per judged frame, whether the first firings are invariant within `h` in it (A6.3); a frame that is not
     computable counts as invariant. `sensed_invariant=False` (A6.3's sensitivity): the sensed frame is left out when
-    the automation has a computable frame."""
+    the automation has a computable frame. `sensed_crossing` (A8.5's option, off by default): per environment, the
+    reference instant of the sensed frame (`crossing_instant`); the sensed frame is then invariant iff the minutes
+    from it to the first firing range over at most `h` (fewer than two: invariant)."""
     vals = frame_values(by_env, first_t, frames)
     out: dict[str, bool] = {}
     for f in sorted(frames.judged):
@@ -401,32 +404,198 @@ def frame_invariance(by_env: dict[Env, Outcome], first_t: dict[Env, float | None
             v = vals.get(SUN, [])
             out[f] = not frames.sun_refs or len(v) < 2 or max(v) - min(v) <= h * 60.0
         else:
-            out[f] = True
+            out[f] = True if sensed_crossing is None else _sensed_invariant(by_env, first_t, sensed_crossing, h)
     if not sensed_invariant and SENSED in out and any(frames.computable(f) for f in out if f != SENSED):
         del out[SENSED]
     return out
 
 
 def frame_divergences(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
-                      h: float = TIME_SPREAD_H, sensed_invariant: bool = True) -> set[str]:
+                      h: float = TIME_SPREAD_H, sensed_invariant: bool = True,
+                      sensed_crossing: dict | None = None) -> set[str]:
     """The kinds of disagreement under the frame-relative relation (A6.3): the clock relation's, with `time_spread`
     held iff the first firings are invariant within `h` in none of the automation's frames."""
     out = divergences(by_env) - {"time_spread"}
-    inv = frame_invariance(by_env, first_t, frames, h, sensed_invariant)
+    inv = frame_invariance(by_env, first_t, frames, h, sensed_invariant, sensed_crossing)
     if inv and not any(inv.values()):
         out.add("time_spread")
     return out
 
 
 def frame_restricted_divergences(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
-                                 envs, h: float = TIME_SPREAD_H, sensed_invariant: bool = True) -> set[str]:
+                                 envs, h: float = TIME_SPREAD_H, sensed_invariant: bool = True,
+                                 sensed_crossing: dict | None = None) -> set[str]:
     """Divergences under the frame relation over `envs` alone, minus an envelope kind holding in all of them."""
     outs = {e: by_env[e] for e in envs if e in by_env}
     if not outs:
         return set()
-    kinds = frame_divergences(outs, first_t, frames, h, sensed_invariant)
+    kinds = frame_divergences(outs, first_t, frames, h, sensed_invariant, sensed_crossing)
     return {k for k in kinds if k not in ENVELOPE_KINDS or not all(getattr(o, k) for o in outs.values())}
 
+
+# ---- protocol Addendum 8: the crossing-time sensed reference (A8.5) and the first firing's frame (A8.4) ----------
+#
+# A8.5 is an option of the frame relation, off by default (`sensed_crossing=None`): with it, a sensed frame that a
+# numeric_state trigger declares is measured from the first crossing of its threshold in the judged window, so it is
+# no longer exempt. A8.4 infers, from a first firing's instant alone, which of an automation's triggers could have
+# produced it (the rich cache does not record the trigger).
+
+@dataclass(frozen=True)
+class SensedRef:
+    """A numeric_state trigger on sensed entities: its entities, attribute and numeric bounds (None: open)."""
+    entities: tuple
+    attribute: str | None
+    above: float | None
+    below: float | None
+
+
+def sensed_crossing_refs(bound: dict) -> tuple:
+    """The numeric_state triggers on sensed entities with numeric bounds and no value_template (A8.5), as SensedRefs;
+    a threshold given by an entity has no fixed crossing and is left out."""
+    from vesper.edt.corpus import _entity_kinds, _ids
+    if not isinstance(bound, dict):
+        return ()
+    out = []
+    for t in _as_list(bound.get("trigger", bound.get("triggers"))):
+        if not isinstance(t, dict) or t.get("enabled") is False or "value_template" in t:
+            continue
+        if str(t.get("platform") or t.get("trigger") or "") != "numeric_state":
+            continue
+        attribute = t.get("attribute") if isinstance(t.get("attribute"), str) else None
+        above, below = (_number(t.get(k)) if k in t else None for k in ("above", "below"))
+        if any(k in t and _number(t.get(k)) is None for k in ("above", "below")) or (above is None and below is None):
+            continue
+        ents = tuple(e for e in _ids(t.get("entity_id")) if _entity_kinds(e, attribute) & SENSED_KINDS)
+        if ents:
+            out.append(SensedRef(ents, attribute, above, below))
+    return tuple(dict.fromkeys(out))
+
+
+def _inside(value, above: float | None, below: float | None) -> bool | None:
+    v = _number(value) if not isinstance(value, str) else _number(value.strip())
+    if v is None:
+        return None
+    return (above is None or v > above) and (below is None or v < below)
+
+
+def first_crossing(series, above: float | None, below: float | None, lo: float, hi: float) -> float | None:
+    """The first instant in [lo, hi) at which a value enters the range above < v < below from a numeric value outside
+    it (the triggering direction); `series`: [(t, state)] in time order. None when there is none."""
+    prev = None
+    for t, state in series:
+        now = _inside(state, above, below)
+        if now is None:
+            continue
+        if now and prev is False and lo <= t < hi:
+            return t
+        prev = now
+    return None
+
+
+def crossing_instant(refs, series_by_key: dict, lo: float, hi: float) -> float | None:
+    """The earliest first crossing over `refs` and their entities (A8.5's reference instant); `series_by_key` is keyed
+    by entity id, or `entity|attribute` for a named attribute."""
+    found = [x for r in refs for e in r.entities
+             if (x := first_crossing(series_by_key.get(f"{e}|{r.attribute}" if r.attribute else e, ()),
+                                     r.above, r.below, lo, hi)) is not None]
+    return min(found) if found else None
+
+
+def _sensed_invariant(by_env, first_t, crossing, h: float) -> bool:
+    vals = [(first_t[e] - crossing[e]) / 60.0 for e, o in by_env.items()
+            if o.fired and first_t.get(e) is not None and crossing.get(e) is not None]
+    return len(vals) < 2 or max(vals) - min(vals) <= h * 60.0
+
+
+def _near_ref(site, ref: SunRef, t: float, tol_s: float) -> bool:
+    if site is None:
+        return False
+    day = int(t // DAY_S)
+    key = (site.lat, site.lon, site.elevation_m, site.tz, site.date.isoformat())
+    return any((x := _ref_instant(*key, d, ref)) is not None and abs(t - x) <= tol_s for d in (day - 1, day, day + 1))
+
+
+def _changed_at(changes: dict, key: str, t: float, tol: float = 0.01) -> bool:
+    import bisect
+    xs = changes.get(key) or []
+    i = bisect.bisect_left(xs, t - tol)
+    return i < len(xs) and xs[i] <= t + tol
+
+
+def _trigger_candidate(t: dict, at: float, site, changes: dict) -> bool:
+    """Could trigger `t` have produced a firing at `at` (A8.4's rules)? `at` is already less its `for`."""
+    from vesper.edt.corpus import _TPL_ENTITY_RE, _ids
+    from vesper.lab.automations import PATTERN_MAX, AutomationError, _clock, _pattern
+    kind = str(t.get("platform") or t.get("trigger") or "")
+    tod = at % DAY_S
+    if kind == "time":
+        for x in _as_list(t.get("at")):
+            try:
+                if abs(tod - _clock(x, "at")) < 1.0:
+                    return True
+            except (AutomationError, TypeError, ValueError):
+                continue
+        return False
+    if kind == "time_pattern":
+        try:
+            given = {k: _pattern(t[k], PATTERN_MAX[k], k) for k in PATTERN_MAX if k in t}
+        except (AutomationError, TypeError, ValueError):
+            return False
+        if "minutes" not in given and "hours" in given:
+            given["minutes"] = {0}
+        if "seconds" not in given and "minutes" in given:
+            given["seconds"] = {0}
+        if abs(tod - round(tod)) > 1e-6:
+            return False
+        s = int(round(tod)) % 86400
+        parts = {"hours": s // 3600, "minutes": s // 60 % 60, "seconds": s % 60}
+        return all(parts[k] in given.get(k, range(PATTERN_MAX[k] + 1)) for k in PATTERN_MAX)
+    if kind == "sun":
+        refs: list = []
+        _trigger_frames(t, set(), refs)
+        return any(_near_ref(site, r, at, 5.0) for r in refs)
+    if kind in ("state", "numeric_state"):
+        attribute = t.get("attribute") if isinstance(t.get("attribute"), str) else None
+        for e in _ids(t.get("entity_id")):
+            if e.split(".", 1)[0] == "sun":
+                refs = []
+                _entity_frames({**t, "entity_id": e}, set(), refs, condition=False)
+                if any(_near_ref(site, r, at, 900.0 if r.event == "elevation" else 5.0) for r in refs):
+                    return True
+            elif _changed_at(changes, f"{e}|{attribute}" if attribute else e, at):
+                return True
+        return False
+    if kind == "template":
+        for text in _texts(t):
+            if _NOW.search(text) and abs(tod - 60.0 * round(tod / 60.0)) < 1e-6:
+                return True
+            for m in _TPL_ENTITY_RE.finditer(text):
+                if _changed_at(changes, m.group(1) or m.group(2), at):
+                    return True
+        return False
+    return False
+
+
+def first_firing_frames(bound: dict, t: float, site, changes: dict) -> set[str]:
+    """The frames (A6.1; "none" for a trigger that declares none) of the triggers that could have produced a first
+    firing at `t` (A8.4): an empty set when none could (an action delay, say). `changes`: per entity id (or
+    `entity|attribute`), the sorted instants at which the engine's replay of the trace changed it."""
+    from vesper.lab.automations import AutomationError, _seconds
+    out: set[str] = set()
+    if not isinstance(bound, dict):
+        return out
+    for trig in _as_list(bound.get("trigger", bound.get("triggers"))):
+        if not isinstance(trig, dict) or trig.get("enabled") is False:
+            continue
+        try:
+            hold = _seconds(trig["for"], "for") if "for" in trig else 0.0
+        except (AutomationError, TypeError, ValueError, KeyError):
+            continue
+        if _trigger_candidate(trig, t - hold, site, changes):
+            frames: set[str] = set()
+            _trigger_frames(trig, frames, [])
+            out |= frames or {"none"}
+    return out
 
 # ---- the richer outcome (A6.4; reported only, never part of a flag) -------------------------------------------------
 
