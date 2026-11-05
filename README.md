@@ -267,7 +267,7 @@ is needed only to make a home's model, not to play it.
 **Scans and 3D models** (`vesper lab import` of a RoomPlan USDZ or a `.glb .gltf .obj .ply` model; a RoomPlan JSON
 needs nothing): the `scan` extra (trimesh, numpy, scipy, usd-core), from your clone:
 
-    uv tool install --python 3.12 --editable '.[scan]'                # the vesper command, with the extra
+    uv tool install --python 3.12 --editable '.[scan,gallery]'        # the vesper command, with the extra
     uv pip install --python .venv/bin/python -e '.[scan]'               # or in a development .venv
 
 See [Importing a scan or a 3D model](#importing-a-scan-or-a-3d-model).

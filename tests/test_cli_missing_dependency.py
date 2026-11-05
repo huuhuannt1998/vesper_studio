@@ -23,7 +23,7 @@ def test_a_missing_dependency_says_which_and_how_to_reinstall(monkeypatch, capsy
     assert cli.main(["doctor"]) == 3
     err = capsys.readouterr().err.strip().splitlines()
     assert err[-1].startswith("VESPER cannot start: the Python package 'astral' is missing")
-    assert "uv tool install --python 3.12 --editable '.[scan]' --force" in err[-1]
+    assert "uv tool install --python 3.12 --editable '.[scan,gallery]' --force" in err[-1]
 
 
 def test_a_missing_module_of_vesper_itself_is_not_hidden(monkeypatch):

@@ -2130,7 +2130,7 @@ def _lab_replay(args, catalog, load_lab_home) -> int:
     return 0
 
 
-REINSTALL = "uv tool install --python 3.12 --editable '.[scan]' --force"
+REINSTALL = "uv tool install --python 3.12 --editable '.[scan,gallery]' --force"
 
 
 def main(argv: list[str] | None = None) -> int:
