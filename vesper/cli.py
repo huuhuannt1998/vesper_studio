@@ -458,6 +458,47 @@ def _validate_plans(args) -> int:
     return 0
 
 
+def _validate_scans(args) -> int:
+    """The scan import's evaluation on the scan test set (vesper.validation.scans): every model of the hand truth
+    (<dataset>/truth.json) imported by each reader, scored, built and its layout checked. Claude's readings are kept
+    under <dataset>/_claude and reused; --offline runs no Claude."""
+    from vesper.twins.home import load_catalog
+    from vesper.validation.scans import KINDS, evaluate
+    try:
+        catalog = load_catalog(Path(args.catalog))
+    except FileNotFoundError:
+        catalog = None
+        print(f"no catalog in {args.catalog}: the homes are not built, the layout check is skipped")
+    readers = ("geometric", "claude") if args.reader == "both" else (args.reader,)
+    only = [m.strip() for m in args.only.split(",") if m.strip()] if args.only else None
+    say = lambda text: print(text, flush=True)  # noqa: E731
+    try:
+        result = evaluate(Path(args.dataset), readers=readers, model=args.model, timeout=args.timeout,
+                          catalog=catalog, offline=args.offline, only=only, say=say)
+    except (FileNotFoundError, ValueError, OSError) as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 1
+    out = args.out or Path("results/scans") / f"scans-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+    path = _write_report(str(out), "scans", result, args)
+    pct = lambda v: "-" if v is None else f"{100 * v:.0f}%"  # noqa: E731
+    num = lambda v: "-" if v is None else f"{v:.2f}"  # noqa: E731
+    print(f"{'kind/reader':<22} {'n':>3} {'rooms':>6} {'types':>6} {'doors in':>8} {'doors out':>9} {'windows':>7} "
+          f"{'entr.':>5} {'scale':>5} {'up':>5} {'house':>5} {'layout 0':>8}")
+    for key, a in result["aggregate"].items():
+        kind, reader = key.split("/")
+        label = f"{KINDS.get(kind, kind)}/{reader}"
+        print(f"{label:<22} {a['models']:>3} {pct(a['rooms_ok']):>6} {pct(a['types_right']):>6} "
+              f"{num(a['doors_inner_abs_error']):>8} {num(a['doors_outside_abs_error']):>9} "
+              f"{num(a['windows_abs_error']):>7} {pct(a['entrance_ok']):>5} {pct(a['scale_ok']):>5} "
+              f"{pct(a['up_ok']):>5} {pct(a['check_house']):>5} {pct(a['layout_zero_errors']):>8}")
+    print("rooms, types, entrance, scale, up: share right (where the truth knows); doors and windows: mean absolute "
+          "error of the count; house: passes check_house; layout 0: built with 0 layout errors (of every model)")
+    if result["not_read"]:
+        print(f"not read (offline): {', '.join(result['not_read'])}")
+    print(f"report {path}")
+    return 0
+
+
 def _validate_environment(args) -> int:
     """Phase 6: W, T, H and D of docs/experiments/environment-validation.md."""
     try:
@@ -2186,6 +2227,18 @@ def main(argv: list[str] | None = None) -> int:
     pl.add_argument("--offline", action="store_true", help="run no Claude: measure only the saved readings")
     pl.add_argument("--catalog", default="catalog/vds", help="to build each home for the layout check")
     pl.add_argument("--out", help="the results (JSON)")
+    sc = checks.add_parser("scans", help="the scan import on the scan test set: rooms, types, doors, windows, "
+                                         "entrance, scale, up axis, check_house and the layout check (runs Claude "
+                                         "for each mesh not read before)")
+    sc.add_argument("--dataset", default=".vesper/datasets/scans", help="the test set's folders and truth.json")
+    sc.add_argument("--reader", choices=("claude", "geometric", "both"), default="both",
+                    help="a mesh's reader (a RoomPlan file is read by its own)")
+    sc.add_argument("--only", help="model folders, comma-separated (default: every model of the truth)")
+    sc.add_argument("--model", help="Claude's model (--model of `claude`); default: your Claude Code's own")
+    sc.add_argument("--timeout", type=float, help="seconds one Claude call may take (default 900)")
+    sc.add_argument("--offline", action="store_true", help="run no Claude: only the kept readings")
+    sc.add_argument("--catalog", default="catalog/vds", help="to build each home for the layout check")
+    sc.add_argument("--out", help="the results (JSON)")
     disc = checks.add_parser("discovery",help="Home Assistant's own schemas over every discovery message")
     disc.add_argument("--catalog", default="catalog/vds")
     disc.add_argument("--root", default=".vesper")
@@ -2894,6 +2947,8 @@ def _dispatch(args) -> int:
         return _validate_crosssite(args)
     if args.action == "plans":
         return _validate_plans(args)
+    if args.action == "scans":
+        return _validate_scans(args)
     if args.action == "rules":
         return _validate_rules(args)
     if args.action == "latency":
