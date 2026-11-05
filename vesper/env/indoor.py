@@ -30,7 +30,8 @@ room's own heat balance, and so every thermostat's control, unchanged); and (rev
 and U_WINDOW (the outside walls' and the glass's U values) and PER_ROOM_THERMOSTAT (0, off: a hallway thermostat heats
 every room without a thermostat of its own on the hallway's reading, central heating; 1: every such room has a
 thermostat of its own that holds the hallway thermostat's setpoint and mode on the room's own reading; read by
-vesper.lab.rules). At their defaults the model is the one built, to the bit."""
+vesper.lab.rules); and (revision R10-Q, protocol Addendum 21) BEAM_LIGHT_SCALE (on the interior beam term of the
+daylight alone). At their defaults the model is the one built, to the bit."""
 from __future__ import annotations
 
 import dataclasses
@@ -85,11 +86,15 @@ INDOOR_T_OFFSET_C = 0.0
 # 1: every room a hallway thermostat would heat has a thermostat of its own at the hallway thermostat's setpoint and
 # mode, switched on the room's own temperature (vesper.lab.rules; revision R8-Y, protocol Addendum 18; 0 as built)
 PER_ROOM_THERMOSTAT = 0
+# on the interior beam (direct-sun) term of a room's daylight alone; the diffuse term, the solar heat and
+# DAYLIGHT_SCALE unchanged (revision R10-Q, protocol Addendum 21: bracketed by the thermal validation's k̂; 1.0 as built)
+BEAM_LIGHT_SCALE = 1.0
 
 
 KNOBS = ("DAYLIGHT_SCALE", "CAPACITY_SCALE", "HUMIDITY_T_OFFSET_C", "INTERNAL_GAINS_W_PER_M2", "ROOF_GROUND",
          "PREWARM_DAYS", "SOLAR_APERTURE_SCALE", "OUTDOOR_T_OFFSET_C", "HUMIDITY_CLASS", "ACH", "DIRECT_SHARE",
-         "RECORDED_SPLIT", "GROUND_REFLECTED", "INDOOR_T_OFFSET_C", "U_WALL", "U_WINDOW", "PER_ROOM_THERMOSTAT")
+         "RECORDED_SPLIT", "GROUND_REFLECTED", "INDOOR_T_OFFSET_C", "U_WALL", "U_WINDOW", "PER_ROOM_THERMOSTAT",
+         "BEAM_LIGHT_SCALE")
 # knobs that live in another module; every other one is this module's
 _KNOB_HOME = {"DIRECT_SHARE": _sun, "RECORDED_SPLIT": _sun, "GROUND_REFLECTED": _sun}
 
@@ -252,7 +257,8 @@ class HomeEnvironment:
             if s.up and off < 90 and direct_h > 0:
                 beam_normal = direct_h / max(math.sin(math.radians(s.elevation)), 0.05)
                 cos_i = math.cos(math.radians(s.elevation)) * math.cos(math.radians(off))
-                lux += SUN_SHARE * T_GLASS * glass * beam_normal * cos_i / r.floor_m2 * through
+                beam = SUN_SHARE * T_GLASS * glass * beam_normal * cos_i / r.floor_m2 * through
+                lux += beam if BEAM_LIGHT_SCALE == 1.0 else BEAM_LIGHT_SCALE * beam
         return DAYLIGHT_SCALE * lux
 
     def _solar_w(self, r: RoomModel, state: OutdoorState) -> float:
@@ -373,5 +379,6 @@ class HomeEnvironment:
                                             ("RECORDED_SPLIT", _sun.RECORDED_SPLIT, 0),
                                             ("GROUND_REFLECTED", _sun.GROUND_REFLECTED, 0),
                                             ("INDOOR_T_OFFSET_C", INDOOR_T_OFFSET_C, 0.0),
-                                            ("PER_ROOM_THERMOSTAT", PER_ROOM_THERMOSTAT, 0)) if v != d},
+                                            ("PER_ROOM_THERMOSTAT", PER_ROOM_THERMOSTAT, 0),
+                                            ("BEAM_LIGHT_SCALE", BEAM_LIGHT_SCALE, 1.0)) if v != d},
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}

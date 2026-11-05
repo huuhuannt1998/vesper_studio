@@ -175,12 +175,13 @@ BEFORE_KNOBS = "671b22a0fa68c482465b3c557564058a282263a1ed876a9fab05eb484b55d8d8
 DEFAULTS = {"DAYLIGHT_SCALE": 1.0, "CAPACITY_SCALE": 1.0, "HUMIDITY_T_OFFSET_C": 0.0, "INTERNAL_GAINS_W_PER_M2": 0.0,
             "ROOF_GROUND": 0.0, "PREWARM_DAYS": 0.0, "SOLAR_APERTURE_SCALE": 1.0, "OUTDOOR_T_OFFSET_C": 0.0,
             "HUMIDITY_CLASS": 1, "ACH": 0.5, "DIRECT_SHARE": 0.8, "RECORDED_SPLIT": 0, "GROUND_REFLECTED": 0,
-            "INDOOR_T_OFFSET_C": 0.0, "U_WALL": 0.35, "U_WINDOW": 1.4, "PER_ROOM_THERMOSTAT": 0}
+            "INDOOR_T_OFFSET_C": 0.0, "U_WALL": 0.35, "U_WINDOW": 1.4, "PER_ROOM_THERMOSTAT": 0,
+            "BEAM_LIGHT_SCALE": 1.0}
 
 
 def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
-    """Every knob (R2-a's, Addendum 7's, Addendum 9's, 13's, 14's and 18's) at its default: the model of 120f4ca, to the
-    bit."""
+    """Every knob (R2-a's, Addendum 7's, Addendum 9's, 13's, 14's, 18's and 21's) at its default: the model of
+    120f4ca, to the bit."""
     from vesper.env import indoor
     assert set(indoor.KNOBS) == set(DEFAULTS)
     assert {k: indoor.knob_value(k) for k in DEFAULTS} == DEFAULTS == indoor.KNOB_DEFAULTS
@@ -192,7 +193,7 @@ def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
     assert e.prewarm(0.0, lambda: {}) == 0.0  # no warm-up at the default
     assert not {"capacity_scale", "internal_gains_w_per_m2", "roof_ground", "prewarm_days", "solar_aperture_scale",
                 "outdoor_t_offset_c", "direct_share", "recorded_split", "ground_reflected",
-                "indoor_t_offset_c", "per_room_thermostat"} & \
+                "indoor_t_offset_c", "per_room_thermostat", "beam_light_scale"} & \
         set(e.provenance()["indoor"])
 
 
@@ -442,3 +443,43 @@ def test_the_indoor_offset_leaves_the_outdoor_air_alone():
     with indoor.knobs(INDOOR_T_OFFSET_C=7.0):
         f.step(3600, {}, {}, {}, 0)
     assert f.last == e.last  # the porch reads env.last
+
+
+# -- the interior beam-light term (revision R10-Q, protocol Addendum 21) ---------------------------------------------
+def _sun_down(s: OutdoorState) -> OutdoorState:
+    """`s` with the sun below the horizon: the same diffuse light, no beam through any window."""
+    return OutdoorState(sun=Sun(-5.0, s.sun.azimuth), ghi_w_m2=s.ghi_w_m2, illuminance_lux=s.illuminance_lux,
+                        temperature_c=s.temperature_c, humidity_pct=s.humidity_pct, cloud_cover_pct=None,
+                        direct_fraction=s.direct_fraction)
+
+
+@pytest.mark.parametrize("k", [0.0, 0.205, 0.25, 0.289, 2.0])
+def test_the_beam_light_scale_moves_only_the_interior_beam_term_of_the_daylight(k):
+    """BEAM_LIGHT_SCALE multiplies the direct-sun term of a room's daylight and nothing else: an overcast room, and
+    the diffuse part of a sunny one, are unchanged; the solar heat is unchanged; the sunny room's daylight is its
+    diffuse part plus k times its beam part."""
+    from vesper.env import indoor
+    e = env()
+    sunny, overcast = state(elev=30, az=180), state(direct=0.0, lux=20_000)
+    diffuse, full = e.daylight("bedroom", _sun_down(sunny)), e.daylight("bedroom", sunny)
+    beam = full - diffuse
+    assert beam > 0 and diffuse > 0
+    heat = {rid: e._solar_w(r, sunny) for rid, r in e.rooms.items()}
+    flat = {rid: e.daylight(rid, overcast) for rid in e.rooms}
+    with indoor.knobs(BEAM_LIGHT_SCALE=k):
+        assert e.daylight("bedroom", _sun_down(sunny)) == diffuse
+        assert e.daylight("bedroom", sunny) == pytest.approx(diffuse + k * beam, rel=1e-12)
+        assert {rid: e._solar_w(r, sunny) for rid, r in e.rooms.items()} == heat
+        assert {rid: e.daylight(rid, overcast) for rid in e.rooms} == flat
+        assert indoor.nondefault_knobs() == {"BEAM_LIGHT_SCALE": k}
+        assert e.provenance()["indoor"]["beam_light_scale"] == k
+    assert indoor.BEAM_LIGHT_SCALE == 1.0 and indoor.nondefault_knobs() == {}
+
+
+def test_the_beam_light_scale_composes_with_the_daylight_scale():
+    from vesper.env import indoor
+    e, sunny = env(), state(elev=30, az=180)
+    with indoor.knobs(BEAM_LIGHT_SCALE=0.25):
+        part = e.daylight("bedroom", sunny)
+    with indoor.knobs(BEAM_LIGHT_SCALE=0.25, DAYLIGHT_SCALE=1 / 2.49):
+        assert e.daylight("bedroom", sunny) == pytest.approx(part / 2.49, rel=1e-12)
