@@ -300,8 +300,9 @@ def test_a_higher_humidity_class_raises_the_room_humidity():
 
 
 def test_a_longer_warm_up_brings_the_rooms_nearer_their_periodic_state():
-    """PREWARM_DAYS days on day 0's weather before the run, the heating asked before every step; inf: until the
-    periodic steady state. The rooms start at START_C; the farther the warm-up, the nearer that state."""
+    """PREWARM_DAYS days on day 0's weather before the run, the heating asked before every step; inf: the periodic
+    steady state (PREWARM_PERIODIC_DAYS days). The rooms start at START_C; the longer the warm-up, the nearer that
+    state."""
     import math
 
     from vesper.env import indoor
@@ -323,10 +324,10 @@ def test_a_longer_warm_up_brings_the_rooms_nearer_their_periodic_state():
         with indoor.knobs(PREWARM_DAYS=days):
             lived = e.prewarm(0.0, dict)
         temps[days] = {rid: r.temperature for rid, r in e.rooms.items()}
-        assert lived == days if days != math.inf else 9 < lived < indoor.PREWARM_MAX_DAYS
+        assert lived == (days if days != math.inf else indoor.PREWARM_PERIODIC_DAYS)
     steady = temps[math.inf]
     gap = {d: max(abs(temps[d][r] - steady[r]) for r in steady) for d in (1.0, 4.0, 9.0)}
-    assert gap[1.0] > gap[4.0] > gap[9.0]
+    assert gap[1.0] > gap[4.0] > gap[9.0] and gap[9.0] < 0.1
     assert temps[1.0]["hall"] != indoor.START_C  # it did live the day
     e = env()
     e.step(0, {}, {}, {}, 0)

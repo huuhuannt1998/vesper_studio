@@ -652,11 +652,12 @@ is the one built, to the bit: the pinned fingerprint test covers them):
   many days earlier and live them on the run's first day's weather repeated (each earlier day is day 0 again), the
   thermostat at the home's own setpoint (20 C, the EDT home's thermostat before any command; heating band 0.3 K,
   100 W/m² of floor) and no automation, every 60 s (the session's ambient step); then the run starts as before (day 0
-  in the run is still the run's own day 0). `inf`: the periodic steady state of day 0, the warm-up repeated until no
-  room's *daily mean* temperature differs from the day before's by more than 0.001 K (at most 60 days). (Changed
-  before any run, from "the temperature at the day's end, at most 365 days": the knob's test showed that a heated
-  room's on-off cycle is not locked to the day, so its temperature at midnight wanders within the thermostat's band
-  and never meets 0.001 K.) Warm-up
+  in the run is still the run's own day 0). `inf`: the periodic steady state of day 0, lived as a fixed 30 days of
+  the repeated day (more than six of the slowest free-running time constant, C / H about 110 h at 370 kJ/(m² K)).
+  (Changed before any corner run, from "repeated until no room's temperature at the day's end differs from the day
+  before's by more than 0.001 K, at most 365 days": the knob's test and one smoke run (Minneapolis January, 370
+  kJ/(m² K)) showed that a heated room's on-off cycle is not locked to the day, so even its daily mean keeps a
+  0.001-0.02 K day-to-day jitter from day 8 on and a tolerance below it is never met.) Warm-up
   length in the sense of the review = 1 + PREWARM_DAYS days (day 0 in the run counts): 1, 5, 10 days are 0, 4, 9.
 - `SOLAR_APERTURE_SCALE` (default 1): the solar heat through every window (G_SOLAR x glass area x the irradiance on
   it) times this. Daylight is not scaled (it has DAYLIGHT_SCALE).

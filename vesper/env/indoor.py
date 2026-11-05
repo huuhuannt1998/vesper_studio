@@ -64,7 +64,9 @@ ROOF_GROUND = 0.0  # 1.0: every room loses heat through a roof and a ground floo
 U_ROOF, U_GROUND = 0.15, 0.25  # W/m²K, over the room's floor area, when ROOF_GROUND is on
 PREWARM_DAYS = 0.0  # extra warm-up days before the run, on its first day's weather; math.inf: periodic steady state
 PREWARM_STEP_S = 60.0  # the warm-up's step (the session's ambient step, vesper.lab.rules.AMBIENT_EVERY_S)
-PREWARM_TOL_K, PREWARM_MAX_DAYS = 0.001, 60  # the periodic steady state: no room's daily mean moves more, day to day
+# the periodic steady state: 30 days on the repeated day, beyond 6 of the slowest free-running time constant (C / H
+# about 110 h at 370 kJ/m²K); at the end a room's daily mean moves ~0.01 K day to day, the thermostat cycle's jitter
+PREWARM_PERIODIC_DAYS = 30
 SOLAR_APERTURE_SCALE = 1.0  # on the solar heat through the glass (G_SOLAR x glass area); daylight unchanged
 OUTDOOR_T_OFFSET_C = 0.0  # kelvin added to the outdoor air temperature (its vapour pressure kept)
 
@@ -260,33 +262,23 @@ class HomeEnvironment:
         """Before a run that starts at `start_s` (its first day's local midnight): live PREWARM_DAYS days before it,
         each on the first day's weather (the outdoors at the same time of day on day 0), every PREWARM_STEP_S, the
         heating from `heating()` (each room's share, asked before every step: the home's thermostat at its own
-        setpoint), no people, the shades as they are. PREWARM_DAYS inf: until the periodic steady state (no room's
-        daily mean temperature more than PREWARM_TOL_K from the day before's: a heated room's on-off cycle is not
-        locked to the day, so its temperature at midnight wanders within the thermostat's band; at most
-        PREWARM_MAX_DAYS). Only before the first `step`. Returns the days lived (0: nothing done)."""
+        setpoint), no people, the shades as they are. PREWARM_DAYS inf: the periodic steady state, lived as
+        PREWARM_PERIODIC_DAYS days (a fixed length, not a convergence test: a heated room's on-off cycle is not
+        locked to the day, so its daily mean keeps a ~0.01 K jitter and a tolerance below it is never met). Only
+        before the first `step`. Returns the days lived (0: nothing done)."""
         if not PREWARM_DAYS or self._t is not None:
             return 0.0
-        periodic = math.isinf(PREWARM_DAYS)
-        days = PREWARM_MAX_DAYS if periodic else int(PREWARM_DAYS)
-        if not periodic and days != PREWARM_DAYS:
+        days = PREWARM_PERIODIC_DAYS if math.isinf(PREWARM_DAYS) else int(PREWARM_DAYS)
+        if not math.isinf(PREWARM_DAYS) and days != PREWARM_DAYS:
             raise ValueError(f"PREWARM_DAYS {PREWARM_DAYS}: a whole number of days, or inf")
         per_day = int(round(86400 / PREWARM_STEP_S))
         # the repeated day, computed once: its outdoors and each room's solar gain at every step
         day = [self.outdoor_at(start_s + (j * PREWARM_STEP_S) % 86400) for j in range(1, per_day + 1)]
         gains = [{rid: self._solar_w(r, s) for rid, r in self.rooms.items()} for s in day]
-        lived, last = 0, None
         for _ in range(days):
-            total = dict.fromkeys(self.rooms, 0.0)
             for state, solar in zip(day, gains, strict=True):
                 self._advance(state, PREWARM_STEP_S, heating(), {}, solar)
-                for rid, r in self.rooms.items():
-                    total[rid] += r.temperature
-            lived += 1
-            mean = {rid: v / per_day for rid, v in total.items()}
-            if periodic and last is not None and max(abs(mean[r] - last[r]) for r in mean) <= PREWARM_TOL_K:
-                break
-            last = mean
-        return float(lived)
+        return float(days)
 
     def step(self, seconds: float, lamps: dict[str, int], heating: dict[str, float], people: dict[str, int],
              lamp_lux: float) -> dict[str, dict]:
