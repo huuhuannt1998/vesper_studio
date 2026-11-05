@@ -5,8 +5,8 @@
 export const PAGE = 24;
 export const ROOM_CHOICES = [["", "Any number"], ["1-2", "1–2"], ["3-4", "3–4"], ["5-6", "5–6"], ["7-", "7 or more"]];
 export const FLOOR_CHOICES = [["", "Any"], ["1", "One floor"]];
-export const ROOMS_NOTE = "Rooms are counted as a listing counts them: living rooms, bedrooms, dining rooms and " +
-  "offices. Kitchens, bathrooms, halls and storage are not counted.";
+export const ROOMS_NOTE = "Rooms are counted as a listing counts them: living rooms, bedrooms, dining rooms, " +
+  "offices and spaces the plan just calls a room. Kitchens, bathrooms, halls and storage are not counted.";
 export const LICENCE_NOTE = "The plans are CubiCasa5K's (Kalervo et al., 2019), licensed CC BY-NC-SA 4.0: " +
   "non-commercial use, with credit, shared alike. The library stays on this computer; choosing a plan sends " +
   "nothing anywhere.";
@@ -57,7 +57,10 @@ export function listingText(listing, filtered = false) {
     return `Indexing the library the first time: ${(progress.done || 0).toLocaleString("en")} of ` +
       `${(progress.total || 0).toLocaleString("en")} plans so far; the gallery fills as it goes. ${shown} so far.`;
   }
-  return total ? `${shown}.` : filtered ? "No plan matches: widen the filters." : "The library holds no plans.";
+  const left = listing.unreadable ? ` ${plural(listing.unreadable, "plan")} whose drawing VESPER cannot read ` +
+    `(a room outline that crosses itself, no rooms) ${listing.unreadable === 1 ? "is" : "are"} left out.` : "";
+  return (total ? `${shown}.` : filtered ? "No plan matches: widen the filters." : "The library holds no plans.") +
+    left;
 }
 
 // The preview's scale line: from the plan's dimension labels, or assumed.
@@ -67,6 +70,11 @@ export function scaleText(plan) {
     ? `Scale: from the plan's dimension labels, 1 px = ${cm.toFixed(2)} cm.`
     : "Scale: the plan has no dimension labels, so 1 px is taken as 1 cm (CubiCasa5K draws in centimetres); " +
       "check the room sizes.";
+}
+
+// The preview's headline: its card's rooms and area (the index's), and every space VESPER builds on its floor.
+export function factsText(plan) {
+  return `${cardText(plan)} · ${plural(plan.plan.rooms.length, "space")} in all`;
 }
 
 // The preview's line about storeys: a plan that draws two floors is built from the floor with its entrance.
@@ -222,8 +230,7 @@ export function mountGallery({ $, el, api, overlay, onUse, onRead }) {
       return;
     }
     if (current !== id) return;
-    $("library-facts").textContent = `${cardText({ rooms: countRooms(plan.plan), area_m2: area(plan) })} · ` +
-      `${plural(plan.plan.rooms.length, "space")} in all${plan.floors > 1 ? ` · ${plan.floors} floors drawn` : ""}`;
+    $("library-facts").textContent = factsText(plan);
     $("library-scale").textContent = scaleText(plan);
     $("library-floor").textContent = floorText(plan);
     $("library-checks").replaceChildren(...previewItems(plan).map(({ text, kind }) =>
@@ -275,21 +282,4 @@ export function mountGallery({ $, el, api, overlay, onUse, onRead }) {
       if (planId) preview(planId);
     },
   };
-}
-
-const LIVING = new Set(["living", "bedroom", "dining", "office"]);
-// The rooms a listing counts, in a plan (vesper.lab.plan_library.LIVING).
-export function countRooms(plan) {
-  return plan.rooms.filter((r) => LIVING.has(r.type)).length;
-}
-
-// The indoor floor area in m² of a library plan (balconies left out), by its scale.
-export function area(libraryPlan) {
-  const ring = (poly) => Math.abs(poly.reduce((s, [x0, y0], k) => {
-    const [x1, y1] = poly[(k + 1) % poly.length];
-    return s + x0 * y1 - x1 * y0;
-  }, 0)) / 2;
-  const px = libraryPlan.plan.rooms.filter((r) => r.type !== "balcony" && r.polygon.length >= 3)
-    .reduce((s, r) => s + ring(r.polygon), 0);
-  return px * libraryPlan.m_per_px ** 2;
 }

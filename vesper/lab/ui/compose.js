@@ -276,9 +276,10 @@ export function importNote(job, seconds = 0) {
   if (job.state !== "done") return "";
   const n = job.plan.rooms.length, rooms = `${n} room${n === 1 ? "" : "s"}`;
   const builds = "Generate home builds this plan as edited here.";
-  if (job.kind === "library") {
-    return `${rooms} from the plan library (${job.library?.id || job.name}), from its own drawing: no Claude. ` +
-      `Check them over the image: ${builds}`;
+  if (job.kind === "library") { // its card's count is a listing's (living rooms, bedrooms...): say both
+    const lib = job.library || {}, counted = lib.rooms === undefined ? "" : ` (${lib.rooms} as a listing counts them)`;
+    return `${rooms}${counted} from the plan library's ${lib.id || job.name}, built from its own drawing: no ` +
+      `Claude. Check them over the image: ${builds}`;
   }
   return job.kind === "json"
     ? `${rooms} from ${job.name || "the plan file"}. Check them and set the scale if it is in pixels: ${builds}`

@@ -155,6 +155,17 @@ def test_the_plan_for_the_preview_says_its_floors_and_scale(lib):
     assert got["name"] == "cubicasa5k-hq-2" and got["floors"] == 2 and got["floor"] == 0
     assert got["rooms_drawn"] == 5 and len(got["plan"]["rooms"]) == 3
     assert got["scale_source"] == "assumed 1 cm a unit" and got["size"] == [1200, 800]
+    assert (got["rooms"], got["area_m2"]) == (2, pytest.approx(38.25, abs=0.05))  # as its card says them
+
+
+def test_a_space_the_plan_calls_just_a_room_is_counted_as_a_room(tmp_path):
+    from tests.lab.plan_library_fixture import door, space, svg
+    rooms = svg("".join([space("Entry", 0, 0, 200, 300), space("Room", 200, 0, 500, 300),
+                         space("Room", 500, 0, 800, 300), space("Closet", 200, 300, 300, 400),
+                         door(-5, 100, 5, 190), door(195, 100, 205, 190), door(495, 100, 505, 190)]))
+    write_library(tmp_path / "datasets", {"hq/4": rooms})
+    row = pl.index_row(tmp_path / "datasets" / "cubicasa5k", "hq/4")
+    assert row["ok"] and (row["rooms"], row["spaces"]) == (2, 4)  # two rooms; the hall and the closet are not
 
 
 def test_png_size_reads_the_header_only(tmp_path):
@@ -233,7 +244,8 @@ def test_use_this_plan_makes_the_import_that_plan_with_no_claude_and_generate_bu
     job = json.loads(body)
     assert status == 200 and job["state"] == "done" and job["kind"] == "library" and job["problems"] == []
     assert job["name"] == "cubicasa5k-hq-1" and job["library"] == {"id": "hq/1", "scale_source": "labels",
-                                                                   "m_per_px": pytest.approx(0.01), "floors": 1}
+                                                                   "m_per_px": pytest.approx(0.01), "floors": 1,
+                                                                   "rooms": 3}
     assert len(job["plan"]["rooms"]) == 6 and "image" not in job
     assert json.loads(call(server, "/api/import")[1])["job"] == job["job"]  # what a reopened page follows
     status, image = call(server, f"/api/import/{job['job']}/image")
@@ -306,12 +318,10 @@ def test_every_element_the_gallery_looks_up_is_on_the_compose_page_and_the_page_
     assert status == 200 and body == (UI_DIR / "gallery.js").read_bytes()
 
 
-def test_the_gallery_s_filters_and_room_count_are_the_server_s():
+def test_the_gallery_s_room_filters_are_the_server_s():
     import re
 
     from vesper.lab.play import UI_DIR
     js = (UI_DIR / "gallery.js").read_text()
     choices = re.search(r"export const ROOM_CHOICES = \[(.*?)\];", js, re.S).group(1)
     assert [v for v in re.findall(r'\["([^"]*)",', choices) if v] == list(pl.ROOMS)
-    living = re.search(r"const LIVING = new Set\(\[(.*?)\]\)", js).group(1)
-    assert tuple(re.findall(r'"(\w+)"', living)) == pl.LIVING

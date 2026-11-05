@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  area, cardText, countRooms, floorText, floorsBadge, galleryQuery, libraryScaleNote, listingText, matchesFilters,
+  cardText, factsText, floorText, floorsBadge, galleryQuery, libraryScaleNote, listingText, matchesFilters,
   parseHash, previewItems, ROOM_CHOICES, scaleText,
 } from "../../../vesper/lab/ui/gallery.js";
 import { importNote } from "../../../vesper/lab/ui/compose.js";
@@ -48,6 +48,8 @@ test("the count says how far the first index has gone, how many match, or how to
   assert.match(listingText({ state: "absent", folder: null }), /vesper setup plan-library/);
   assert.match(listingText({ state: "absent", folder: "/Volumes/x" }), /not at \/Volumes\/x: is its drive connected/);
   assert.match(listingText({ state: "failed", error: "gone" }), /could not be read: gone/);
+  assert.equal(listingText({ state: "ready", total: 4358, unreadable: 642 }), "4,358 plans. 642 plans whose " +
+    "drawing VESPER cannot read (a room outline that crosses itself, no rooms) are left out.");
 });
 
 const PLAN = {
@@ -65,8 +67,7 @@ test("the preview says its scale, which floor is built, and its area as a listin
   assert.equal(floorText(PLAN), "This plan draws 2 floors. VESPER builds one storey: the floor with the main " +
     "entrance (4 spaces of the 9 drawn, outlined).");
   assert.equal(floorText({ ...PLAN, floors: 1 }), "");
-  assert.equal(countRooms(PLAN.plan), 2);
-  assert.ok(Math.abs(area(PLAN) - (120000 + 90000 + 40000) * 0.0121 ** 2) < 1e-9); // the balcony left out
+  assert.equal(factsText({ ...PLAN, rooms: 2, area_m2: 36.6 }), "2 rooms · 37 m² · 4 spaces in all");
 });
 
 test("the preview lists what stops the build and the way round it, or that there is nothing", () => {
@@ -87,10 +88,10 @@ test("a deep link opens the gallery with its filters and a plan's preview", () =
 });
 
 test("a plan taken from the library says it was built from its drawing, with no Claude", () => {
-  const job = { state: "done", kind: "library", name: "cubicasa5k-hq-1", library: { id: "hq/1" },
+  const job = { state: "done", kind: "library", name: "cubicasa5k-hq-1", library: { id: "hq/1", rooms: 2 },
                 plan: { rooms: [{}, {}, {}] } };
-  assert.equal(importNote(job), "3 rooms from the plan library (hq/1), from its own drawing: no Claude. Check " +
-    "them over the image: Generate home builds this plan as edited here.");
+  assert.equal(importNote(job), "3 rooms (2 as a listing counts them) from the plan library's hq/1, built from " +
+    "its own drawing: no Claude. Check them over the image: Generate home builds this plan as edited here.");
   assert.match(libraryScaleNote({ scale_source: "labels" }), /dimension labels: leave Scale empty/);
   assert.match(libraryScaleNote({ scale_source: "assumed 1 cm a unit" }), /1 px is taken as 1 cm/);
 });

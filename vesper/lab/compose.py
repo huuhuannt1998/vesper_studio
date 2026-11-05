@@ -528,7 +528,7 @@ class ComposeServer:
         if got is None:
             return None
         checked = import_check(got["plan"], floors_drawn=got["floors"], drawn=True)
-        return {k: v for k, v in got.items() if k != "row"} | {
+        return got | {
             "problems": checked["problems"], "warnings": checked["warnings"], "summary": checked["summary"]}
 
     def use_library_plan(self, pid) -> dict | None:
@@ -541,7 +541,7 @@ class ComposeServer:
         if got is None:
             return None
         library = {"id": got["id"], "scale_source": got["scale_source"], "m_per_px": got["m_per_px"],
-                   "floors": got["floors"]}
+                   "floors": got["floors"], "rooms": got["rooms"]}
         job = {"job": secrets.token_hex(8), "name": got["name"], "started": time.time(), "kind": "library",
                "state": "done", "plan": got["plan"], "floors_drawn": got["floors"], "library": library,
                "image": lib.image(pid), **import_check(got["plan"], floors_drawn=got["floors"], drawn=True)}

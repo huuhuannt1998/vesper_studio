@@ -37,13 +37,15 @@ LICENCE = "CC BY-NC-SA 4.0"
 # the archive's Zenodo record, as vesper.validation.plans fetches it (kept here so setup needs no numpy; a test keeps
 # the two equal)
 SOURCE_URL = "https://zenodo.org/records/2613548/files/cubicasa5k.zip?download=1"
-INDEX_VERSION = 1  # bumped when an index row changes meaning: an old cache is rebuilt
+INDEX_VERSION = 3  # bumped when an index row changes meaning: an old cache is rebuilt
 THUMB_WIDTH = 320
 PAGE = 24
 PAGE_MAX = 96
 CACHE_ENV = "VESPER_CACHE"  # as vesper.lab.dress: VESPER's cache folder
 ID = re.compile(r"^[A-Za-z0-9_-]{1,64}/[A-Za-z0-9_-]{1,64}$")
 LIVING = ("living", "bedroom", "dining", "office")  # the rooms a listing counts
+# and what CubiCasa5K calls just a room (a Finnish "huone") or a recreation room: VESPER types both "other"
+ROOM_CLASSES = ("Room", "RecreationRoom")
 ROOMS = {"1-2": (1, 2), "3-4": (3, 4), "5-6": (5, 6), "7-": (7, None)}  # the gallery's room filters
 ASSUMED = "assumed 1 cm a unit"  # parse_cubicasa_svg's scale_source with no dimension label
 
@@ -167,7 +169,9 @@ def index_row(root: Path, pid: str) -> dict:
         plan = library_plan(truth)
         m = float(truth["m_per_px"])
         indoor = [r for r in plan["rooms"] if r["type"] != "balcony" and len(r["polygon"]) >= 3]
-        row.update(rooms=sum(r["type"] in LIVING for r in plan["rooms"]), spaces=len(plan["rooms"]),
+        classes = dict(zip((r["id"] for r in truth["plan"]["rooms"]), truth["classes"], strict=True))
+        row.update(rooms=sum(r["type"] in LIVING or classes[r["id"]] in ROOM_CLASSES for r in plan["rooms"]),
+                   spaces=len(plan["rooms"]),
                    floors=truth["floors"], area_m2=round(sum(_area(r["polygon"]) for r in indoor) * m * m, 1),
                    scale="assumed" if truth["scale_source"] == ASSUMED else "labels")
         load_plan(plan)
@@ -385,7 +389,8 @@ class PlanLibrary:
     def plan(self, pid: str) -> dict | None:
         """The plan as the gallery's preview and Use this plan take it: {id, name (a file name for the home), plan
         (vesper-plan/1 of the floor built, in the image's pixels), floors (drawn), floor (built, from 0), rooms_drawn
-        (on every floor), m_per_px, scale_source, size}; None for an id the index does not hold."""
+        (on every floor), m_per_px, scale_source, size, and the index's rooms and area_m2 (as its card says them)};
+        None for an id the index does not hold."""
         row = self.row(pid)
         if row is None or not row["ok"]:
             return None
@@ -394,4 +399,4 @@ class PlanLibrary:
         return {"id": pid, "name": f"{FOLDER}-{pid.replace('/', '-')}", "plan": library_plan(truth),
                 "floors": truth["floors"], "floor": floor, "rooms_drawn": len(truth["plan"]["rooms"]),
                 "m_per_px": truth["m_per_px"], "scale_source": truth["scale_source"], "size": row["size"],
-                "row": row}
+                "rooms": row["rooms"], "area_m2": row["area_m2"]}
