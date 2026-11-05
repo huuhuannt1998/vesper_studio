@@ -1186,3 +1186,32 @@ comparison of A10.4 repeated with the fixed engine on the same sample and enviro
   automation (each flag draws one sampled automation and every environment draws from that automation's own pairs),
   because the observed one-engine-only pairs are automation-level (an automation fires in no environment in Home
   Assistant), which per-environment independent draws scatter over a flag's 48 environments.
+
+## Addendum 11 (2026-11-05, post hoc, after Addendum 10's results; before its run)
+
+**Post hoc**: written after Addendum 10's differential test found two engine defects, fixed with failing tests first
+(`sun.sun` as Home Assistant 2026.10.2 has it, and its updates at the twilight phase intervals; `kelvin` and
+`color_temp` refused by 2026.10.2's light schema). It is written before the run below. Nothing earlier changes: the
+sweep at `8fcd672` stays the paper's primary result, every Addendum 8-10 analysis rests on it, and this addendum adds
+one engine-corrected sweep reported beside it.
+
+**A11.1 The run.**
+- **Code:** the commit that adds this addendum, which carries both fixes.
+- **Sweep:** one rung-4 sweep. Same corpus, standard home and 48 environments as `8fcd672`'s main run. Current binder,
+  device reporting rule.
+- **Weather:** the ERA5 recording copied from `work-120f4ca` (never fetched again).
+- **Traces:** re-recorded in a fresh work directory, as Addendum 6 did.
+- **Resources:** 5 workers, under nice. Script `~/vesper-lab/edt/run_r6d.sh`.
+- **Output:** `sweep-rung4-r6d-<commit7>.json` beside the others.
+
+**A11.2 Reported, beside `8fcd672`'s main run.**
+- Bound and run counts.
+- Flags under the clock relation and under the frame relation, by kind. Negative control.
+- How many of `8fcd672`'s 199 frame flags hold (flagged with the same kinds; flagged with other kinds), how many are
+  lost, and how many are new. The same for the 8 `time_spread` flags.
+- The never-firing (dead) count among run automations.
+- For every lost or new frame flag: whether the automation reads `sun.sun` or uses `kelvin`/`color_temp` (the defects'
+  reach). Anything else counts as "other".
+
+No pass/fail criterion. If the run disagrees with `8fcd672` beyond the two defects' reach, that is reported as a
+finding about the engine, not explained away.
