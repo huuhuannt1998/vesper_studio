@@ -389,12 +389,14 @@ def frame_values(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], f
 
 def frame_invariance(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
                      h: float = TIME_SPREAD_H, sensed_invariant: bool = True,
-                     sensed_crossing: dict | None = None) -> dict[str, bool]:
+                     sensed_crossing: dict | None = None, h_sun_min: float | None = None) -> dict[str, bool]:
     """Per judged frame, whether the first firings are invariant within `h` in it (A6.3); a frame that is not
     computable counts as invariant. `sensed_invariant=False` (A6.3's sensitivity): the sensed frame is left out when
     the automation has a computable frame. `sensed_crossing` (A8.5's option, off by default): per environment, the
     reference instant of the sensed frame (`crossing_instant`); the sensed frame is then invariant iff the minutes
-    from it to the first firing range over at most `h` (fewer than two: invariant)."""
+    from it to the first firing range over at most `h` (fewer than two: invariant). `h_sun_min` (A19.3, default
+    None: `h` in minutes): the sun frame's own tolerance, in minutes; `h` still judges the clock frame."""
+    sun_tol = h * 60.0 if h_sun_min is None else float(h_sun_min)
     vals = frame_values(by_env, first_t, frames)
     out: dict[str, bool] = {}
     for f in sorted(frames.judged):
@@ -402,7 +404,7 @@ def frame_invariance(by_env: dict[Env, Outcome], first_t: dict[Env, float | None
             out[f] = not _clock_spread(vals[CLOCK], h)
         elif f == SUN:
             v = vals.get(SUN, [])
-            out[f] = not frames.sun_refs or len(v) < 2 or max(v) - min(v) <= h * 60.0
+            out[f] = not frames.sun_refs or len(v) < 2 or max(v) - min(v) <= sun_tol
         else:
             out[f] = True if sensed_crossing is None else _sensed_invariant(by_env, first_t, sensed_crossing, h)
     if not sensed_invariant and SENSED in out and any(frames.computable(f) for f in out if f != SENSED):
@@ -412,13 +414,14 @@ def frame_invariance(by_env: dict[Env, Outcome], first_t: dict[Env, float | None
 
 def frame_divergences(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
                       h: float = TIME_SPREAD_H, sensed_invariant: bool = True,
-                      sensed_crossing: dict | None = None, env_latency: bool = False) -> set[str]:
+                      sensed_crossing: dict | None = None, env_latency: bool = False,
+                      h_sun_min: float | None = None) -> set[str]:
     """The kinds of disagreement under the frame-relative relation (A6.3): the clock relation's, with `time_spread`
     held iff the first firings are invariant within `h` in none of the automation's frames. `env_latency` (A12.10's
     named variant, off by default; it needs `sensed_crossing`): also the kind ENV_LATENCY when `env_latency(...)`
-    holds."""
+    holds. `h_sun_min` (A19.3): the sun frame's tolerance in minutes (default None: `h` in minutes)."""
     out = divergences(by_env) - {"time_spread"}
-    inv = frame_invariance(by_env, first_t, frames, h, sensed_invariant, sensed_crossing)
+    inv = frame_invariance(by_env, first_t, frames, h, sensed_invariant, sensed_crossing, h_sun_min)
     if inv and not any(inv.values()):
         out.add("time_spread")
     if env_latency and sensed_crossing is not None and _env_latency(by_env, first_t, sensed_crossing, h):
@@ -428,12 +431,13 @@ def frame_divergences(by_env: dict[Env, Outcome], first_t: dict[Env, float | Non
 
 def frame_restricted_divergences(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
                                  envs, h: float = TIME_SPREAD_H, sensed_invariant: bool = True,
-                                 sensed_crossing: dict | None = None, env_latency: bool = False) -> set[str]:
+                                 sensed_crossing: dict | None = None, env_latency: bool = False,
+                                 h_sun_min: float | None = None) -> set[str]:
     """Divergences under the frame relation over `envs` alone, minus an envelope kind holding in all of them."""
     outs = {e: by_env[e] for e in envs if e in by_env}
     if not outs:
         return set()
-    kinds = frame_divergences(outs, first_t, frames, h, sensed_invariant, sensed_crossing, env_latency)
+    kinds = frame_divergences(outs, first_t, frames, h, sensed_invariant, sensed_crossing, env_latency, h_sun_min)
     return {k for k in kinds if k not in ENVELOPE_KINDS or not all(getattr(o, k) for o in outs.values())}
 
 
