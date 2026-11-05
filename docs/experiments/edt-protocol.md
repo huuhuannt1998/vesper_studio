@@ -2028,3 +2028,129 @@ earlier sections are not edited; the corrections are stated in this lane's secti
   for any role of an outdoor place bound to an indoor room (a light, a switch or a sensor), and C3 for an outbuilding.
 - *A17.6:* the one R7-B sentence that states a share loosely ("about a third") was checked under its two readings and
   counted once.
+
+## Addendum 18 (2026-11-05, post hoc: written after the fifth internal review, before its runs)
+
+**Post hoc**: written after the fifth internal review asked for it (its items 5 and 4(b)) and after every result it
+revisits was seen (R2-c's setback population, R4-B's corners, R6-B's infiltration, A8.8's home variants, R7-A's
+orientation witnesses), but before any run below. Nothing earlier changes; earlier numbers stand. Script:
+`scripts/revision/r8y_physics.py`; results: `results/edt/r8y-<commit7>.json` (aggregates only: counts, temperatures,
+environment and room labels, anonymous indices) and a section "Revision R8-Y (Addendum 18)" of `results-edt.md`. No
+pass/fail criterion below is a registered verdict; every analysis is descriptive. At most 4 worker processes, under
+`nice -n 5`. Raw results stay in `~/vesper-lab/edt/r8-Y/` (local).
+
+**A18.0 Three new knobs, bit-identical at their defaults** (set only through `vesper.env.indoor.knobs`, named in a
+trace's reuse key when moved; the pinned fingerprint test is extended to them):
+
+- `U_WALL` (default 0.35 W/(m² K)) and `U_WINDOW` (default 1.4 W/(m² K)): the outside walls' and the glass's U values,
+  which were already module constants; now knobs. A room's H moves by exactly the U change times the opaque outside
+  wall's or the glass's area.
+- `PER_ROOM_THERMOSTAT` (default 0, off). Off, the model as built: a thermostat in a hallway (`CENTRAL_ROOMS`) heats
+  every indoor room that has no thermostat of its own, all of them switched together on the hallway's own reading
+  (central heating). On (1): every such room has a thermostat of its own, which holds **the hallway thermostat's
+  setpoint and mode** on **the room's own air temperature**, with the same rule and band as a real one (heats below
+  setpoint - 0.3 K, stops above setpoint + 0.3 K; cooling likewise). The hallway keeps its real thermostat. The
+  rooms' thermostats are the model's, not devices: they report nothing and no automation sees them. The off path is
+  pinned by a fingerprint of the hallway-heated test house taken at `daa0154` (`tests/lab/test_per_room_thermostat.py`).
+
+**The binding rule, decided now.** The setback automations name one climate entity, the EDT home's hallway thermostat
+(the binder maps every climate role there; A5.1). With the option on, a command to that thermostat **sets every heated
+room's thermostat** (they follow its setpoint and mode): a zoned system with one controller and a sensor and valve per
+room (a TRV per radiator following a central schedule). The alternative, that only the hallway's own thermostat takes
+the command and the others keep 20 C, would test the setback's reach, not the heat distribution the review asks
+about, and it is not run. The rooms an automation's climate target heats (`confirm.controlled_rooms`, the 7 indoor
+rooms) and R2-c's causal rule are unchanged.
+
+**A18.1 Item 5(a): the setback population with a thermostat per room (closed loop).**
+
+- *Population and path.* R2-c's 22 setback automations (`120f4ca`, rung 4, bound as stored), each alone, closed loop
+  (`vesper.edt.confirm.closed_loop`, R4-B's and R6-B's worker `r4b_error_budget._closed_job`), in the core four
+  environments (Minneapolis and Stockholm, 2026-01-14, plan north 0 and 180): 88 runs, each against its environment's
+  baseline (no automation) under the same setting, R2-c's causal rule (a room-run cell counts when the room's minimum
+  over days 1-2 is below 10 C with the automation and not in the baseline; 7 rooms per run). Everything else at R4-B's
+  nominal corner (internal gains 0, no roof or ground, 1-day warm-up, 165 kJ/(m² K), 0.5 ACH): every other knob at its
+  default.
+- *Settings.* **hallway** (the option off: the model as built) and **per-room** (`PER_ROOM_THERMOSTAT` 1).
+- *Check.* The hallway setting must reproduce R2-c step 2 on the core: the same 53 breaching runs, every coldest
+  caused room, caused-cell count and baseline minimum. If it does not (the code now carries Addendum 10's engine
+  fixes), the cause is found and stated before the per-room numbers are used, and they are set against the reference.
+- *Reported, per setting:* breaching runs (of 88), automations, Minneapolis / Stockholm, caused cells (of 616); the
+  **coldest caused room per breaching run** (min / median / max), and the **coldest room per run over all 88 runs with
+  the automation**, breaching or not (min / median / max); the baseline's coldest room; the largest drop below
+  baseline; runs with a commanded setback.
+- *The coldest room's identity:* for each of the 88 runs, the room (by its generic id: corridor, living, kitchen,
+  bathroom, office, bedroom_1, bedroom_2) with the lowest day 1-2 minimum with the automation; tabulated per setting;
+  the number of runs whose coldest room differs between hallway and per-room, over the 88 and over the runs breaching
+  in either; the per-run change of the coldest room's minimum (per-room minus hallway; min / median / max); and the
+  rooms holding a caused breach (cells per room) in each setting. Also, per-room only, how far below the commanded
+  setpoint the coldest room goes (its minimum minus the setpoint).
+- *Secondary* (registered): per-room in all 48 environments (22 x 48 runs, 48 baselines), reported as R6-B's
+  nominal-48 row: breaching runs over all 48 and how many fall outside the core.
+
+**A18.2 Item 5(b): a wall/glass U corner (closed loop).**
+
+- *Corners:* U_wall in **{0.35, 0.6, 1.0}** x U_glass in **{1.4, 2.0, 2.8}** W/(m² K): 9 corners (post-1990 to
+  pre-1980 construction, the review's values). **(0.35, 1.4) is the current setting** (the model as built), so it is
+  the hallway setting of A18.1, run once and used for both.
+- *Runs:* A18.1's population, environments, path and causal rule, at every corner with everything else nominal;
+  **primary under the hallway thermostat** (the model as built), each corner with its own four baselines; **secondary,
+  the same nine corners under per-room thermostats** (the U x thermostat product, 18 settings, cheap at the measured
+  throughput of about 2 runs a second on 4 workers).
+- *Reported, per corner:* the standard home's H (outside walls, glass, ventilation; total W/K; interior partitions
+  apart, as R6-B's breakdown); the A18.1 statistics (breaching runs of 88, automations, cities, caused cells, coldest
+  caused room per run min / median / max, coldest room per run over all 88, baseline coldest room); whether the
+  breaching-run sets are nested along each U axis (descriptive); and the baseline: whether any baseline room falls
+  below 10 C at a leaky corner (the heating's 100 W/m² may not hold 20 C there), which the causal rule then excludes.
+- *The finding, restated* (how it will be read, stated now): the breaching-run count and the coldest-caused-room
+  range over the primary settings of A18.1 and A18.2 (the hallway U corners and the per-room nominal) are what §V-D's
+  "restated" sentence may quote, with the secondary product beside it. No range is chosen after seeing it.
+
+**A18.3 Item 4(b): the orientation witnesses over generated floor plans (open loop).**
+
+- *The plans, by a rule fixed now, applied to plans only (no result was computed).* `vesper lab generate`'s six-room
+  plan for a seed, with the standard home's products (A5.1's `plan-seed8` mechanism, `vesper.edt.home.plan_home`).
+  Probing seeds 7-39 (the plans and their windows only) shows the generator's window rule gives **four room -> facing
+  assignments**: every plan puts the living room's two panes on the plan's top side (0), the kitchen's on the bottom
+  (180), bedroom 1's west (270) and the office's east (90); only the bathroom (0 or 180) and bedroom 2 (0, 90 or 180)
+  vary. The four are the standard home's (bathroom 180, bedroom 2 0; seeds 7, 14, 17, ...), seed 8's (0, 90; seeds
+  8-10, 12, 13, ...), seed 11's (0, 180; 11, 24, 29, ...) and seed 16's (180, 90; 16, 18, 33, 35). The standard home
+  and seed 8 are already swept (A8.8). **Rule:** in seed order from 9, accept a seed whose room -> facing assignment
+  is not the standard home's, not seed 8's and not an accepted seed's; when fewer than three exist in seeds 9-39, fill
+  up in seed order with seeds whose glass area per facing (N, E, S, W; m², two decimals) differs from the standard
+  home's, seed 8's and every accepted seed's. **It gives seeds 11 and 16, then 9.** Their glass per facing (N / E / S /
+  W): standard 5.92 / 1.44 / 1.36 / 1.44; seed 8 4.42 / 2.88 / 1.00 / 1.44; **seed 9 4.70 / 2.88 / 1.00 / 1.44; seed
+  11 4.84 / 1.44 / 2.44 / 1.44; seed 16 4.48 / 2.88 / 1.36 / 1.44**. Seed 9 has seed 8's assignment with a larger
+  living-room pane; it is the third plan only because the generator offers no fourth assignment. Every room is
+  redrawn in every plan. Each is `VARIANTS` `plan-seed11`, `plan-seed16`, `plan-seed9`; each has the standard home's
+  role set and entity ids and passes `vesper lab check` and the layout check (tested), so every automation binds as in
+  the standard home.
+- *Runs (restricted, as the review allows).* `vesper edt run` cannot restrict to a set of automations, so the sweep's
+  own worker is used as in R6-B's and R7-A's open loop (`vesper.edt.sweep._run_env` via `r6b_physics._trace_job`): in
+  each home, all 48 environments' rung-4 traces **recorded afresh** (a fresh cache with `8fcd672`'s ERA5 weather
+  copied in, no trace copied, nothing fetched), and **the 199 frame flags of `8fcd672`** replayed on them, bound as
+  stored, reporting rule `device`. Automations outside the 199 are not replayed, so a witness gained outside them is
+  not seen (the possible set is within the 199).
+- *Checks, run the same way:* (i) **standard**, the standard home built afresh with fresh traces: its frame flags,
+  kinds and orientation witnesses over the 199 against `8fcd672`'s (mismatches reported; its outcomes are compared
+  with `5b54586`'s, which A13.6 found the current code reproduces); (ii) **seed 8**, against A8.8's full sweep of
+  `plan-seed8` (`ba8a54c`): frame flags and orientation witnesses over the 199. A frame-flag or witness mismatch in
+  (i) or (ii) is investigated and stated before any plan number is used; the plan numbers are then reported against
+  both `8fcd672` and check (i).
+- *Families* (R7-A's functions, `r7a_analyses.setting_findings`): a frame flag in a home is an automation of the 199
+  whose frame relation over that home's 48 outcomes is not empty; an **orientation witness** is a frame flag with an
+  orientation pair (same city and date, plan north 0 and 180) on which the frame relation restricted to the pair
+  diverges (R7-A A12.1's definition; 100 in `8fcd672`).
+- *Reported, per plan (9, 11, 16; and seed 8 from check (ii)):* frame flags kept of the 199 (and with the same kinds),
+  orientation witnesses kept of the 100 (by read kind: temperature 64, humidity 30, neither 6), witnesses lost, new
+  witnesses among the 199. **The core over plans**: the published witnesses that are witnesses in every one of the
+  three new plans (primary); secondary, over the four generated plans (with seed 8) and over the four plus the
+  mirrored home (A8.8's `mirror-ew` sweep, its witnesses computed the same way from the full sweep). The possible
+  set (witnesses in any plan, within the 199). The witness ids per plan are kept in the scratch directory for a joint
+  core; they are not committed.
+- *How it will be read* (stated now): a witness held in every plan does not owe its orientation sensitivity to the
+  standard home's window arrangement; one lost in a plan owes it partly to which rooms face which way. The plans vary
+  only two of seven rooms' window facings (and every room's size), so the core over plans is an upper bound on the
+  core over real homes' window distributions; that limit is stated with the results.
+
+**A18.4 Resources.** About 18 x 92 + 1,104 closed-loop runs (about 25 min) and 5 x 48 trace recordings with the 199
+replayed (about an hour), at most 4 workers. Any deviation is dated below this addendum.
