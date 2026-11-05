@@ -2426,3 +2426,123 @@ to the `restart` approximation.
 runs the modes as Home Assistant does under known re-triggering, not how often re-triggering happens in the corpus
 (A20.6's dynamic reach measures that, for the sweep's inputs). The trigger is a `state` trigger, so Home Assistant's
 sub-second offset of time triggers plays no part.
+
+## Addendum 21 (2026-11-05, post hoc: written after the seventh internal review, before its runs)
+
+**Post hoc**: written after the seventh internal review asked for these analyses (its items 4, 5 and 6(a)) and after
+every result they revisit was seen (A6.7's and A8.1's rung-0 fits, R6-B's H breakdown and k̂, R7-B's illuminance runs,
+check D's decomposition chain), but before any number below is computed. Nothing earlier changes and every earlier
+number stands; what follows is reported beside it. A change made after a computation is dated at the end of this
+addendum and called a deviation. Review 7's item numbers are in brackets. **No sweep is run again.** A21.1 reads the
+simulator's inputs, A21.2 refits nothing new (it recomputes A6.7's and A8.1's scores with their own code, folds, seed
+and rows), and A21.3-A21.4 replay the 67 run automations that read an illuminance, open loop, at a few daylight
+settings. Script: `scripts/revision/r10q.py` (tests first, `tests/edt/test_r10q.py`); results:
+`results/edt/r10q-<commit7>.json` (aggregates and anonymous indices only: no automation text, alias, entity name,
+repository or hash) and a section "Revision R10-Q (Addendum 21)" of `results-edt.md`. At most 4 worker processes,
+under nice. Scratch: `~/vesper-lab/edt/r10-Q/` (local). No pass/fail criterion is registered here; every analysis is
+descriptive.
+
+**A21.1 The standard home's geometry [5].** A fact table, not an experiment, put in the results. It is read from the
+simulator's own input: the EDT standard home the sweeps load (`vesper.edt.home.build_edt_home`; `8fcd672`'s work
+directory, its `edt/` home with `map.json` and `windows.json`, which are byte-identical to its `base/` ones), through
+the model's own `vesper.env.indoor.room_models` at every knob's default.
+
+- *Per indoor space* (the 7 indoor rooms; the porch is outdoor and has no model): its label, floor area (m²), volume
+  (m³, at CEILING_M 2.5 m), opaque outside wall (m²), each window's glass area (m²) with its plan facing and its
+  compass bearing under each of the two plan orientations the sweeps use (north 0 and 180), its H terms (U_wall x
+  wall, U_window x glass, 0.34 x ACH x V; W/K) and its C (165 kJ/(m² K) x floor).
+- *Totals:* floor area, ceiling height, conditioned volume, glass area, H and its three terms, C, C/H.
+- *The ventilation arithmetic, once:* 0.5 ACH x V x ρc_p / 3600, with the model's constant 0.34 Wh/(m³ K) (ρc_p =
+  1,224 J/(m³ K)) and, beside it, the textbook 1.2 kg/m³ x 1,005 J/(kg K) = 1,206 J/(m³ K), against R6-B's 35.3 W/K;
+  and the volume and floor area each value implies from 35.3 W/K.
+- *The capacity:* 165 kJ/(m² K) x floor = C, C/H against R6-B's 48.9 h, and the floor area C/H implies.
+- *Check:* the totals must reproduce R6-B's H = 77.8 W/K = 28.3 walls + 14.2 glass + 35.3 ventilation (A9.2) and
+  R2-a's 13.7 MJ/K and 48.9 h, to their printed precision. A mismatch is stated and its cause found before the table
+  is used.
+
+**A21.2 The rung-0 trade-off curve [6(a)].** The scores are those that produced A6.7's and A8.1's published numbers
+(`vesper.edt.ladder`, its own code, folds, seed and rows), recomputed.
+
+- *Population and labels:* the automations that run at rung 4 of `8fcd672` (5,926). Labels: flagged under the frame
+  relation (199) and, separately, under the clock relation (790).
+- *Scores, two sources:*
+  - (i) **A6.7's pooled out-of-fold scores** (`ladder.oof_scores`: 5-fold, whole repositories per fold, seed 0),
+    which score all 5,926. *Check:* their AUCs must reproduce A8.2's (frame 0.7824 with 8 features, 0.9194 with 8+4;
+    clock 0.9459 and 0.9809).
+  - (ii) **A8.1's registered split** (`ladder.split_scores`: trained on the training half, scored on the held-out half,
+    2,777 rows, 86 frame and 365 clock flags). *Check:* the AUCs must reproduce A8.1's (frame 0.8485 and 0.8411;
+    clock 0.9338 and 0.9531).
+  - Each with the eight A1.4 features (A8.1's verdict model) and with 8+4 (A6.7's four frame features).
+- *Thresholds* are the scores themselves; an automation passes when its score is at least the threshold (tied scores
+  pass together).
+- *Precision at recall r*, r in {0.8, 0.9, 0.95}: at the highest threshold whose recall is at least r (the fewest
+  automations passed), its precision, its recall and the automations passed. Beside it, the interpolated precision
+  (the largest precision over all thresholds with recall at least r).
+- *Recall at precision p*, p in {0.3, 0.5, 0.7}: the largest recall over thresholds with precision at least p
+  (`ladder.recall_at_precision`, A1.4's rule, ties to the higher precision), with its precision and passed count; 0
+  when no threshold reaches p.
+- *The implied budget:* on source (i), the automations passed at the first threshold that reaches recall 0.9 of the
+  frame flags, of 5,926 (and the same at 0.8 and 0.95, and for the clock flags). On source (ii), the passed share of
+  the held-out 2,777, times 5,926, as a secondary. Beside it, the expected budget of triage at random, 0.9 x 5,926.
+  A 95 % percentile interval for source (i)'s budget share at recall 0.9: 1,000 resamples of whole repositories with
+  replacement (numpy `default_rng(0)`), the scores held fixed, the passed share recomputed on each resample (a
+  resample without a flag is not counted).
+- *Limits, stated now:* the pooled out-of-fold scores come from five models, so one threshold over them is a pooled
+  operating point, not one deployable model's; source (ii) is one model but on half the rows.
+
+**A21.3 The interior beam-light term bracketed by k̂ [4(a)].**
+
+- *The knob.* `BEAM_LIGHT_SCALE` in `vesper.env.indoor` multiplies the interior beam term of the daylight (the
+  direct-sun term SUN_SHARE x T_glass x glass x beam normal x cos i / floor) and nothing else: the diffuse
+  (average-daylight-factor) term, the solar heat, the beam split and DAYLIGHT_SCALE are unchanged. Default 1.0, in
+  `KNOBS` (so a trace recorded under it is keyed by it), named in the provenance only when moved; bit-identical at 1
+  by the indoor model's fingerprint test, extended to it, with tests first.
+- *The bracket:* 1 (the model as built, recorded afresh as the reference), and k̂'s point and interval from the
+  thermal validation (A9.4, reproduced by A14.4): **0.205, 0.250, 0.289**. The beam light term shares its geometry,
+  split and transposition with the thermal beam term that k̂ indicts; k̂ is applied here as a magnitude on that term,
+  as R7-A's aperture settings (x0.21, x0.25, x0.29) apply it to the thermal path.
+- *Population and path:* R7-B's A13.4 population, the **67 run automations of `8fcd672` that read an illuminance**,
+  bound as stored, in the standard home (its RTCGQ11LM illuminance sensors), open loop in all 48 environments, every
+  trace recorded afresh under the setting, replayed with the sweep's worker (`r6b_physics._trace_job`, reporting rule
+  `device`), on R7-B's code path (`r7b_room_terms.part_run`). Daylight enters only the illuminance readings in the
+  resident-free home (the resident, its only other consumer, is absent), so no automation outside the 67 can change.
+- *Reference check, run first:* the reference must reproduce R6-D's engine-corrected sweep `5b54586` on the 67 (0 of
+  3,216 outcomes differ, as R7-B's did; A13.6's convention, so the published memberships are `5b54586`'s: 7 frame
+  flags, 15 clock flags, 17 firing somewhere). A mismatch is stated and its cause found before any bracket number is
+  used.
+- *Reported:* per setting, the frame flags among the 67 (published 7), the clock flags (15, secondary), the
+  automations firing in some environment (17), the outcomes changed against the reference; over the four settings,
+  the **robust core** (flagged at every setting) and the **possible set** (at any) of the frame and of the clock
+  illuminance flags, lost and gained against the published, and how many flags change kinds somewhere.
+
+**A21.4 The change-reporting sensor at a corrected daylight level [4(b)].**
+
+- *Home and swap:* R7-B's A13.4 exactly (`r7b_room_terms.augment_home` and `swap_entities`): a
+  `zigbee:tuya:s-lux-zb` light sensor beside each of the 8 RTCGQ11LM sensors, and every RTCGQ11LM illuminance entity
+  the 67 name replaced by its neighbour's.
+- *The daylight scale* is the existing knob DAYLIGHT_SCALE (rung 3 sets it to 1/14.8); no new knob. Check D's residual
+  after A9.6's three named factors is model / measured = **2.49 (0.93-3.49)**. As rung 3 corrects a residual of 14.8
+  by scaling daylight by 1/14.8, the **primary** settings scale it by the correction **1/2.49, 1/0.93 and 1/3.49**
+  (0.402, 1.075, 0.287). The review's wording ("daylight corrected by the D check's own residual factor 2.49") is read
+  this way; the literal multiplication by **2.49, 0.93 and 3.49** is run as a **secondary** set, so that either
+  reading is covered.
+- *The beam term:* each daylight setting at `BEAM_LIGHT_SCALE` **1 and 0.25** (k̂'s point).
+- *Settings:* 6 primary + 6 secondary, all in the swapped home; plus two anchors at every knob's default: the
+  augmented home as bound (it must reproduce `5b54586` on the 67, as R7-B's reference did) and the swap (it must
+  reproduce R7-B's swap: 7 frame and 15 clock flags, 0 lost, 0 gained, 17 firing somewhere). A failed anchor is
+  stated and its cause found first.
+- *Reported:* per setting, frame flags (of 67) lost and gained against the published 7, clock flags lost and gained
+  against the published 15, kinds changed, how many of the 67 fire in some environment, the outcomes changed against
+  the swap anchor; the robust core and possible set over the primary six with the swap anchor (7 settings), and over
+  all 13 swapped settings.
+
+**A21.5 How it will be read (stated now).** The inert-path argument (the illuminance path's few flags are not an
+artefact of the sensor's reporting or of the daylight level) is re-measured, not assumed: if the 7 frame flags are in
+the robust core of A21.3 and of A21.4's primary settings and none is gained, it holds at the corrected level; if not,
+the count lost or gained is the result, and the claim is to be restated with it. How many of the 67 fire somewhere at
+each setting is reported either way (R7-B: 17; the other 50 fire nowhere in the resident-free home).
+
+**A21.6 Limits, stated now.** A21.3-A21.4 are open loop over the 67 illuminance readers only. The beam bracket scales
+a magnitude: it does not move the beam's direction, its timing or which room it reaches. Each daylight correction is
+one number for every room and hour (check D's residual is a median over 240 hours of one dataset); A21.4's sensor
+rule is the catalog default, as in R7-B.
