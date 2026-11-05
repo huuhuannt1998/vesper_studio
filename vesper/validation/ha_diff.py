@@ -481,23 +481,29 @@ def _shift_outcome(o: dict, r: dict, delta_s: float) -> tuple[dict, dict]:
 
 
 def propagate(autos: dict, flag_ids: list[str], pairs: list[dict], envs_by_key: dict, reps: int = 1000,
-              seed: int = SEED) -> dict:
+              seed: int = SEED, groups: list[list[dict]] | None = None) -> dict:
     """A10.5(b): Monte Carlo over the observed discrepancy distribution. For every flag and every one of its
     environments, independently, a draw from the observed (automation, environment) pairs of the same VESPER firing
     status: a VESPER-firing pair's partner either does not fire (its outcome becomes not fired) or fires Δ later
     (the first firing moves by -Δ; Δ = VESPER - HA); a VESPER-silent pair's partner either stays silent or fires
     (its outcome becomes HA's first-firing time of day, drawn from the observed ones). Envelope kinds are kept. The
-    flag recomputed under both relations; per replicate, how many of the flags change their clock or frame kinds."""
+    flag recomputed under both relations; per replicate, how many of the flags change their clock or frame kinds.
+    A not-fired outcome has no envelope kind. `groups` (the post hoc sensitivity, results R6-C): the observed pairs
+    grouped by automation; per flag and replicate one automation that fires somewhere is drawn, and every
+    environment draws from that automation's own pairs (so an automation-level discrepancy, such as one Home Assistant
+    never runs, applies to all of a flag's environments together, not to each independently)."""
     rng = random.Random(seed)
-    fire_pairs = [p for p in pairs if p["v_fired"]]
-    silent_pairs = [p for p in pairs if not p["v_fired"]]
     h_tods = [p["h_first"] for p in pairs if p["h_fired"] and not p["v_fired"]]
+    firing_groups = [g for g in (groups or []) if any(p["v_fired"] for p in g)]
     changed_frame, changed_clock = [], []
     per_flag = Counter()
     for _ in range(reps):
         nf = nc = 0
         for k in flag_ids:
             e = autos[k]
+            pool = rng.choice(firing_groups) if firing_groups else pairs
+            fire_pairs = [p for p in pool if p["v_fired"]]
+            silent_pairs = [p for p in pool if not p["v_fired"]]
             outs = {kk: dict(v) for kk, v in e["outcomes"].items()}
             rich = {kk: dict(v) for kk, v in (e.get("rich") or {}).items()}
             for kk, o in outs.items():
@@ -507,7 +513,8 @@ def propagate(autos: dict, flag_ids: list[str], pairs: list[dict], envs_by_key: 
                     if p is None:
                         continue
                     if not p["h_fired"]:
-                        outs[kk] = {**o, "fired": False, "first_tod_h": None}
+                        outs[kk] = {**o, "fired": False, "first_tod_h": None, "flaps": False,
+                                    "night_light": False, "night_cover": False}
                         rich[kk] = {**r, "first_t": None}
                     elif p["delta_s"]:
                         outs[kk], rich[kk] = _shift_outcome(o, r, -p["delta_s"])
@@ -565,6 +572,249 @@ def margin_at_risk(autos: dict, flag_ids: list[str], m_s: float, envs_by_key: di
     return n
 
 
+# ---- the analysis (A10.4-A10.7) -------------------------------------------------------------------------------------
+
+CLASSES = ("engine bug", "HA semantics VESPER lacks", "harness artifact", "unexplained")
+_OFF = (False, "off", "false")
+
+
+def discrepant(p: dict) -> bool:
+    """A10.4(4): exactly one fires, |Δ| >= 1 s, or the call sets, instant counts or brightness differ."""
+    return (p["v_fired"] != p["h_fired"] or (p["delta_s"] is not None and abs(p["delta_s"]) >= SUBSECOND_S)
+            or not p["calls_equal"] or p["v_count"] != p["h_count"] or p.get("brightness_equal") is False
+            or p.get("ha_unavailable", False))
+
+
+def subsecond_only(p: dict) -> bool:
+    return not discrepant(p) and p["delta_s"] is not None and p["delta_s"] != 0
+
+
+def _notes_text(p: dict) -> str:
+    return " ".join(n[3] for n in p.get("notes") or [])
+
+
+def classify(p: dict, bound: dict, fixed: dict | None) -> tuple[str, str]:
+    """(class, cause) of one discrepant pair (A10.6). `fixed`: the same pair with the fixed engine (A10.8); a pair
+    the fix makes agree is the fix's engine bug. The rules, in order, as written in the results."""
+    text = _notes_text(p)
+    if fixed is not None and not discrepant(fixed):
+        if "not a valid option at 'kelvin'" in text or "not a valid option at 'color_temp'" in text:
+            return "engine bug", "light.turn_on kelvin/color_temp, refused by 2026.10.2"
+        if "sun.sun" in json.dumps(bound):
+            return "engine bug", "sun.sun update rule (state from the elevation; update at the event, one write)"
+        return "engine bug", "resolved by the engine fixes (other)"
+    if isinstance(bound, dict) and str(bound.get("initial_state")).lower() in ("false", "off") \
+            and p["v_fired"] and not p["h_fired"]:
+        return "HA semantics VESPER lacks", "initial_state off: Home Assistant never runs it"
+    if "response" in text and ("from_json" in text or "stdout" in text or "response" in text):
+        return "harness artifact", "a stub service's empty response (response_variable)"
+    if p["delta_s"] is not None and abs(p["delta_s"]) < SUBSECOND_S:
+        return "HA semantics VESPER lacks", "the 50-500 ms offset of time triggers (a now()-dependent outcome)"
+    return "unexplained", ""
+
+
+def _quantiles(xs: list[float]) -> dict:
+    if not xs:
+        return {"n": 0}
+    s = sorted(xs)
+    q = lambda p: s[min(len(s) - 1, max(0, math.ceil(p * len(s)) - 1))]  # noqa: E731
+    a = [abs(x) for x in s]
+    return {"n": len(s), "min": s[0], "p5": q(0.05), "p25": q(0.25), "median": statistics.median(s), "p75": q(0.75),
+            "p95": q(0.95), "max": s[-1], "abs_lt_1s": sum(x < 1 for x in a), "abs_lt_60s": sum(x < 60 for x in a),
+            "abs_lt_3h": sum(x < 3 * 3600 for x in a), "zero": sum(x == 0 for x in a)}
+
+
+def analyse(pairs: dict, autos: dict, fixed: dict | None = None, reps: int = 1000) -> dict:
+    """The aggregates of A10.4-A10.8 from the per-pair records (`run_env` per environment; `fixed`: the same with
+    the fixed engine). Automations are named by their sample index only."""
+    sample = [tuple(x) for x in pairs["sample"]]
+    index = {k: i for i, (k, _) in enumerate(sample)}
+    stratum = dict(sample)
+    feats = {k: features(autos[k]["bound"]) for k, _ in sample}
+    envs = list(pairs["per_env"])
+    rows = []
+    for env in envs:
+        per = pairs["per_env"][env]["per"]
+        fper = (fixed or {}).get("per_env", {}).get(env, {}).get("per", {})
+        for k, _ in sample:
+            p = per[k]
+            rows.append((env, k, p, fper.get(k)))
+    n_pairs = len(rows)
+    out: dict = {"protocol": "docs/experiments/edt-protocol.md, Addendum 10", "envs": envs,
+                 "automations": len(sample), "pairs": n_pairs,
+                 "strata": dict(Counter(s for _, s in sample)),
+                 "reproduces_sweep": sum(p["reproduces"] for _, _, p, _ in rows),
+                 "ha_unavailable": sum(p.get("ha_unavailable", False) for _, _, p, _ in rows),
+                 "ha_version": sorted({pairs["per_env"][e].get("ha_version") for e in envs}),
+                 "ha_wall_s": {e: pairs["per_env"][e].get("ha_wall_s") for e in envs},
+                 "state_changes": {e: pairs["per_env"][e].get("n_state_changes") for e in envs}}
+    status = Counter(("both" if p["v_fired"] and p["h_fired"] else "vesper_only" if p["v_fired"] else
+                      "ha_only" if p["h_fired"] else "neither") for _, _, p, _ in rows)
+    out["status"] = dict(status)
+    sym = [(e, k, p) for e, k, p, _ in rows if p["v_fired"] != p["h_fired"]]
+    out["symmetric_difference"] = {"pairs": len(sym), "automations": len({k for _, k, _ in sym}),
+                                   "vesper_only": sum(p["v_fired"] for _, _, p in sym),
+                                   "ha_only": sum(p["h_fired"] for _, _, p in sym)}
+    both = [(e, k, p) for e, k, p, _ in rows if p["v_fired"] and p["h_fired"]]
+    out["delta_all"] = _quantiles([p["delta_s"] for _, _, p in both])
+    keys = sorted({f for k, _ in sample for f in feats[k] if not f.startswith("trigger:")} |
+                  {f for k, _ in sample for f in feats[k] if f.startswith("trigger:")})
+    out["delta_by_feature"] = {f: {"automations": sum(f in feats[k] for k, _ in sample),
+                                   "both_fire_pairs": sum(f in feats[k] for _, k, _ in both),
+                                   "delta": _quantiles([p["delta_s"] for _, k, p in both if f in feats[k]]),
+                                   "discrepant_pairs": sum(discrepant(p) for _, k, p, _ in rows if f in feats[k]),
+                                   "symmetric_pairs": sum(1 for _, k, _ in sym if f in feats[k])} for f in keys}
+    out["delta_by_stratum"] = {s: {"automations": sum(1 for _, x in sample if x == s),
+                                   "both_fire_pairs": sum(stratum[k] == s for _, k, _ in both),
+                                   "delta": _quantiles([p["delta_s"] for _, k, p in both if stratum[k] == s]),
+                                   "discrepant_pairs": sum(discrepant(p) for _, k, p, _ in rows if stratum[k] == s)}
+                               for s, _ in STRATA}
+    out["payload"] = {"both_fire_pairs": len(both), "calls_equal": sum(p["calls_equal"] for _, _, p in both),
+                      "counts_equal": sum(p["v_count"] == p["h_count"] for _, _, p in both),
+                      "brightness_comparable": sum(bool(p.get("brightness_comparable")) for _, _, p in both),
+                      "brightness_equal": sum(p.get("brightness_equal") is True for _, _, p in both)}
+    disc = [(e, k, p, f) for e, k, p, f in rows if discrepant(p)]
+    out["discrepant"] = {"pairs": len(disc), "automations": len({k for _, k, _, _ in disc}),
+                         "subsecond_only_pairs": sum(subsecond_only(p) for _, _, p, _ in rows)}
+    classes = []
+    for e, k, p, f in disc:
+        cls, cause = classify(p, autos[k]["bound"], f)
+        classes.append({"index": index[k], "stratum": stratum[k], "env": e, "class": cls, "cause": cause,
+                        "v_fired": p["v_fired"], "h_fired": p["h_fired"], "delta_s": p["delta_s"],
+                        "v_count": p["v_count"], "h_count": p["h_count"], "calls_equal": p["calls_equal"]})
+    out["classes"] = {c: {"pairs": sum(x["class"] == c for x in classes),
+                          "automations": len({x["index"] for x in classes if x["class"] == c}),
+                          "causes": dict(Counter(x["cause"] for x in classes if x["class"] == c))} for c in CLASSES}
+    out["discrepancies"] = classes
+    artifact = {(x["env"], sample[x["index"]][0]) for x in classes if x["class"] == "harness artifact"}
+
+    # A10.5: the flags
+    from vesper.edt.trace import ENVIRONMENTS
+    envs_by_key = {e.key: e for e in ENVIRONMENTS}
+    frame_flags = sorted(k for k, a in autos.items() if a.get("outcomes") and a.get("frame_divergences"))
+    clock_flags = sorted(k for k, a in autos.items() if a.get("outcomes") and a.get("divergences"))
+    ts_flags = [k for k in frame_flags if "time_spread" in autos[k]["frame_divergences"]]
+    check = sum(substituted_flags(autos[k], {}, envs_by_key) == {"clock": autos[k]["divergences"],
+                                                                 "frame": autos[k]["frame_divergences"]}
+                for k in frame_flags)
+    direct = []
+    for k, s in sample:
+        if not autos[k].get("frame_divergences"):
+            continue
+        ha = {e: (pairs["per_env"][e]["per"][k]["h_outcome"], pairs["per_env"][e]["per"][k]["h_rich"]) for e in envs}
+        new = substituted_flags(autos[k], ha, envs_by_key)
+        direct.append({"index": index[k], "stratum": s, "time_spread": k in ts_flags,
+                       "frame_before": autos[k]["frame_divergences"], "frame_after": new["frame"],
+                       "clock_before": autos[k]["divergences"], "clock_after": new["clock"]})
+    out["flags"] = {
+        "frame_flags": len(frame_flags), "time_spread_frame_flags": len(ts_flags), "clock_flags": len(clock_flags),
+        "recomputation_reproduces_frame_flags": check,
+        "direct": {"sampled_frame_flags": len(direct),
+                   "frame_changed": sum(d["frame_before"] != d["frame_after"] for d in direct),
+                   "time_spread_changed": sum(d["frame_before"] != d["frame_after"] for d in direct
+                                              if d["time_spread"]),
+                   "clock_changed": sum(d["clock_before"] != d["clock_after"] for d in direct),
+                   "flag_lost": sum(bool(d["frame_before"]) and not d["frame_after"] for d in direct),
+                   "changes": [d for d in direct if d["frame_before"] != d["frame_after"]
+                               or d["clock_before"] != d["clock_after"]]}}
+    obs_all = [p for _, _, p, _ in rows]
+    obs_primary = [({**p, "h_fired": p["v_fired"], "delta_s": 0.0 if p["v_fired"] else None}
+                    if (e, k) in artifact else p) for e, k, p, _ in rows]
+    out["flags"]["propagation"] = {
+        "primary (artifacts agree)": {"frame": propagate(autos, frame_flags, obs_primary, envs_by_key, reps),
+                                      "time_spread": propagate(autos, ts_flags, obs_primary, envs_by_key, reps),
+                                      "clock": propagate(autos, clock_flags, obs_primary, envs_by_key,
+                                                         max(100, reps // 10))},
+        "secondary (as observed)": {"frame": propagate(autos, frame_flags, obs_all, envs_by_key, reps),
+                                    "time_spread": propagate(autos, ts_flags, obs_all, envs_by_key, reps)}}
+    groups = defaultdict(list)
+    for (e, k, _, _), p in zip(rows, obs_primary):
+        groups[k].append(p)
+    out["flags"]["propagation"]["post hoc: by automation (artifacts agree)"] = {
+        "frame": propagate(autos, frame_flags, obs_primary, envs_by_key, reps, groups=list(groups.values())),
+        "time_spread": propagate(autos, ts_flags, obs_primary, envs_by_key, reps, groups=list(groups.values())),
+        "clock": propagate(autos, clock_flags, obs_primary, envs_by_key, max(100, reps // 10),
+                           groups=list(groups.values()))}
+    deltas = sorted(abs(p["delta_s"]) for e, k, p, _ in rows
+                    if p["v_fired"] and p["h_fired"] and (e, k) not in artifact)
+    m99 = deltas[min(len(deltas) - 1, math.ceil(0.99 * len(deltas)) - 1)] if deltas else 0.0
+    mmax = deltas[-1] if deltas else 0.0
+    out["flags"]["margin"] = {"m_p99_s": m99, "m_max_s": mmax,
+                              "frame_at_risk_p99": margin_at_risk(autos, frame_flags, m99, envs_by_key),
+                              "frame_at_risk_max": margin_at_risk(autos, frame_flags, mmax, envs_by_key),
+                              "time_spread_at_risk_max": margin_at_risk(autos, ts_flags, mmax, envs_by_key),
+                              "clock_at_risk_max": margin_at_risk(autos, clock_flags, mmax, envs_by_key)}
+
+    # A10.7: the criterion (harness artifacts count as agreeing)
+    sym_na = [x for x in sym if (x[0], x[1]) not in artifact]
+    both_na = [(e, k, p) for e, k, p in both if (e, k) not in artifact]
+    within60 = sum(abs(p["delta_s"]) < AGREE_FIRST_S for _, _, p in both_na)
+    prim = out["flags"]["propagation"]["primary (artifacts agree)"]["frame"]["frame_changed"]
+    out["criterion"] = {
+        "symmetric_difference": {"value": len(sym_na), "of": n_pairs, "limit": math.floor(0.02 * n_pairs),
+                                 "pass": len(sym_na) <= math.floor(0.02 * n_pairs)},
+        "first_firing_within_60s": {"value": within60, "of": len(both_na), "share": within60 / len(both_na)
+                                    if both_na else None, "pass": bool(both_na) and within60 >= 0.95 * len(both_na)},
+        "time_spread_direct": {"value": out["flags"]["direct"]["time_spread_changed"], "pass":
+                               out["flags"]["direct"]["time_spread_changed"] == 0},
+        "frame_propagated_p97_5": {"value": prim.get("p97.5"), "limit": math.floor(0.05 * len(frame_flags)),
+                                   "pass": prim.get("p97.5", 0) <= math.floor(0.05 * len(frame_flags))}}
+    out["criterion"]["pass"] = all(v["pass"] for v in out["criterion"].values())
+    if fixed is not None:
+        frows = [(e, k, fixed["per_env"][e]["per"][k]) for e in envs for k, _ in sample]
+        out["fixed_engine"] = {
+            "discrepant_pairs": sum(discrepant(p) for _, _, p in frows),
+            "discrepant_automations": len({k for _, k, p in frows if discrepant(p)}),
+            "symmetric_pairs": sum(p["v_fired"] != p["h_fired"] for _, _, p in frows),
+            "delta_all": _quantiles([p["delta_s"] for _, _, p in frows if p["v_fired"] and p["h_fired"]]),
+            "vesper_differs_from_sweep_pairs": sum(not p["reproduces"] for _, _, p in frows),
+            "vesper_differs_from_sweep_automations": len({k for _, k, p in frows if not p["reproduces"]}),
+            "vesper_outcome_differs_pairs": sum(p["v_outcome"] != pairs["per_env"][e]["per"][k]["v_outcome"]
+                                                for e, k, p in frows)}
+        changed = 0
+        for k, _ in sample:
+            if not autos[k].get("frame_divergences"):
+                continue
+            mine = {e: (fixed["per_env"][e]["per"][k]["v_outcome"], fixed["per_env"][e]["per"][k]["v_rich"])
+                    for e in envs}
+            changed += substituted_flags(autos[k], mine, envs_by_key)["frame"] != autos[k]["frame_divergences"]
+        out["fixed_engine"]["sampled_frame_flags_changed_by_the_fix"] = changed
+    out["fix_reach"] = fix_reach(autos)
+    return out
+
+
+def _light_keys(steps) -> set[str]:
+    """The data keys of every light.turn_on/toggle (and homeassistant.turn_on/toggle) call in the actions."""
+    out: set[str] = set()
+    for s in _walk_actions(steps):
+        service = str(s.get("action") or s.get("service") or "")
+        if service in ("light.turn_on", "light.toggle", "homeassistant.turn_on", "homeassistant.toggle"):
+            for key in ("data", "data_template"):
+                if isinstance(s.get(key), dict):
+                    out |= set(map(str, s[key]))
+    return out
+
+
+def fix_reach(autos: dict) -> dict:
+    """A10.8: of the sweep's run automations (and its flags), how many use what each engine fix changes: anything
+    that reads `sun.sun` (its state or attributes, in a trigger, condition, template or action); a kelvin or
+    color_temp light parameter."""
+    run = [a for a in autos.values() if a.get("outcomes")]
+
+    def count(pred):
+        hit = [a for a in run if pred(a)]
+        return {"run": len(hit), "fire_somewhere": sum(any(o.get("fired") for o in a["outcomes"].values())
+                                                       for a in hit),
+                "clock_flags": sum(bool(a.get("divergences")) for a in hit),
+                "frame_flags": sum(bool(a.get("frame_divergences")) for a in hit),
+                "time_spread_frame_flags": sum("time_spread" in (a.get("frame_divergences") or []) for a in hit)}
+    return {"of_run": len(run),
+            "sun_sun": count(lambda a: "sun.sun" in json.dumps(a["bound"])),
+            "kelvin_color_temp": count(lambda a: bool(_light_keys(_first(a["bound"], "action", "actions"))
+                                                      & {"kelvin", "color_temp"})),
+            "initial_state_off": count(lambda a: str(a["bound"].get("initial_state")).lower() in ("false", "off"))}
+
+
 # ---- the run --------------------------------------------------------------------------------------------------------
 
 def main(argv: list[str] | None = None) -> int:
@@ -578,8 +828,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--env", action="append", default=None, help="an environment key (default: Addendum 10's four)")
     ap.add_argument("--dev", action="store_true", help="the shakedown environment only (never reported)")
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--analyse", default=None, help="instead of running: the aggregates of these per-pair records")
+    ap.add_argument("--fixed", default=None, help="with --analyse: the per-pair records with the fixed engine")
+    ap.add_argument("--reps", type=int, default=1000)
     args = ap.parse_args(argv)
     autos = json.loads(Path(args.sweep).read_text())["automations"]
+    if args.analyse:
+        fixed = json.loads(Path(args.fixed).read_text()) if args.fixed else None
+        res = analyse(json.loads(Path(args.analyse).read_text()), autos, fixed, args.reps)
+        Path(args.out).write_text(json.dumps(res, indent=1, sort_keys=True) + "\n")
+        return 0
     sample = draw_sample(autos)
     if args.limit:
         sample = sample[: args.limit]

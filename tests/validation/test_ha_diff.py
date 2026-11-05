@@ -129,6 +129,62 @@ def test_margin_counts_the_decisions_a_shift_could_change():
     assert ha_diff.margin_at_risk(autos, ["a"], 20.0, envs) == 1
 
 
+def _pair(**kw):
+    base = {"v_fired": True, "h_fired": True, "delta_s": 0.0, "calls_equal": True, "v_count": 2, "h_count": 2,
+            "brightness_equal": None, "ha_unavailable": False, "notes": []}
+    return {**base, **kw}
+
+
+def test_a_pair_is_discrepant_by_firing_time_calls_or_counts_and_subsecond_apart():
+    assert not ha_diff.discrepant(_pair())
+    assert not ha_diff.discrepant(_pair(delta_s=0.4)) and ha_diff.subsecond_only(_pair(delta_s=0.4))
+    for kw in ({"h_fired": False, "delta_s": None}, {"delta_s": -119.0}, {"calls_equal": False}, {"h_count": 3},
+               {"brightness_equal": False}):
+        assert ha_diff.discrepant(_pair(**kw)), kw
+
+
+def test_classes_follow_the_rules_of_addendum_10():
+    sun = {"trigger": [{"platform": "state", "entity_id": "sun.sun"}]}
+    plain = {"trigger": [{"platform": "time", "at": "07:00"}]}
+    assert ha_diff.classify(_pair(delta_s=1.0), sun, _pair())[0] == "engine bug"
+    kelvin = _pair(h_fired=False, delta_s=None, notes=[[0, "ERROR", "x", "not a valid option at 'kelvin'"]])
+    assert ha_diff.classify(kelvin, plain, _pair())[1].startswith("light.turn_on kelvin")
+    off = {**plain, "initial_state": "off"}
+    assert ha_diff.classify(_pair(h_fired=False, delta_s=None), off, None)[0] == "HA semantics VESPER lacks"
+    resp = _pair(calls_equal=False, notes=[[0, "ERROR", "x", "from_json got invalid input '' ... response"]])
+    assert ha_diff.classify(resp, plain, resp)[0] == "harness artifact"
+    assert ha_diff.classify(_pair(delta_s=-0.26, h_count=4, v_count=8), plain, None)[1].startswith("the 50-500")
+    assert ha_diff.classify(_pair(delta_s=30.0), plain, _pair(delta_s=30.0)) == ("unexplained", "")
+
+
+def test_fix_reach_counts_the_run_automations_a_fix_touches():
+    def entry(bound, fired, frame=()):
+        return {"bound": bound, "outcomes": {"e": {"fired": fired}}, "divergences": list(frame),
+                "frame_divergences": list(frame)}
+    autos = {"s": entry({"trigger": [{"platform": "state", "entity_id": "sun.sun"}]}, True, ["time_spread"]),
+             "k": entry({"trigger": [], "action": [{"if": [], "then": [
+                 {"action": "light.turn_on", "data": {"kelvin": 2500}}]}]}, True),
+             "o": entry({"trigger": [], "initial_state": False}, False),
+             "x": {"bound": None, "outcomes": {}}}
+    r = ha_diff.fix_reach(autos)
+    assert r["of_run"] == 3
+    assert r["sun_sun"] == {"run": 1, "fire_somewhere": 1, "clock_flags": 1, "frame_flags": 1,
+                            "time_spread_frame_flags": 1}
+    assert r["kelvin_color_temp"]["run"] == 1 and r["initial_state_off"]["run"] == 1
+
+
+def test_propagation_draws_per_environment_or_per_automation():
+    entry, envs = _flag_entry({"e0": 7.0, "e1": 11.0, "e2": 8.0})
+    entry["divergences"] = entry["frame_divergences"] = ["time_spread"]
+    autos = {"a": entry}
+    agree = [_pair() for _ in range(4)]
+    silent = [_pair(h_fired=False, delta_s=None) for _ in range(4)]
+    none = ha_diff.propagate(autos, ["a"], agree, envs, reps=20)
+    assert none["frame_changed"]["max"] == 0
+    grouped = ha_diff.propagate(autos, ["a"], agree + silent, envs, reps=20, groups=[silent])
+    assert grouped["frame_changed"]["min"] == 1  # Home Assistant never runs it: the flag is lost every time
+
+
 def _ha_python() -> Path | None:
     cands = [os.environ.get("VESPER_HA_PYTHON"), Path(__file__).parents[2] / ".vesper/ha/venv/bin/python"]
     return next((Path(c) for c in cands if c and Path(c).is_file()), None)
