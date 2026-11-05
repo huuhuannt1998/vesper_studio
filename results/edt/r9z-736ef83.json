@@ -1,0 +1,1087 @@
+{
+ "analysis": "revision R9-Z (protocol Addendum 19)",
+ "code_commit": "736ef83",
+ "inputs": {
+  "frame": "8fcd672",
+  "r6c_pairs": "134b209",
+  "setback": "120f4ca"
+ },
+ "item2_setback": {
+  "automations": 22,
+  "core": [
+   "Minneapolis 2026-01-14 n0",
+   "Minneapolis 2026-01-14 n180",
+   "Stockholm 2026-01-14 n0",
+   "Stockholm 2026-01-14 n180"
+  ],
+  "corners": {
+   "G2-Foff-W1-C165": {
+    "check_rerun_hallway_reproduces_saved": {
+     "field_mismatches": 0,
+     "fields_compared": [
+      "coldest_caused_room_c",
+      "caused_cells",
+      "baseline_coldest_room_c",
+      "coldest_room_c",
+      "setback_h"
+     ],
+     "same_breaching_runs": true,
+     "same_runs": true
+    },
+    "check_saved_reproduces_r4b": {
+     "automations": true,
+     "baseline_coldest_room_c": true,
+     "breaching_runs": true,
+     "caused_cells": true,
+     "coldest_caused_room_per_run_c": true,
+     "repositories": true,
+     "values": {
+      "automations": [
+       16,
+       16
+      ],
+      "baseline_coldest_room_c": [
+       15.6,
+       15.6
+      ],
+      "breaching_runs": [
+       37,
+       37
+      ],
+      "caused_cells": [
+       196,
+       196
+      ],
+      "coldest_caused_room_per_run_c": [
+       [
+        4.1,
+        6.3,
+        9.9
+       ],
+       [
+        4.1,
+        6.3,
+        9.9
+       ]
+      ],
+      "repositories": [
+       3,
+       3
+      ]
+     }
+    },
+    "hallway": {
+     "automations": 16,
+     "automations_per_repository": {
+      "R2": 14,
+      "R4": 1,
+      "R5": 1
+     },
+     "baseline_coldest_room_c": 15.6,
+     "breaching_runs": 37,
+     "by_city": {
+      "Minneapolis": 29,
+      "Stockholm": 8
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 13,
+      "Minneapolis 2026-01-14 n180": 16,
+      "Stockholm 2026-01-14 n0": 4,
+      "Stockholm 2026-01-14 n180": 4
+     },
+     "caused_cells": 196,
+     "caused_cells_by_room": {
+      "bathroom": 25,
+      "bedroom_1": 35,
+      "bedroom_2": 31,
+      "corridor": 25,
+      "kitchen": 25,
+      "living": 30,
+      "office": 25
+     },
+     "coldest_caused_room_identity": {
+      "bedroom_1": 34,
+      "bedroom_2": 3
+     },
+     "coldest_caused_room_per_run_c": [
+      4.1,
+      6.3,
+      9.9
+     ],
+     "coldest_room_identity": {
+      "bedroom_1": 78,
+      "bedroom_2": 10
+     },
+     "coldest_room_per_run_c": [
+      4.1,
+      10.6,
+      18.5
+     ],
+     "denominator": 88,
+     "largest_drop_k": 14.2,
+     "off_split": {
+      "setpoint_only": {
+       "breaching_runs": 32,
+       "coldest_caused_room_per_run_c": [
+        5.2,
+        6.3,
+        9.9
+       ]
+      },
+      "turns_thermostat_off": {
+       "breaching_runs": 5,
+       "coldest_caused_room_per_run_c": [
+        4.1,
+        4.8,
+        9.7
+       ]
+      }
+     },
+     "repositories": 3,
+     "runs": 88,
+     "runs_with_a_setback": 69
+    },
+    "identity_hallway_vs_per_room": {
+     "breaching_in_either": 37,
+     "coldest_room_change_c": [
+      -0.1,
+      0.6,
+      4.1
+     ],
+     "coldest_room_changed": 25,
+     "coldest_room_changed_among_breaching_in_either": 6,
+     "runs": 88,
+     "transitions": {
+      "bedroom_1->bathroom": 19,
+      "bedroom_2->bathroom": 6
+     }
+    },
+    "in_context": "not available: R4-B's companion runs (A7.4) are at the nominal corner only; not run",
+    "per_room": {
+     "automations": 12,
+     "automations_per_repository": {
+      "R2": 10,
+      "R4": 1,
+      "R5": 1
+     },
+     "baseline_coldest_room_c": 19.7,
+     "breaching_runs": 31,
+     "by_city": {
+      "Minneapolis": 23,
+      "Stockholm": 8
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 11,
+      "Minneapolis 2026-01-14 n180": 12,
+      "Stockholm 2026-01-14 n0": 4,
+      "Stockholm 2026-01-14 n180": 4
+     },
+     "caused_cells": 185,
+     "caused_cells_by_room": {
+      "bathroom": 25,
+      "bedroom_1": 31,
+      "bedroom_2": 27,
+      "corridor": 25,
+      "kitchen": 25,
+      "living": 27,
+      "office": 25
+     },
+     "coldest_caused_room_identity": {
+      "bathroom": 6,
+      "bedroom_1": 25
+     },
+     "coldest_caused_room_per_run_c": [
+      4.2,
+      6.7,
+      9.9
+     ],
+     "coldest_room_identity": {
+      "bathroom": 25,
+      "bedroom_1": 59,
+      "bedroom_2": 4
+     },
+     "coldest_room_per_run_c": [
+      4.2,
+      11.1,
+      19.7
+     ],
+     "denominator": 88,
+     "largest_drop_k": 15.5,
+     "off_split": {
+      "setpoint_only": {
+       "breaching_runs": 26,
+       "coldest_caused_room_per_run_c": [
+        6.7,
+        6.7,
+        9.9
+       ]
+      },
+      "turns_thermostat_off": {
+       "breaching_runs": 5,
+       "coldest_caused_room_per_run_c": [
+        4.2,
+        5.1,
+        9.8
+       ]
+      }
+     },
+     "repositories": 3,
+     "runs": 88,
+     "runs_with_a_setback": 69
+    },
+    "per_room_vs_hallway": {
+     "gained": 0,
+     "lost": 6,
+     "lost_by_automation": {
+      "A12": 1,
+      "A18": 2,
+      "A21": 2,
+      "A8": 1
+     },
+     "per_room_subset_of_hallway": true
+    },
+    "r4b_48_of_1056": 37,
+    "r4b_J_of_132": 37,
+    "r4b_other_warmups_core": {
+     "W1": 37,
+     "W10": 38,
+     "W5": 38,
+     "Wpss": 38
+    }
+   },
+   "G5-Foff-W1-C165": {
+    "check_rerun_hallway_reproduces_saved": {
+     "field_mismatches": 0,
+     "fields_compared": [
+      "coldest_caused_room_c",
+      "caused_cells",
+      "baseline_coldest_room_c",
+      "coldest_room_c",
+      "setback_h"
+     ],
+     "same_breaching_runs": true,
+     "same_runs": true
+    },
+    "check_saved_reproduces_r4b": {
+     "automations": true,
+     "baseline_coldest_room_c": true,
+     "breaching_runs": true,
+     "caused_cells": true,
+     "coldest_caused_room_per_run_c": true,
+     "repositories": true,
+     "values": {
+      "automations": [
+       12,
+       12
+      ],
+      "baseline_coldest_room_c": [
+       15.6,
+       15.6
+      ],
+      "breaching_runs": [
+       23,
+       23
+      ],
+      "caused_cells": [
+       142,
+       142
+      ],
+      "coldest_caused_room_per_run_c": [
+       [
+        6.1,
+        7.6,
+        9.1
+       ],
+       [
+        6.1,
+        7.6,
+        9.1
+       ]
+      ],
+      "repositories": [
+       3,
+       3
+      ]
+     }
+    },
+    "hallway": {
+     "automations": 12,
+     "automations_per_repository": {
+      "R2": 10,
+      "R4": 1,
+      "R5": 1
+     },
+     "baseline_coldest_room_c": 15.6,
+     "breaching_runs": 23,
+     "by_city": {
+      "Minneapolis": 23
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 11,
+      "Minneapolis 2026-01-14 n180": 12
+     },
+     "caused_cells": 142,
+     "caused_cells_by_room": {
+      "bathroom": 18,
+      "bedroom_1": 23,
+      "bedroom_2": 20,
+      "corridor": 18,
+      "kitchen": 20,
+      "living": 20,
+      "office": 23
+     },
+     "coldest_caused_room_identity": {
+      "bedroom_1": 23
+     },
+     "coldest_caused_room_per_run_c": [
+      6.1,
+      7.6,
+      9.1
+     ],
+     "coldest_room_identity": {
+      "bedroom_1": 79,
+      "bedroom_2": 9
+     },
+     "coldest_room_per_run_c": [
+      6.1,
+      12.8,
+      18.5
+     ],
+     "denominator": 88,
+     "largest_drop_k": 12.8,
+     "off_split": {
+      "setpoint_only": {
+       "breaching_runs": 20,
+       "coldest_caused_room_per_run_c": [
+        6.1,
+        7.8,
+        9.1
+       ]
+      },
+      "turns_thermostat_off": {
+       "breaching_runs": 3,
+       "coldest_caused_room_per_run_c": [
+        6.4,
+        6.7,
+        6.9
+       ]
+      }
+     },
+     "repositories": 3,
+     "runs": 88,
+     "runs_with_a_setback": 69
+    },
+    "identity_hallway_vs_per_room": {
+     "breaching_in_either": 23,
+     "coldest_room_change_c": [
+      0.0,
+      0.3,
+      4.1
+     ],
+     "coldest_room_changed": 19,
+     "coldest_room_changed_among_breaching_in_either": 0,
+     "runs": 88,
+     "transitions": {
+      "bedroom_1->bathroom": 14,
+      "bedroom_2->bathroom": 5
+     }
+    },
+    "in_context": "not available: R4-B's companion runs (A7.4) are at the nominal corner only; not run",
+    "per_room": {
+     "automations": 12,
+     "automations_per_repository": {
+      "R2": 10,
+      "R4": 1,
+      "R5": 1
+     },
+     "baseline_coldest_room_c": 19.7,
+     "breaching_runs": 23,
+     "by_city": {
+      "Minneapolis": 23
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 11,
+      "Minneapolis 2026-01-14 n180": 12
+     },
+     "caused_cells": 137,
+     "caused_cells_by_room": {
+      "bathroom": 15,
+      "bedroom_1": 23,
+      "bedroom_2": 20,
+      "corridor": 18,
+      "kitchen": 20,
+      "living": 18,
+      "office": 23
+     },
+     "coldest_caused_room_identity": {
+      "bedroom_1": 23
+     },
+     "coldest_caused_room_per_run_c": [
+      6.4,
+      8.0,
+      9.1
+     ],
+     "coldest_room_identity": {
+      "bathroom": 19,
+      "bedroom_1": 65,
+      "bedroom_2": 4
+     },
+     "coldest_room_per_run_c": [
+      6.4,
+      12.9,
+      19.7
+     ],
+     "denominator": 88,
+     "largest_drop_k": 13.3,
+     "off_split": {
+      "setpoint_only": {
+       "breaching_runs": 20,
+       "coldest_caused_room_per_run_c": [
+        6.7,
+        8.0,
+        9.1
+       ]
+      },
+      "turns_thermostat_off": {
+       "breaching_runs": 3,
+       "coldest_caused_room_per_run_c": [
+        6.4,
+        6.9,
+        7.1
+       ]
+      }
+     },
+     "repositories": 3,
+     "runs": 88,
+     "runs_with_a_setback": 69
+    },
+    "per_room_vs_hallway": {
+     "gained": 0,
+     "lost": 0,
+     "lost_by_automation": {},
+     "per_room_subset_of_hallway": true
+    },
+    "r4b_48_of_1056": 23,
+    "r4b_J_of_132": 23,
+    "r4b_other_warmups_core": {
+     "W1": 23,
+     "W10": 23,
+     "W5": 23,
+     "Wpss": 23
+    }
+   }
+  },
+  "elapsed_s": 152.3,
+  "nominal_g0_for_reference": {
+   "hallway_breaching_runs": 53,
+   "r8y_per_room_breaching_runs": 46
+  },
+  "turns_thermostat_off": {
+   "automations": 4
+  }
+ },
+ "item3_cores": {
+  "all_bracket_139": {
+   "frame_flags": 129,
+   "humidity_flags": 18,
+   "orientation_witnesses": 7,
+   "temperature_flags": 54
+  },
+  "all_bracket_141_with_glazing": {
+   "frame_flags": 128,
+   "humidity_flags": 18,
+   "orientation_witnesses": 7,
+   "temperature_flags": 54
+  },
+  "all_bracket_144_with_glazing_and_plans_witnesses": 7,
+  "attributable_core": {
+   "core": 75,
+   "core_without": {
+    "glazing x0.5": 82,
+    "glazing x2": 75,
+    "plan seed 11": 76,
+    "plan seed 16": 75,
+    "plan seed 9": 75,
+    "recorded beam (A14)": 75
+   },
+   "held_in": {
+    "0": 0,
+    "1": 0,
+    "2": 0,
+    "3": 5,
+    "4": 12,
+    "5": 8,
+    "6": 75
+   },
+   "of": 100,
+   "possible": 110,
+   "possible_outside_published": 10,
+   "settings": 6
+  },
+  "attributable_core_with_seed8_and_mirror": {
+   "core": 72,
+   "core_without": {
+    "glazing x0.5": 79,
+    "glazing x2": 72,
+    "mirror east-west": 74,
+    "plan seed 11": 72,
+    "plan seed 16": 72,
+    "plan seed 8": 73,
+    "plan seed 9": 72,
+    "recorded beam (A14)": 72
+   },
+   "held_in": {
+    "0": 0,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 3,
+    "5": 8,
+    "6": 7,
+    "7": 10,
+    "8": 72
+   },
+   "of": 100,
+   "possible": 110,
+   "possible_outside_published": 10,
+   "settings": 8
+  },
+  "attributable_core_without_bracket": {
+   "glazing": 84,
+   "plans 9/11/16": 78,
+   "recorded beam": 75
+  },
+  "attributable_frame_flags": {
+   "core": 187,
+   "core_without": {
+    "glazing x0.5": 191,
+    "glazing x2": 189,
+    "plan seed 11": 187,
+    "plan seed 16": 187,
+    "plan seed 9": 187,
+    "recorded beam (A14)": 187
+   },
+   "held_in": {
+    "0": 0,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 6,
+    "5": 6,
+    "6": 187
+   },
+   "of": 199,
+   "possible": 201,
+   "possible_outside_published": 2,
+   "settings": 6
+  },
+  "check_139_settings": 139,
+  "check_139_witness_core": 7,
+  "check_plan_published_equals_members": true,
+  "check_plan_witnesses_recomputed": {
+   "seed11": true,
+   "seed16": true,
+   "seed9": true
+  },
+  "check_single_brackets": {
+   "glazing": 79,
+   "plans 9/11/16": 86,
+   "recorded beam": 95
+  },
+  "features": {
+   "check_rebuilt_home_equals_8fcd672": true,
+   "check_windows_equal": true,
+   "core": 75,
+   "outside": 25,
+   "tables": {
+    "environment kinds": {
+     "humidity": {
+      "core": 23,
+      "outside": 8
+     },
+     "illuminance": {
+      "core": 1,
+      "outside": 2
+     },
+     "none": {
+      "core": 1,
+      "outside": 2
+     },
+     "sun": {
+      "core": 1,
+      "outside": 2
+     },
+     "temperature": {
+      "core": 51,
+      "outside": 13
+     }
+    },
+    "frame kinds": {
+     "fires_somewhere_only": {
+      "core": 72,
+      "outside": 23
+     },
+     "flaps": {
+      "core": 4,
+      "outside": 3
+     },
+     "night_light": {
+      "core": 7,
+      "outside": 0
+     },
+     "time_spread": {
+      "core": 1,
+      "outside": 0
+     }
+    },
+    "frames judged": {
+     "clock only": {
+      "core": 1,
+      "outside": 0
+     },
+     "mixed": {
+      "core": 19,
+      "outside": 8
+     },
+     "sensed only": {
+      "core": 55,
+      "outside": 17
+     }
+    },
+    "kinds on the witnessing orientation pairs": {
+     "fires_somewhere_only": {
+      "core": 72,
+      "outside": 23
+     },
+     "flaps": {
+      "core": 4,
+      "outside": 3
+     },
+     "night_light": {
+      "core": 7,
+      "outside": 0
+     },
+     "time_spread": {
+      "core": 1,
+      "outside": 0
+     }
+    },
+    "one facing only": {
+     "no facing": {
+      "core": 1,
+      "outside": 3
+     },
+     "one facing": {
+      "core": 72,
+      "outside": 21
+     },
+     "several facings": {
+      "core": 2,
+      "outside": 1
+     }
+    },
+    "read kind": {
+     "humidity": {
+      "core": 22,
+      "outside": 8
+     },
+     "neither": {
+      "core": 2,
+      "outside": 4
+     },
+     "temperature": {
+      "core": 51,
+      "outside": 13
+     }
+    },
+    "role features read": {
+     "climate": {
+      "core": 2,
+      "outside": 0
+     },
+     "door": {
+      "core": 2,
+      "outside": 1
+     },
+     "humidity": {
+      "core": 23,
+      "outside": 9
+     },
+     "illuminance": {
+      "core": 1,
+      "outside": 2
+     },
+     "none": {
+      "core": 1,
+      "outside": 0
+     },
+     "switch": {
+      "core": 6,
+      "outside": 6
+     },
+     "temperature": {
+      "core": 51,
+      "outside": 14
+     }
+    },
+    "rooms acted on": {
+     "bathroom": {
+      "core": 1,
+      "outside": 6
+     },
+     "bedroom_1": {
+      "core": 1,
+      "outside": 1
+     },
+     "kitchen": {
+      "core": 3,
+      "outside": 0
+     },
+     "living": {
+      "core": 44,
+      "outside": 11
+     },
+     "none": {
+      "core": 9,
+      "outside": 4
+     },
+     "office": {
+      "core": 19,
+      "outside": 5
+     },
+     "porch": {
+      "core": 1,
+      "outside": 0
+     }
+    },
+    "rooms read": {
+     "bathroom": {
+      "core": 1,
+      "outside": 6
+     },
+     "bedroom_1": {
+      "core": 4,
+      "outside": 2
+     },
+     "corridor": {
+      "core": 0,
+      "outside": 3
+     },
+     "kitchen": {
+      "core": 1,
+      "outside": 1
+     },
+     "living": {
+      "core": 67,
+      "outside": 13
+     },
+     "no room-scoped role": {
+      "core": 1,
+      "outside": 0
+     },
+     "office": {
+      "core": 3,
+      "outside": 1
+     },
+     "porch": {
+      "core": 5,
+      "outside": 1
+     }
+    },
+    "rooms read (count)": {
+     "0": {
+      "core": 1,
+      "outside": 0
+     },
+     "1": {
+      "core": 67,
+      "outside": 23
+     },
+     "2": {
+      "core": 7,
+      "outside": 2
+     }
+    },
+    "window facings of the rooms read": {
+     "0": {
+      "core": 67,
+      "outside": 13
+     },
+     "180": {
+      "core": 2,
+      "outside": 7
+     },
+     "270": {
+      "core": 4,
+      "outside": 2
+     },
+     "90": {
+      "core": 3,
+      "outside": 1
+     },
+     "none (windowless or no room)": {
+      "core": 1,
+      "outside": 3
+     }
+    }
+   },
+   "window_facings_by_room": {
+    "bathroom": [
+     180
+    ],
+    "bedroom_1": [
+     270
+    ],
+    "bedroom_2": [
+     0
+    ],
+    "kitchen": [
+     180
+    ],
+    "living": [
+     0
+    ],
+    "office": [
+     90
+    ]
+   }
+  },
+  "isotropy": {
+   "by_source": {
+    "R7-A": {
+     "orientation-isotropic": 5,
+     "orientation-relevant": 7,
+     "unperturbed": 1
+    },
+    "R7-B corners": {
+     "orientation-isotropic": 119,
+     "unperturbed": 1
+    },
+    "R7-B offsets": {
+     "orientation-isotropic": 4,
+     "unperturbed": 1
+    },
+    "R7-W": {
+     "orientation-relevant": 1
+    }
+   },
+   "classes": {
+    "orientation-isotropic": 128,
+    "orientation-relevant": 8,
+    "unperturbed": 3
+   },
+   "r7b_corners": 120,
+   "witness_core_over_orientation-isotropic_only": 22,
+   "witness_core_over_orientation-relevant_only": 44
+  },
+  "published": {
+   "frame_flags": 199,
+   "humidity_flags": 36,
+   "orientation_witnesses": 100,
+   "temperature_flags": 104
+  }
+ },
+ "item5a_tolerance_grid": {
+  "cells": {
+   "h_clk 1 h / h_sun 180 min": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 8
+    },
+    "frame_flags": 199,
+    "gained": 0,
+    "lost": 0,
+    "same_kinds": 199,
+    "time_spread_by_frames": {
+     "clock only": 1,
+     "mixed": 3,
+     "sun only": 4
+    }
+   },
+   "h_clk 1 h / h_sun 360 min": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 7
+    },
+    "frame_flags": 198,
+    "gained": 0,
+    "lost": 1,
+    "same_kinds": 198,
+    "time_spread_by_frames": {
+     "clock only": 1,
+     "mixed": 2,
+     "sun only": 4
+    }
+   },
+   "h_clk 1 h / h_sun 60 min": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 23
+    },
+    "frame_flags": 213,
+    "gained": 14,
+    "lost": 0,
+    "same_kinds": 198,
+    "time_spread_by_frames": {
+     "clock only": 1,
+     "mixed": 14,
+     "sun only": 8
+    }
+   },
+   "h_clk 3 h / h_sun 180 min": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 8
+    },
+    "frame_flags": 199,
+    "gained": 0,
+    "lost": 0,
+    "same_kinds": 199,
+    "time_spread_by_frames": {
+     "clock only": 1,
+     "mixed": 3,
+     "sun only": 4
+    }
+   },
+   "h_clk 3 h / h_sun 360 min": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 7
+    },
+    "frame_flags": 198,
+    "gained": 0,
+    "lost": 1,
+    "same_kinds": 198,
+    "time_spread_by_frames": {
+     "clock only": 1,
+     "mixed": 2,
+     "sun only": 4
+    }
+   },
+   "h_clk 3 h / h_sun 60 min": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 16
+    },
+    "frame_flags": 207,
+    "gained": 8,
+    "lost": 0,
+    "same_kinds": 199,
+    "time_spread_by_frames": {
+     "clock only": 1,
+     "mixed": 7,
+     "sun only": 8
+    }
+   },
+   "h_clk 6 h / h_sun 180 min": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 7
+    },
+    "frame_flags": 198,
+    "gained": 0,
+    "lost": 1,
+    "same_kinds": 198,
+    "time_spread_by_frames": {
+     "clock only": 1,
+     "mixed": 2,
+     "sun only": 4
+    }
+   },
+   "h_clk 6 h / h_sun 360 min": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 7
+    },
+    "frame_flags": 198,
+    "gained": 0,
+    "lost": 1,
+    "same_kinds": 198,
+    "time_spread_by_frames": {
+     "clock only": 1,
+     "mixed": 2,
+     "sun only": 4
+    }
+   },
+   "h_clk 6 h / h_sun 60 min": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 11
+    },
+    "frame_flags": 202,
+    "gained": 4,
+    "lost": 1,
+    "same_kinds": 198,
+    "time_spread_by_frames": {
+     "clock only": 1,
+     "mixed": 2,
+     "sun only": 8
+    }
+   }
+  },
+  "check_nominal_reproduces_published": {
+   "flags": 199,
+   "kind_mismatches": 0,
+   "published": 199
+  },
+  "clock_check_3h_reproduces_published": true,
+  "clock_relation": {
+   "h 1 h": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 725
+    },
+    "frame_flags": 799,
+    "gained": 9,
+    "lost": 0,
+    "same_kinds": 783
+   },
+   "h 3 h": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 709
+    },
+    "frame_flags": 790,
+    "gained": 0,
+    "lost": 0,
+    "same_kinds": 790
+   },
+   "h 6 h": {
+    "by_kind": {
+     "fires_somewhere_only": 185,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 425
+    },
+    "frame_flags": 531,
+    "gained": 0,
+    "lost": 259,
+    "same_kinds": 506
+   }
+  },
+  "elapsed_s": 9.6,
+  "run_automations": 5926
+ }
+}

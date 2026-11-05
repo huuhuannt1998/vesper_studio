@@ -3031,3 +3031,146 @@ window arrangement.
   setpoints would not see the setback at all in the other rooms, which is not run.
 - The U corner holds the heating at 100 W/m² of floor; the leakiest corner's baseline still holds every room above
   13.6 C, so no baseline breach is excluded by the causal rule.
+
+## Revision R9-Z (Addendum 19): the setback headline at 2 and 5 W/m², two orientation cores, the frame relation's tolerance grid
+
+**Post hoc: written after the sixth internal review, before its runs.** Registered as protocol Addendum 19 at
+`1418968`, committed alone before any number below was computed. Script: `scripts/revision/r9z_analyses.py` (tests
+`tests/edt/test_r9z_analyses.py`, written first; the oracle's new `h_sun_min` is bit-identical at its default).
+Numbers: `results/edt/r9z-736ef83.json` (aggregates only). At most 3 workers, under nice. Review 6's item numbers are
+in brackets.
+
+### Item 2: the setback headline at a realistic internal-gains setting (A19.1)
+
+R2-c's 22 setback automations, each alone, closed loop, in the core four (Minneapolis and Stockholm, 2026-01-14, plan
+north 0 and 180): 88 runs, each against its own setting's baseline, R2-c's causal rule. The corner: internal gains 2
+W/m², medium capacity (165 kJ/(m² K)), the envelope as built (no roof or ground loss; U 0.35 / 1.4 W/(m² K)), the
+nominal 1-day warm-up (R4-B's `G2-Foff-W1-C165`); and the same at 5 W/m².
+
+- *Checks.* R4-B's saved runs at both corners reproduce its published rows (breaching runs, caused cells, automations,
+  repositories, coldest caused room, baseline). Run again with the current code under the hallway thermostat, both
+  corners reproduce the saved runs exactly (the same 88 runs, the same breaching runs, 0 field mismatches in coldest
+  caused room, caused cells, baseline minimum, coldest room and setback length).
+- *Per-room thermostats.* R8-Y's per-room runs exist only at internal gains 0, so they did not exist at these corners;
+  they were run now (A18.0's binding rule). 368 closed-loop runs in 2.5 min, 3 workers.
+
+| Corner | Thermostats | Breaching runs (of 88) | Minneapolis / Stockholm | Caused cells (of 616) | Automations / repositories (per repository) | Coldest caused room per breaching run, min / median / max | Baseline coldest room |
+|---|---|---|---|---|---|---|---|
+| **2 W/m²** | **hallway (as built)** | **37** | 29 / 8 | 196 | **16 / 3** (14, 1, 1) | **4.1 / 6.3 / 9.9 C** | 15.6 C |
+| 2 W/m² | per room | 31 | 23 / 8 | 185 | 12 / 3 (10, 1, 1) | 4.2 / 6.7 / 9.9 C | 19.7 C |
+| 5 W/m² | hallway | 23 | 23 / 0 | 142 | 12 / 3 (10, 1, 1) | 6.1 / 7.6 / 9.1 C | 15.6 C |
+| 5 W/m² | per room | 23 | 23 / 0 | 137 | 12 / 3 (10, 1, 1) | 6.4 / 8.0 / 9.1 C | 19.7 C |
+| 0 W/m² (R2-c; R8-Y) | hallway / per room | 53 / 46 | 31 / 22; 24 / 22 | 315 / 279 | 16 / 3; 13 | 2.7 / 8.1 / 9.8; 2.7 / 7.2 / 9.9 C | 15.6 / 19.7 C |
+
+- **The headline at a physically possible corner: 37 of the 88 core runs breach (16 automations from 3 repositories,
+  14 of them from one), with the coldest caused room between 4.1 and 9.9 C (median 6.3 C).** With a thermostat in
+  every room, 31 (12 automations). At 5 W/m², 23 of 88 under either layout, all in Minneapolis (12 automations).
+- The per-room breaching runs are a subset of the hallway's at both corners (2 W/m²: 6 lost, all Minneapolis, from 4
+  automations; 5 W/m²: none lost). The warm-up hardly matters: 37 / 38 / 38 / 38 runs at 1, 5, 10 days and periodic
+  (2 W/m²), 23 at every warm-up (5 W/m²). Beyond the core, R4-B finds no other breaching run at either corner (J and
+  all 48: 37 and 23).
+- *Split by whether the rule turns the thermostat off* (A18.5's split, registered here; 4 of the 22 do):
+
+| Corner, thermostats | Setpoint-only rules (18): runs, coldest caused room min / median / max | Thermostat-off rules (4): runs, coldest caused room |
+|---|---|---|
+| 2 W/m², hallway | 32, 5.2 / 6.3 / 9.9 C | 5, 4.1 / 4.8 / 9.7 C |
+| 2 W/m², per room | 26, **6.7** / 6.7 / 9.9 C | 5, 4.2 / 5.1 / 9.8 C |
+| 5 W/m², hallway | 20, 6.1 / 7.8 / 9.1 C | 3, 6.4 / 6.7 / 6.9 C |
+| 5 W/m², per room | 20, 6.7 / 8.0 / 9.1 C | 3, 6.4 / 6.9 / 7.1 C |
+
+  As at 0 W/m², a thermostat per room holds a setpoint-only rule's rooms at 6.7 C (a 7 C setpoint less the band), still
+  below 10 C; the sub-6.7 C rooms come from the rules that switch the heating off.
+- *The coldest room* is bedroom 1 in 34 of the 37 breaching runs at 2 W/m² under the hallway thermostat (bedroom 2 in
+  3); per room, bedroom 1 in 25 and the bathroom in 6.
+- **In context: not available.** R4-B's companion runs (A7.4) were made at the nominal corner only, so they say
+  nothing about these corners; none was run (A19.1). At the nominal corner, 48 of the 53 breaching runs went away in
+  context, and the 15 that remained came from rules that turn the thermostat off.
+### Item 3: two orientation cores (A19.2)
+
+All memberships are read from R8-X's and R8-Y's saved records; nothing was replayed. *Checks:* each bracket alone gives
+its published core (recorded beam 95, glazing 79, plans 9/11/16 86), R8-Y's plan witnesses recompute from its saved
+replays unchanged, and R8-X's own code gives the all-bracket cores again (129 / 7 / 54 / 18 over 139 settings; 128 / 7
+/ 54 / 18 over 141).
+
+**(a) The attributable, orientation-relevant core: 75 of the 100 orientation witnesses** hold at all six settings of
+the three brackets whose attribution condition holds (the recorded beam/diffuse split; glazing x0.5 and x2; plans seed
+9, 11 and 16). The possible set is 110 (10 outside the published 100).
+
+- *Which bracket binds.* Without the recorded beam the core is still 75; without the glazing, 84; without the plans,
+  78. Glazing x0.5 is the single binding setting (82 without it).
+- *How many settings each witness survives:* 75 hold in all 6, 8 in 5, 12 in 4, 5 in 3, none in fewer.
+- *Secondary.* With plan seed 8 and the mirrored home added (8 settings) the core is **72**. Over the same six
+  settings the frame flags keep **187 of 199** (possible set 201).
+
+**(b) The all-bracket joint core, restated: 7 of 100** over A17.1's 139 settings (7 also over 141 with the glazing
+variants, and 7 over 144 with the three plans too). It includes the lumped-magnitude brackets (k̂ and the aperture
+scale), the room-temperature-level brackets (the indoor offset) and the room-model corners, whose attribution
+condition fails: they bound the size of a term, not which wall the beam reaches.
+
+**(c) Orientation-isotropic settings.** By A19.2(c)'s rule, of the 139 settings **128 are orientation-isotropic**
+(R7-B's 119 non-reference corners, its 4 indoor offsets, R7-A's outdoor air ±2 K, humidity classes 2 and 3 and the
+engine correction), **8 are orientation-relevant** (R7-A's five aperture scales and two direct shares, R7-W's recorded
+shortwave) and 3 are copies of the unperturbed model. 120 of the 139 are R7-B's corners (one of them its reference).
+Split by class, the witnesses' joint core is **44** over the 8 orientation-relevant settings and **22** over the 128
+isotropic ones: the isotropic settings remove more witnesses, but neither class alone comes near the 7, which needs
+both.
+
+**(d) What the 75 have in common** (against the 25 witnesses outside the core; a witness may read more than one
+room):
+
+| Feature | In the core (75) | Outside (25) |
+|---|---|---|
+| reads the living room (window facing 0, the plan's top; two large panes) | 67 | 13 |
+| reads the bathroom (facing 180) | 1 | 6 |
+| reads the corridor (no window) | 0 | 3 |
+| reads bedroom 1 (270) / the office (90) / the kitchen (180) / the porch | 4 / 3 / 1 / 5 | 2 / 1 / 1 / 1 |
+| the rooms it reads face one way only | 72 | 21 |
+| reads a temperature / a humidity / neither (A12's read kind) | 51 / 22 / 2 | 13 / 8 / 4 |
+| frame kinds: fires_somewhere_only / night_light / flaps / time_spread | 72 / 7 / 4 / 1 | 23 / 0 / 3 / 0 |
+| judged frames: sensed only / mixed / clock only | 55 / 19 / 1 | 17 / 8 / 0 |
+
+- The shared feature is the room: **89 % of the core (67 of 75) read the living room**, against 52 % (13 of 25)
+  outside it. Readers of the bathroom (7 witnesses, 6 of them outside the core) and of the windowless corridor (3, all
+  outside) are the ones the attributable brackets remove.
+- The divergence is almost always whether the rule fires at all (fires_somewhere_only, 72 of 75), and the rule is
+  almost always sensed (74 of 75 judged in a sensed frame, alone or mixed): a threshold on a room's temperature or
+  humidity that one bearing crosses and the other does not.
+- *What this cannot say.* Every generated plan keeps the living room's panes on the plan's top side (A18.3), glazing
+  scales every pane alike and the beam split is global: **no attributable bracket moves the living room's facing.** So
+  the 67 are robust to every attributable term that leaves their room facing the same way, which is weaker than
+  robust to where the room's window points. The binder also puts a room-less author sensor in the living room (A2.5's
+  convention), so "reads the living room" partly means "names no room". Both are stated limits, not tested.
+
+### Item 5(a): the frame relation's tolerance sensitivity (A19.3)
+
+The oracle now takes a sun tolerance apart from the clock one (`h_sun_min`; at its default the relation is unchanged,
+tested). Re-judged on `8fcd672`'s saved outcomes and first-firing instants, no re-simulation. *Check:* (3 h, 180 min)
+reproduces the 199 and every published frame kind set (0 mismatches).
+
+| h_clk \ h_sun | 60 min | 180 min | 360 min |
+|---|---|---|---|
+| 1 h | 213 (+14, -0; time_spread 23) | 199 (0, 0; 8) | 198 (0, -1; 7) |
+| **3 h** | 207 (+8, -0; 16) | **199** (8) | 198 (0, -1; 7) |
+| 6 h | 202 (+4, -1; 11) | 198 (0, -1; 7) | 198 (0, -1; 7) |
+
+Frame flags of the 5,926 run automations (gained, lost against the published 199; time_spread flags). In every cell
+fires_somewhere_only is 185, night_light 30 and flaps 8: the tolerances move only time_spread.
+
+- **Over the nine cells the frame relation flags 198 to 213** (199 published). Across the clock tolerance alone at the
+  published sun tolerance it is **198-199**: from 1 h to 6 h the frame count moves by one flag, where the clock
+  relation moves by 268 (799 at 1 h, 790 at 3 h, 531 at 6 h, the same saved outcomes; the 806 and 541 the paper
+  quotes are `120f4ca`'s, not `8fcd672`'s). The one flag lost at 6 h, or at 360 min, is a mixed-frame time_spread
+  flag.
+- The sun tolerance matters more than the clock one: 60 min adds 8 time_spread flags at 3 h (14 at 1 h), almost all
+  of them sun-only or mixed-frame automations whose sun-relative firings range over 1-3 h. At 180 min and above the
+  count is flat.
+- *Where 3 h comes from* (as found): the EDT plan's Global Constraints (`docs/superpowers/plans/2026-11-04-...`, "fixed
+  here before any sweep") and protocol §4 set "more than 3 h" for the clock relation, and A6.3 carried it to the sun
+  frame as 180 min. No document gives a reason for the value or says what it represents; the design spec states the
+  divergence ("fires outside its author's evident window") without a number.
+
+### Item 10: the cached-data checks (A19.4)
+
+Not reported here; see A19.4's dated deviation. The dead-rule probes (b) were still running when this section was
+committed. The humidity-clamp check (a) and the environment-blocked propagation (c) are coded and tested, but were not
+run.

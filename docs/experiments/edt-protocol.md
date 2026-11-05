@@ -2312,3 +2312,7 @@ all three are done.
 **A19.5 Resources.** 368 closed-loop runs (minutes), the dead-rule probes over 48 cached traces (390 automations x 4
 probes), the humidity series of 48 traces, and Monte Carlo over saved records. At most 3 workers under nice. Any
 deviation is dated below this addendum.
+
+**A19 deviation (dated 2026-11-05, after the computations of A19.1-A19.3).** A19.4 (a), (b) and (c) are not reported
+with this addendum's results. The lane was closed while (b)'s probes were still running, and (a) and (c) had not been
+run. Their code and tests are committed. Nothing registered in A19.1-A19.3 changed.
