@@ -1,0 +1,113 @@
+{
+ "bound": {
+  "8fcd672": 9515,
+  "r6d": 8590
+ },
+ "clock_relation": {
+  "by_kind": {
+   "8fcd672": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 709
+   },
+   "r6d": {
+    "fires_somewhere_only": 182,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 694
+   }
+  },
+  "flags": {
+   "8fcd672": 790,
+   "r6d": 774
+  },
+  "held_other_kinds": 0,
+  "held_same_kinds": 774,
+  "lost": 16,
+  "lost_by_reach": {
+   "kelvin/color_temp": 4,
+   "other": 11,
+   "sun.sun": 1
+  },
+  "new": 0,
+  "new_by_reach": {},
+  "other_kinds_by_reach": {},
+  "time_spread": {
+   "8fcd672": 709,
+   "held": 694,
+   "r6d": 694
+  }
+ },
+ "commit": "db19e34",
+ "dead_environment_coupled": {
+  "8fcd672": 390,
+  "r6d": 387
+ },
+ "frame_relation": {
+  "by_kind": {
+   "8fcd672": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 8
+   },
+   "r6d": {
+    "fires_somewhere_only": 182,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 8
+   }
+  },
+  "flags": {
+   "8fcd672": 199,
+   "r6d": 196
+  },
+  "held_other_kinds": 0,
+  "held_same_kinds": 196,
+  "lost": 3,
+  "lost_by_reach": {
+   "other": 3
+  },
+  "new": 0,
+  "new_by_reach": {},
+  "other_kinds_by_reach": {},
+  "time_spread": {
+   "8fcd672": 8,
+   "held": 8,
+   "r6d": 8
+  }
+ },
+ "negative_control": {
+  "8fcd672": {
+   "fired": 1247,
+   "flagged": 0,
+   "halt": false,
+   "n": 3466,
+   "rate": 0.0,
+   "rate_over": "control automations that fire somewhere",
+   "threshold": 0.05,
+   "uninformative": false
+  },
+  "r6d": {
+   "fired": 1229,
+   "flagged": 0,
+   "halt": false,
+   "n": 3428,
+   "rate": 0.0,
+   "rate_over": "control automations that fire somewhere",
+   "threshold": 0.05,
+   "uninformative": false
+  }
+ },
+ "protocol": "docs/experiments/edt-protocol.md, Addendum 11",
+ "reach_among_run_8fcd672": {
+  "kelvin/color_temp": 36,
+  "other": 5655,
+  "sun.sun": 235
+ },
+ "run": {
+  "8fcd672": 5926,
+  "r6d": 5843
+ }
+}

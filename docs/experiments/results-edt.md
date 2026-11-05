@@ -2361,3 +2361,36 @@ greedy's 6 and 20 random starts.
 So the best six-environment suite covers at most 193 of the 199 frame flags: greedy's 3 pairs are within 5 flags
 (2.6 %) of the optimum and greedy's six environments within 3; on the training half greedy's six are optimal. The LP
 relaxation is vacuous here (it spreads 6 over 48 environments), so the bound is the MILP's.
+
+## Revision R7-D (Addendum 16): the engine-corrected sweep after Addendum 15
+
+**Post hoc** (Addendum 16 and its dated deviation A16.3). Two engine changes, each with a failing test first:
+- automations with `initial_state: off` are refused at binding as disabled at startup;
+- the `sun` condition's `before` boundary (R7-C, `e6e3355`).
+
+The first run, at `66b93f7`, gave one new frame flag. Its cause (A16.3) is the template budget, which was 0.5 s of
+**wall-clock** time: a busy machine (three other lanes were running) failed a render of a `now()` template trigger in
+one environment, and the trigger silently held false. The budget now counts CPU time (`db19e34`, failing test first).
+The sweep ran again at `db19e34`: rung 4, current binder, device rule, recorded ERA5 weather, fresh traces, 3 workers,
+2026-11-05 10:10–10:47Z. Aggregates are in `results/edt/r7d-66b93f7.json` and `results/edt/r7d-db19e34.json`
+(`scripts/revision/r6d_compare.py`).
+
+| | `8fcd672` (published) | `5b54586` (R6-D) | `66b93f7` (A16, wall-clock budget) | `db19e34` (A16.3) |
+|---|---|---|---|---|
+| bound / run | 9,515 / 5,926 | 9,515 / 5,926 | 8,590 / 5,843 | 8,590 / 5,843 |
+| frame-relation flags | 199 | 199 | 197 (196 held, 1 new) | **196, all held with the same kinds** |
+| clock-relation flags | 790 | 785 | 775 (774 held, 1 new) | 774, all held with the same kinds |
+| time_spread (frame / clock) | 8 / 709 | 8 / 704 | 8 / 694 | 8 / 694 |
+| negative control | 0 / 1,247 firing | 0 / 1,243 | 0 / 1,229 | 0 / 1,229 |
+| environment-coupled never-firing | 390 | 395 | 387 | 387 |
+
+- **The refusal.** It removes 925 bound automations (8,590 = 9,515 − 925), 83 of them run.
+- **Lost flags at `db19e34`, against `8fcd672`.**
+  - Frame relation: 3, all `initial_state: off` (R7-C counted 3 among the 199).
+  - Clock relation: 16, of which 11 are `initial_state: off` and 5 are `kelvin`/`color_temp`, now refused as Home
+    Assistant 2026.10.2 refuses them.
+  - Nothing is new under either relation.
+- **The one new flag at `66b93f7`.** It was the load-dependent template timeout and does not recur at `db19e34`. Lane
+  R7-A's duplicated-environment control (Addendum 12) shows the same budget's one refusal; no flag changes there.
+- **Reading.** With every engine defect the two differential tests found now fixed, and the population re-run, the
+  frame relation's findings are the published 199 less the 3 automations Home Assistant would never have run.
