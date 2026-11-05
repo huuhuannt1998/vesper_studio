@@ -1,0 +1,1867 @@
+{
+ "automations": 263,
+ "classes": {
+  "HA semantics VESPER lacks": {
+   "automations": 2,
+   "causes": {
+    "initial_state off: Home Assistant never runs it": 4,
+    "the 50-500 ms offset of time triggers (a now()-dependent outcome)": 4
+   },
+   "pairs": 8
+  },
+  "engine bug": {
+   "automations": 22,
+   "causes": {
+    "light.turn_on kelvin/color_temp, refused by 2026.10.2": 4,
+    "sun.sun update rule (state from the elevation; update at the event, one write)": 58
+   },
+   "pairs": 62
+  },
+  "harness artifact": {
+   "automations": 2,
+   "causes": {
+    "a stub service's empty response (response_variable)": 4,
+    "the comparison read Home Assistant's brightness 0 (a turn-off) as a brightness": 4
+   },
+   "pairs": 8
+  },
+  "unexplained": {
+   "automations": 0,
+   "causes": {},
+   "pairs": 0
+  }
+ },
+ "criterion": {
+  "first_firing_within_60s": {
+   "of": 622,
+   "pass": true,
+   "share": 0.9646302250803859,
+   "value": 600
+  },
+  "frame_propagated_p97_5": {
+   "limit": 9,
+   "pass": false,
+   "value": 10
+  },
+  "pass": false,
+  "symmetric_difference": {
+   "limit": 21,
+   "of": 1052,
+   "pass": true,
+   "value": 8
+  },
+  "time_spread_direct": {
+   "pass": true,
+   "value": 0
+  }
+ },
+ "delta_all": {
+  "abs_lt_1s": 576,
+  "abs_lt_3h": 630,
+  "abs_lt_60s": 608,
+  "max": 121.00000009810901,
+  "median": -0.07964611053466797,
+  "min": -119.0000000946311,
+  "n": 630,
+  "p25": -0.2937610149383545,
+  "p5": -0.458820104598999,
+  "p75": 0.0,
+  "p95": 1.0000000026775524,
+  "zero": 63
+ },
+ "delta_by_feature": {
+  "choose": {
+   "automations": 47,
+   "both_fire_pairs": 129,
+   "delta": {
+    "abs_lt_1s": 117,
+    "abs_lt_3h": 129,
+    "abs_lt_60s": 124,
+    "max": 1.0000000584113877,
+    "median": -0.22713208198547363,
+    "min": -119.00000006481423,
+    "n": 129,
+    "p25": -0.32485198974609375,
+    "p5": -0.4994370937347412,
+    "p75": -5.653419066220522e-08,
+    "p95": 1.0,
+    "zero": 7
+   },
+   "discrepant_pairs": 14,
+   "symmetric_pairs": 0
+  },
+  "for": {
+   "automations": 50,
+   "both_fire_pairs": 76,
+   "delta": {
+    "abs_lt_1s": 69,
+    "abs_lt_3h": 76,
+    "abs_lt_60s": 72,
+    "max": 1.0000000662985258,
+    "median": -0.15376496315002441,
+    "min": -119.0000000946311,
+    "n": 76,
+    "p25": -0.32485198974609375,
+    "p5": -118.99999989164644,
+    "p75": 0.0,
+    "p95": 0.9999999876017682,
+    "zero": 20
+   },
+   "discrepant_pairs": 7,
+   "symmetric_pairs": 0
+  },
+  "numeric_state": {
+   "automations": 49,
+   "both_fire_pairs": 111,
+   "delta": {
+    "abs_lt_1s": 80,
+    "abs_lt_3h": 111,
+    "abs_lt_60s": 102,
+    "max": 121.00000009810901,
+    "median": 0.0,
+    "min": -118.99999997665873,
+    "n": 111,
+    "p25": 0.0,
+    "p5": -0.3091459274291992,
+    "p75": 1.0,
+    "p95": 120.99999998454587,
+    "zero": 48
+   },
+   "discrepant_pairs": 35,
+   "symmetric_pairs": 4
+  },
+  "sun_offset": {
+   "automations": 32,
+   "both_fire_pairs": 92,
+   "delta": {
+    "abs_lt_1s": 92,
+    "abs_lt_3h": 92,
+    "abs_lt_60s": 92,
+    "max": 9.810901246964931e-08,
+    "median": 9.764335118234158e-09,
+    "min": -0.3975389003753662,
+    "n": 92,
+    "p25": -6.481423042714596e-08,
+    "p5": -0.2840249538421631,
+    "p75": 7.217749953269958e-08,
+    "p95": 9.810901246964931e-08,
+    "zero": 0
+   },
+   "discrepant_pairs": 0,
+   "symmetric_pairs": 0
+  },
+  "sun_other": {
+   "automations": 63,
+   "both_fire_pairs": 202,
+   "delta": {
+    "abs_lt_1s": 148,
+    "abs_lt_3h": 202,
+    "abs_lt_60s": 180,
+    "max": 121.00000009810901,
+    "median": 2.6775524020195007e-09,
+    "min": -119.0000000946311,
+    "n": 202,
+    "p25": -6.481423042714596e-08,
+    "p5": -118.9999999278225,
+    "p75": 0.9999999419669621,
+    "p95": 1.0000000721774995,
+    "zero": 14
+   },
+   "discrepant_pairs": 66,
+   "symmetric_pairs": 8
+  },
+  "template": {
+   "automations": 38,
+   "both_fire_pairs": 55,
+   "delta": {
+    "abs_lt_1s": 55,
+    "abs_lt_3h": 55,
+    "abs_lt_60s": 55,
+    "max": 0.0,
+    "median": -0.2593419551849365,
+    "min": -0.4304840564727783,
+    "n": 55,
+    "p25": -0.34108495712280273,
+    "p5": -0.4304840564727783,
+    "p75": -0.13309192657470703,
+    "p95": 0.0,
+    "zero": 5
+   },
+   "discrepant_pairs": 8,
+   "symmetric_pairs": 0
+  },
+  "time_pattern": {
+   "automations": 29,
+   "both_fire_pairs": 86,
+   "delta": {
+    "abs_lt_1s": 86,
+    "abs_lt_3h": 86,
+    "abs_lt_60s": 86,
+    "max": -0.05599498748779297,
+    "median": -0.2198169231414795,
+    "min": -0.49750208854675293,
+    "n": 86,
+    "p25": -0.35611701011657715,
+    "p5": -0.4775569438934326,
+    "p75": -0.16571402549743652,
+    "p95": -0.06521296501159668,
+    "zero": 0
+   },
+   "discrepant_pairs": 4,
+   "symmetric_pairs": 0
+  },
+  "trigger:homeassistant": {
+   "automations": 10,
+   "both_fire_pairs": 24,
+   "delta": {
+    "abs_lt_1s": 22,
+    "abs_lt_3h": 24,
+    "abs_lt_60s": 24,
+    "max": 1.0000000026775524,
+    "median": -0.12967097759246826,
+    "min": -0.4307560920715332,
+    "n": 24,
+    "p25": -0.3975389003753662,
+    "p5": -0.4307560920715332,
+    "p75": 0.9999999358115019,
+    "p95": 1.0000000026775524,
+    "zero": 4
+   },
+   "discrepant_pairs": 6,
+   "symmetric_pairs": 0
+  },
+  "trigger:numeric_state": {
+   "automations": 49,
+   "both_fire_pairs": 111,
+   "delta": {
+    "abs_lt_1s": 80,
+    "abs_lt_3h": 111,
+    "abs_lt_60s": 102,
+    "max": 121.00000009810901,
+    "median": 0.0,
+    "min": -118.99999997665873,
+    "n": 111,
+    "p25": 0.0,
+    "p5": -0.3091459274291992,
+    "p75": 1.0,
+    "p95": 120.99999998454587,
+    "zero": 48
+   },
+   "discrepant_pairs": 35,
+   "symmetric_pairs": 4
+  },
+  "trigger:state": {
+   "automations": 74,
+   "both_fire_pairs": 110,
+   "delta": {
+    "abs_lt_1s": 85,
+    "abs_lt_3h": 110,
+    "abs_lt_60s": 97,
+    "max": 1.0000000662985258,
+    "median": -0.15973949432373047,
+    "min": -119.0000000946311,
+    "n": 110,
+    "p25": -0.3684680461883545,
+    "p5": -119.0000000641885,
+    "p75": 0.0,
+    "p95": 1.0000000168511178,
+    "zero": 18
+   },
+   "discrepant_pairs": 33,
+   "symmetric_pairs": 0
+  },
+  "trigger:sun": {
+   "automations": 59,
+   "both_fire_pairs": 186,
+   "delta": {
+    "abs_lt_1s": 186,
+    "abs_lt_3h": 186,
+    "abs_lt_60s": 186,
+    "max": 1.0835356079041958e-07,
+    "median": -6.199115887284279e-09,
+    "min": -0.3975389003753662,
+    "n": 186,
+    "p25": -6.481423042714596e-08,
+    "p5": -0.2840249538421631,
+    "p75": 7.217749953269958e-08,
+    "p95": 9.810901246964931e-08,
+    "zero": 4
+   },
+   "discrepant_pairs": 4,
+   "symmetric_pairs": 4
+  },
+  "trigger:template": {
+   "automations": 6,
+   "both_fire_pairs": 5,
+   "delta": {
+    "abs_lt_1s": 5,
+    "abs_lt_3h": 5,
+    "abs_lt_60s": 5,
+    "max": 0.0,
+    "median": -0.05495595932006836,
+    "min": -0.05495595932006836,
+    "n": 5,
+    "p25": -0.05495595932006836,
+    "p5": -0.05495595932006836,
+    "p75": -0.05495595932006836,
+    "p95": 0.0,
+    "zero": 1
+   },
+   "discrepant_pairs": 0,
+   "symmetric_pairs": 0
+  },
+  "trigger:time": {
+   "automations": 75,
+   "both_fire_pairs": 246,
+   "delta": {
+    "abs_lt_1s": 240,
+    "abs_lt_3h": 246,
+    "abs_lt_60s": 242,
+    "max": 1.0000000168511178,
+    "median": -0.2838139533996582,
+    "min": -119.00000006481423,
+    "n": 246,
+    "p25": -0.3558061122894287,
+    "p5": -0.458820104598999,
+    "p75": -0.15376496315002441,
+    "p95": -0.06876993179321289,
+    "zero": 0
+   },
+   "discrepant_pairs": 10,
+   "symmetric_pairs": 0
+  },
+  "trigger:time_pattern": {
+   "automations": 29,
+   "both_fire_pairs": 86,
+   "delta": {
+    "abs_lt_1s": 86,
+    "abs_lt_3h": 86,
+    "abs_lt_60s": 86,
+    "max": -0.05599498748779297,
+    "median": -0.2198169231414795,
+    "min": -0.49750208854675293,
+    "n": 86,
+    "p25": -0.35611701011657715,
+    "p5": -0.4775569438934326,
+    "p75": -0.16571402549743652,
+    "p95": -0.06521296501159668,
+    "zero": 0
+   },
+   "discrepant_pairs": 4,
+   "symmetric_pairs": 0
+  }
+ },
+ "delta_by_stratum": {
+  "choose": {
+   "automations": 25,
+   "both_fire_pairs": 76,
+   "delta": {
+    "abs_lt_1s": 68,
+    "abs_lt_3h": 76,
+    "abs_lt_60s": 71,
+    "max": 1.0000000168511178,
+    "median": -0.22713208198547363,
+    "min": -119.00000006481423,
+    "n": 76,
+    "p25": -0.3396470546722412,
+    "p5": -118.9999999278225,
+    "p75": -0.13824892044067383,
+    "p95": 0.999999948850018,
+    "zero": 0
+   },
+   "discrepant_pairs": 8
+  },
+  "for": {
+   "automations": 30,
+   "both_fire_pairs": 36,
+   "delta": {
+    "abs_lt_1s": 34,
+    "abs_lt_3h": 36,
+    "abs_lt_60s": 35,
+    "max": 1.0000000026775524,
+    "median": -0.2714710235595703,
+    "min": -119.0000000641885,
+    "n": 36,
+    "p25": -0.3684680461883545,
+    "p5": -0.4994370937347412,
+    "p75": -0.12311601638793945,
+    "p95": 0.999999948850018,
+    "zero": 0
+   },
+   "discrepant_pairs": 2
+  },
+  "frame_flag": {
+   "automations": 40,
+   "both_fire_pairs": 65,
+   "delta": {
+    "abs_lt_1s": 65,
+    "abs_lt_3h": 65,
+    "abs_lt_60s": 65,
+    "max": 9.810901246964931e-08,
+    "median": 0.0,
+    "min": -0.34298205375671387,
+    "n": 65,
+    "p25": -0.19646000862121582,
+    "p5": -0.3091459274291992,
+    "p75": 0.0,
+    "p95": 0.0,
+    "zero": 35
+   },
+   "discrepant_pairs": 0
+  },
+  "numeric_state": {
+   "automations": 30,
+   "both_fire_pairs": 84,
+   "delta": {
+    "abs_lt_1s": 53,
+    "abs_lt_3h": 84,
+    "abs_lt_60s": 75,
+    "max": 121.00000009810901,
+    "median": 0.9999999351857696,
+    "min": -118.99999997665873,
+    "n": 84,
+    "p25": 0.0,
+    "p5": -0.29520606994628906,
+    "p75": 1.0000000168511178,
+    "p95": 121.00000009810901,
+    "zero": 24
+   },
+   "discrepant_pairs": 35
+  },
+  "other": {
+   "automations": 20,
+   "both_fire_pairs": 60,
+   "delta": {
+    "abs_lt_1s": 60,
+    "abs_lt_3h": 60,
+    "abs_lt_60s": 60,
+    "max": -0.06882309913635254,
+    "median": -0.3520529270172119,
+    "min": -0.47074294090270996,
+    "n": 60,
+    "p25": -0.4511220455169678,
+    "p5": -0.47074294090270996,
+    "p75": -0.1906719207763672,
+    "p95": -0.06882309913635254,
+    "zero": 0
+   },
+   "discrepant_pairs": 0
+  },
+  "sun_offset": {
+   "automations": 30,
+   "both_fire_pairs": 88,
+   "delta": {
+    "abs_lt_1s": 88,
+    "abs_lt_3h": 88,
+    "abs_lt_60s": 88,
+    "max": 9.810901246964931e-08,
+    "median": 1.6851117834448814e-08,
+    "min": -0.3975389003753662,
+    "n": 88,
+    "p25": -6.481423042714596e-08,
+    "p5": -0.2840249538421631,
+    "p75": 7.217749953269958e-08,
+    "p95": 9.810901246964931e-08,
+    "zero": 0
+   },
+   "discrepant_pairs": 0
+  },
+  "sun_other": {
+   "automations": 25,
+   "both_fire_pairs": 72,
+   "delta": {
+    "abs_lt_1s": 68,
+    "abs_lt_3h": 72,
+    "abs_lt_60s": 69,
+    "max": 1.0000000168511178,
+    "median": -5.1149982027709484e-08,
+    "min": -119.00000006481423,
+    "n": 72,
+    "p25": -6.481423042714596e-08,
+    "p5": -0.4307560920715332,
+    "p75": 7.217749953269958e-08,
+    "p95": 9.810901246964931e-08,
+    "zero": 0
+   },
+   "discrepant_pairs": 8
+  },
+  "template": {
+   "automations": 30,
+   "both_fire_pairs": 44,
+   "delta": {
+    "abs_lt_1s": 44,
+    "abs_lt_3h": 44,
+    "abs_lt_60s": 44,
+    "max": 0.0,
+    "median": -0.24136805534362793,
+    "min": -0.4304840564727783,
+    "n": 44,
+    "p25": -0.3265819549560547,
+    "p5": -0.4304840564727783,
+    "p75": -0.06876993179321289,
+    "p95": 0.0,
+    "zero": 4
+   },
+   "discrepant_pairs": 8
+  },
+  "time_pattern": {
+   "automations": 25,
+   "both_fire_pairs": 76,
+   "delta": {
+    "abs_lt_1s": 76,
+    "abs_lt_3h": 76,
+    "abs_lt_60s": 76,
+    "max": -0.05599498748779297,
+    "median": -0.2159290313720703,
+    "min": -0.4775569438934326,
+    "n": 76,
+    "p25": -0.3487589359283447,
+    "p5": -0.4775569438934326,
+    "p75": -0.14595508575439453,
+    "p95": -0.05599498748779297,
+    "zero": 0
+   },
+   "discrepant_pairs": 4
+  },
+  "time_spread_frame_flag": {
+   "automations": 8,
+   "both_fire_pairs": 29,
+   "delta": {
+    "abs_lt_1s": 20,
+    "abs_lt_3h": 29,
+    "abs_lt_60s": 25,
+    "max": 1.0000000584113877,
+    "median": -9.463110473006964e-08,
+    "min": -119.0000000946311,
+    "n": 29,
+    "p25": -0.41025400161743164,
+    "p5": -119.00000006481423,
+    "p75": 0.9999999064893927,
+    "p95": 1.0000000584113877,
+    "zero": 0
+   },
+   "discrepant_pairs": 13
+  }
+ },
+ "discrepancies": [
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000584113877,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 545,
+   "h_fired": true,
+   "index": 0,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 497,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000584113877,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 545,
+   "h_fired": true,
+   "index": 4,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 497,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000168511178,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 5,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 4,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000168511178,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 80,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000168511178,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 86,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000168511178,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 92,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "light.turn_on kelvin/color_temp, refused by 2026.10.2",
+   "class": "engine bug",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 0,
+   "h_fired": false,
+   "index": 93,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000168511178,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 94,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 96,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000168511178,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 101,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.00000002507295,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 106,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "a stub service's empty response (response_variable)",
+   "class": "harness artifact",
+   "delta_s": -0.2876129150390625,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 96,
+   "h_fired": true,
+   "index": 123,
+   "stratum": "time_pattern",
+   "v_count": 96,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "the comparison read Home Assistant's brightness 0 (a turn-off) as a brightness",
+   "class": "harness artifact",
+   "delta_s": 0.0,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 3,
+   "h_fired": true,
+   "index": 152,
+   "stratum": "template",
+   "v_count": 3,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "the 50-500 ms offset of time triggers (a now()-dependent outcome)",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": -0.2593419551849365,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 162,
+   "stratum": "template",
+   "v_count": 8,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -119.0000000641885,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 187,
+   "stratum": "for",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -119.0000000641885,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 20004,
+   "h_fired": true,
+   "index": 195,
+   "stratum": "choose",
+   "v_count": 20004,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -119.0000000641885,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 199,
+   "stratum": "choose",
+   "v_count": 4,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000168511178,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 204,
+   "stratum": "choose",
+   "v_count": 4,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 0,
+   "h_fired": false,
+   "index": 218,
+   "stratum": "sun_other",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000168511178,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 231,
+   "stratum": "sun_other",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 0.9999999064893927,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 903,
+   "h_fired": true,
+   "index": 0,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 775,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 0.9999999064893927,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 903,
+   "h_fired": true,
+   "index": 4,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 775,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -119.0000000946311,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 26,
+   "h_fired": true,
+   "index": 6,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 26,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000721774995,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 80,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000662985258,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 82,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000662985258,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 83,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000721774995,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 86,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000662985258,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 90,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000721774995,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 92,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "light.turn_on kelvin/color_temp, refused by 2026.10.2",
+   "class": "engine bug",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 0,
+   "h_fired": false,
+   "index": 93,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000721774995,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 94,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 96,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000721774995,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 101,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 120.9999999544234,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 106,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "a stub service's empty response (response_variable)",
+   "class": "harness artifact",
+   "delta_s": -0.2876129150390625,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 96,
+   "h_fired": true,
+   "index": 123,
+   "stratum": "time_pattern",
+   "v_count": 96,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "the comparison read Home Assistant's brightness 0 (a turn-off) as a brightness",
+   "class": "harness artifact",
+   "delta_s": 0.0,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 5,
+   "h_fired": true,
+   "index": 152,
+   "stratum": "template",
+   "v_count": 5,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "the 50-500 ms offset of time triggers (a now()-dependent outcome)",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": -0.2593419551849365,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 162,
+   "stratum": "template",
+   "v_count": 8,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -118.9999999278225,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 204,
+   "stratum": "choose",
+   "v_count": 4,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 0,
+   "h_fired": false,
+   "index": 218,
+   "stratum": "sun_other",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -118.9999999278225,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 231,
+   "stratum": "sun_other",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 0.9999999025167199,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 640,
+   "h_fired": true,
+   "index": 0,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 592,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 0.9999999025167199,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 640,
+   "h_fired": true,
+   "index": 4,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 592,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -118.99999989164644,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 40,
+   "h_fired": true,
+   "index": 6,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 40,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 121.00000009810901,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 80,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 121.00000009810901,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 86,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000026775524,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 87,
+   "stratum": "numeric_state",
+   "v_count": 4,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 121.00000009810901,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 92,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "light.turn_on kelvin/color_temp, refused by 2026.10.2",
+   "class": "engine bug",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 0,
+   "h_fired": false,
+   "index": 93,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 121.00000009810901,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 94,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 96,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 121.00000009810901,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 101,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000026775524,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 107,
+   "stratum": "numeric_state",
+   "v_count": 4,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "a stub service's empty response (response_variable)",
+   "class": "harness artifact",
+   "delta_s": -0.2876129150390625,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 96,
+   "h_fired": true,
+   "index": 123,
+   "stratum": "time_pattern",
+   "v_count": 96,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "the comparison read Home Assistant's brightness 0 (a turn-off) as a brightness",
+   "class": "harness artifact",
+   "delta_s": 0.0,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 5,
+   "h_fired": true,
+   "index": 152,
+   "stratum": "template",
+   "v_count": 5,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "the 50-500 ms offset of time triggers (a now()-dependent outcome)",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": -0.2593419551849365,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 162,
+   "stratum": "template",
+   "v_count": 8,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000026775524,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 187,
+   "stratum": "for",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000026775524,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 20004,
+   "h_fired": true,
+   "index": 195,
+   "stratum": "choose",
+   "v_count": 20004,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0000000026775524,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 199,
+   "stratum": "choose",
+   "v_count": 4,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -118.99999990189099,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 204,
+   "stratum": "choose",
+   "v_count": 4,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 0,
+   "h_fired": false,
+   "index": 218,
+   "stratum": "sun_other",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -118.99999990189099,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 231,
+   "stratum": "sun_other",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 540,
+   "h_fired": true,
+   "index": 0,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 496,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 540,
+   "h_fired": true,
+   "index": 4,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 496,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -119.00000006481423,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 5,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 4,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -119.00000006426126,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 56,
+   "h_fired": true,
+   "index": 6,
+   "stratum": "time_spread_frame_flag",
+   "v_count": 56,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.000000023341272,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 82,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.000000023341272,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 83,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -118.99999997665873,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 90,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "light.turn_on kelvin/color_temp, refused by 2026.10.2",
+   "class": "engine bug",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 0,
+   "h_fired": false,
+   "index": 93,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 1.0,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 96,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 120.99999993518577,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 101,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": 120.99999998454587,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 106,
+   "stratum": "numeric_state",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "a stub service's empty response (response_variable)",
+   "class": "harness artifact",
+   "delta_s": -0.2876129150390625,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 96,
+   "h_fired": true,
+   "index": 123,
+   "stratum": "time_pattern",
+   "v_count": 96,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "the comparison read Home Assistant's brightness 0 (a turn-off) as a brightness",
+   "class": "harness artifact",
+   "delta_s": 0.0,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 5,
+   "h_fired": true,
+   "index": 152,
+   "stratum": "template",
+   "v_count": 5,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "the 50-500 ms offset of time triggers (a now()-dependent outcome)",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": -0.2593419551849365,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 162,
+   "stratum": "template",
+   "v_count": 8,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -119.00000006481423,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 4,
+   "h_fired": true,
+   "index": 204,
+   "stratum": "choose",
+   "v_count": 4,
+   "v_fired": true
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 0,
+   "h_fired": false,
+   "index": 218,
+   "stratum": "sun_other",
+   "v_count": 2,
+   "v_fired": true
+  },
+  {
+   "calls_equal": true,
+   "cause": "sun.sun update rule (state from the elevation; update at the event, one write)",
+   "class": "engine bug",
+   "delta_s": -119.00000006481423,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "h_count": 2,
+   "h_fired": true,
+   "index": 231,
+   "stratum": "sun_other",
+   "v_count": 2,
+   "v_fired": true
+  }
+ ],
+ "discrepant": {
+  "automations": 26,
+  "pairs": 78,
+  "subsecond_only_pairs": 501
+ },
+ "envs": [
+  "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+  "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+  "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+  "Sydney.2c..20.Australia-2026-07-15-n180-r4"
+ ],
+ "fix_reach": {
+  "initial_state_off": {
+   "clock_flags": 11,
+   "fire_somewhere": 28,
+   "frame_flags": 3,
+   "run": 83,
+   "time_spread_frame_flags": 0
+  },
+  "kelvin_color_temp": {
+   "clock_flags": 8,
+   "fire_somewhere": 12,
+   "frame_flags": 0,
+   "run": 42,
+   "time_spread_frame_flags": 0
+  },
+  "of_run": 5926,
+  "sun_sun": {
+   "clock_flags": 74,
+   "fire_somewhere": 104,
+   "frame_flags": 18,
+   "run": 235,
+   "time_spread_frame_flags": 4
+  }
+ },
+ "fixed_engine": {
+  "delta_all": {
+   "abs_lt_1s": 630,
+   "abs_lt_3h": 630,
+   "abs_lt_60s": 630,
+   "max": 1.0835356079041958e-07,
+   "median": -0.060603976249694824,
+   "min": -0.4994370937347412,
+   "n": 630,
+   "p25": -0.27834391593933105,
+   "p5": -0.4459190368652344,
+   "p75": 0.0,
+   "p95": 9.810901246964931e-08,
+   "zero": 69
+  },
+  "discrepant_automations": 4,
+  "discrepant_pairs": 16,
+  "sampled_frame_flags_changed_by_the_fix": 0,
+  "symmetric_pairs": 4,
+  "vesper_differs_from_sweep_automations": 22,
+  "vesper_differs_from_sweep_pairs": 85,
+  "vesper_outcome_differs_pairs": 85
+ },
+ "flags": {
+  "clock_flags": 790,
+  "direct": {
+   "changes": [],
+   "clock_changed": 0,
+   "flag_lost": 0,
+   "frame_changed": 0,
+   "sampled_frame_flags": 48,
+   "time_spread_changed": 0
+  },
+  "frame_flags": 199,
+  "margin": {
+   "clock_at_risk_max": 65,
+   "frame_at_risk_max": 18,
+   "frame_at_risk_p99": 18,
+   "m_max_s": 121.00000009810901,
+   "m_p99_s": 120.9999999544234,
+   "time_spread_at_risk_max": 2
+  },
+  "propagation": {
+   "post hoc: by automation (artifacts agree)": {
+    "clock": {
+     "clock_changed": {
+      "max": 16,
+      "mean": 9.33,
+      "median": 9.0,
+      "min": 4,
+      "p2.5": 5,
+      "p97.5": 15
+     },
+     "flags_ever_changed": 126,
+     "frame_changed": {
+      "max": 6,
+      "mean": 2.26,
+      "median": 2.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 5
+     },
+     "n": 790,
+     "reps": 100
+    },
+    "frame": {
+     "clock_changed": {
+      "max": 9,
+      "mean": 2.237,
+      "median": 2.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 6
+     },
+     "flags_ever_changed": 199,
+     "frame_changed": {
+      "max": 9,
+      "mean": 2.236,
+      "median": 2.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 5
+     },
+     "n": 199,
+     "reps": 1000
+    },
+    "time_spread": {
+     "clock_changed": {
+      "max": 2,
+      "mean": 0.046,
+      "median": 0.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 1
+     },
+     "flags_ever_changed": 8,
+     "frame_changed": {
+      "max": 2,
+      "mean": 0.08,
+      "median": 0.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 1
+     },
+     "n": 8,
+     "reps": 1000
+    }
+   },
+   "primary (artifacts agree)": {
+    "clock": {
+     "clock_changed": {
+      "max": 304,
+      "mean": 272.51,
+      "median": 272.0,
+      "min": 247,
+      "p2.5": 250,
+      "p97.5": 303
+     },
+     "flags_ever_changed": 612,
+     "frame_changed": {
+      "max": 304,
+      "mean": 272.55,
+      "median": 272.0,
+      "min": 247,
+      "p2.5": 250,
+      "p97.5": 303
+     },
+     "n": 790,
+     "reps": 100
+    },
+    "frame": {
+     "clock_changed": {
+      "max": 13,
+      "mean": 6.722,
+      "median": 7.0,
+      "min": 1,
+      "p2.5": 3,
+      "p97.5": 10
+     },
+     "flags_ever_changed": 24,
+     "frame_changed": {
+      "max": 12,
+      "mean": 6.519,
+      "median": 7.0,
+      "min": 1,
+      "p2.5": 3,
+      "p97.5": 10
+     },
+     "n": 199,
+     "reps": 1000
+    },
+    "time_spread": {
+     "clock_changed": {
+      "max": 6,
+      "mean": 2.671,
+      "median": 3.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 5
+     },
+     "flags_ever_changed": 6,
+     "frame_changed": {
+      "max": 6,
+      "mean": 2.671,
+      "median": 3.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 5
+     },
+     "n": 8,
+     "reps": 1000
+    }
+   },
+   "secondary (as observed)": {
+    "frame": {
+     "clock_changed": {
+      "max": 13,
+      "mean": 6.722,
+      "median": 7.0,
+      "min": 1,
+      "p2.5": 3,
+      "p97.5": 10
+     },
+     "flags_ever_changed": 24,
+     "frame_changed": {
+      "max": 12,
+      "mean": 6.519,
+      "median": 7.0,
+      "min": 1,
+      "p2.5": 3,
+      "p97.5": 10
+     },
+     "n": 199,
+     "reps": 1000
+    },
+    "time_spread": {
+     "clock_changed": {
+      "max": 6,
+      "mean": 2.671,
+      "median": 3.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 5
+     },
+     "flags_ever_changed": 6,
+     "frame_changed": {
+      "max": 6,
+      "mean": 2.671,
+      "median": 3.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 5
+     },
+     "n": 8,
+     "reps": 1000
+    }
+   }
+  },
+  "recomputation_reproduces_frame_flags": 199,
+  "time_spread_frame_flags": 8
+ },
+ "ha_unavailable": 0,
+ "ha_version": [
+  "2026.10.2"
+ ],
+ "ha_wall_s": {
+  "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4": 118.76,
+  "Stockholm.2c..20.Sweden-2026-07-15-n180-r4": 91.16,
+  "Sydney.2c..20.Australia-2026-01-14-n0-r4": 115.69,
+  "Sydney.2c..20.Australia-2026-07-15-n180-r4": 124.9
+ },
+ "pairs": 1052,
+ "payload": {
+  "both_fire_pairs": 630,
+  "brightness_comparable": 30,
+  "brightness_equal": 26,
+  "calls_equal": 626,
+  "counts_equal": 618
+ },
+ "protocol": "docs/experiments/edt-protocol.md, Addendum 10",
+ "reproduces_sweep": 1052,
+ "state_changes": {
+  "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4": 1664,
+  "Stockholm.2c..20.Sweden-2026-07-15-n180-r4": 1862,
+  "Sydney.2c..20.Australia-2026-01-14-n0-r4": 1642,
+  "Sydney.2c..20.Australia-2026-07-15-n180-r4": 1592
+ },
+ "status": {
+  "both": 630,
+  "neither": 414,
+  "vesper_only": 8
+ },
+ "strata": {
+  "choose": 25,
+  "for": 30,
+  "frame_flag": 40,
+  "numeric_state": 30,
+  "other": 20,
+  "sun_offset": 30,
+  "sun_other": 25,
+  "template": 30,
+  "time_pattern": 25,
+  "time_spread_frame_flag": 8
+ },
+ "symmetric_difference": {
+  "automations": 2,
+  "ha_only": 0,
+  "pairs": 8,
+  "vesper_only": 8
+ }
+}

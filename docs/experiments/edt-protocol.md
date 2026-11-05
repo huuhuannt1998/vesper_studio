@@ -875,3 +875,18 @@ analysis beside it.
 **A10.8 Engine bugs.** A real engine bug gets a failing test and a fix; the sweeps are not re-run. Reported for each:
 the run automations of the sweep that use the construct (a static count), and, as a secondary analysis, the
 comparison of A10.4 repeated with the fixed engine on the same sample and environments.
+
+**Deviations (2026-11-05, after the run in the four environments at 134b209; nothing above is changed):**
+
+- *The brightness comparison.* A10.4(3) read Home Assistant's `brightness_pct: 0` as a brightness of 0, which Home
+  Assistant's light integration turns into a turn-off and VESPER records as one; one automation's four pairs differed
+  only in this (checked by hand in Minneapolis; the same template in the other three). The comparison now reads a brightness of 0 as none (533ceb1), and A10.6 gained the
+  rule that names it a harness artifact. The per-pair records were not re-run; the rule classifies them.
+- *The engine fix took two commits.* 870125e (the `sun.sun` state rule and update instant, `kelvin`/`color_temp`); the
+  first fixed-engine comparison still showed the `sun.sun` position updates off by one interval in twilight, from two
+  wrong phase intervals; 3dcd4e7 fixes them. The secondary analysis reported is the comparison at 3dcd4e7.
+- *Propagation.* A10.5(b) as registered is reported. In it, a not-fired outcome has no envelope kind (clarification:
+  it cannot flap without firing). Added post hoc, beside it and not part of A10.7: the same propagation with draws by
+  automation (each flag draws one sampled automation and every environment draws from that automation's own pairs),
+  because the observed one-engine-only pairs are automation-level (an automation fires in no environment in Home
+  Assistant), which per-environment independent draws scatter over a flag's 48 environments.

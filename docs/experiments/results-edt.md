@@ -1442,3 +1442,128 @@ about four in five of a repository's automations cannot run in the standard home
 setback automation's repository puts its climate entities on one hallway thermostat (no restore here depended on a
 different author entity, but the night_light losses partly do); the aperture knob scales the solar heat, not the
 daylight (which has its own knob and changes one flag in 797 at rung 3).
+
+## Revision R6-C (Addendum 10): the engine against unmodified Home Assistant 2026.10.2
+
+**Post hoc** (after the third internal review, item 2), registered as protocol Addendum 10 before any comparison run
+in its four environments; the deviations made after the run are dated there. Harness:
+`vesper/validation/ha_diff.py` and `ha_diff_driver.py` (Home Assistant 2026.10.2, astral 2.2, unmodified, in its own
+venv, in-process on a virtual clock; no port is opened). Comparison run at `134b209` with the published engine;
+secondary run with the fixed engine at `3dcd4e7`; aggregates `results/edt/r6c-ha-diff-533ceb1.json` (automations by
+sample index only). Same inputs: the cached device-rule traces of the main sweep (`8fcd672`), every entity state as
+VESPER's engine derives it, fed to Home Assistant at the same logical second; `sun.sun` is Home Assistant's own.
+Environments: Minneapolis 2026-01-14 n0, Stockholm 2026-07-15 n180, Sydney 2026-01-14 n0, Sydney 2026-07-15 n180.
+Sample: 263 automations, stratified as registered (8 time_spread frame flags, 40 other frame flags, 30 sun with
+offset, 30 numeric_state, 25 time_pattern, 30 template, 30 trigger `for:`, 25 choose/if, 25 other sun, 20 other),
+**1,052 automation-environment pairs**.
+
+**Gate.** VESPER's side reproduces the published sweep's outcome and richer outcome exactly in **1,052 of 1,052**
+pairs. Home Assistant loaded all 263 automations in every environment (none unavailable).
+
+### What the two engines did (the published engine)
+
+| | Pairs (of 1,052) |
+|---|---|
+| both fire | 630 |
+| neither fires | 414 |
+| VESPER only | **8** (2 automations, all four environments each) |
+| Home Assistant only | **0** |
+
+- **First-firing difference Δ = VESPER minus Home Assistant**, over the 630 jointly firing pairs: 63 exactly 0; 576
+  (91.4 %) within 1 s; **608 (96.5 %) within 60 s**; all 630 within 3 h. Median -0.08 s, 5th to 95th percentile -0.46
+  to +1.0 s; extremes -119 s and +121 s.
+- **Payload** (630 jointly firing pairs): (service, target) sets equal in 626; distinct-instant counts equal in 618;
+  brightness comparable in 30, equal in 26 (the 4 others are the comparison artifact below).
+- **Discrepant** (exactly one fires, |Δ| >= 1 s, or calls, counts or brightness differ): **78 pairs in 26
+  automations**; another 501 pairs differ by under a second only.
+
+By trigger kind (an automation counts under every kind it has; pairs where both fire):
+
+| Kind | Automations | Both fire | |Δ| < 1 s | |Δ| < 60 s | Discrepant pairs | One engine only | Δ min / max (s) |
+|---|---|---|---|---|---|---|---|
+| sun trigger with an offset | 32 | 92 | 92 | 92 | 0 | 0 | -0.4 / 0.0 |
+| sun trigger (any) | 59 | 186 | 186 | 186 | 4 | 4 | -0.4 / 0.0 |
+| other sun use (sun.sun state/elevation, sun condition) | 63 | 202 | 148 | 180 | 66 | 8 | -119 / +121 |
+| numeric_state trigger | 49 | 111 | 80 | 102 | 35 | 4 | -119 / +121 |
+| time_pattern trigger | 29 | 86 | 86 | 86 | 4 | 0 | -0.5 / -0.1 |
+| time trigger | 75 | 246 | 240 | 242 | 10 | 0 | -119 / +1 |
+| template (trigger, condition, value_template) | 38 | 55 | 55 | 55 | 8 | 0 | -0.4 / 0.0 |
+| trigger `for:` | 50 | 76 | 69 | 72 | 7 | 0 | -119 / +1 |
+| choose / if | 47 | 129 | 117 | 124 | 14 | 0 | -119 / +1 |
+| state trigger | 74 | 110 | 85 | 97 | 33 | 0 | -119 / +1 |
+
+Sun triggers (event times) agree to under half a second in all 186 jointly firing pairs; the minute-scale differences
+are all in automations that read the `sun.sun` entity. The sub-second differences are Home Assistant's random 50-500 ms
+offset of time triggers (seeded), which VESPER does not model. Of the sampled strata, the template and `for:` strata
+mostly hold automations that fire nowhere (the resident-free home rarely changes what they watch): 44 and 36 jointly
+firing pairs.
+
+### Why: every discrepancy classified (0 unexplained)
+
+| Class | Pairs | Automations | Cause |
+|---|---|---|---|
+| engine bug | 58 | 21 | `sun.sun`: VESPER switched its state by an older rule (next rising after next setting), updated it one second after each event, wrote events and position as two state changes, and updated the position every 8 and 4 minutes in nautical and civil twilight where 2026.10.2 uses 4 and 2; 2026.10.2 sets the state from the rounded elevation (above -0.833°), at the event itself, in one write. A `sun.sun` state turns up to 2 minutes later after sunrise, an elevation threshold is crossed one update earlier or later (±119-121 s), an any-change trigger fires 545 vs 497 times (Minneapolis) |
+| engine bug | 4 | 1 | `light.turn_on` with `kelvin` (and `color_temp`): gone from 2026.10.2's schema, so Home Assistant's call fails and the run stops; VESPER dropped the parameter and turned the light on |
+| HA semantics VESPER lacks | 4 | 1 | `initial_state: off`: Home Assistant never runs the automation; VESPER ignores the key |
+| HA semantics VESPER lacks | 4 | 1 | the sub-second offset of time triggers, decisive here: a `now()` window ending at exactly 10:00:00 is open in VESPER and closed 0.26 s later in Home Assistant (8 vs 4 firings) |
+| harness artifact | 4 | 1 | a stub `shell_command` answers an empty response, so a template reading `response['stdout']` fails in Home Assistant (VESPER records the call without rendering its data) |
+| harness artifact | 4 | 1 | the comparison read Home Assistant's `brightness_pct: 0` (a turn-off) as a brightness (a post-run correction, A10 deviations) |
+
+The engine-bug classes are confirmed by the fixed engine: **with the fixes (`870125e`, `3dcd4e7`) the discrepant
+pairs fall from 78 to 16 (4 automations: exactly the HA-semantics and harness rows above), the one-engine-only pairs
+from 8 to 4, and every one of the 630 jointly firing pairs is within 0.5 s** (max |Δ| 0.50 s).
+
+### The flags (A10.5)
+
+- **Direct substitution** (Home Assistant's outcome in place of VESPER's in the four environments, the sweep's in the
+  other 44; the recomputation reproduces all 199 frame flags with VESPER's own outcomes): **0 of the 48 sampled frame
+  flags change** (0 of the 8 time_spread flags, 0 of the 40 others), and none of their clock kinds.
+- **Margin** (m = the largest |Δ| among jointly firing pairs, 121 s; the 99th percentile is the same): 18 of the 199
+  frame flags (2 of the 8 time_spread) and 65 of the 790 clock flags have a time-of-day spread within 2m of the 3 h
+  tolerance, so a shift of that size could move them. With the fixed engine m is under 1 s.
+- **Propagation as registered** (1,000 replicates, per-environment independent draws; artifacts as agreeing): frame
+  flags changing kinds: mean 6.5, 95 % range 3-10 of 199; time_spread flags 2.7, 0-5 of 8; clock flags 272.5,
+  250-303 of 790. Almost all of it is one effect: the 8 VESPER-only pairs (1.25 % of VESPER's firing pairs) dropped
+  independently into each of a flag's 48 environments turn about half of all flags into "fires somewhere only".
+  Those 8 pairs are automation-level (the two automations never fire in Home Assistant anywhere).
+- **Propagation by automation** (post hoc, beside the registered one): frame flags 2.2, 0-5 of 199; time_spread 0.08,
+  0-1 of 8; clock flags 9.3, 5-15 of 790. A flag changes here when its automation is drawn as one Home Assistant never
+  runs (it then fires nowhere and is no longer flagged).
+
+### Criterion (A10.7): fails on (3)
+
+| Part | Value | Limit | |
+|---|---|---|---|
+| (1) firing-set symmetric difference | 8 of 1,052 | at most 21 | pass |
+| (2) jointly firing pairs with |Δ| < 60 s (artifacts agree) | 600 of 622 (96.5 %) | at least 95 % | pass |
+| (3a) time_spread flags changed by direct substitution | 0 of 8 | 0 | pass |
+| (3b) 97.5th percentile of frame flags changed, propagation as registered | 10 of 199 | at most 9 | **fail** |
+
+So, as registered, the engine does not pass: the registered propagation's upper bound is one flag over its limit,
+driven by two automations VESPER runs and Home Assistant does not, spread independently over environments. The
+direct evidence is that no sampled flag moves, and the post hoc automation-level propagation bounds the change at 5
+of 199 frame flags and 1 of 8 time_spread flags.
+
+### What the fixes would change (not re-run; A10.8)
+
+| Construct | Run automations (of 5,926) | Fire somewhere | Clock flags | Frame flags | time_spread frame flags |
+|---|---|---|---|---|---|
+| reads `sun.sun` (sun-entity fix) | 235 | 104 | 74 | 18 | 4 |
+| `kelvin` / `color_temp` in a light call | 42 | 12 | 8 | 0 | 0 |
+| `initial_state: off` (not fixed: HA semantics) | 83 | 28 | 11 | 3 | 0 |
+
+In the sample, the fixed engine changes VESPER's outcome in 85 of the 1,052 pairs (22 automations, all of which read
+`sun.sun`; one of them also uses `kelvin`), and changes **none of the 48 sampled frame flags**. The fixes move firings by
+at most about two minutes, an order of magnitude below the 3 h tolerance; a sweep re-run would move at most the flags
+within that margin (18 frame flags under the published engine's worst case). The `kelvin` fix makes 12 automations
+that fire somewhere stop at the failing call: at most 8 clock flags and no frame flag. `initial_state: off` is not
+modelled: 28 automations that fire somewhere would never run in Home Assistant, and 3 of them carry a frame flag.
+
+*Concerns, stated.* The input stream is VESPER's own mapping of the trace to entity states (its MQTT-discovery
+emulation is not under test), and an entity's attributes are the ones VESPER models. Services no loaded integration
+provides are stubs (empty responses); `light`, `switch`, `lock` and `climate` are Home Assistant's own, with no entity
+behind them, so an action never changes a state on either side (open loop). The sample over-represents the trigger
+kinds the oracle depends on and VESPER-firing automations; it measures the engine on them, not a corpus rate. The
+template and `for:` strata are thin in firing pairs (44 and 36) because the resident-free home seldom moves what they
+watch. One environment of the harness shakedown (Phoenix 2026-04-15) had shown the `sun.sun` and `kelvin` differences
+before the run; their occurrence in the four is a confirmation.
