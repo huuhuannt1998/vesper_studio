@@ -1663,3 +1663,15 @@ with a witness pair inside the 6 (induced pairs).
     `default_rng(0)`);
   - greedy's 3 pairs (R4-A), evaluated on their own pairs and on the 15 pairs their 6 environments induce;
   - the gap from greedy to the upper bound.
+
+**A12 deviations (dated 2026-11-05, after the runs).**
+
+- *A12.1, A12.4:* the open-loop replays ran with the current code, which carries Addendum 11's engine fixes, not
+  `8fcd672`'s engine. The x1 check still reproduces every flag, kind and witness of the 327 replayed automations;
+  470 outcomes of 13 automations differ, all 13 reading `sun.sun`.
+- *A12.5:* a bootstrap resample holds a different number of the 148 flags; its discounted part is rescaled to 148 so
+  that the interval is on D's own population size.
+- *A12.7:* the new sites' elevations (not stated in A12.7) are the towns' rounded published values; they enter only
+  the sun's position.
+- *A12.9:* two flags fit no named class (a non-light brightness sensor bound as illuminance) and are counted under
+  *other*, as registered.

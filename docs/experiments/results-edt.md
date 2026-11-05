@@ -2137,3 +2137,227 @@ remain "run as single", a documented approximation with that reach. The inputs a
 mapping, and services outside the home's four domains are stubs, as in Addendum 10. The one unexplained pair and two
 of the offset pairs come from Home Assistant's sub-second offset meeting a report 50 ms after the hour or a
 same-instant fan-out. VESPER fires time triggers at the whole second.
+
+## Revision R7-A (Addendum 12): orientation witnesses, robust core, bookkeeping, binder discount, null difference, dead reasons, the env_latency variant, the cover bound
+
+**Post hoc** (after the fourth internal review), registered as protocol Addendum 12 at `2cbf868`, committed alone before
+any number below was computed. Code: `vesper.edt.oracle` gained the `env_latency` option of the frame relation, off by
+default (tested; off, all 5,926 run automations of `8fcd672` reproduce their published frame divergences);
+`r4a_analyses.dead_rules` was split into `dead_reasons` and itself, unchanged. Script:
+`scripts/revision/r7a_analyses.py` (tests `tests/edt/test_r7a_analyses.py`); numbers: `results/edt/r7a-25d6b90.json`
+(aggregates only). At most 3 worker processes, under nice. Review 4's item numbers are in brackets. $S_R$ is `120f4ca`,
+$S_6$ is `8fcd672`.
+
+### Item 1(b): what an orientation witness is, and the three populations (A12.1)
+
+An *orientation pair* is two environments that differ only in plan north. Three rules are in the code:
+
+| Rule | $S_R$ | $S_6$ |
+|---|---|---|
+| frame flag with an orientation pair on which the frame relation, restricted to the pair, diverges (§V-B's) | (no frame relation) | **100** of 199 |
+| clock flag with an orientation pair on which the clock relation, restricted to the pair, diverges | 129 of 797 | 123 of 790 |
+| clock flag with an orientation pair whose outcome classes differ (R4-B's and R6-B's `affected` set) | 129 | 123 |
+
+- The two clock rules give the same set on both sweeps; R4-B's 129 and R6-B's 123 are therefore the clock relation's
+  orientation witnesses on $S_R$ and $S_6$.
+- **The frame relation's 100 are a subset of $S_6$'s 123.** Of the other 23, 19 are not frame flags at all (their
+  orientation difference is a time-of-day spread the sensed frame exempts) and 4 are frame flags whose orientation
+  pairs do not diverge under the frame relation.
+- By what they read as written, the 100 are temperature 64, humidity 30, neither 6 (3 read illuminance); the 123 are
+  83, 32 and 8.
+
+*The aperture propagation, re-derived on the 100.* R6-B's frame-set aperture settings were replayed on their own cached
+traces (hard-linked; 0 of 48 traces re-recorded at every setting) for 327 automations: R6-B's affected set united with
+the 199 frame flags. The check: the x1 replay reproduces every frame flag, kind, clock kind and frame witness of the
+327 (0 mismatches). **Deviation, dated 2026-11-05:** the replays ran with the current code, which carries Addendum 11's
+engine fixes; 470 of the 15,696 replayed outcomes (13 automations) differ from `8fcd672`'s, all 13 reading `sun.sun`
+(2 also using `kelvin`/`color_temp`), and none changes a flag, a kind or a witness.
+
+| Aperture | Frame orientation witnesses kept (of 100): temperature / humidity / neither | New | Temperature flags kept (of 104) | Humidity flags kept (of 36) |
+|---|---|---|---|---|
+| x0.21 | **61**: 39 of 64 / 19 of 30 / 3 of 6 | 3 | 92 | 36 |
+| x0.25 = k̂ | **56**: 30 / 23 / 3 | 1 | 89 | 36 |
+| x0.29 | **68**: 44 / 21 / 3 | 0 | 94 | 36 |
+| x0.5 | 82: 51 / 27 / 4 | 4 | 96 | 36 |
+| x1 | 100 | 0 | 104 | 36 |
+| x2 | 94: 63 / 25 / 6 | 6 | 104 | 35 |
+
+So on the frame relation's own population, **56 of 100 orientation witnesses survive at k̂ (61-68 over its interval)**,
+against R6-B's 64 of 123 on the clock relation's population. The temperature and humidity rows equal R6-B's (89 of 104,
+36 of 36 at k̂), because those families were already the frame relation's there.
+
+### Item 4: robust core and possible set (A12.4)
+
+The robust core is the published finding held at every sampled setting of a bracket; the possible set is the union
+over its settings, within the 327 replayed (the engine bracket: over all run automations). R4-B's outdoor-air and
+humidity-class settings were run on the frame set for the first time (traces recorded afresh, 48 environments each, no
+failure).
+
+| Bracket (settings) | Orientation witnesses (100): core / possible | Temperature flags (104): core / possible | Humidity flags (36): core / possible |
+|---|---|---|---|
+| aperture, R4-B (x0.25, x0.5, x1, x2) | **52** / 107 | 88 / 105 | 35 / 36 |
+| outdoor air, R4-B (-2, 0, +2 K) | 91 / 106 | 103 / 104 | 36 / 37 |
+| humidity class, R4-B (1, 2, 3) | 97 / 102 | 104 / 104 | 35 / 36 |
+| k̂, R6-B (x0.21, x0.25, x0.29) | **47** / 77 | 88 / 95 | 36 / 36 |
+| direct share, R6-B (0.6, 0.8, 0.95) | 92 / 101 | 101 / 104 | 36 / 36 |
+| engine, R6-D (published, corrected; whole sweeps) | 100 / 100 | 104 / 104 | 36 / 36 |
+| every setting together (13) | **42** / 107 | **88** / 105 | **34** / 37 |
+
+- The lumped solar-gain term governs the orientation witnesses: **42 of 100 are held at every setting sampled**, 47 at
+  every point of k̂'s interval, 52 over R4-B's aperture bracket. The pointwise counts are not monotone in the aperture
+  (56 at x0.25, 61 at x0.21, 68 at x0.29), which is why a core is the quantity to quote.
+- The temperature flags have a core of 88 of 104 over everything sampled; the humidity flags 34 of 36. Outdoor air and
+  humidity class move few findings on the frame set (core 91-104).
+- The possible sets add at most 7 witnesses, 1 temperature flag and 1 humidity flag beyond the published ones.
+
+### Items 1(d), 1(f), 8(c): bookkeeping (A12.2)
+
+- **790 against 797.** All 790 clock flags of $S_6$ are clock flags of $S_R$ (2 with other kinds); the 7 lost are all
+  refused at $S_6$ by the binder's enclosure-or-medium rule. None is new.
+- **390 against 391.** The 390 environment-coupled dead automations of $S_6$ are all among $S_R$'s 391; the one more is
+  refused at $S_6$ by the same rule.
+- **Bound counts.** $S_R$ binds **9,524** (457,152 = 9,524 x 48 automation-environment evaluations). The 9 bound at
+  $S_R$ and not at $S_6$ are all refused by the enclosure-or-medium rule, so 9,524 - 9 = 9,515. "Refuse 7 and rebind
+  2" counts only the 179 sensor-driven flags: the rule refuses 9 automations, 7 of them flagged; the weather-token rule
+  binds 2 automations differently (both run and are clock-flagged at both sweeps) and changes no count. Run: 5,934 ->
+  5,926.
+- **Engine refusals.** $S_R$: 9,524 bound = 5,934 run + **3,590** refused in every environment, none refused in some
+  only. $S_6$: 9,515 = 5,926 + **3,589**, plus 2 automations refused in some environments and run in others. So
+  9,515 - 3,590 = 5,925 mixes the two sweeps; at $S_6$ it is 9,515 - 3,589 = 5,926.
+- **The reason list, closed** (one reason per automation, its first over the environments in key order):
+
+| Class | $S_R$ | $S_6$ |
+|---|---|---|
+| no trigger | 1,036 | 1,036 |
+| `event` triggers | 1,312 | 1,312 |
+| MQTT | 355 | 355 |
+| webhooks | 157 | 157 |
+| NFC tags | 72 | 72 |
+| blueprint definitions | 165 | 165 |
+| **other** (121-122 reason classes) | **493** | **492** |
+| total | 3,590 | 3,589 |
+
+  The other line's largest classes: an entity that is not one of the home's (66), a `value_template` numeric_state
+  trigger (44), a `conversation` trigger (36), an unsupported action (32), `parallel` (25). The one-reason rule closes
+  R4-C's 3,591: one automation of $S_R$ carries two reason classes over the environments (7 at $S_6$).
+
+### Item 8(b): the discrepant pair (A12.3)
+
+R6-C's published-engine run, 1,052 pairs = 630 both fire + 414 neither + 8 one engine only. A pair is discrepant iff
+exactly one engine fires, or both fire and |Δ| >= 1 s, or the calls, the distinct-instant counts or the brightness
+differ. Disjointly: **78 = 8 (one engine only) + 54 (both fire, |Δ| >= 1 s: 630 - 576) + 16 (both fire within 1 s, a
+payload difference: count 8, calls 4, brightness 4)**. 4 of the 54 also differ in payload; no neither-fires pair is
+discrepant; 608 of the 630 are within 60 s; 501 pairs differ by under a second only.
+
+### Item 7: a binder-discounted flag count (A12.5)
+
+Of the 199 frame flags, 148 declare a sensed frame and are discounted; the other 51 stay. 44 frame flags read the sun,
+6 of them among the 148. R4-C's labels cover **146 of the 148** (correct 65, correct by convention 37, mis-bind 40,
+uncertain 4); 2 are uncovered and take the covered share. Repository bootstrap over the 148's 72 repositories (1,000
+resamples, seed 0; each resample's discounted part rescaled to 148 flags):
+
+| Rule | Mis-binds among the covered | Discounted count D | Repo bootstrap 95 % |
+|---|---|---|---|
+| **primary: uncertain as not a mis-bind** | 40 of 146 | **158.5** of 199 | **[139.0, 173.7]** |
+| uncertain as a mis-bind | 44 | 154.4 | [134.3, 170.8] |
+| wrong medium only (C1-C4, C6) | 24 | 174.7 | [158.5, 187.0] |
+| the review's form, 51 + 148 x (1 - 51/179) | | 156.8 | [141.0, 171.2] (R4-C's ends) |
+
+So the binder takes the frame relation's 199 to about **158 [139, 174]**, about 4 in 5; counting only wrong-medium
+artefacts, 175.
+
+### Item 8(a), counting: non-default execution semantics (A12.6)
+
+As written, over the 199 frame flags / 790 clock flags / 5,926 run automations: a `mode` other than `single` 2 / 9 /
+330 (restart 2 / 6 / 260, queued 0 / 2 / 31, parallel 0 / 1 / 39); `max` 0 / 2 / 48; `max_exceeded` 2 / 2 / 97;
+`initial_state` 26 / 130 / 918, of which false or off 3 / 11 / 83; a `delay` step 20 / 43 / 453; `wait_for_trigger`
+0 / 0 / 63; **any of these 50 / 183 / 1,572**. The engine runs every mode as `single` (it records the approximation)
+and ignores `initial_state`; lane C tests the engine.
+
+### Item 10(a): the null-difference control (A12.7)
+
+Run with the current (engine-corrected) code: the 9,515 bound automations of $S_6$, its home, device rule, rung 4,
+north 0, the four dates. 20 ERA5 requests for the five new sites (URLs in the lab directory); no cached weather fetched
+again. 44 environment runs, none failed.
+
+- **Duplicated environment** (12 environments, each recorded and replayed in two fresh caches): **0 flags under
+  either relation over 71,111 automation-pairs.** Two engine non-determinism findings, neither flagging: one
+  automation refused in one copy of Phoenix January by the 0.5 s wall-clock template-compile budget (A8.9's known
+  load-dependent refusal), and one once-a-minute automation with 2,879 against 2,880 firings in one copy of Stockholm
+  April (the same first firing; the cause is not established, the wall-clock budget is the likely one).
+- **Near-identical sites** (same date and north; every pair in different ERA5 cells; mean absolute hourly outdoor
+  difference 0.15-1.36 C):
+
+| Pairs | Automation-pairs | Clock flags (rate) | Frame flags (rate) | Environment-coupled: clock / frame rate |
+|---|---|---|---|---|
+| primary, 20-50 km: Minneapolis-Anoka, Stockholm-Södertälje, Phoenix-Mesa (12) | 71,112 | 92 (0.13 %) | **72 (0.10 %)** | 0.63 % / 0.49 % |
+| secondary: Minneapolis-St Paul (14 km), Stockholm-Uppsala (64 km) (8) | 47,408 | 58 (0.12 %) | 45 (0.09 %) | 0.59 % / 0.46 % |
+| for scale: R6-D's city pairs, same date and north (60) | | mean 1.83 % (0.34-7.46) | mean 0.99 % (0.30-1.94) | |
+
+  Per pair, the frame flags are 2-13 of 5,926 (primary). The pooled primary frame flags are fires_somewhere_only 57,
+  flaps 10, night_light 6, time_spread 1; 71 of 72 are environment-coupled, reading temperature 35, humidity 30, sun 8.
+  So a near-identical pair flags about a tenth of what a city pair flags, almost all through thresholds on recorded
+  temperature and humidity that a 0.2-1.4 C weather difference crosses. These are real differences of recorded weather
+  (the duplicate control holds), not a false positive of the physical path; they also show that a threshold finding
+  can rest on a fraction of a kelvin.
+
+### Item 10(b): dead-reason precision (A12.8)
+
+The mechanical reasons, re-derived at $S_6$ for the 390 environment-coupled dead automations, reproduce R4-A's
+environment-coupled column exactly. Joined to R4-C's dead audit: 99 of its 100 are in the 390. Matching by the
+registered table:
+
+| Mechanical reason | Audited | Matches | Precision [Wilson 95 %] |
+|---|---|---|---|
+| trigger entities never change | 63 | 60 | **0.95** [0.87, 0.98] |
+| a condition never holds: on an entity that never changes | 13 | 10 | 0.77 [0.50, 0.92] |
+| a condition never holds: a template or another | 5 | 3 | 0.60 [0.23, 0.88] |
+| a condition never holds: a time condition | 1 | 1 | |
+| a condition never holds: a sensed or sun-state condition | 1 | 1 | |
+| threshold out of the observed range | 3 | 3 | (all binding artefacts) |
+| never armed | 2 | 2 | (both binding artefacts) |
+| the actions end before any call | 3 | 2 | |
+| not derived | 8 | not comparable | |
+
+**Overall 82 of the 91 comparable: 0.90 [0.82, 0.95]**; 8 of the 99 (8 %) are not derived (the auditor: E 4, B 2,
+G2 2), and no "several conditions" case was sampled. Every audited "threshold out of range" and "never armed"
+reason is a binding artefact, as R4-C found.
+
+### Item 11(a): the flags in the not-environment-coupled block (A12.9)
+
+Read by hand (labels local). Frame relation, 15: **12 genuinely not environmental** (11 a month or day-of-month
+template condition, which the four dates switch; 1 a UTC day number taken at a local hour, which the time zone
+switches) and **3 detector leaks** (2 a Dutch quantity word the name vocabulary lacks; 1 a humidity read in an action's
+`choose` condition, which `env_kinds` does not walk). Clock relation, 19: the same 12 genuine, 5 leaks (the 3 above,
+one more Dutch temperature, and a sun condition inside an `and:` shorthand that `step_kinds` does not walk), and 2
+binder artefacts (a device's LED brightness and a potentiometer bound as illuminance; the detector was right).
+
+*Against Table VI:* the 13 flags with $\Phi_A$ = {clock} under each relation are all in this block: 12 are the genuine
+date and zone cases and 1 is the action-level humidity leak, which the frame inference misses too. The block's other
+flags have a sensed frame (frame 2, clock 5) or clock+sun (clock 1), so `frames_of` saw what `env_kinds` missed. The
+detector therefore leaks 3 of the 15 frame flags (5 of the 19 clock flags): the 1,205 environment-coupled run
+automations miss at least these.
+
+### Item 12: the named variant frame+crossing+env_latency (A12.10)
+
+On the `8fcd672` cache: 157 run automations have a computable sensed frame. The variant flags **199, the same set**
+(none added, none lost); time_spread 16 (the published 8 plus A8.5's 8), **env_latency 4**. The 4 are exactly A8.5's 4
+"latency" automations among the 8 that gain time_spread (the other 4 "precede": a clock trigger fires before the
+crossing); all 4 also carry time_spread, all have conditions (clock+sensed 3, sensed+sun 1; temperature 3, illuminance
+1), latency spreads 1,277-2,340 min. The published relation is unchanged.
+
+### Item 13: the cover's upper bound (A12.11)
+
+Coverage of 6 environments = flags with a witness pair inside them. MILP (scipy HiGHS, 600 s limit); local search from
+greedy's 6 and 20 random starts.
+
+| Relation, population | Greedy's 3 pairs | Greedy's 6, induced | Best found (local search = MILP incumbent) | Upper bound (MILP) | LP relaxation |
+|---|---|---|---|---|---|
+| frame, all 199 | 188 | 190 | 190 | **193.5** (time limit) | 199 (vacuous) |
+| frame, training half 113 | 108 | 109 | 109 | **109, optimal** | 113 |
+| clock, all 790 | 774 | 777 | 777 | 785.9 (time limit) | 790 |
+| clock, training half 425 | 416 | 418 | 418 | 419.2 (time limit) | 425 |
+
+So the best six-environment suite covers at most 193 of the 199 frame flags: greedy's 3 pairs are within 5 flags
+(2.6 %) of the optimum and greedy's six environments within 3; on the training half greedy's six are optimal. The LP
+relaxation is vacuous here (it spreads 6 over 48 environments), so the bound is the MILP's.
