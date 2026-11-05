@@ -456,7 +456,7 @@ def build_check(plan_px: dict, m_per_px: float, catalog: dict | None) -> dict:
         out["stage"] = "rectify"
         plan = rectify(scaled, out["warnings"])
         out["stage"] = "check_house"
-        out["problems"] = check_house(plan)
+        out["problems"] = check_house(plan, warnings=out["warnings"])
     except PlanError as e:
         out["problems"] = [str(e)]
         return out

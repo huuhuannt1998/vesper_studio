@@ -103,12 +103,14 @@ def test_a_plan_that_is_not_a_house_writes_nothing_and_lists_every_problem(tmp_p
     cat, _ = setup(tmp_path)
     plan = three_rooms()
     plan["doors"] = plan["doors"][:2]  # nothing leads to the bedroom
-    plan["rooms"][1]["polygon"] = rect(5, 0, 6, 3)  # a 3 m² kitchen
+    plan["rooms"][1]["polygon"] = rect(5, 0, 5.4, 1)  # a 0.4 m² "kitchen": a mis-read
+    plan["doors"][1]["at"] = [5, 0.5]
+    plan["doors"][1]["width"] = 0.6
     out = tmp_path / "mine"
     assert cli.main(["lab", "import", str(write(tmp_path, plan)), str(out), "--catalog", str(cat)]) == 1
     err = capsys.readouterr().err
     assert "room 'b' is not reachable from the entrance" in err
-    assert "room 'k' (kitchen): 3.0 m²" in err
+    assert "room 'k' (kitchen): 0.4 m² is under 0.5 m²: too small to be a room" in err
     assert not out.exists()
 
 
@@ -777,3 +779,25 @@ def test_three_rooms_meeting_with_a_sliver_between_them_build(s):
             "windows": [], "entrance": 2}
     m = floor_plan_from(rectify(plan), "imported/s")
     assert sorted(d.id for d in m.doorways) == ["a-c", "b-c", "c-porch"]
+
+
+def test_a_room_of_an_unusual_size_is_built_as_read_with_a_warning(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    plan = three_rooms()
+    plan["rooms"][1]["polygon"] = rect(5, 0, 6.2, 3)  # a 3.6 m² kitchenette
+    plan["doors"][1]["at"] = [5, 1.5]
+    out = tmp_path / "mine"
+    assert cli.main(["lab", "import", str(write(tmp_path, plan)), str(out), "--catalog", str(cat)]) == 0
+    assert ("warning: room 'Kitchen' (kitchen): 3.6 m² is outside the plausible 4.0 to 21.0 m² for its type: built "
+            "as read") in capsys.readouterr().out
+    assert (out / "home.yaml").is_file()
+
+
+def test_a_plan_whose_rooms_are_all_far_too_large_is_refused_for_its_scale(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "mine"
+    assert cli.main(["lab", "import", str(write(tmp_path, three_rooms())), str(out), "--catalog", str(cat),
+                     "--area", "500"]) == 1
+    assert "the scale looks wrong: rooms are on the whole 10.9 times their usual size; give --scale or --area" in \
+        capsys.readouterr().err
+    assert not out.exists()

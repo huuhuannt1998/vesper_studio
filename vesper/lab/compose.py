@@ -146,16 +146,19 @@ def _page_words(problem: str) -> str:
     if problem.startswith("no scale:"):
         return ("No scale: write a room's size in Scale (like 'kitchen width 3.2 m') or the home's floor area "
                 "('area 95')")
-    return problem.replace("give --scale or --area, not both", "give a room's size or the area, not both")
+    return (problem.replace("give --scale or --area, not both", "give a room's size or the area, not both")
+            .replace("give --scale or --area", "write a room's size in Scale (like 'kitchen width 3.2 m') or the "
+                     "home's floor area ('area 95')"))
 
 
 def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None = None,
                  floors_drawn: int | None = None) -> dict:
     """What the page shows for a plan as read (or as the user edited it) and the user's scale: {problems (every
     reason VESPER would not build it, empty when it would), warnings (what straightening left out or narrowed
-    because the walls cannot carry it: built without it, never blocking), summary (plan_read.summary: each room,
-    door and the entrance), transform (plan_transform of the scaled plan, with m_per_px: a straightened point (x, z)
-    goes back to the image by turning it -angle_deg about centre and dividing by m_per_px), rooms (the rooms as
+    because the walls cannot carry it, and rooms of an unusual size for their type: built so, never blocking),
+    summary (plan_read.summary: each room, door and the entrance), transform (plan_transform of the scaled plan,
+    with m_per_px: a straightened point (x, z) goes back to the image by turning it -angle_deg about centre and
+    dividing by m_per_px), rooms (the rooms as
     VESPER would build them, in metres; None when it cannot straighten the plan)}. `numbers` (the page's
     door_numbers) is each door's place in the plan as read, so that every message names a door as the reading does
     (vesper.lab.plan.door_name), whatever rooms the user left out; `floors_drawn` (the reading's count of floors
@@ -183,7 +186,7 @@ def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None
         out["warnings"] = warnings
         out["summary"] = summary(straight, numbers, floors)
         out["rooms"] = [{"id": r["id"], "polygon": r["polygon"]} for r in straight["rooms"]]
-        out["problems"] = check_house(straight, numbers)
+        out["problems"] = [_page_words(p) for p in check_house(straight, numbers, warnings)]
     except PlanError as e:
         out["problems"] = [_page_words(str(e))]
     return out

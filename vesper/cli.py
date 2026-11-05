@@ -1067,9 +1067,9 @@ def _lab_import(args, catalog) -> int:
         plan = rectify(scaled, warnings, numbers)
         if is_image:
             print(plan_read.summary(plan, numbers, meta.get("floors_drawn")), flush=True)
+        problems = check_house(plan, numbers, warnings)  # a room of an unusual size: said, and built as read
         for w in warnings:
             print(f"warning: {w}", flush=True)
-        problems = check_house(plan, numbers)
         if problems:
             print(f"FAILED: {src.name} is not a house VESPER can build ({len(problems)} problem"
                   f"{'s' if len(problems) != 1 else ''}):", file=sys.stderr)

@@ -492,7 +492,7 @@ def test_an_image_import_prints_what_was_read_before_building(tmp_path, monkeypa
 def test_the_summary_is_printed_even_when_the_plan_is_then_refused(tmp_path, monkeypatch, capsys, image):
     cat, _ = setup(tmp_path)
     plan = px_plan()
-    plan["rooms"][1]["polygon"] = [[250, 0], [300, 0], [300, 100], [250, 100]]  # a 2 m² kitchen
+    plan["doors"] = plan["doors"][:2]  # nothing leads to the bedroom
     fake_claude(monkeypatch, envelope(json.dumps(plan)))
     out = tmp_path / "mine"
     assert cli.main(["lab", "import", str(image), str(out), "--catalog", str(cat)]) == 1
@@ -582,7 +582,7 @@ def test_a_refused_house_keeps_the_reading_and_the_command_to_retry_with_the_giv
                                                                                          image):
     cat, _ = setup(tmp_path)
     plan = px_plan(scale=None)
-    plan["rooms"][1]["polygon"] = [[250, 0], [300, 0], [300, 100], [250, 100]]  # a tiny kitchen
+    plan["doors"] = plan["doors"][:2]  # nothing leads to the bedroom
     fake_claude(monkeypatch, envelope(json.dumps(plan)))
     out = tmp_path / "mine"
     assert cli.main(["lab", "import", str(image), str(out), "--area", "20", "--catalog", str(cat)]) == 1
@@ -596,14 +596,14 @@ def test_a_refused_house_whose_scale_was_read_says_to_edit_the_plan_and_adds_no_
                                                                                            capsys, image):
     cat, _ = setup(tmp_path)
     plan = px_plan()  # the scale is in the plan: 0.02 m per pixel
-    plan["rooms"][1]["polygon"] = [[250, 0], [300, 0], [300, 100], [250, 100]]  # a 2 m² kitchen
+    plan["doors"] = plan["doors"][:2]  # nothing leads to the bedroom
     fake_claude(monkeypatch, envelope(json.dumps(plan)))
     out = tmp_path / "mine"
     assert cli.main(["lab", "import", str(image), str(out), "--catalog", str(cat)]) == 1
     err = capsys.readouterr().err
     saved = tmp_path / "mine.plan.json"
     hint = f"edit {saved} (rooms, types, doors), then re-run: vesper lab import {saved} {out}"
-    assert "2.0 m²" in err and hint in err
+    assert "room 'b' is not reachable" in err and hint in err
     assert "--area" not in err.split("then re-run:")[1]
 
 

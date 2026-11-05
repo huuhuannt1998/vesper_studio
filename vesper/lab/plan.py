@@ -21,6 +21,7 @@ import copy
 import itertools
 import math
 import re
+import statistics
 
 from vesper.lab.generate import AREAS
 from vesper.lab.geometry import Point, point_in_polygon, polygon_area
@@ -31,6 +32,8 @@ OUTDOOR_TYPES = ("balcony",)  # outdoor rooms (a balcony, terrace, patio or logg
 OTHER_AREA = (2.0, 60.0)  # the plausible m² of a room type with no typical area (corridor, hall, other)
 AREA_FLOOR = {"bathroom": 1.0, "other": 0.5}  # the least m² of a WC typed bathroom, and of a closet or store
 AREA_SLACK = (0.5, 1.5)  # a room's plausible area: 0.5 x the smallest typical to 1.5 x the largest
+ROOM_LEAST_M2 = 0.5  # an indoor room smaller than this is a mis-read, not a room
+SCALE_RANGE = (0.4, 2.5)  # the rooms' median area / their type's typical (middle) outside this: the scale is wrong
 
 SNAP_DEG = 10.0  # an edge within this of one of the two plan directions is straightened onto it
 MERGE_M = 0.15  # edges closer than this to one line are one line
@@ -1108,26 +1111,45 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
 
 # --- is it a house -----------------------------------------------------------------------------------------------
 
-def check_house(plan_m: dict, numbers: list[int] | None = None) -> list[str]:
-    """Every way a plan in metres is not a house (an empty list when it is): rooms that overlap, a room whose area is
-    outside [0.5 x the smallest, 1.5 x the largest] of its type's typical area (`generate.AREAS`; 2 to 60 m² for
-    types with none; an outdoor room, such as a balcony, has any size), no entrance (a door to the outside), and
-    rooms not reachable from it through doors. A WC typed bathroom may be as small as 1 m², a closet or store
-    ("other") 0.5 m² (AREA_FLOOR). Doors are named as `door_name` names them (`numbers`: as `rectify`'s)."""
+def check_house(plan_m: dict, numbers: list[int] | None = None, warnings: list[str] | None = None) -> list[str]:
+    """Every way a plan in metres is not a house (an empty list when it is): rooms that overlap, a room under 0.5 m²
+    (a mis-read, not a room), a scale that cannot be right, no entrance (a door to the outside), and rooms not
+    reachable from it through doors. Doors are named as `door_name` names them (`numbers`: as `rectify`'s).
+
+    The scale cannot be right when the rooms are on the whole far from their usual size: the median, over the indoor
+    rooms of a type with a typical area (`generate.AREAS`), of a room's area divided by the middle of its type's
+    typical range is below SCALE_RANGE[0] or above SCALE_RANGE[1]. Otherwise each indoor room's area is judged
+    against its type's plausible range ([0.5 x the smallest, 1.5 x the largest] typical area; 2 to 60 m² for a type
+    with none; a WC typed bathroom down to 1 m², a closet or store, "other", to 0.5 m²: AREA_FLOOR), and a room
+    outside it is built as read with a sentence appended to `warnings` (when a list is given): real rooms are often
+    smaller or larger than a generated home's. An outdoor room, such as a balcony, has any size."""
     load_plan(plan_m, numbers)
     if plan_m["units"] != "m":
         raise PlanError("check_house: the plan is in pixels; scale it to metres first (scale_plan)")
     problems: list[str] = []
     rooms, doors = plan_m["rooms"], plan_m.get("doors", [])
     rings = {r["id"]: _ring(r["polygon"]) for r in rooms}
-    for r in (r for r in rooms if r["type"] not in OUTDOOR_TYPES):
+    indoor = [r for r in rooms if r["type"] not in OUTDOOR_TYPES]
+    areas = {r["id"]: polygon_area(rings[r["id"]]) for r in indoor}
+    ratios = [areas[r["id"]] / ((AREAS[r["type"]][0] + AREAS[r["type"]][1]) / 2) for r in indoor
+              if r["type"] in AREAS and areas[r["id"]] >= ROOM_LEAST_M2]
+    whole = statistics.median(ratios) if ratios else 1.0
+    scale_ok = SCALE_RANGE[0] <= whole <= SCALE_RANGE[1]
+    if not scale_ok:
+        problems.append(f"the scale looks wrong: rooms are on the whole {whole:.1f} times their usual size; give "
+                        f"--scale or --area")
+    named = room_names(rooms)
+    for r in indoor:
         lo, hi = ((AREA_SLACK[0] * AREAS[r["type"]][0], AREA_SLACK[1] * AREAS[r["type"]][1])
                   if r["type"] in AREAS else OTHER_AREA)
-        area = polygon_area(rings[r["id"]])
+        area = areas[r["id"]]
         lo = AREA_FLOOR.get(r["type"], lo)
-        if not lo <= area <= hi:
-            problems.append(f"room {r['id']!r} ({r['type']}): {area:.1f} m² is outside the plausible {lo:.1f} to "
-                            f"{hi:.1f} m² for its type")
+        if area < ROOM_LEAST_M2:
+            problems.append(f"room {r['id']!r} ({r['type']}): {area:.1f} m² is under {ROOM_LEAST_M2} m²: too small "
+                            f"to be a room")
+        elif not lo - 1e-9 <= area <= hi + 1e-9 and scale_ok and warnings is not None:
+            warnings.append(f"room {named(r['id'])} ({r['type']}): {area:.1f} m² is outside the plausible {lo:.1f} "
+                            f"to {hi:.1f} m² for its type: built as read")
     for i, a in enumerate(rooms):
         for b in rooms[i + 1:]:
             ra, rb = rings[a["id"]], rings[b["id"]]

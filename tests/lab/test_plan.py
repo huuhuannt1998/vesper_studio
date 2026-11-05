@@ -420,33 +420,73 @@ def test_a_room_nothing_leads_to_is_listed_as_unreachable():
 def test_every_failing_room_is_listed():
     p = house()
     del p["doors"][3]
-    p["rooms"][0]["polygon"] = rect(0, 0, 1.4, 1.4)  # a 2 m² living room
     p["rooms"][1]["polygon"] = rect(5, 0, 5.5, 0.5)  # a 0.25 m² kitchen
     problems = check_house(p)
     text = "\n".join(problems)
-    assert "'living'" in text and "'kitchen'" in text and "'bed'" in text
-    assert any("'living'" in s and "plausible" in s for s in problems)
+    assert "'kitchen'" in text and "'bed'" in text and len(problems) == 2
 
 
-def test_a_2_m2_living_room_is_implausible():
-    p = metres([room("living", "living", rect(0, 0, 1, 2))],
-               doors=[{"at": [0, 1], "width": 0.9, "rooms": ["living", "outside"]}], entrance=0)
-    problems = check_house(p)
-    assert len(problems) == 1 and "'living'" in problems[0] and "2.0 m²" in problems[0] and "8.0" in problems[0]
+def with_room(typ, w, d, name="R"):
+    """house() and one more room of `typ`, w x d m, south of the corridor beside the bedroom, its door off the
+    corridor: a room whose area alone is judged (the house's other rooms keep the scale plausible)."""
+    p = house()
+    p["rooms"].append(room("r", typ, rect(3.5, 5.2, 3.5 + w, 5.2 + d), name=name))
+    p["doors"].append({"at": [3.5 + w / 2, 5.2], "width": min(0.9, w - 0.1), "rooms": ["hall", "r"]})
+    return p
+
+
+def area_warnings(p):
+    warnings = []
+    return check_house(p, warnings=warnings), warnings
+
+
+def test_a_room_outside_its_type_s_plausible_area_is_a_warning_and_the_house_is_built():
+    """Real rooms fall outside the generator's ranges (CubiCasa5K: kitchenettes of 2.7-3.5 m², a 0.7 m² hall, a 64 m²
+    open-plan living room): the import says so and builds them as read."""
+    assert area_warnings(with_room("kitchen", 1.4, 2.5, name="Kitchenette")) == (
+        [], ["room 'Kitchenette' (kitchen): 3.5 m² is outside the plausible 4.0 to 21.0 m² for its type: built as "
+             "read"])
+    assert area_warnings(with_room("hall", 0.7, 1.0))[0] == []
+    assert area_warnings(with_room("living", 8, 8))[0] == []
+    assert check_house(with_room("living", 8, 8)) == []  # no list given: nothing said, nothing refused
 
 
 def test_the_plausible_range_is_half_the_smallest_to_one_and_a_half_times_the_largest():
-    def only(typ, w, d):
-        return metres([room("r", typ, rect(0, 0, w, d))],
-                      doors=[{"at": [0, d / 2], "width": 0.9, "rooms": ["r", "outside"]}], entrance=0)
-    assert check_house(only("living", 2, 4)) == []  # 8 m² = 0.5 x 16
-    assert check_house(only("living", 6, 7)) == []  # 42 m² = 1.5 x 28
-    assert check_house(only("living", 2, 3.9))
-    assert check_house(only("living", 6, 7.1))
-    assert check_house(only("corridor", 1, 2)) == []  # types with no typical area: 2 to 60 m²
-    assert check_house(only("corridor", 1, 1.9))
-    assert check_house(only("hall", 6, 10)) == []
-    assert check_house(only("hall", 6, 10.1))
+    assert area_warnings(with_room("living", 2, 4)) == ([], [])  # 8 m² = 0.5 x 16
+    assert area_warnings(with_room("living", 6, 7)) == ([], [])  # 42 m² = 1.5 x 28
+    assert area_warnings(with_room("living", 2, 3.9))[1]
+    assert area_warnings(with_room("living", 6, 7.1))[1]
+    assert area_warnings(with_room("corridor", 1, 2)) == ([], [])  # types with no typical area: 2 to 60 m²
+    assert area_warnings(with_room("corridor", 1, 1.9))[1]
+    assert area_warnings(with_room("hall", 6, 10)) == ([], [])
+    assert area_warnings(with_room("hall", 6, 10.1))[1]
+
+
+def test_a_room_under_half_a_square_metre_is_refused_as_a_misreading():
+    for typ in ("bathroom", "other", "living"):
+        problems, warnings = area_warnings(with_room(typ, 0.5, 0.8))  # 0.4 m²
+        assert problems == [f"room 'r' ({typ}): 0.4 m² is under 0.5 m²: too small to be a room"] and warnings == []
+
+
+def scaled_house(k):
+    p = house()
+    for r in p["rooms"]:
+        r["polygon"] = [[x * k, z * k] for x, z in r["polygon"]]
+    for d in p["doors"]:
+        d["at"], d["width"] = [d["at"][0] * k, d["at"][1] * k], d["width"] * k
+    return p
+
+
+def test_a_wrong_scale_is_refused_when_the_rooms_are_on_the_whole_far_from_their_usual_size():
+    """The median over the rooms with a typical area (generate.AREAS) of area / the middle of that range: below 0.4
+    or above 2.5 the scale itself is wrong, and the rooms are not judged one by one."""
+    assert area_warnings(scaled_house(2)) == (
+        ["the scale looks wrong: rooms are on the whole 3.8 times their usual size; give --scale or --area"], [])
+    assert area_warnings(scaled_house(0.5)) == (
+        ["the scale looks wrong: rooms are on the whole 0.2 times their usual size; give --scale or --area"], [])
+    problems, warnings = area_warnings(scaled_house(1.5))  # 2.1 times: the scale stands, three rooms are large
+    assert problems == [] and len(warnings) == 3
+    assert area_warnings(scaled_house(0.7)) == ([], [])  # 0.5 times: small rooms, each within its range
 
 
 def test_a_plan_without_a_front_door_is_not_a_house():
@@ -973,18 +1013,15 @@ def test_a_balcony_s_area_is_not_judged_by_an_indoor_room_s_range():
 # --- round 2 (task A6): small rooms are real rooms; one door numbering ------------------------------------------
 
 def test_a_wc_and_a_closet_are_rooms_but_a_cupboard_is_not():
-    def only(typ, w, d):
-        return metres([room("r", typ, rect(0, 0, w, d))],
-                      doors=[{"at": [0, d / 2], "width": 0.6, "rooms": ["r", "outside"]}], entrance=0)
-    assert check_house(only("bathroom", 1.0, 1.3)) == []  # a 1.3 m² WC typed bathroom (CubiCasa5K plan 1590)
-    assert check_house(only("bathroom", 1.0, 1.0)) == []  # 1.0 m²: the least
-    assert check_house(only("bathroom", 1.0, 0.95))
-    assert check_house(only("bathroom", 3.0, 3.5)) == []  # 10.5 m², the most, unchanged
-    assert check_house(only("bathroom", 3.0, 3.6))
-    assert check_house(only("other", 0.7, 0.75)) == []  # a 0.5 m² closet
-    problems = check_house(only("other", 0.5, 0.8))  # 0.4 m²
-    assert problems == ["room 'r' (other): 0.4 m² is outside the plausible 0.5 to 60.0 m² for its type"]
-    assert check_house(only("other", 6, 10.1))  # 60 m², the most, unchanged
+    assert area_warnings(with_room("bathroom", 1.0, 1.3)) == ([], [])  # a 1.3 m² WC typed bathroom (plan 1590)
+    assert area_warnings(with_room("bathroom", 1.0, 1.0)) == ([], [])  # 1.0 m²: the least
+    assert area_warnings(with_room("bathroom", 1.0, 0.95))[1]
+    assert area_warnings(with_room("bathroom", 3.0, 3.5)) == ([], [])  # 10.5 m², the most, unchanged
+    assert area_warnings(with_room("bathroom", 3.0, 3.6))[1]
+    assert area_warnings(with_room("other", 0.7, 0.75)) == ([], [])  # a 0.5 m² closet
+    assert area_warnings(with_room("other", 0.5, 0.8))[0] == ["room 'r' (other): 0.4 m² is under 0.5 m²: too small "
+                                                              "to be a room"]
+    assert area_warnings(with_room("other", 6, 10.1))[1]  # 60 m², the most, unchanged
 
 
 def numbered():

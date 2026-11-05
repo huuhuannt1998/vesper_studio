@@ -587,9 +587,13 @@ def test_the_check_scales_straightens_and_lists_problems_for_the_plan_as_the_use
     assert "check them against your image" in ok["summary"]
     assert json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "area 49.5"})[1])["problems"] == []
     edited = px_plan()
-    edited["rooms"][2]["type"] = "bathroom"  # 14 m²: too big for a bathroom
-    bad = json.loads(call(s, "/api/import/check", {"plan": edited, "scale": "living width 5 m"})[1])
-    assert len(bad["problems"]) == 1 and "room 'b' (bathroom)" in bad["problems"][0]
+    edited["rooms"][2]["type"] = "bathroom"  # 14 m²: large for a bathroom, built as read (task A7)
+    big = json.loads(call(s, "/api/import/check", {"plan": edited, "scale": "living width 5 m"})[1])
+    assert big["problems"] == [] and big["warnings"] == [
+        "room 'Bedroom' (bathroom): 14.0 m² is outside the plausible 1.0 to 10.5 m² for its type: built as read"]
+    bad = json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "living width 15 m"})[1])
+    assert bad["problems"] == ["the scale looks wrong: rooms are on the whole 9.7 times their usual size; write a "
+                               "room's size in Scale (like 'kitchen width 3.2 m') or the home's floor area ('area 95')"]
     nope = json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "garage width 3 m"})[1])
     assert "matches no room" in nope["problems"][0] and nope["rooms"] is None
     assert call(s, "/api/import/check", {"scale": "area 50"})[0] == 400
@@ -630,10 +634,10 @@ def test_generate_builds_the_edited_plan_as_the_composed_home(server, tmp_path):
     status, body = call(s, "/api/generate", {**req, "plan": px_plan(), "scale": None})
     assert status == 400 and "No scale" in json.loads(body)["error"]
     bad = px_plan()
-    bad["rooms"][1]["type"] = "laundry"
+    bad["doors"] = bad["doors"][:2]  # nothing leads to the bedroom
     status, body = call(s, "/api/generate", {**req, "plan": bad})
     assert status == 400 and "not a house" in json.loads(body)["error"]
-    assert "'k' (laundry)" in json.loads(body)["error"]
+    assert "room 'b' is not reachable" in json.loads(body)["error"]
     assert call(s, "/api/generate", {**req, "rooms": 4})[0] == 400  # the plan's rooms, not a count
     # a generated home after an imported one sets the plan aside with the rest
     assert call(s, "/api/generate", {"format": "vesper-request/1", "rooms": 2, "devices": []})[0] == 200
