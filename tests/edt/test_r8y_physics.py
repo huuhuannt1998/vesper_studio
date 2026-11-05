@@ -83,3 +83,21 @@ def test_the_core_over_plans_is_the_published_witnesses_held_in_every_plan():
     c = r8y.core_over(pub, plans)
     assert c["core"] == 2 and c["possible"] == 6 and c["of"] == 4 and c["new_in_any"] == 2
     assert c["held_in"] == {"0": 0, "1": 2, "2": 0, "3": 2}  # c and d in one plan each; a and b in all three
+
+
+def test_an_automation_turns_its_thermostat_off_by_the_service_or_the_hvac_mode():
+    def auto(*steps):
+        return {"actions": list(steps)}
+    t = {"target": {"entity_id": "climate.x"}}
+    assert r8y.turns_thermostat_off(auto({"action": "climate.turn_off", **t}))
+    assert r8y.turns_thermostat_off(auto({"action": "climate.set_hvac_mode", **t, "data": {"hvac_mode": "off"}}))
+    assert not r8y.turns_thermostat_off(auto({"action": "climate.set_temperature", **t, "data": {"temperature": 7}}))
+    assert not r8y.turns_thermostat_off(auto({"action": "climate.set_hvac_mode", **t, "data": {"hvac_mode": "heat"}}))
+
+
+def test_the_off_split_separates_the_coldest_caused_rooms_by_whether_the_rule_turns_the_thermostat_off():
+    rows = [_row("A1", "M", {"living": (6.7, 16.0)}, ("living",)),
+            _row("A2", "M", {"living": (2.7, 16.0)}, ("living",)), _row("A3", "M", {"living": (12.0, 16.0)})]
+    s = r8y.off_split(rows, {"M"}, {"A2"})
+    assert s["setpoint_only"] == {"breaching_runs": 1, "coldest_caused_room_per_run_c": [6.7, 6.7, 6.7]}
+    assert s["turns_thermostat_off"] == {"breaching_runs": 1, "coldest_caused_room_per_run_c": [2.7, 2.7, 2.7]}

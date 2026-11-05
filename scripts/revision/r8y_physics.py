@@ -120,6 +120,28 @@ def identity_shift(a: list[dict], b: list[dict]) -> dict:
                                                for k in changed).items()))}
 
 
+def turns_thermostat_off(bound: dict) -> bool:
+    """Whether the automation's climate actions turn a thermostat off (`climate.turn_off`, or an hvac_mode of off):
+    the diagnostic of A18.5, read statically from the bound automation."""
+    from vesper.edt.setback import climate_steps
+    for svc, step in climate_steps(bound):
+        data = {**(step.get("data") or {}), **(step.get("data_template") or {})}
+        if svc == "climate.turn_off" or str(data.get("hvac_mode", "")).strip().lower() == "off":
+            return True
+    return False
+
+
+def off_split(rows: list[dict], keys: set, off: set) -> dict:
+    """The breaching runs and their coldest caused rooms, apart for the automations (by name) that turn the
+    thermostat off and those that only set it back."""
+    out = {}
+    for tag, pick in (("setpoint_only", lambda n: n not in off), ("turns_thermostat_off", lambda n: n in off)):
+        hit = [r for r in rows if r["_key"] in keys and r["caused"] and pick(r["automation"])]
+        out[tag] = {"breaching_runs": len(hit),
+                    "coldest_caused_room_per_run_c": _span(r["coldest_caused_room_c"] for r in hit)}
+    return out
+
+
 def nested(sets: list[set]) -> bool:
     """Whether each set holds the one before it (the order the axis gives)."""
     return all(x <= y for x, y in zip(sets, sets[1:], strict=False))
@@ -228,6 +250,13 @@ def report_setback(scratch: Path, lab: Path) -> dict:
                 "coldest_caused_room_c_lowest": min((x[0] for x in lows), default=None),
                 "coldest_caused_room_c_highest": max((x[2] for x in lows), default=None),
                 "settings": len(group)}
+    # A18.5 (a diagnostic written after the runs): the automations that turn the thermostat off, apart
+    off = {d["names"][aid] for aid in d["pop"] if turns_thermostat_off(d["run"][aid]["bound"])}
+    off_breaching = sorted({r["automation"] for label in settings for r in rows[label]
+                            if r["_key"] in core and r["caused"] and r["automation"] in off})
+    split = {label: off_split(rows[label], core, off) for label in settings}
+    below_on = [r["coldest_room_c"] - setpoint[r["automation"]] for r in rows[ROOM]
+                if r["_key"] in core and r["_setback"] and r["automation"] not in off]
     for s in [*settings.values(), room48]:
         s.pop("runs_set")
     return {"automations": n_auto, "core": sorted(r2c.label(r2c._env(d["envs"][k])) for k in core),
@@ -238,6 +267,9 @@ def report_setback(scratch: Path, lab: Path) -> dict:
             "identity_hallway_vs_per_room": shift,
             "per_room_coldest_room_minus_setpoint_k": _span(below),
             "nesting": nest, "restated_primary": restated(primary), "restated_all_18": restated(every),
+            "a18_5_turns_thermostat_off": {"automations": len(off), "of_them_breaching_somewhere": len(off_breaching),
+                                           "breaching_anonymous": off_breaching, "by_setting": split,
+                                           "per_room_coldest_room_minus_setpoint_k_setpoint_only": _span(below_on)},
             "elapsed_s": round(p["elapsed_s"], 1)}
 
 
