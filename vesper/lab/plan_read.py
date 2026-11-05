@@ -193,12 +193,14 @@ def _picture_kind(path: Path) -> str:
     raise PlanError(f"{_label(path.name)}: not a PNG, JPEG or PDF file")
 
 
-def summary(plan_m: dict, numbers: list[int] | None = None, floors_drawn: int | None = None) -> str:
+def summary(plan_m: dict, numbers: list[int] | None = None, floors_drawn: int | None = None,
+            said: str = "Claude read") -> str:
     """What was read, for the user to check against the image: each room's name, type and area, the doors, and the
     entrance. `plan_m` is a plan in metres (scaled); a plan still in pixels (no scale yet) is shown in pixels. Doors are
     named as `vesper.lab.plan.door_name` names them: from 1, in the plan as read (`numbers`: each door's place there,
     when doors were left out since). With `floors_drawn` above 1 (the reading's count), a line says which storey
-    was read: the one with the main entrance."""
+    was read: the one with the main entrance. `said` opens it: who read the plan ("The drawing has" for a plan
+    library's ground truth, which no one read)."""
     from vesper.lab.geometry import polygon_area
     px = plan_m.get("units") == "px"
     area = (lambda a: f"{a:.0f} px²") if px else (lambda a: f"{a:.1f} m²")
@@ -206,7 +208,7 @@ def summary(plan_m: dict, numbers: list[int] | None = None, floors_drawn: int | 
     rooms, doors = plan_m["rooms"], plan_m.get("doors", [])
     names = {r["id"]: r.get("name") or r["id"] for r in rooms}
     names["outside"] = "outside"
-    head = f"Claude read {len(rooms)} room{'s' if len(rooms) != 1 else ''} and {len(doors)} door" \
+    head = f"{said} {len(rooms)} room{'s' if len(rooms) != 1 else ''} and {len(doors)} door" \
            f"{'s' if len(doors) != 1 else ''}"
     lines = [head + ("; scale missing, so areas are in pixels:" if px else "; check them against your image:")]
     if floors_drawn is not None and floors_drawn > 1:

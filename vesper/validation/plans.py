@@ -149,7 +149,7 @@ def _opening(poly) -> tuple[list[float], float, tuple[float, float], float]:
 def parse_cubicasa_svg(text: str) -> dict:
     """The ground truth of a CubiCasa5K `model.svg`: every floor it draws (a two-storey home's floors stand side by
     side in the one image, `F1_scaled.png`, so both are what the image shows) as one `vesper-plan/1` in image
-    pixels, and "floors", how many; and
+    pixels, and "floors", how many ("room_floors": each room's, from 0, in the order the SVG draws the floors); and
 
     - "m_per_px": the scale, from the rooms' dimension labels (the median over the rooms that have one), else 1 cm a
       unit ("scale_source" says which);
@@ -166,23 +166,23 @@ def parse_cubicasa_svg(text: str) -> dict:
         raise ValueError("model.svg: no floor plan (no group of class Floorplan)")
     spaces, doors, windows = [], [], []
 
-    def walk(el, m):
+    def walk(el, m, f):
         m = m @ _matrix(el.get("transform"))
         kind = _cls(el).split()
         if kind and kind[0] == "Space" and (poly := _first_polygon(el)) is not None:
-            spaces.append((el, m, _points(poly, m)))
+            spaces.append((el, m, _points(poly, m), f))
             return
         if kind and kind[0] in ("Door", "Window") and (poly := _first_polygon(el)) is not None:
             (doors if kind[0] == "Door" else windows).append(_points(poly, m))
             return
         for c in el:
-            walk(c, m)
-    for floor, base in floors:
+            walk(c, m, f)
+    for f, (floor, base) in enumerate(floors):
         for c in floor:
-            walk(c, base)
+            walk(c, base, f)
 
     rooms, classes, ratios = [], [], []
-    for k, (el, _m, poly) in enumerate(spaces):
+    for k, (el, _m, poly, _f) in enumerate(spaces):
         words = _cls(el).split()[1:]
         cls = words[0] if words else "Undefined"
         classes.append(cls)
@@ -248,7 +248,8 @@ def parse_cubicasa_svg(text: str) -> dict:
             "doors": plan_doors, "windows": plan_windows, "entrance": entrance}
     return {"plan": plan, "m_per_px": m_per_px,
             "scale_source": "labels" if ratios else "assumed 1 cm a unit", "classes": classes,
-            "door_points": door_points, "openings": openings, "floors": len(floors)}
+            "door_points": door_points, "openings": openings, "floors": len(floors),
+            "room_floors": [f for *_, f in spaces]}
 
 
 def _touching(p, q, min_len: float) -> tuple[list[float], float] | None:

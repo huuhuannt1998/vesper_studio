@@ -52,6 +52,10 @@ def test_the_ground_truth_is_every_floors_spaces_in_image_pixels_with_their_mapp
     assert plan["rooms"][4]["polygon"] == rect(1000, 0, 1300, 300) and gt["floors"] == 2
 
 
+def test_each_room_says_which_floor_draws_it():
+    gt = plans.parse_cubicasa_svg(SVG)
+    assert gt["room_floors"] == [0, 0, 0, 0, 1]  # the plan gallery builds a two-storey plan from one of them
+
 def test_the_scale_comes_from_the_dimension_labels_else_a_centimetre_a_unit():
     gt = plans.parse_cubicasa_svg(SVG)
     assert gt["m_per_px"] == pytest.approx(0.01) and gt["scale_source"] == "labels"

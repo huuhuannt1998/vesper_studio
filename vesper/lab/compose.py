@@ -8,6 +8,11 @@ shows only with its evidence: L0 and L1 come from the catalog, L2 from the lates
 Import a plan (floor-plan import, task A4): POST /api/import takes a floor-plan image (Claude reads it in the
 background: GET /api/import/<job> follows it) or a vesper-plan/1 file; POST /api/import/check checks the plan as
 the user edited it with their scale; /api/generate with a `plan` builds it (`generate_from_plan`).
+
+The plan library (design 2026-11-05): GET /api/plan-library lists the configured library's plans (filtered, a page
+at a time, indexed in the background), /api/plan-library/thumb|image|plan/<id> serve a plan's thumbnail, image and
+ground truth (checked as VESPER would build it, for the preview); POST /api/plan-library/use {id} makes that ground
+truth the import, as a plan imported and ready to review, with no Claude.
 """
 from __future__ import annotations
 
@@ -152,7 +157,7 @@ def _page_words(problem: str) -> str:
 
 
 def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None = None,
-                 floors_drawn: int | None = None) -> dict:
+                 floors_drawn: int | None = None, drawn: bool = False) -> dict:
     """What the page shows for a plan as read (or as the user edited it) and the user's scale: {problems (every
     reason VESPER would not build it, empty when it would), warnings (what straightening left out or narrowed
     because the walls cannot carry it, and rooms of an unusual size for their type: built so, never blocking),
@@ -162,11 +167,15 @@ def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None
     VESPER would build them, in metres; None when it cannot straighten the plan)}. `numbers` (the page's
     door_numbers) is each door's place in the plan as read, so that every message names a door as the reading does
     (vesper.lab.plan.door_name), whatever rooms the user left out; `floors_drawn` (the reading's count of floors
-    drawn, sent back by the page) puts which storey was read in the summary."""
+    drawn, sent back by the page) puts which storey was read in the summary; `drawn` says the plan is a plan
+    library's own drawing (its ground truth), not a reading."""
     from vesper.lab.geometry import polygon_area
     from vesper.lab.plan import (PlanError, check_house, load_plan, measured_scale, plan_transform, rectify,
                                  scale_plan)
-    from vesper.lab.plan_read import summary
+    from vesper.lab.plan_read import summary as read_summary
+
+    def summary(p, n, f):
+        return read_summary(p, n, f, said="The drawing has" if drawn else "Claude read")
     out = {"problems": [], "warnings": [], "summary": None, "transform": None, "rooms": None}
     try:
         load_plan(plan, numbers)
@@ -179,9 +188,9 @@ def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None
     try:
         room_size, area = scale_args(scale)
         scaled = scale_plan(plan, room_size, area)
-        drawn = sum(polygon_area([tuple(p) for p in r["polygon"]]) for r in plan["rooms"])
+        px = sum(polygon_area([tuple(p) for p in r["polygon"]]) for r in plan["rooms"])
         real = sum(polygon_area([tuple(p) for p in r["polygon"]]) for r in scaled["rooms"])
-        out["transform"] = {**plan_transform(scaled), "m_per_px": math.sqrt(real / drawn) if drawn > 0 else 1.0}
+        out["transform"] = {**plan_transform(scaled), "m_per_px": math.sqrt(real / px) if px > 0 else 1.0}
         warnings: list[str] = []
         straight = rectify(scaled, warnings, numbers)
         out["warnings"] = warnings
@@ -276,6 +285,7 @@ def _file_name(name: str | None) -> str | None:
 
 
 IMPORT_PATH = re.compile(r"^/api/import/([0-9a-f]{16})(/image)?$")  # a reading, by its job id; its image
+LIBRARY_PATH = re.compile(r"^/api/plan-library/(thumb|image|plan)/(.{1,200})$")  # the id is looked up in the index
 STOP_PATH = re.compile(r"^/api/import/([0-9a-f]{16})/stop$")
 
 MOSQUITTO_PATHS =("/opt/homebrew/sbin/mosquitto", "/usr/local/sbin/mosquitto", "/usr/sbin/mosquitto")
@@ -348,7 +358,8 @@ class ComposeServer:
 
     def __init__(self, catalog: dict, catalog_dir: Path, results_dir: Path, out: Path, *, port: int = 18081,
                  ui_dir: Path | None = None, launch=None, play_port: int = 18082, wait_for_play=None,
-                 stack_root: Path | None = None, reader=None):
+                 stack_root: Path | None = None, reader=None, plan_library: Path | str | None = None,
+                 library_cache: Path | None = None):
         from vesper.lab.play import UI_DIR
         self.catalog, self.catalog_dir, self.out = catalog, Path(catalog_dir), Path(out)
         self.ui_dir = Path(ui_dir or UI_DIR)
@@ -368,6 +379,8 @@ class ComposeServer:
         self._reader = reader  # path -> a vesper-plan/1 in pixels (plan_read.read_plan_image), or a test's stand-in
         self._imports: dict[str, dict] = {}  # the latest readings, by job id, oldest first
         self._import_lock = threading.RLock()  # start_import holds it while it keeps the new job
+        self._library_folder = plan_library  # None: the configured plan_library (vesper setup plan-library)
+        self._library_cache, self._library = library_cache, None
 
     # -- importing a floor plan (floor-plan import, task A4) ------------------------------------------------
     IMPORTS_KEPT = 4  # the readings (and their images) the server remembers
@@ -491,9 +504,48 @@ class ComposeServer:
         """The image a job read, and its type, for the page to draw under the plan; None for a PDF (never drawn)."""
         with self._import_lock:
             job = self._imports.get(job_id)
-            if job is None or "image" not in job or job["kind"] not in ("png", "jpg"):
+            if job is None or "image" not in job or job["kind"] not in ("png", "jpg", "library"):
                 return None
-            return job["image"], {"png": "image/png", "jpg": "image/jpeg"}[job["kind"]]
+            return job["image"], {"png": "image/png", "jpg": "image/jpeg", "library": "image/png"}[job["kind"]]
+
+    # -- the plan library's gallery (design 2026-11-05) --------------------------------------------------------
+    def library(self):
+        """The plan library (vesper.lab.plan_library): the one given, else the configured one. A library not found
+        (not set up, or its drive not connected) is looked for again on the next request."""
+        from vesper.lab.plan_library import PlanLibrary, configured_library
+        with self._import_lock:
+            folder = self._library_folder or configured_library()
+            folder = str(folder) if folder else None
+            lib = self._library
+            if lib is None or lib.root is None or lib.state == "failed" or lib.folder != folder:
+                self._library = PlanLibrary(folder, self._library_cache)
+            return self._library
+
+    def library_plan(self, pid: str) -> dict | None:
+        """A plan for the gallery's preview: its ground truth (the floor built) and import_check's problems, warnings
+        and summary of it; None for an id the index does not hold."""
+        got = self.library().plan(pid)
+        if got is None:
+            return None
+        checked = import_check(got["plan"], floors_drawn=got["floors"], drawn=True)
+        return {k: v for k, v in got.items() if k != "row"} | {
+            "problems": checked["problems"], "warnings": checked["warnings"], "summary": checked["summary"]}
+
+    def use_library_plan(self, pid) -> dict | None:
+        """Use this plan: the library plan's ground truth becomes the import (a job done, its image the plan's own),
+        to review and generate as any imported plan. No Claude. None for an id the index does not hold."""
+        import secrets
+        import time
+        lib = self.library()
+        got = lib.plan(pid) if isinstance(pid, str) else None
+        if got is None:
+            return None
+        library = {"id": got["id"], "scale_source": got["scale_source"], "m_per_px": got["m_per_px"],
+                   "floors": got["floors"]}
+        job = {"job": secrets.token_hex(8), "name": got["name"], "started": time.time(), "kind": "library",
+               "state": "done", "plan": got["plan"], "floors_drawn": got["floors"], "library": library,
+               "image": lib.image(pid), **import_check(got["plan"], floors_drawn=got["floors"], drawn=True)}
+        return self._public(self._keep(job))
 
     def hub(self) -> bool:
         """A played home gets Home Assistant (set up here)."""
@@ -651,10 +703,10 @@ class ComposeServer:
             def log_message(self, *a):
                 pass
 
-            def _send(self, status: int, body: bytes, ctype: str = "application/json") -> None:
+            def _send(self, status: int, body: bytes, ctype: str = "application/json", cache: str = "no-store"):
                 self.send_response(status)
                 self.send_header("Content-Type", ctype)
-                self.send_header("Cache-Control", "no-store")
+                self.send_header("Cache-Control", cache)
                 self.send_header("X-Content-Type-Options", "nosniff")  # an imported image is served as its type only
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
@@ -676,7 +728,7 @@ class ComposeServer:
                     return self._json(403, {"error": "this page is served to 127.0.0.1 only"})
                 u = urlparse(self.path)
                 q = {k: v[0] for k, v in parse_qs(u.query).items()}
-                if u.path in ("/", "/compose.html", "/compose.js", "/mapview.js", "/style.css"):
+                if u.path in ("/", "/compose.html", "/compose.js", "/gallery.js", "/mapview.js", "/style.css"):
                     f = server.ui_dir / ("compose.html" if u.path == "/" else u.path.lstrip("/"))
                     if f.is_file():
                         return self._send(200, f.read_bytes(), server.TYPES.get(f.suffix, "application/octet-stream"))
@@ -695,6 +747,16 @@ class ComposeServer:
                     status = server.import_status(job.group(1))
                     return self._json(200, status) if status is not None else self._json(404, {"error":
                                                                                                "no such reading"})
+                if u.path == "/api/plan-library":
+                    from vesper.lab.plan_library import LibraryError
+                    try:
+                        return self._json(200, server.library().listing(
+                            int(q.get("offset", 0)), int(q.get("limit", 24)), q.get("rooms"), q.get("floors"),
+                            q.get("q")))
+                    except (LibraryError, ValueError) as e:  # int() of a word: a ValueError
+                        return self._json(400, {"error": str(e)})
+                if lib := LIBRARY_PATH.match(u.path):
+                    return self._library_get(lib.group(1), lib.group(2))
                 if u.path == "/api/furnish":
                     return self._json(200, server.furnish_status())
                 if u.path == "/api/scenes":
@@ -714,6 +776,20 @@ class ComposeServer:
                         return self._json(404, {"error": "no such product"})
                     return self._json(200, product_card(r, server.ev))
                 return self._json(404, {"error": "not found"})
+
+            def _library_get(self, what: str, pid: str):
+                """A library plan's thumbnail, image or plan, by an id the index holds (else 404)."""
+                if what == "plan":
+                    got = server.library_plan(pid)
+                    return self._json(200, got) if got is not None else self._json(404, {"error": "no such plan"})
+                lib = server.library()
+                if what == "thumb":
+                    found = lib.thumb(pid)
+                else:
+                    found = (img, "image/png") if (img := lib.image(pid)) is not None else None
+                if found is None:
+                    return self._json(404, {"error": "no such plan"})
+                return self._send(200, found[0], found[1], "private, max-age=86400")  # a library plan never changes
 
             def _import(self):
                 """The import's body is the file itself (an image, or a plan's JSON), up to 50 MB, its size checked
@@ -765,11 +841,15 @@ class ComposeServer:
                         stopped = server.stop_import(stop.group(1))
                         return self._json(200, stopped) if stopped is not None else self._json(
                             404, {"error": "no such reading"})
+                    if self.path == "/api/plan-library/use":
+                        used = server.use_library_plan(body.get("id") if isinstance(body, dict) else None)
+                        return self._json(200, used) if used is not None else self._json(
+                            404, {"error": "no such plan in the library"})
                     if self.path == "/api/import/check":
                         if not isinstance(body, dict) or not isinstance(body.get("plan"), dict):
                             raise ComposeError("a check is {plan, scale}: the plan as edited and the scale text")
                         return self._json(200, import_check(body["plan"], body.get("scale"), body.get("door_numbers"),
-                                                            body.get("floors_drawn")))
+                                                            body.get("floors_drawn"), body.get("drawn") is True))
                 except ComposeError as e:
                     return self._json(400, {"error": str(e)})
                 except Exception as e:  # noqa: BLE001 - said to the page, never a dropped connection
