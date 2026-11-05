@@ -4,6 +4,8 @@ them) read into a `vesper-plan/1` (scan import, task B1). The fixture is hand-wr
 import copy
 import json
 import math
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -13,9 +15,24 @@ from vesper.lab.plan import check_house, load_plan, rectify
 from vesper.lab.scan_roomplan import ScanError, plan_from_parts, read_roomplan_json
 
 FIXTURES = Path(__file__).parent / "fixtures" / "roomplan"
-SCANS = Path(__file__).resolve().parents[2] / ".vesper" / "datasets" / "scans"
-if not SCANS.is_dir():  # a worktree: the test set lives in the main checkout
-    SCANS = Path(__file__).resolve().parents[5] / ".vesper" / "datasets" / "scans"
+
+
+def _scans() -> Path:
+    """The scan test set: $VESPER_SCANS, else .vesper/datasets/scans in the main checkout (git's common directory's
+    parent, so that a worktree finds it too), else beside this repository."""
+    if os.environ.get("VESPER_SCANS"):
+        return Path(os.environ["VESPER_SCANS"])
+    here = Path(__file__).resolve().parent
+    try:
+        common = subprocess.run(["git", "-C", str(here), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                                capture_output=True, text=True, timeout=10, check=True).stdout.strip()
+        root = Path(common).parent
+    except (OSError, subprocess.SubprocessError):
+        root = here.parents[1]
+    return root / ".vesper" / "datasets" / "scans"
+
+
+SCANS = _scans()
 
 
 def fixture() -> dict:
@@ -146,6 +163,50 @@ def test_a_door_or_window_of_no_width_is_left_out():
     assert sum("has no width" in w for w in warnings) == 2, warnings
 
 
+def test_an_object_centred_on_a_wall_line_stands_in_the_room_beside_it():
+    raw = fixture()
+    raw["objects"].append({"identifier": "O-tv", "category": {"television": {}}, "story": 0,
+                           "dimensions": [1.2, 0.7, 0.08], "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0,
+                                                                          2.5, 0.2, -0.02, 1]})
+    plan, objects, warnings = read_roomplan_json(raw)
+    [tv] = [o for o in objects if o["kind"] == "television"]
+    assert tv["room"] == by_type(plan, "living")["id"]
+    assert not any("television" in w for w in warnings), warnings
+
+
+def test_a_window_in_a_wall_between_two_rooms_is_left_out_with_a_warning():
+    raw = fixture()
+    raw["windows"].append({**item(raw, "windows", "N-bedroom"), "identifier": "N-inner", "parentIdentifier": "W-middle",
+                           "transform": [0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 5.0, 0.3, 1.0, 1]})
+    plan, _, warnings = read_roomplan_json(raw)
+    assert len(plan["windows"]) == 2
+    assert any("between two rooms" in w for w in warnings), warnings
+
+
+def test_doors_and_windows_keep_their_heights_beside_the_plan():
+    """A plan's door has exactly at, width and rooms (load_plan); its bottom and top, from the floor, travel in
+    warnings.heights, in the plan's order. A door with a step up (bottom 0.2 m) keeps it."""
+    raw = fixture()
+    front = item(raw, "doors", "D-front")
+    front["dimensions"][1] = 1.9
+    front["transform"][13] = -1.2 + 0.2 + 0.95
+    plan, _, warnings = read_roomplan_json(raw)
+    k = plan["entrance"]
+    assert warnings.heights["doors"][k] == pytest.approx({"bottom": 0.2, "top": 2.1})
+    assert len(warnings.heights["doors"]) == len(plan["doors"])
+    [win] = [w for w in plan["windows"] if w["room"] == by_type(plan, "living")["id"]]
+    assert warnings.heights["windows"][plan["windows"].index(win)] == pytest.approx({"bottom": 0.9, "top": 2.1})
+
+
+def test_a_zero_length_wall_named_by_a_door_is_no_wall():
+    corners = [(0, 0), (4, 0), (4, 3), (0, 3)]
+    walls = [{"id": f"w{k}", "a": list(corners[k]), "b": list(corners[(k + 1) % 4]), "height": 2.5} for k in range(4)]
+    walls.append({"id": "w9", "a": [1.0, 0.0], "b": [1.0, 0.0], "height": 2.5})
+    doors = [{"wall": "w9", "at": [1.0, 0.0], "width": 0.8, "bottom": 0.0, "top": 2.0}]
+    plan, _, _ = plan_from_parts(walls, doors, [], [], [{"label": "kitchen", "center": [2.0, 1.5]}], [])
+    assert len(plan["doors"]) == 1 and plan["doors"][0]["at"] == pytest.approx([1.0, 0.0])
+
+
 def test_walls_of_different_heights_are_built_with_a_warning():
     """RoomPlan scans no ceiling, and a wall seen only in part is short (1.59, 2.09, 2.42 m in one real bedroom)."""
     raw = fixture()
@@ -174,7 +235,17 @@ def test_upstairs_elements_are_left_out_with_a_warning():
     plan, objects, warnings = read_roomplan_json(raw)
     assert sorted(r["type"] for r in plan["rooms"]) == ["bedroom", "living"]
     assert len(objects) == 3
-    assert any("story 1" in w and "one storey" in w for w in warnings), warnings
+    assert any("story 1" in w and "one storey" in w and "story 0 is read" in w for w in warnings), warnings
+
+
+def test_a_scan_of_one_storey_above_0_says_which_storey_was_read():
+    raw = fixture()
+    for kind in ("walls", "doors", "windows", "floors", "objects", "sections"):
+        for it in raw[kind]:
+            it["story"] = 2
+    plan, _, warnings = read_roomplan_json(raw)
+    assert len(plan["rooms"]) == 2
+    assert any("story 2 is read" in w for w in warnings), warnings
 
 
 def test_an_opening_is_a_door_with_no_leaf():
@@ -221,9 +292,15 @@ def test_objects_become_pieces_in_their_rooms():
 
 
 def test_a_turned_scan_gives_the_same_rooms():
-    plan, _, warnings = read_roomplan_json(turned(fixture(), 31.0))
+    plan, objects, warnings = read_roomplan_json(turned(fixture(), 31.0))
     assert area(by_type(plan, "living")) == pytest.approx(20.0, rel=0.02)
     assert area(by_type(plan, "bedroom")) == pytest.approx(14.0, rel=0.02)
+    _, before, _ = read_roomplan_json(fixture())
+    assert [o["yaw"] for o in objects] == pytest.approx([o["yaw"] + 31.0 for o in before])
+    t = math.radians(31.0)
+    east = [8.5 * math.cos(t) - 2.0 * math.sin(t), 8.5 * math.sin(t) + 2.0 * math.cos(t)]
+    [win] = [w for w in plan["windows"] if w["room"] == by_type(plan, "bedroom")["id"]]
+    assert win["at"] == pytest.approx(east, abs=1e-3)
     straight = rectify(plan, warnings)
     assert check_house(straight) == []
     assert len(straight["doors"]) == 2 and len(straight["windows"]) == 2
@@ -297,6 +374,37 @@ def test_a_structure_of_two_rooms_is_read_in_one_frame():
     assert check_house(straight) == []
 
 
+def test_a_door_listed_in_both_rooms_of_a_structure_is_one_door():
+    raw = separate_rooms()
+    door = item(raw["rooms"][0], "doors", "D-between")
+    raw["rooms"][1]["doors"] = [{**copy.deepcopy(door), "identifier": "D-between-2", "parentIdentifier": "B-west",
+                                 "transform": door["transform"][:12] + [5.12, -0.185, 2.62, 1]}]
+    plan, _, warnings = read_roomplan_json(raw)
+    living, bedroom = by_type(plan, "living")["id"], by_type(plan, "bedroom")["id"]
+    assert len(doors_between(plan, living, bedroom)) == 1 and len(plan["doors"]) == 2
+    assert any("listed twice" in w for w in warnings), warnings
+    assert len(warnings.heights["doors"]) == 2
+
+
+def test_two_doorways_side_by_side_stay_two_doors():
+    raw = fixture()
+    front = item(raw, "doors", "D-front")
+    raw["openings"].append({**copy.deepcopy(front), "identifier": "O-beside", "category": {"opening": {}},
+                            "dimensions": [1.0, 2.03, 0]})
+    raw["openings"][-1]["transform"][12] = 1.5 + 0.45 + 0.5  # touching the door's side
+    plan, _, _ = read_roomplan_json(raw)
+    assert len(doors_between(plan, by_type(plan, "living")["id"], "outside")) == 2
+
+
+def test_a_structure_reads_each_list_from_its_top_level_when_there_and_else_from_its_rooms():
+    raw = separate_rooms()
+    raw["walls"] = [w for r in raw["rooms"] for w in r["walls"]]  # merged walls only; doors only in the rooms
+    for r in raw["rooms"]:
+        r["walls"] = []
+    plan, _, _ = read_roomplan_json(raw)
+    assert len(plan["rooms"]) == 2 and len(plan["doors"]) == 2 and len(plan["windows"]) == 2
+
+
 def test_a_structure_with_its_own_merged_lists_reads_those():
     """Apple's CapturedStructure also lists every wall, door and section at its top level: those are read (the
     rooms' own lists would repeat them)."""
@@ -357,19 +465,21 @@ def test_the_litereality_bedroom():
     assert check_house(straight) == []
 
 
-@pytest.mark.parametrize("name, types, doors, windows, problems", [
-    ("litereality-girton-common-room-roomplan/roomplan/room.json", ["living"], 3, 2, []),
-    # a 37 m² meeting room labelled diningRoom: part A's scale check (made for drawings, whose scale is read) takes a
-    # dining room that large for a wrong scale; the scan's metres are right
-    ("litereality-cued-meeting-room-roomplan/roomplan/room.json", ["dining"], 3, 3, ["the scale looks wrong"]),
-])
-def test_the_other_litereality_rooms(name, types, doors, windows, problems):
-    plan, _, warnings = read_roomplan_json(scan(name))
-    assert [r["type"] for r in plan["rooms"]] == types
-    assert len(plan["doors"]) == doors and len(plan["windows"]) == windows and plan["entrance"] is not None
+def test_the_girton_common_room():
+    plan, _, warnings = read_roomplan_json(scan("litereality-girton-common-room-roomplan/roomplan/room.json"))
+    assert [r["type"] for r in plan["rooms"]] == ["living"]
+    assert len(plan["doors"]) == 3 and len(plan["windows"]) == 2 and plan["entrance"] is not None
+    assert check_house(rectify(plan, warnings)) == []
+
+
+def test_the_cued_meeting_room():
+    """Two sections (unidentified, diningRoom) in one walled room of about 37 m²."""
+    plan, _, warnings = read_roomplan_json(scan("litereality-cued-meeting-room-roomplan/roomplan/room.json"))
+    assert [r["type"] for r in plan["rooms"]] == ["dining"]
+    assert area(plan["rooms"][0]) == pytest.approx(37.2, rel=0.03)
+    assert len(plan["doors"]) == 3 and len(plan["windows"]) == 3 and plan["entrance"] is not None
     straight = rectify(plan, warnings)
-    found = check_house(straight)
-    assert len(found) == len(problems) and all(f.startswith(p) for f, p in zip(found, problems, strict=True)), found
+    assert len(straight["doors"]) == 3 and len(straight["windows"]) == 3
 
 
 def test_the_domotwin_structure():

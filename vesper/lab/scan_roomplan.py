@@ -12,8 +12,10 @@ joined to it (and said), and every face of the resulting drawing is a region. A 
 lies in; with no sections each region is a room typed `other`. A door, window or opening stands on the wall RoomPlan
 says it belongs to (`parentIdentifier`), and joins the rooms found on either side of that wall (or a room and the
 outside); an opening is a door with no leaf. The entrance is a door to the outside. What the scan does not show is
-left out with a sentence in the warnings, never invented: an upstairs (one storey is imported), a ceiling (RoomPlan
-scans none: VESPER builds 2.5 m), a door that leads from no room.
+left out with a sentence in the warnings, never invented: an upstairs (one storey is imported: the lowest one among
+the walls, and a warning says which), a ceiling (RoomPlan scans none: VESPER builds 2.5 m), a door that leads from no
+room. A plan's door or window has exactly the keys `load_plan` takes, so the heights of the doors and windows (bottom
+and top, from the floor) travel beside the plan, in the warnings' `heights` (`ScanWarnings`).
 
 `plan_from_parts` does the work on plain parts in plan coordinates; the USDZ reader (task B2) feeds it too.
 """
@@ -30,6 +32,9 @@ JOIN_M = 0.5  # a wall stopping this short of another wall, or of another wall's
 PROBES_M = (0.1, 0.2, 0.35, 0.5)  # how far across a wall the rooms on its two sides are looked for (a wall's
 # thickness separates two rooms scanned on their own; rectify closes such a gap, and up to 0.5 m at a door)
 REACH_M = 0.5  # a door or window naming no wall stands on the nearest wall this close
+TWICE_M = 0.3  # two doors joining the same rooms closer than this (or than half the narrower one's width) are one
+# door listed twice (two doorways side by side, as in a real meeting room, are a width apart and stay two)
+NEAR_M = 0.3  # an object whose centre is in no room stands in the room whose wall is this close (a TV on a wall)
 STRAIGHT_M = 0.01  # a corner less than this off the line through its neighbours is not a corner
 SLIVER_M2 = 0.05  # a region smaller than this is two walls drawn close together, not a room
 ROOM_LEAST_M2 = 1.5  # a region with no section smaller than this is left out (a gap between walls, a duct)
@@ -49,6 +54,16 @@ _LISTS = ("walls", "doors", "windows", "openings", "floors", "objects")
 
 class ScanError(PlanError):
     """A scan or 3D model VESPER cannot turn into a plan, with the reason."""
+
+
+class ScanWarnings(list):
+    """The warnings (sentences), and `heights`: {"doors": [...], "windows": [...]}, one {"bottom", "top"} (metres
+    from the floor) per door and window of the plan, in the plan's order. `load_plan` takes no other keys on a door or
+    window, so the heights travel here. (`rectify` may leave doors or windows out; their heights stay in this order.)"""
+
+    def __init__(self, items=(), heights: dict | None = None):
+        super().__init__(items)
+        self.heights = heights if heights is not None else {"doors": [], "windows": []}
 
 
 # --- the RoomPlan file -------------------------------------------------------------------------------------------
@@ -83,28 +98,27 @@ def _story(it: dict) -> int:
 
 
 def _lists(raw: dict) -> tuple[dict[str, list], list]:
-    """The element lists and the sections of a CapturedRoom, or of a CapturedStructure: its own merged lists when it
-    has them (Apple's), else its rooms' lists together (they share one frame)."""
+    """The element lists and the sections of a CapturedRoom, or of a CapturedStructure, list by list: its own merged
+    list when it has a non-empty one (Apple's), else its rooms' lists together (they share one frame)."""
     rooms = raw.get("rooms") if isinstance(raw.get("rooms"), list) else []
     rooms = [r for r in rooms if isinstance(r, dict)]
-    own = any(isinstance(raw.get(k), list) and raw.get(k) for k in _LISTS)
     lists: dict[str, list] = {}
-    for k in _LISTS:
-        if own or not rooms:
-            got = raw.get(k)
-            lists[k] = got if isinstance(got, list) else []
+    for k in (*_LISTS, "sections"):
+        own = raw.get(k)
+        if isinstance(own, list) and own:
+            lists[k] = own
         else:
             lists[k] = [x for r in rooms if isinstance(r.get(k), list) for x in r[k]]
-    sections = raw.get("sections") if isinstance(raw.get("sections"), list) and raw.get("sections") else \
-        [s for r in rooms if isinstance(r.get("sections"), list) for s in r["sections"]]
+    sections = lists.pop("sections")
     return lists, [s for s in sections if isinstance(s, dict)]
 
 
 def read_roomplan_json(raw: dict) -> tuple[dict, list[dict], list[str]]:
     """A RoomPlan CapturedRoom or CapturedStructure (the JSON, already parsed) as (the `vesper-plan/1` in metres, the
-    objects as pieces of furniture `{kind, room, box, h, yaw}`, warnings). See `plan_from_parts`. Elements above the
-    lowest storey are left out, and said: one storey is imported. A ScanError when the file is not RoomPlan's or its
-    walls enclose no room."""
+    objects as pieces of furniture `{kind, room, box, h, yaw}`, warnings as `ScanWarnings`). See `plan_from_parts`.
+    One storey is imported: the lowest among the walls (a warning says which when it is not story 0 or when the scan
+    has others; elements on the others are left out). A ScanError when the file is not RoomPlan's or its walls
+    enclose no room."""
     if not isinstance(raw, dict) or not (isinstance(raw.get("walls"), list) or isinstance(raw.get("rooms"), list)):
         raise ScanError("not a RoomPlan file: expected a CapturedRoom or CapturedStructure (with walls, or rooms)")
     lists, sections = _lists(raw)
@@ -123,7 +137,9 @@ def read_roomplan_json(raw: dict) -> tuple[dict, list[dict], list[str]]:
         n = (sum(1 for v in framed.values() for it, _ in v if _story(it) != storey)
              + sum(1 for s in sections if _story(s) != storey))
         where = ", ".join(f"story {s}" for s in upstairs)
-        warnings.append(f"{n} elements on {where} left out: one storey is imported (story {storey})")
+        warnings.append(f"{n} elements on {where} left out: one storey is imported, story {storey} is read")
+    elif storey != 0:
+        warnings.append(f"the scan's walls are on story {storey}: story {storey} is read")
     framed = {k: [(it, f) for it, f in v if _story(it) == storey] for k, v in framed.items()}
     sections = [s for s in sections if _story(s) == storey]
 
@@ -165,7 +181,8 @@ def read_roomplan_json(raw: dict) -> tuple[dict, list[dict], list[str]]:
                          "center": [c[0], c[2]]})
     plan, pieces, more = plan_from_parts(walls, openings("doors"), openings("windows"), openings("openings"), secs,
                                          objects)
-    return plan, pieces, warnings + more
+    more[:0] = warnings
+    return plan, pieces, more
 
 
 # --- the walls as a drawing --------------------------------------------------------------------------------------
@@ -357,6 +374,11 @@ def _clean(ring: list[Point]) -> list[Point]:
 
 # --- the plan ----------------------------------------------------------------------------------------------------
 
+def _heights(item: dict) -> dict:
+    """A door's or window's bottom and top (metres from the floor; None when the source gives none)."""
+    return {k: (round(float(item[k]), ROUND) if _num(item.get(k)) else None) for k in ("bottom", "top")}
+
+
 def _where(p) -> str:
     return f"({p[0]:.2f}, {p[1]:.2f})"
 
@@ -387,8 +409,11 @@ def plan_from_parts(walls: list[dict], doors: list[dict], windows: list[dict], o
     Returns (plan, pieces, warnings). A piece is `{kind, room, box: [x0, z0, x1, z1], h, yaw}`: its kind (RoomPlan's
     category, storage as cabinet), the room it stands in, its footprint before its yaw (centre less and plus half its
     width along x and half its depth along z), its height, and the degrees it is turned about its centre from +x
-    toward +z (rectify's turn, `plan.plan_transform`, adds to it). A ScanError when the walls enclose no room."""
-    warnings: list[str] = []
+    toward +z (rectify's turn, `plan.plan_transform`, adds to it). The warnings are a `ScanWarnings`, whose `heights`
+    keep each plan door's and window's bottom and top. A door (or opening) joining the same rooms as an earlier one
+    within TWICE_M or half the narrower one's width is that door listed twice (each room of a structure lists it):
+    one door. A ScanError when the walls enclose no room."""
+    warnings = ScanWarnings()
     if (said := _ceiling(walls)) is not None:
         warnings.append(said)
 
@@ -454,7 +479,7 @@ def plan_from_parts(walls: list[dict], doors: list[dict], windows: list[dict], o
         rooms.append({"id": f"r{n}", "name": name, "type": typ, "polygon": [list(p) for p in ring]})
     rings = [r["polygon"] for r in rooms]
 
-    by_id = {str(w["id"]): w for w in walls}
+    by_id = {str(w["id"]): w for w in walls if math.dist(w["a"], w["b"]) > 1e-9}  # a wall of no length is no wall
 
     def wall_of(item: dict) -> tuple[Point, Point] | None:
         w = by_id.get(str(item["wall"])) if item.get("wall") is not None else None
@@ -467,6 +492,16 @@ def plan_from_parts(walls: list[dict], doors: list[dict], windows: list[dict], o
     def room_at(p: Point) -> str | None:
         hits = [k for k, ring in enumerate(rings) if point_in_polygon(p, ring)]
         return rooms[min(hits, key=lambda k: polygon_area(rings[k]))]["id"] if hits else None
+
+    def room_near(p: Point) -> str | None:
+        """The room p is in, else the room with a wall within NEAR_M of p (the nearest)."""
+        if (inside := room_at(p)) is not None:
+            return inside
+        gaps = [(min(math.dist(p, _closest(p, tuple(a), tuple(b))) for a, b in zip(ring, ring[1:] + ring[:1],
+                                                                                   strict=True)), k)
+                for k, ring in enumerate(rings)]
+        gap, k = min(gaps)
+        return rooms[k]["id"] if gap <= NEAR_M else None
 
     def sides(item: dict) -> tuple[Point, list[str | None]] | None:
         seg = wall_of(item)
@@ -504,9 +539,18 @@ def plan_from_parts(walls: list[dict], doors: list[dict], windows: list[dict], o
                 warnings.append(f"the {kind} at {_where(q)} stands in a wall inside one room: left out")
                 continue
             pair = [left, right] if left is not None and right is not None else [left or right, "outside"]
-            plan_doors.append({"at": [round(q[0], ROUND) + 0.0, round(q[1], ROUND) + 0.0],
-                               "width": round(float(item["width"]), ROUND), "rooms": pair})
+            width = round(float(item["width"]), ROUND)
+            twice = next((k for k, d in enumerate(plan_doors) if set(d["rooms"]) == set(pair)
+                          and math.dist(d["at"], q) <= max(TWICE_M, min(d["width"], width) / 2)), None)
+            if twice is not None:
+                warnings.append(f"the {kind} at {_where(q)} is door {twice + 1} at {_where(plan_doors[twice]['at'])} "
+                                f"listed twice: one door")
+                leaf[twice] = leaf[twice] or kind == "door"
+                continue
+            plan_doors.append({"at": [round(q[0], ROUND) + 0.0, round(q[1], ROUND) + 0.0], "width": width,
+                               "rooms": pair})
             leaf.append(kind == "door")
+            warnings.heights["doors"].append(_heights(item))
 
     plan_windows = []
     for item in windows:
@@ -518,12 +562,15 @@ def plan_from_parts(walls: list[dict], doors: list[dict], windows: list[dict], o
             warnings.append(f"the window at {_where(item['at'])} stands on no wall of the scan: left out")
             continue
         q, (left, right) = got
-        room = left if left is not None and right is None else right if left is None else left
-        if room is None:
+        if left is None and right is None:
             warnings.append(f"the window at {_where(q)} belongs to no room: left out")
             continue
+        if left is not None and right is not None:
+            warnings.append(f"the window at {_where(q)} is in a wall between two rooms, not an outside wall: left out")
+            continue
         plan_windows.append({"at": [round(q[0], ROUND) + 0.0, round(q[1], ROUND) + 0.0],
-                             "width": round(float(item["width"]), ROUND), "room": room})
+                             "width": round(float(item["width"]), ROUND), "room": left or right})
+        warnings.heights["windows"].append(_heights(item))
 
     out = [k for k, d in enumerate(plan_doors) if "outside" in d["rooms"]]
     entrance = min(out, key=lambda k: (not leaf[k], plan_doors[k]["at"][0], plan_doors[k]["at"][1]), default=None)
@@ -542,7 +589,7 @@ def plan_from_parts(walls: list[dict], doors: list[dict], windows: list[dict], o
             warnings.append(f"the scan's {o['category']!r} at {_where((c[0], c[2]))} is not a piece VESPER knows: "
                             f"left out")
             continue
-        room = room_at((c[0], c[2]))
+        room = room_near((c[0], c[2]))
         if room is None:
             warnings.append(f"the scan's {o['category']} at {_where((c[0], c[2]))} stands in no room: left out")
             continue
