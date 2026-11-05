@@ -1034,7 +1034,7 @@ def _lab_import(args, catalog) -> int:
 
     from vesper.lab.generate import GenerateError, Request, generate_from_plan, load_request, starter
     from vesper.lab.home import load_lab_home
-    from vesper.lab.plan import PlanError, check_house, load_plan, rectify, scale_plan
+    from vesper.lab.plan import PlanError, check_house, load_plan, measured_scale, rectify, scale_plan
     from vesper.lab.scan_import import SUFFIXES as SCAN_SUFFIXES, is_reading, is_roomplan
     src, out = Path(args.src), Path(args.dir)
     is_image = src.suffix.lower() in (".png", ".jpg", ".jpeg", ".pdf")
@@ -1123,7 +1123,8 @@ def _lab_import(args, catalog) -> int:
         plan = rectify(scaled, warnings, numbers)
         if is_image:
             print(plan_read.summary(plan, numbers, meta.get("floors_drawn")), flush=True)
-        problems = check_house(plan, numbers, warnings)  # a room of an unusual size: said, and built as read
+        metric = measured_scale(loaded, args.scale, args.area)  # a scale given or measured: never refused for it
+        problems = check_house(plan, numbers, warnings, metric=metric)  # an unusual room: said, built as read
         for w in warnings:
             print(f"warning: {w}", flush=True)
         if problems:
@@ -1145,7 +1146,7 @@ def _lab_import(args, catalog) -> int:
         else:
             request = Request(Path("."), types, 0, [])
         request, left = _with_starter(request, catalog, starter)
-        generate_from_plan(plan, request, catalog, out, source=src.name, numbers=numbers)
+        generate_from_plan(plan, request, catalog, out, source=src.name, numbers=numbers, metric=metric)
         home = load_lab_home(out / "home.yaml", catalog)
         print(f"{len(types)} rooms ({', '.join(types)}), {len(home.devices)} devices: {out / 'home.yaml'} "
               f"(imported from {src.name}; positions by rule)")
@@ -1180,7 +1181,7 @@ def _lab_import_scan(args, catalog, src: Path, out: Path, reading: dict | None =
     from vesper.lab.generate import GenerateError, Request, generate_from_plan, load_request, starter
     from vesper.lab.home import load_lab_home
     from vesper.lab.plan import PlanError, check_house, door_name, plan_transform, rectify
-    from vesper.lab.scan_import import load_reading, read_scan, save_reading, set_types
+    from vesper.lab.scan_import import load_reading, read_scan, reading_record, save_reading, set_types
     from vesper.lab.scan_mesh import SUFFIXES as MESH
     mesh = src.suffix.lower() in MESH or reading is not None
     given_reader = getattr(args, "reader", None)
@@ -1188,10 +1189,19 @@ def _lab_import_scan(args, catalog, src: Path, out: Path, reading: dict | None =
         print("FAILED: --reader is for a 3D model (a RoomPlan scan is read as it is)", file=sys.stderr)
         return 1
     reader = given_reader or ("claude" if shutil.which("claude") else "geometric")
-    save = Path(args.save_plan) if getattr(args, "save_plan", None) else (
-        out.with_name(out.name + ".plan.json") if mesh and reading is None and reader == "claude" else None)
-    if save is not None and reading is None:
-        if save.exists():  # an earlier paid reading is never overwritten
+    if reading is not None:  # a kept reading is built as it was read
+        unused = [flag for flag, given in (("--scale", args.scale is not None), ("--reader", given_reader),
+                                           ("--save-plan", getattr(args, "save_plan", None))) if given]
+        if unused:
+            print(f"{', '.join(unused)}: not used: {src.name} is a reading kept earlier, built as it was read (import "
+                  "the model itself to read it again)", flush=True)
+        args.scale = None
+    asked = Path(args.save_plan) if getattr(args, "save_plan", None) and reading is None else None
+    # where a mesh's reading is kept: Claude's always (it is paid for), the geometric one when asked for, or when the
+    # import stops at a problem the user can fix in it (no entrance)
+    save = asked or (out.with_name(out.name + ".plan.json") if mesh and reading is None else None)
+    if save is not None:
+        if save.exists() and (asked or reader == "claude"):  # an earlier paid reading is never overwritten
             print(f"FAILED: {save} already exists (a reading kept earlier: build from it with `vesper lab import "
                   f"{save} {out}`, or give another --save-plan)", file=sys.stderr)
             return 1
@@ -1199,6 +1209,16 @@ def _lab_import_scan(args, catalog, src: Path, out: Path, reading: dict | None =
             print("FAILED: --save-plan keeps a 3D model's reading or a floor-plan image's; a RoomPlan scan is read "
                   "again for free", file=sys.stderr)
             return 1
+        if asked or reader == "claude":  # the reading must have somewhere to go: checked before it is made
+            try:
+                save.parent.mkdir(parents=True, exist_ok=True)
+                if not os.access(save.parent, os.W_OK | os.X_OK):
+                    raise PermissionError(13, "Permission denied")
+            except OSError as e:
+                print(f"FAILED: cannot save the reading to {save}: {e.strerror or e} (give another --save-plan)",
+                      file=sys.stderr)
+                return 1
+    keep_now = save is not None and (asked is not None or reader == "claude")
     if args.area is not None:
         print("FAILED: --area is for a plan in pixels; a scan is in metres" + (" (a 3D model in other units takes "
               "--scale, metres per unit)" if mesh else ""), file=sys.stderr)
@@ -1227,13 +1247,17 @@ def _lab_import_scan(args, catalog, src: Path, out: Path, reading: dict | None =
                       "uses your Claude Code quota; the render goes to Anthropic through your login)...", flush=True)
             scan = read_scan(src, scale, reader=reader, model=getattr(args, "model", None),
                              timeout=getattr(args, "timeout", None))
-        if save is not None and reading is None:  # before anything can refuse it: a paid reading is never lost
+        def keep() -> Path | None:  # the reading kept; printed when it cannot be: a paid reading is never lost
             try:
                 save_reading(save, scan)
-                saved = save
-                print(f"saved the reading: {save} (`vesper lab import {save} DIR` builds from it again)", flush=True)
             except OSError as e:
-                print(f"could not save the reading to {save} ({e.strerror or e})", file=sys.stderr)
+                print(f"could not save the reading to {save} ({e.strerror or e}); here it is:\n"
+                      f"{json.dumps(reading_record(save, scan), indent=1)}", flush=True)
+                return None
+            print(f"saved the reading: {save} (`vesper lab import {save} DIR` builds from it again)", flush=True)
+            return save
+        if keep_now:  # before anything can refuse it
+            saved = keep()
         if mesh:
             print("reader: " + ("Claude, from a top-down render of the model cut above the floor"
                                 if (scan.meta or {}).get("reader") == "claude" else
@@ -1262,9 +1286,20 @@ def _lab_import_scan(args, catalog, src: Path, out: Path, reading: dict | None =
                   f"{'s' if len(problems) != 1 else ''}):", file=sys.stderr)
             for p in problems:
                 print(f"  - {p}", file=sys.stderr)
+            if saved is None and save is not None and not save.exists() and any(
+                    p.startswith("no entrance") for p in problems):
+                saved = keep()  # the geometric reader found no way in: the user can choose one in the reading
             if saved:
-                print(f"the reading is kept: edit {saved} (rooms, types, doors), then re-run without Claude: "
-                      f"vesper lab import {shlex.quote(str(saved))} {shlex.quote(str(out))}", file=sys.stderr)
+                if any(p.startswith("no entrance") for p in problems):
+                    outside = [k for k, d in enumerate(scan.plan["doors"]) if "outside" in d["rooms"]]
+                    print(f"no entrance: in {saved}, set \"entrance\" to the index (from 0) in \"plan\" -> "
+                          "\"doors\" of the door to the outside the home is entered by" + (
+                              f" (doors to the outside: {', '.join(map(str, outside))})" if outside else
+                              ", adding one ({\"at\": [x, z], \"width\": 0.9, \"rooms\": [room, \"outside\"]}) "
+                              "on an outside wall if none was found"), file=sys.stderr)
+                print(f"the reading is kept: edit {saved} (rooms, types, doors, the entrance), then build from it "
+                      f"with no new reading: vesper lab import {shlex.quote(str(saved))} {shlex.quote(str(out))}",
+                      file=sys.stderr)
             return 1
         # each kept door's and window's measured bottom and top, found by its place in the plan as read
         md, mw = scan.heights.get("doors") or [], scan.heights.get("windows") or []

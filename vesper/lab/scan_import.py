@@ -114,10 +114,20 @@ READERS = ("claude", "geometric")
 def save_reading(path: Path, scan: "Scan") -> None:
     """A mesh's plan (as read, before rectify) and meta, with the model's path, written to `path` (never over a file
     that is there), so a paid reading can be imported again with no Claude call: `vesper lab import PATH DIR`."""
-    record = {"format": READING, "source": str(Path(scan.model).resolve()), "plan": scan.plan, "meta": scan.meta,
-              "warnings": scan.warnings}
     with open(path, "x") as f:
-        f.write(json.dumps(record, indent=1) + "\n")
+        f.write(json.dumps(reading_record(path, scan), indent=1) + "\n")
+
+
+def reading_record(path: Path, scan: "Scan") -> dict:
+    """What `save_reading` writes: the model's path relative to the reading's folder where there is one (the two
+    can move together), else absolute."""
+    import os
+    model = Path(scan.model).resolve()
+    try:
+        source = os.path.relpath(model, Path(path).resolve().parent)
+    except ValueError:  # another drive (Windows): no relative path
+        source = str(model)
+    return {"format": READING, "source": source, "plan": scan.plan, "meta": scan.meta, "warnings": scan.warnings}
 
 
 def is_reading(raw) -> bool:

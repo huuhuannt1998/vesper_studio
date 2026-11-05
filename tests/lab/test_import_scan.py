@@ -413,7 +413,7 @@ def test_a_mesh_is_read_by_claude_by_default_when_claude_is_here_and_its_reading
     saved = out.with_name("scan.plan.json")  # kept before anything could refuse it
     reading = json.loads(saved.read_text())
     assert reading["format"] == "vesper-scan-reading/1" and reading["meta"]["reader"] == "claude"
-    assert reading["source"] == str(src.resolve()) and len(reading["plan"]["rooms"]) == 2
+    assert reading["source"] == "house.glb" and len(reading["plan"]["rooms"]) == 2  # beside it: relative
     assert json.loads((out / "scan.json").read_text())["model"]["up"] == "y"
     # built again from the reading, with no Claude
     again = tmp_path / "again"
@@ -447,6 +447,66 @@ def test_an_entrance_claude_put_in_a_drawn_wall_is_said_to_be_assumed(tmp_path, 
     out = tmp_path / "scan"
     assert cli.main(["lab", "import", str(src), str(out), "--reader", "claude", "--catalog", str(cat)]) == 0
     assert "entrance assumed: door 2 (the render shows a wall there" in capsys.readouterr().out
+
+
+def test_a_paid_reading_has_somewhere_to_go_before_claude_is_run(tmp_path, capsys, monkeypatch):
+    cat, _ = setup(tmp_path)
+    src = mesh_house(tmp_path)
+    fake = claude_reads(monkeypatch, src)
+    (tmp_path / "afile").write_text("")
+    out = tmp_path / "scan"
+    assert cli.main(["lab", "import", str(src), str(out), "--save-plan", str(tmp_path / "afile" / "r.json"),
+                     "--catalog", str(cat)]) == 1
+    assert "FAILED: cannot save the reading to" in capsys.readouterr().err
+    assert fake.calls == [] and not out.exists()
+
+
+def test_a_reading_that_cannot_be_saved_after_all_is_printed(tmp_path, capsys, monkeypatch):
+    from vesper.lab import scan_import
+    cat, _ = setup(tmp_path)
+    src = mesh_house(tmp_path)
+    claude_reads(monkeypatch, src)
+
+    def full(path, scan):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(scan_import, "save_reading", full)
+    assert cli.main(["lab", "import", str(src), str(tmp_path / "scan"), "--catalog", str(cat)]) == 0
+    said = capsys.readouterr().out
+    assert "could not save the reading" in said and '"format": "vesper-scan-reading/1"' in said
+
+
+def test_a_kept_reading_says_the_flags_it_does_not_use(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    src = mesh_house(tmp_path)
+    kept = tmp_path / "kept.json"
+    assert cli.main(["lab", "import", str(src), str(tmp_path / "a"), "--save-plan", str(kept), "--catalog",
+                     str(cat)]) == 0
+    capsys.readouterr()
+    assert cli.main(["lab", "import", str(kept), str(tmp_path / "b"), "--scale", "2", "--reader", "claude",
+                     "--save-plan", str(tmp_path / "x.json"), "--catalog", str(cat)]) == 0
+    assert "--scale, --reader, --save-plan: not used: kept.json is a reading kept earlier" in capsys.readouterr().out
+    assert not (tmp_path / "x.json").exists()
+
+
+def test_a_geometric_reading_with_no_entrance_is_kept_with_how_to_choose_one(tmp_path, capsys):
+    pytest.importorskip("trimesh")
+    import trimesh
+
+    from tests.lab.test_scan_mesh import H, T, box, house, save
+    cat, _ = setup(tmp_path)
+    closed = trimesh.util.concatenate([house(), box(6.0, 6.9, 0.0, H, 4 - T / 2, 4 + T / 2)])  # entrance walled up
+    src = save(closed, tmp_path / "closed.glb")
+    out = tmp_path / "closed"
+    assert cli.main(["lab", "import", str(src), str(out), "--catalog", str(cat)]) == 1
+    err = capsys.readouterr().err
+    kept = tmp_path / "closed.plan.json"
+    assert "no entrance" in err and f'in {kept}, set "entrance"' in err and f"vesper lab import {kept}" in err
+    reading = json.loads(kept.read_text())
+    reading["plan"]["doors"].append({"at": [6.45, 4.0], "width": 0.9, "rooms": [reading["plan"]["rooms"][1]["id"],
+                                                                             "outside"]})
+    reading["plan"]["entrance"] = len(reading["plan"]["doors"]) - 1
+    kept.write_text(json.dumps(reading))
+    assert cli.main(["lab", "import", str(kept), str(out), "--catalog", str(cat)]) == 0  # chosen, built
 
 
 def test_a_roomplan_scan_takes_no_reader(tmp_path, capsys):
