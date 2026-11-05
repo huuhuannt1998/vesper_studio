@@ -91,6 +91,21 @@ def test_light_parameters_a_light_does_not_support_are_dropped_as_home_assistant
     assert e.automations[0].actions[0]["brightness"] == 128
 
 
+@pytest.mark.parametrize("key, value", [("kelvin", 2500), ("color_temp", 370)])
+def test_kelvin_and_mireds_stop_the_run_as_home_assistant_2026_10_refuses_them(tmp_path, key, value):
+    """Home Assistant 2026.10.2's light.turn_on schema has no `kelvin` and no `color_temp` (mireds; only
+    color_temp_kelvin): the call fails, the run stops there, and what came before it ran (protocol Addendum 10)."""
+    def autos(ids):
+        lamp = ids["bedroom_lamp"]["state"]
+        return [auto([{"action": "notify.phone"},
+                      {"action": "light.turn_on", "target": {"entity_id": lamp}, "data": {key: value}},
+                      {"action": "notify.after"}])]
+    _, s, e, calls = setup(tmp_path, autos, permissive=True)
+    assert e.refused == []
+    s.clock.advance(1.5 * H)
+    assert services(calls) == ["notify.phone"]
+
+
 def test_a_transition_is_refused_in_strict_mode_and_dropped_in_permissive_mode_with_a_note(tmp_path):
     def autos(ids):
         lamp = ids["bedroom_lamp"]["state"]
@@ -507,14 +522,53 @@ def test_a_numeric_state_on_the_suns_elevation_fires_in_the_evening(tmp_path):
     assert len(times) == 1 and sunset - 1.2 * H < times[0] + 7.5 * H < sunset  # 5 degrees: about 40 minutes before
 
 
-def test_sun_sun_turns_below_horizon_a_second_after_sunset_as_home_assistant_reschedules_it(tmp_path):
+def test_sun_sun_turns_below_horizon_at_sunset_as_home_assistant_2026_10_updates_it(tmp_path):
+    # Home Assistant 2026.10.2 (sun/entity.py): update_events runs at the next event itself (not a second later) and
+    # the state is above_horizon while the rounded elevation is above -0.833 degrees (protocol Addendum 10)
     from vesper.env.sun import sun_events
     _, s, e, _ = setup(tmp_path, [], text_home=sited_home)
     sunset = sun_events(e.site, 0)["sunset"] - 7.5 * H  # from the session's start
-    s.clock.advance(sunset + 0.5)
+    s.clock.advance(sunset - 0.5)
     assert e._state["sun.sun"] == "above_horizon"
     s.clock.advance(1)
     assert e._state["sun.sun"] == "below_horizon"
+
+
+def test_sun_sun_turns_above_horizon_at_the_first_position_update_above_the_horizon(tmp_path):
+    from astral import Observer
+    from astral.sun import elevation
+
+    from vesper.env.sun import sun_events
+    _, s, e, _ = setup(tmp_path, [], text_home=sited_home)
+    obs = Observer(e.site.lat, e.site.lon, e.site.elevation_m)
+    flips, apply = [], e._apply
+
+    def spy(changes):
+        flips.extend((s.clock.now(), c[2]) for c in changes if c[0] == "sun.sun" and c[1] != c[2])
+        apply(changes)
+    e._apply = spy
+    sunrise = sun_events(e.site, 1)["sunrise"] - 7.5 * H  # the second day's, from the session's start
+    s.clock.advance(sunrise + 0.5)
+    assert e._state["sun.sun"] == "below_horizon"  # at sunrise the rounded elevation is not yet above -0.833
+    s.clock.advance(300)
+    (t, state), = [f for f in flips if f[0] > sunrise - 1]
+    assert state == "above_horizon" and 0 < t - sunrise <= 120.5
+    assert round(elevation(obs, e.site.utc(t + 7.5 * H)), 2) > -0.833
+
+
+def test_sun_sun_is_written_once_per_update_as_home_assistant_writes_it(tmp_path):
+    from vesper.env.sun import sun_events
+    _, s, e, _ = setup(tmp_path, [], text_home=sited_home)
+    writes, apply = [], e._apply
+
+    def spy(changes):
+        writes.extend(s.clock.now() for c in changes if c[0] == "sun.sun")
+        apply(changes)
+    e._apply = spy
+    sunset = sun_events(e.site, 0)["sunset"] - 7.5 * H
+    s.clock.advance(sunset + 1.5)
+    assert writes[-1] >= sunset - 1e-6  # the update at sunset
+    assert writes.count(writes[-1]) == 1  # the events and the position of one update are one state write
 
 
 def test_a_trvs_hvac_action_follows_its_running_state_through_the_discovery_template(tmp_path):

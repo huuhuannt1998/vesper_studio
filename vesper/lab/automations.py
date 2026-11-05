@@ -88,6 +88,7 @@ SUN_TIMELINE = (("", "dawn", 18.0, "night"), ("", "dawn", 12.0, "astronomical_tw
                 ("next_midnight", "midnight", None, None))
 SUN_PHASE_BY_ELEVATION = ((10, "day"), (0, "small_day"), (-6, "twilight"), (-12, "nautical_twilight"),
                           (-18, "astronomical_twilight"), (-90, "night"))
+SUN_HORIZON_DEG = -0.833  # Home Assistant's ELEVATION_HORIZON: sun.sun is above_horizon while the elevation is above it
 SUN_PHASE_UPDATE_S = {"night": 20 * 60, "astronomical_twilight": 8 * 60, "nautical_twilight": 8 * 60,
                       "twilight": 4 * 60, "small_day": 2 * 60, "day": 4 * 60}
 PATTERN_MAX = {"hours": 23, "minutes": 59, "seconds": 59}
@@ -121,6 +122,9 @@ LIGHT_ON_KEYS = {"transition", "brightness", "brightness_pct", "brightness_step"
 LIGHT_OFF_KEYS = {"transition", "flash"}
 COLOUR_KEYS = {"color_name", "hs_color", "rgb_color", "rgbw_color", "rgbww_color", "xy_color"}
 TEMPERATURE_KEYS = {"color_temp", "color_temp_kelvin", "kelvin"}
+# Gone from Home Assistant 2026.10.2's light.turn_on schema (only color_temp_kelvin is left): a call with one of
+# them fails when it runs ("not a valid option"), and the run stops there
+REMOVED_LIGHT_KEYS = {"kelvin", "color_temp"}
 COLOUR_MODES = {"hs", "xy", "rgb", "rgbw", "rgbww"}
 UNMODELLED = {"transition": "the twin has no fade", "flash": "the twin does not flash",
               "effect": "the twin has no effects", "profile": "Home Assistant's light profiles are not modelled",
@@ -137,6 +141,10 @@ UNSUPPORTED_STEPS = {
 
 class AutomationError(ValueError):
     """An automation the engine cannot run; the message says what."""
+
+
+class ServiceRefuses(AutomationError):
+    """A call Home Assistant's service refuses when it runs (its schema): the run stops at it."""
 
 
 @dataclass
@@ -849,9 +857,12 @@ class Engine:
             # rendered when it runs; a value Home Assistant's light service refuses then stops the run, as there
             return {"kind": "call", "service": service, "entities": ents, "brightness": None,
                     "data": self._complex(data, where), "where": where}
-        return {"kind": "call", "service": service, "entities": ents,
-                "brightness": self._light_data(service, ents, data, where) if domain == "light" else
-                self._no_data(data, where)}
+        try:
+            brightness = self._light_data(service, ents, data, where) if domain == "light" else \
+                self._no_data(data, where)
+        except ServiceRefuses as e:  # Home Assistant runs the automation and the call fails when reached
+            return {"kind": "fail", "why": str(e)}
+        return {"kind": "call", "service": service, "entities": ents, "brightness": brightness}
 
     def _dynamic(self, x: dict, service) -> dict:
         """A service named by a template (service_template, or a template in action/service): rendered when it
@@ -933,6 +944,8 @@ class Engine:
         modes = set().union(*(self._colour_modes(self._entity(e)) for e in ents)) if ents else set()
         brightness = None
         for key, value in data.items():
+            if key in REMOVED_LIGHT_KEYS and verb != "turn_off":
+                raise ServiceRefuses(f"{where}: data {key!r} is not a valid option (Home Assistant 2026.10.2)")
             if key not in allowed:
                 raise AutomationError(f"{where}: data {key!r} is not supported")
             if key == "brightness":  # Home Assistant: vol.Coerce(int), clamped to 0..255
@@ -1132,9 +1145,8 @@ class Engine:
         return None
 
     def _sun_update_events(self, initial: bool = False) -> None:
-        """Home Assistant's update_events: the next of the sun's twelve events and the phase until it, the state
-        (above_horizon while the next rising is after the next setting) and the next_* attributes; then the position,
-        and again one second after that next event."""
+        """Home Assistant's update_events (2026.10.2): the next of the sun's twelve events and the phase until it, and
+        the next_* attributes; then the position (one state write with both), and again at that next event."""
         clock = self.session.clock
         utc = self._utc(clock.now())
         nxt, change, phase = {}, None, None
@@ -1145,43 +1157,40 @@ class Engine:
             if t is not None and (change is None or t < change):
                 change, phase = t, before
         if change is not None and phase is None:  # the next event is noon or midnight: the phase from the elevation
-            elevation = self._sun_position(change)[0]
+            elevation = self._sun_position(change, rounded=False)[0]
             phase = next(p for limit, p in SUN_PHASE_BY_ELEVATION if elevation >= limit)
         self._sun_phase = phase
         self._sun_change = None if change is None else self._logical(change)
-        rising, setting = nxt["next_rising"], nxt["next_setting"]
-        state = "above_horizon" if rising is not None and (setting is None or rising > setting) else "below_horizon"
-        if rising is None and setting is None:  # no sunrise or sunset within a year: the polar day or night
-            state = "above_horizon" if self._sun_position(utc)[0] > -0.833 else "below_horizon"
         attrs = {**self._attrs.get("sun.sun", {}),
                  **{k: None if v is None else v.isoformat() for k, v in nxt.items()},
                  "rising": nxt["next_noon"] is not None and nxt["next_midnight"] is not None
                  and nxt["next_noon"] < nxt["next_midnight"]}
+        self._sun_update_position(initial, attrs)
+        if self._sun_change is not None:
+            clock.call_at(self._sun_change, self._sun_update_events)
+
+    def _sun_position(self, when, rounded: bool = True) -> tuple[float, float]:
+        from astral import Observer
+        from astral.sun import azimuth, elevation
+        obs = Observer(latitude=self.site.lat, longitude=self.site.lon, elevation=self.site.elevation_m)
+        el, az = elevation(obs, when), azimuth(obs, when)
+        return (round(el, 2), round(az, 2)) if rounded else (el, az)
+
+    def _sun_update_position(self, initial: bool = False, attrs: dict | None = None) -> None:
+        """Home Assistant's update_sun_position: the elevation and azimuth (two decimals) now, the state from them
+        (above_horizon while the elevation is above SUN_HORIZON_DEG, as 2026.10.2's sun entity has it), written once
+        with `attrs` (update_events' attributes, else the current ones); and again after the phase's interval unless
+        the next event comes within 1.25 intervals."""
+        clock = self.session.clock
+        elevation, azimuth = self._sun_position(self._utc(clock.now()))
+        attrs = {**(self._attrs.get("sun.sun", {}) if attrs is None else attrs), "elevation": elevation,
+                 "azimuth": azimuth}
+        state = "above_horizon" if elevation > SUN_HORIZON_DEG else "below_horizon"
         if initial:
             self._state["sun.sun"], self._attrs["sun.sun"] = state, attrs
             self._changed["sun.sun"] = clock.now()
         else:
             self._apply([self._set("sun.sun", state, attrs)])
-        self._sun_update_position(initial)
-        if self._sun_change is not None:
-            clock.call_at(self._sun_change + 1, self._sun_update_events)
-
-    def _sun_position(self, when) -> tuple[float, float]:
-        from astral import Observer
-        from astral.sun import azimuth, elevation
-        obs = Observer(latitude=self.site.lat, longitude=self.site.lon, elevation=self.site.elevation_m)
-        return round(elevation(obs, when), 2), round(azimuth(obs, when), 2)
-
-    def _sun_update_position(self, initial: bool = False) -> None:
-        """Home Assistant's update_sun_position: the elevation and azimuth (two decimals) now, and again after the
-        phase's interval unless the next event comes within 1.25 intervals."""
-        clock = self.session.clock
-        elevation, azimuth = self._sun_position(self._utc(clock.now()))
-        attrs = {**self._attrs.get("sun.sun", {}), "elevation": elevation, "azimuth": azimuth}
-        if initial:
-            self._attrs["sun.sun"] = attrs
-        else:
-            self._apply([self._set("sun.sun", self._state["sun.sun"], attrs)])
         delta = SUN_PHASE_UPDATE_S.get(self._sun_phase)
         if delta is None or self._sun_change is None or clock.now() + delta * 1.25 > self._sun_change:
             return
@@ -1565,7 +1574,7 @@ class Engine:
             if kind == "wait":
                 self._wait(run, x)
                 return
-            if kind == "stop":
+            if kind in ("stop", "fail"):  # fail: a call Home Assistant's service refuses ends the run
                 run.frames.clear()
             elif kind == "check":
                 if not self._holds(x["condition"], run.context):
