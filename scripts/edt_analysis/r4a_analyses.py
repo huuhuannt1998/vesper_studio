@@ -502,13 +502,17 @@ def _cond_kind(c) -> str:
     return "template or other"
 
 
-def dead_rules(s4: dict, lab: Path, c: str, workers: int, catalog_dir: str) -> dict:
+def dead_reasons(s4: dict, lab: Path, c: str, workers: int, catalog_dir: str, only=None) -> tuple[dict, dict, dict]:
+    """(the dead run automations by id, their mechanical reason by id, the probe counts): A6.6's probes over every
+    cached trace of sweep `c`. `only`: restrict to these ids (protocol A12.8; the probes of one engine share the
+    home, so a restriction is checked against the full run's counts)."""
     import tempfile
 
     from vesper.edt.corpus import _entity_kinds, _ids
     from vesper.edt.home import build_edt_home
     autos = ran(s4)
-    dead = {i: a for i, a in autos.items() if not any(o["fired"] for o in a["outcomes"].values())}
+    dead = {i: a for i, a in autos.items() if not any(o["fired"] for o in a["outcomes"].values())
+            and (only is None or i in only)}
     with tempfile.TemporaryDirectory() as tmp:
         _, roles = build_edt_home(Path(tmp), catalog_dir)
     probe = [{"action": "switch.turn_on", "target": {"entity_id": roles[("switch", "living", 0)]}}]
@@ -585,6 +589,12 @@ def dead_rules(s4: dict, lab: Path, c: str, workers: int, catalog_dir: str) -> d
             reasons[i] = "threshold unreachable or never armed, by environment"
         else:
             reasons[i] = "armed numeric_state never crosses in the judged window"
+    return dead, reasons, {"replayed": len(probes), "environments": len(traces)}
+
+
+def dead_rules(s4: dict, lab: Path, c: str, workers: int, catalog_dir: str) -> dict:
+    dead, reasons, probes = dead_reasons(s4, lab, c, workers, catalog_dir)
+    autos = ran(s4)
     coupled = {i for i, a in dead.items() if a["kinds"]}
     return {"dead": len(dead), "dead_environment_coupled": len(coupled), "run": len(autos),
             "by_reason": dict(Counter(reasons.values()).most_common()),
@@ -592,7 +602,7 @@ def dead_rules(s4: dict, lab: Path, c: str, workers: int, catalog_dir: str) -> d
             "environment_coupled_by_quantity": {k: sum(1 for i in coupled if k in dead[i]["kinds"])
                                                 for k in ENV_KINDS},
             "by_frames": dict(Counter(frame_label(a) for a in dead.values()).most_common()),
-            "probes": {"replayed": len(probes), "environments": len(traces)},
+            "probes": probes,
             "status": "post hoc (Addendum 6, A6.6); reasons derived mechanically, not hand-audited"}
 
 
