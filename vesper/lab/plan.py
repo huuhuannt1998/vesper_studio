@@ -18,6 +18,7 @@ one is not trimmed against its neighbours).
 from __future__ import annotations
 
 import copy
+import itertools
 import math
 import re
 
@@ -43,6 +44,8 @@ MAX_ABS = 1e9  # no coordinate, width or scale of a plan is larger than this (me
 NARROW_LEAST_M = 0.6  # a door or window wider than its wall is narrowed to fit a wall this long or longer
 END_M = 0.05  # a narrowed door or window keeps this much wall at each end; two doors meeting end to end on one wall
 # are narrowed to leave twice this between them (a doorway reaching another doorway would join three rooms)
+CORNER_M = 0.25  # two doors on the two walls of one corner keep this much wall from the corner (more than the
+# corner wall's half thickness and a cell of the walking map: their openings would meet in the corner's wall)
 
 _KEYS = {"format", "units", "scale", "rooms", "doors", "windows", "entrance"}
 _ROOM_KEYS = {"id", "name", "type", "polygon"}
@@ -733,6 +736,12 @@ def _reached(ids: list[str], doors: list[dict], entrance: int | None, skip=froze
     return seen
 
 
+def _clear(span: tuple[str, float, float, float], c: float) -> float:
+    """How much wall there is between an opening (class, offset, from, to) and the point c along its wall: 0 when the
+    opening spans c."""
+    return max(span[2] - c, c - span[3], 0.0)
+
+
 def _span(q: Point, seg: Seg, width: float) -> tuple[str, float, float, float] | None:
     """An opening at q, `width` wide on an axis-aligned stretch: (class, offset, from, to) along the wall."""
     (a, b) = seg
@@ -941,6 +950,7 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
     entrance = plan["entrance"]
     loose: list[int] = []  # doors between rooms with no wall in common
     spans: dict[int, tuple] = {}  # door -> (class, offset, from, to) of its opening on an axis-aligned wall
+    stretch: dict[int, tuple[float, float]] = {}  # door -> (from, to) of the stretch of wall it stands on
     for k, d in enumerate(doors):
         a, b = d["rooms"]
         at = tuple(d["at"])
@@ -974,6 +984,8 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
         d["at"] = rnd(q)
         if (span := _span(q, seg, d["width"])) is not None:
             spans[k] = span
+            t = [p[0] if span[0] == "h" else p[1] for p in seg]
+            stretch[k] = (min(t), max(t))
 
     # two doors meeting end to end on one wall would open one gap into three rooms: a wall is left between them
     lines: dict[tuple, list[int]] = {}
@@ -1000,6 +1012,45 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
             say(f"doors {door_name(i, numbers)[5:]} and {door_name(j, numbers)[5:]} meet end to end on one wall: "
                 f"narrowed to {hi_i - lo_i:.2f} m and "
                 f"{hi_j - lo_j:.2f} m to leave {2 * END_M:.2f} m of wall between them")
+
+    # two doors on the two walls of one corner, one within CORNER_M of it and the other within twice that, would open
+    # through the corner's wall into each other: one gap into three rooms. Each is moved along its wall to leave
+    # CORNER_M of wall at the corner, and narrowed (said) only when its wall is too short for that
+    for _ in range(MAX_PASSES):
+        moved = False
+        for i, j in itertools.combinations(sorted(spans), 2):
+            if spans[i][0] == spans[j][0]:
+                continue
+            at = {i: spans[j][1], j: spans[i][1]}  # where the other door's wall line crosses this door's
+            clear = {k: _clear(spans[k], c) for k, c in at.items()}
+            if not (min(clear.values()) < CORNER_M - 1e-9 and max(clear.values()) < 2 * CORNER_M):
+                continue
+            for k, c in at.items():
+                if clear[k] >= CORNER_M - 1e-9:
+                    continue
+                cls, off, lo, hi = spans[k]
+                (s0, s1), width = stretch[k], hi - lo
+                if c <= (lo + hi) / 2:
+                    lo = c + CORNER_M
+                    hi = min(lo + width, s1 - END_M)
+                else:
+                    hi = c - CORNER_M
+                    lo = max(hi - width, s0 + END_M)
+                if hi - lo < NARROW_LEAST_M - 2 * END_M - 1e-9:
+                    raise PlanError(f"{door_name(i, numbers)} and {door_name(j, numbers)[5:]} meet at a corner, with "
+                                    f"too little wall to leave {CORNER_M:.2f} m of it at the corner: move one of them")
+                if hi - lo < width - 1e-9:
+                    a, b = doors[k]["rooms"]
+                    other = j if k == i else i
+                    say(f"{door_name(k, numbers)} between {named(a)} and {named(b)} ({width:.2f} m) meets "
+                        f"{door_name(other, numbers)} at a corner: narrowed to {hi - lo:.2f} m to leave "
+                        f"{CORNER_M:.2f} m of wall at the corner")
+                spans[k] = (cls, off, lo, hi)
+                doors[k]["width"] = round(hi - lo, 9)
+                doors[k]["at"] = rnd(((lo + hi) / 2, off) if cls == "h" else (off, (lo + hi) / 2))
+            moved = True
+        if not moved:
+            break
 
     # a door between rooms that do not touch: left out when no room needs it to be reached from the entrance (with
     # no entrance, kept as it is: check_house says the entrance is missing, and this is decided once there is one)
@@ -1043,11 +1094,11 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
         w["at"] = rnd(q)
         kept.append(w)
     plan["windows"] = kept
-    from vesper.lab.windows import CORNER_M, RULES
+    from vesper.lab.windows import CORNER_M as WINDOW_CORNER_M, RULES
     lit = {ids.index(w["room"]) for w in kept}
     for at, r in dropped:  # a room of a kind with windows, left with none, gets them by rule where it has a wall out
         if (plan["rooms"][r]["type"] in RULES and r not in lit
-                and _longest(_outside_walls(r, rings, outdoor)) >= 0.5 + 2 * CORNER_M):
+                and _longest(_outside_walls(r, rings, outdoor)) >= 0.5 + 2 * WINDOW_CORNER_M):
             warnings[at] += "; the room gets a rule window"
 
     for r, ring in zip(plan["rooms"], rings, strict=True):

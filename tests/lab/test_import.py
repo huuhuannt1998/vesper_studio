@@ -712,3 +712,68 @@ def test_the_import_prints_what_it_left_out_or_narrowed_and_builds_the_home(tmp_
     assert "warning: window 3 of 'Kitchen' is not on an outside wall: left out; the room gets a rule window" in text
     assert (out / "home.yaml").is_file()
     assert [w["source"] for w in load_windows(out) if w["room"] == "kitchen"] == ["rule"]  # as the warning said
+
+
+# --- task A7: two doors at one corner (CubiCasa5K plans 7780, 6467, 1506, ...), three rooms meeting with a sliver ----
+
+def corner(gap=0.05, dx=0.0, dz=0.0, kh=None) -> dict:
+    """A kitchen (x 0 to 3, z 0 to 3) above a hall (z 3 to 5), a living room east of both (x 3 to 7); from the hall a
+    door into the kitchen and one into the living room, each ending `gap` from the hall's corner at (3, 3) where the
+    three rooms meet (CubiCasa5K plan 7780 was read so: two open-plan openings filling their walls). The front door
+    is on the living room's east wall."""
+    w_kh = 3.0 - 2 * gap if kh is None else kh
+    return {"format": "vesper-plan/1", "units": "m", "scale": None,
+            "rooms": [{"id": "k", "name": "Kitchen", "type": "kitchen", "polygon": rect(dx, dz, 3 + dx, 3 + dz)},
+                      {"id": "h", "name": "Hall", "type": "hall", "polygon": rect(dx, 3 + dz, 3 + dx, 5 + dz)},
+                      {"id": "lr", "name": "Living", "type": "living", "polygon": rect(3 + dx, dz, 7 + dx, 5 + dz)}],
+            "doors": [{"at": [3 - gap - w_kh / 2 + dx, 3 + dz], "width": w_kh, "rooms": ["k", "h"]},
+                      {"at": [3 + dx, 4 + dz], "width": 2.0 - 2 * gap, "rooms": ["h", "lr"]},
+                      {"at": [7 + dx, 2.5 + dz], "width": 0.9, "rooms": ["lr", "outside"]}],
+            "windows": [], "entrance": 2}
+
+
+def corner_m() -> float:
+    from vesper.lab.plan import CORNER_M
+    return CORNER_M
+
+
+@pytest.mark.parametrize("gap", [0.0, 0.03, 0.05, 0.1, 0.15])
+@pytest.mark.parametrize("dx,dz", [(0.0, 0.0), (0.037, 0.013), (0.071, 0.05), (0.05, 0.099)])
+def test_two_doors_at_one_corner_open_two_doorways_not_one_into_three_rooms(gap, dx, dz):
+    m = floor_plan_from(rectify(corner(gap, dx, dz)), "imported/c")
+    assert sorted(d.id for d in m.doorways) == ["h-k", "h-lr", "lr-porch"]
+
+
+def test_a_door_near_a_corner_with_wall_to_spare_is_moved_not_narrowed():
+    warnings = []
+    out = rectify(corner(0.05, kh=1.2), warnings)  # the kitchen's 1.2 m door ends 5 cm from the corner
+    door = out["doors"][0]
+    assert door["width"] == pytest.approx(1.2)
+    assert door["at"][0] + 0.6 == pytest.approx(3 - corner_m())
+    assert not [w for w in warnings if w.startswith("door 1 ")]
+
+
+def test_two_doors_filling_their_walls_at_one_corner_are_narrowed_with_a_warning():
+    warnings = []
+    out = rectify(corner(0.05), warnings)
+    k_h, h_lr = out["doors"][:2]
+    assert k_h["at"][0] + k_h["width"] / 2 == pytest.approx(3 - corner_m())
+    assert h_lr["at"][1] - h_lr["width"] / 2 == pytest.approx(3 + corner_m())
+    assert any(w.startswith("door 1 between 'Kitchen' and 'Hall' (2.90 m) meets door 2 at a corner: narrowed to")
+               for w in warnings), warnings
+
+
+@pytest.mark.parametrize("s", [0.04, 0.1, 0.2])
+def test_three_rooms_meeting_with_a_sliver_between_them_build(s):
+    """Three rooms drawn a little apart where they meet (a sliver of floor `s` wide between each pair): the gaps are
+    narrower than a wall, so they close and the three rooms meet at one point."""
+    plan = {"format": "vesper-plan/1", "units": "m", "scale": None,
+            "rooms": [{"id": "a", "name": "", "type": "bedroom", "polygon": rect(0, 0, 3.5, 3)},
+                      {"id": "b", "name": "", "type": "kitchen", "polygon": rect(3.5 + s, 0, 7, 3 - s / 2)},
+                      {"id": "c", "name": "", "type": "living", "polygon": rect(0, 3 + s, 7, 7)}],
+            "doors": [{"at": [1.5, 3 + s / 2], "width": 0.9, "rooms": ["a", "c"]},
+                      {"at": [5, 3], "width": 0.9, "rooms": ["b", "c"]},
+                      {"at": [7, 5], "width": 0.9, "rooms": ["c", "outside"]}],
+            "windows": [], "entrance": 2}
+    m = floor_plan_from(rectify(plan), "imported/s")
+    assert sorted(d.id for d in m.doorways) == ["a-c", "b-c", "c-porch"]
