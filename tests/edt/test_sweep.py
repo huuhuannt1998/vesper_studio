@@ -346,3 +346,24 @@ def test_a_home_variant_is_named_in_the_result_and_the_standard_home_is_not(corp
     assert var["yield"] == result["yield"]
     assert {a: e["bound"] for a, e in var["automations"].items()} == \
         {a: e["bound"] for a, e in result["automations"].items()}
+
+
+def test_indoor_knobs_reach_every_worker_are_named_in_the_result_and_are_restored(corpus, tmp_path, result):
+    """Revision R7-W (protocol Addendum 14): a sweep under indoor-model knobs. Each worker sets them; each trace is
+    recorded under them (its header says so); the result names them; the parent's knobs are restored after."""
+    import gzip
+
+    from vesper.edt.trace import trace_file
+    from vesper.env import indoor
+    knobs = {"GROUND_REFLECTED": 1, "RECORDED_SPLIT": 1}
+    got = sweep(corpus, tmp_path / "w", ENVS[:2], rung=4, workers=2, limit=20, fetch=False, knobs=knobs)
+    assert got["indoor_knobs"] == knobs and "indoor_knobs" not in result
+    assert indoor.nondefault_knobs() == {}
+    for env in ENVS[:2]:
+        with gzip.open(trace_file(tmp_path / "w" / "cache", env, "device"), "rt") as f:
+            assert json.loads(f.readline())["indoor_knobs"] == knobs
+    serial = sweep(corpus, tmp_path / "w", ENVS[:2], rung=4, workers=1, limit=20, fetch=False, knobs=knobs)
+    assert json.dumps(serial, sort_keys=True) == json.dumps(got, sort_keys=True)
+    assert indoor.nondefault_knobs() == {}
+    with pytest.raises(ValueError, match="not a knob"):
+        sweep(corpus, tmp_path / "w", ENVS[:1], rung=4, workers=1, limit=2, fetch=False, knobs={"C_PER_M2": 1.0})

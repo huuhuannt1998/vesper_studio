@@ -174,11 +174,12 @@ BEFORE_KNOBS = "671b22a0fa68c482465b3c557564058a282263a1ed876a9fab05eb484b55d8d8
 
 DEFAULTS = {"DAYLIGHT_SCALE": 1.0, "CAPACITY_SCALE": 1.0, "HUMIDITY_T_OFFSET_C": 0.0, "INTERNAL_GAINS_W_PER_M2": 0.0,
             "ROOF_GROUND": 0.0, "PREWARM_DAYS": 0.0, "SOLAR_APERTURE_SCALE": 1.0, "OUTDOOR_T_OFFSET_C": 0.0,
-            "HUMIDITY_CLASS": 1, "ACH": 0.5, "DIRECT_SHARE": 0.8}
+            "HUMIDITY_CLASS": 1, "ACH": 0.5, "DIRECT_SHARE": 0.8, "RECORDED_SPLIT": 0, "GROUND_REFLECTED": 0}
 
 
 def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
-    """Every knob (R2-a's, Addendum 7's and Addendum 9's) at its default: the model of 120f4ca, to the bit."""
+    """Every knob (R2-a's, Addendum 7's, Addendum 9's and Addendum 14's) at its default: the model of 120f4ca, to the
+    bit."""
     from vesper.env import indoor
     assert set(indoor.KNOBS) == set(DEFAULTS)
     assert {k: indoor.knob_value(k) for k in DEFAULTS} == DEFAULTS == indoor.KNOB_DEFAULTS
@@ -189,7 +190,8 @@ def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
     e = env()
     assert e.prewarm(0.0, lambda: {}) == 0.0  # no warm-up at the default
     assert not {"capacity_scale", "internal_gains_w_per_m2", "roof_ground", "prewarm_days", "solar_aperture_scale",
-                "outdoor_t_offset_c", "direct_share"} & set(e.provenance()["indoor"])
+                "outdoor_t_offset_c", "direct_share", "recorded_split", "ground_reflected"} & \
+        set(e.provenance()["indoor"])
 
 
 def test_knobs_restore_their_values_even_when_the_block_fails():

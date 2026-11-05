@@ -21,8 +21,10 @@ ROOF_GROUND (1: a roof and a ground floor lose heat to the outdoor air, U_ROOF a
 PREWARM_DAYS (extra warm-up days on the first day's weather before the run, `HomeEnvironment.prewarm`; inf: its
 periodic steady state), SOLAR_APERTURE_SCALE (on the solar heat through the glass), OUTDOOR_T_OFFSET_C (on the outdoor
 air temperature, its vapour pressure kept) and HUMIDITY_CLASS; and (revision R6-B, protocol Addendum 9) ACH (the
-ventilation's air changes per hour) and DIRECT_SHARE (the beam share's coefficient, which lives in vesper.env.sun). At
-their defaults the model is the one built, to the bit.
+ventilation's air changes per hour) and DIRECT_SHARE (the beam share's coefficient, which lives in vesper.env.sun); and
+(revision R7-W, protocol Addendum 14) two options that live in vesper.env.sun, 0 (off) by default: RECORDED_SPLIT (the
+beam share from ERA5's recorded direct and diffuse radiation) and GROUND_REFLECTED (the ground's reflection on vertical
+glass, in the solar heat; daylight unchanged). At their defaults the model is the one built, to the bit.
 """
 from __future__ import annotations
 
@@ -74,8 +76,10 @@ OUTDOOR_T_OFFSET_C = 0.0  # kelvin added to the outdoor air temperature (its vap
 
 
 KNOBS = ("DAYLIGHT_SCALE", "CAPACITY_SCALE", "HUMIDITY_T_OFFSET_C", "INTERNAL_GAINS_W_PER_M2", "ROOF_GROUND",
-         "PREWARM_DAYS", "SOLAR_APERTURE_SCALE", "OUTDOOR_T_OFFSET_C", "HUMIDITY_CLASS", "ACH", "DIRECT_SHARE")
-_KNOB_HOME = {"DIRECT_SHARE": _sun}  # a knob that lives in another module; every other one is this module's
+         "PREWARM_DAYS", "SOLAR_APERTURE_SCALE", "OUTDOOR_T_OFFSET_C", "HUMIDITY_CLASS", "ACH", "DIRECT_SHARE",
+         "RECORDED_SPLIT", "GROUND_REFLECTED")
+# knobs that live in another module; every other one is this module's
+_KNOB_HOME = {"DIRECT_SHARE": _sun, "RECORDED_SPLIT": _sun, "GROUND_REFLECTED": _sun}
 
 
 def _home(name: str):
@@ -254,7 +258,11 @@ class HomeEnvironment:
             if s.up and off < 90:
                 beam = direct / max(math.sin(math.radians(s.elevation)), 0.05) * \
                     math.cos(math.radians(s.elevation)) * math.cos(math.radians(off))
-            total += G_SOLAR * glass * (diffuse_vertical + beam) * through
+            if _sun.GROUND_REFLECTED:  # revision R7-W: the ground's reflection, seen by half a vertical window's sky
+                ground = _sun.GROUND_VIEW * _sun.ground_albedo(state.snow_depth_m) * ghi
+                total += G_SOLAR * glass * (diffuse_vertical + beam + ground) * through
+            else:
+                total += G_SOLAR * glass * (diffuse_vertical + beam) * through
         if SOLAR_APERTURE_SCALE != 1.0:
             total *= SOLAR_APERTURE_SCALE
         return SOLAR_TO_AIR * total
@@ -348,5 +356,7 @@ class HomeEnvironment:
                                             ("ROOF_GROUND", ROOF_GROUND, 0.0), ("PREWARM_DAYS", PREWARM_DAYS, 0.0),
                                             ("SOLAR_APERTURE_SCALE", SOLAR_APERTURE_SCALE, 1.0),
                                             ("OUTDOOR_T_OFFSET_C", OUTDOOR_T_OFFSET_C, 0.0),
-                                            ("DIRECT_SHARE", _sun.DIRECT_SHARE, 0.8)) if v != d},
+                                            ("DIRECT_SHARE", _sun.DIRECT_SHARE, 0.8),
+                                            ("RECORDED_SPLIT", _sun.RECORDED_SPLIT, 0),
+                                            ("GROUND_REFLECTED", _sun.GROUND_REFLECTED, 0)) if v != d},
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}
