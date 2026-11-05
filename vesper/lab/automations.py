@@ -475,6 +475,7 @@ class Engine:
                 raise AutomationError(f"mode {mode!r} is not supported (single only)")
             approximations.append(f"mode {mode} run as single")
         self._notes = []  # what permissive mode records instead of running, for `approximations`
+        self._chooses = 0  # the automation's choose and if steps, numbered in the order they are written
         self._varnames = set(_variable_names(a))  # what templates may read besides trigger, wait and repeat
         trigger_variables = self._variables(a.get("trigger_variables"), "trigger_variables")
         variables = self._variables(a.get("variables"), "variables")
@@ -587,6 +588,12 @@ class Engine:
 
     def _actions(self, raw) -> list[dict]:
         return [self._action(x) for x in _enabled(_list(raw, "actions"))]
+
+    def _next_choose(self) -> int:
+        """The next number for a choose or if step of the automation being parsed (0, 1, ... as written)."""
+        n = getattr(self, "_chooses", 0)
+        self._chooses = n + 1
+        return n
 
     def _entity(self, entity_id) -> Entity:
         e = self.entities.get(entity_id) if isinstance(entity_id, str) else None
@@ -772,6 +779,7 @@ class Engine:
             return {"kind": "check", "condition": self._condition(step)}
         if "choose" in step:
             _keys(step, {"choose", "default"}, "action choose")
+            n = self._next_choose()
             options = []
             for o in _list(step["choose"], "action choose"):
                 if not isinstance(o, dict) or "sequence" not in o:
@@ -779,14 +787,15 @@ class Engine:
                 _keys(o, {"conditions", "sequence", "alias"}, "action choose")
                 options.append((self._conditions(o.get("conditions"), "action choose: conditions"),
                                 self._actions(o["sequence"])))
-            return {"kind": "choose", "options": options, "default": self._actions(step.get("default"))}
+            return {"kind": "choose", "options": options, "default": self._actions(step.get("default")), "n": n}
         if "if" in step:
             _keys(step, {"if", "then", "else"}, "action if")
             if "then" not in step:
                 raise AutomationError("action if: then is required")
+            n = self._next_choose()
             return {"kind": "choose", "options": [(self._conditions(step["if"], "action if"),
                                                    self._actions(step["then"]))],
-                    "default": self._actions(step.get("else"))}
+                    "default": self._actions(step.get("else")), "n": n}
         if "sequence" in step:
             _keys(step, {"sequence"}, "action sequence")
             return {"kind": "sequence", "steps": self._actions(step["sequence"])}
@@ -1562,8 +1571,12 @@ class Engine:
                 if not self._holds(x["condition"], run.context):
                     self._end_frame(run)
             elif kind == "choose":
-                steps = next((seq for conditions, seq in x["options"]
-                              if all(self._holds(c, run.context) for c in conditions)), x["default"])
+                taken = next((k for k, (conditions, _) in enumerate(x["options"])
+                              if all(self._holds(c, run.context) for c in conditions)), -1)
+                steps = x["options"][taken][1] if taken >= 0 else x["default"]
+                note = getattr(self.session, "automation_branch", None)  # a session that records branches
+                if note is not None and "n" in x:
+                    note(a.name, x["n"], taken)
                 run.frames.append(_Frame(list(steps)))
             elif kind == "sequence":
                 if x.get("group"):  # one action that is several calls (homeassistant.turn_on): not a sequence

@@ -24,7 +24,7 @@ from pathlib import Path
 
 from vesper.edt.bind import ENTITY, Unbindable, bind_with_assumptions
 from vesper.edt.corpus import env_kinds, iter_automations
-from vesper.edt.oracle import divergences, outcome
+from vesper.edt.oracle import divergences, frame_divergences, frames_of, outcome, rich_divergences, rich_outcome
 from vesper.edt.types import Env, Outcome
 
 BATCH = 500  # automations per engine
@@ -106,8 +106,10 @@ def is_negative_control(raw: dict, bound: dict, entity_roles: dict[str, str]) ->
 _W: dict = {}
 
 
-def _init(home_yaml: str, cache: str, bound: dict, catalog_dir: str, batch: int) -> None:
-    _W.update(home_yaml=Path(home_yaml), cache=Path(cache), bound=bound, catalog_dir=catalog_dir, batch=batch)
+def _init(home_yaml: str, cache: str, bound: dict, catalog_dir: str, batch: int,
+          reporting_rule: str = "catalog") -> None:
+    _W.update(home_yaml=Path(home_yaml), cache=Path(cache), bound=bound, catalog_dir=catalog_dir, batch=batch,
+              reporting_rule=reporting_rule)
 
 
 def _site_of(trace: Path):
@@ -142,30 +144,34 @@ def _replay(trace: Path, ids: list[str], out: dict) -> None:
     for i in ids:
         if i not in r.refused:
             out["firings"][i] = r.firings.get(i, [])
+            out.setdefault("branches", {})[i] = r.branches.get(i, [])
     for name, approx in r.approximations.items():
         out["approximations"][name] = sorted(set(approx))
 
 
-def _run_env(env: Env) -> tuple[str, dict, dict, dict, float, str | None]:
-    """(env key, {id: outcome dict}, {id: refusal}, {id: approximations}, seconds, failure) for one environment.
-    A trace that cannot be recorded, or an environment in which every replay fails, is one failure of the
-    environment (no outcomes, no per-automation refusals)."""
+def _run_env(env: Env) -> tuple[str, dict, dict, dict, float, str | None, dict]:
+    """(env key, {id: outcome dict}, {id: refusal}, {id: approximations}, seconds, failure, {id: richer outcome})
+    for one environment. A trace that cannot be recorded, or an environment in which every replay fails, is one
+    failure of the environment (no outcomes, no per-automation refusals)."""
     from vesper.edt import trace as edt_trace
     t0 = time.monotonic()
     try:
-        trace = edt_trace.record_trace(_W["home_yaml"], env, _W["cache"], fetch=False, catalog_dir=_W["catalog_dir"])
+        trace = edt_trace.record_trace(_W["home_yaml"], env, _W["cache"], fetch=False, catalog_dir=_W["catalog_dir"],
+                                       reporting_rule=_W.get("reporting_rule", "catalog"))
         site = _site_of(trace)
     except Exception as e:  # noqa: BLE001 - one environment's failure is recorded, the others go on
-        return env.key, {}, {}, {}, time.monotonic() - t0, f"trace: {type(e).__name__}: {str(e)[:200]}"
+        return env.key, {}, {}, {}, time.monotonic() - t0, f"trace: {type(e).__name__}: {str(e)[:200]}", {}
     ids = sorted(_W["bound"])
-    out = {"firings": {}, "refused": {}, "approximations": {}, "errors": {}}
+    out = {"firings": {}, "branches": {}, "refused": {}, "approximations": {}, "errors": {}}
     for k in range(0, len(ids), _W["batch"]):
         _replay(trace, ids[k:k + _W["batch"]], out)
     if ids and len(out["errors"]) == len(ids):
         first = out["errors"][ids[0]]
-        return env.key, {}, {}, {}, time.monotonic() - t0, f"every replay failed ({len(ids)}), e.g. {first}"
+        return env.key, {}, {}, {}, time.monotonic() - t0, f"every replay failed ({len(ids)}), e.g. {first}", {}
     outcomes = {i: dataclasses.asdict(outcome(f, site)) for i, f in out["firings"].items()}
-    return env.key, outcomes, out["refused"] | out["errors"], out["approximations"], time.monotonic() - t0, None
+    rich = {i: rich_outcome(f, out["branches"].get(i)) for i, f in out["firings"].items()}
+    return (env.key, outcomes, out["refused"] | out["errors"], out["approximations"], time.monotonic() - t0, None,
+            rich)
 
 
 # ---- the sweep ------------------------------------------------------------------------------------------------------
@@ -193,19 +199,23 @@ def _prefetch_weather(envs: list[Env], cache: Path) -> None:
     from vesper.edt.trace import _fetch_weather, env_site
     seen = set()
     for env in envs:
-        if env.rung >= 3 and env.city and env.date and (env.city, env.date) not in seen:
+        if env.rung >= 2.5 and env.city and env.date and (env.city, env.date) not in seen:  # trace.has_home_site
             seen.add((env.city, env.date))
             _fetch_weather(env_site(env), cache / "weather", None)
 
 
 def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int | None = None, *, fetch: bool = True,
-          catalog_dir: str = "catalog/vds", batch: int = BATCH, log=None, home_variant: str | None = None) -> dict:
+          catalog_dir: str = "catalog/vds", batch: int = BATCH, log=None, home_variant: str | None = None,
+          reporting_rule: str = "device", binder: str = "current") -> dict:
     """Sweep the corpus (`corpus/raw`, or `corpus` itself) across `envs` (default: the 48 of
     `vesper.edt.trace.ENVIRONMENTS`), every one at `rung`. `work`: the EDT home and the trace cache (`work/cache`;
     one work directory per catalog version). `limit`: the first N de-duplicated automations. `fetch`: fetch recorded
     weather (False: what is cached, else the assumed clear sky). `log`: a callable given progress lines.
     `home_variant`: one of vesper.edt.home.VARIANTS instead of the standard home (protocol Addendum 5); the result
-    then also names it (`home_variant`), and is otherwise the same shape.
+    then also names it (`home_variant`), and is otherwise the same shape. `reporting_rule`: the twins' reporting
+    ("device": a device's real rule where it departs from the catalog, the default since protocol A6.9; "catalog": the
+    catalog's, as at 120f4ca). `binder`: the binder's rules ("current"; "120f4ca": the rules of the 120f4ca sweeps).
+    Both are named in the result.
 
     Returns {"rung", "envs": [{city, date, north_deg, rung, key}], "automations": {id: {repo, hash, kinds, raw,
     bound, unbindable, outcomes: {env key: Outcome fields}, refused: {env key: reason}, approximations, divergences,
@@ -224,38 +234,41 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
     home_yaml, roles = build_edt_home(work, catalog_dir, home_variant)
     entity_roles = {eid: role for (role, _room, _v), eid in roles.items()}
 
+    from vesper.edt.bind import binder_rules
     autos: dict[str, dict] = {}
     bound_by_id: dict[str, dict] = {}
-    for a in iter_automations(raw_dir):
-        if limit is not None and len(autos) >= limit:
-            break
-        raw = a.raw
-        try:
-            b = bind_with_assumptions(raw, roles, 0) if isinstance(raw, dict) else Unbindable("not a mapping")
-        except Exception as e:  # noqa: BLE001 - a binder crash is reported as the automation's reason
-            b = Unbindable(f"binder error: {type(e).__name__}")
-        assumptions: list[str] = []
-        if isinstance(b, tuple):
-            b, assumptions = b
-        if not isinstance(b, (dict, Unbindable)):
-            b = Unbindable("not a mapping")
-        entry = {"repo": a.repo, "hash": a.hash, "kinds": sorted(env_kinds(raw)) if isinstance(raw, dict) else [],
-                 "raw": _jsonable(raw), "bound": None, "unbindable": None, "outcomes": {}, "refused": {},
-                 "approximations": [], "divergences": [], "static": [], "negative_control": False,
-                 "assumptions": []}
-        if isinstance(b, Unbindable):
-            entry["unbindable"] = b.reason
-        else:
-            entry["bound"] = _jsonable(b)
-            entry["assumptions"] = assumptions  # the helper gates held open (protocol A2), beside the bound automation
-            entry["negative_control"] = is_negative_control(raw, b, entity_roles)
-            bound_by_id[a.hash] = b
-        autos[a.hash] = entry
+    with binder_rules(binder):  # protocol A6.9
+        for a in iter_automations(raw_dir):
+            if limit is not None and len(autos) >= limit:
+                break
+            raw = a.raw
+            try:
+                b = bind_with_assumptions(raw, roles, 0) if isinstance(raw, dict) else Unbindable("not a mapping")
+            except Exception as e:  # noqa: BLE001 - a binder crash is reported as the automation's reason
+                b = Unbindable(f"binder error: {type(e).__name__}")
+            assumptions: list[str] = []
+            if isinstance(b, tuple):
+                b, assumptions = b
+            if not isinstance(b, (dict, Unbindable)):
+                b = Unbindable("not a mapping")
+            kinds = sorted(env_kinds(raw)) if isinstance(raw, dict) else []
+            entry = {"repo": a.repo, "hash": a.hash, "kinds": kinds,
+                     "raw": _jsonable(raw), "bound": None, "unbindable": None, "outcomes": {}, "refused": {},
+                     "approximations": [], "divergences": [], "static": [], "negative_control": False,
+                     "assumptions": []}
+            if isinstance(b, Unbindable):
+                entry["unbindable"] = b.reason
+            else:
+                entry["bound"] = _jsonable(b)
+                entry["assumptions"] = assumptions  # the helper gates held open (protocol A2), beside the bound one
+                entry["negative_control"] = is_negative_control(raw, b, entity_roles)
+                bound_by_id[a.hash] = b
+            autos[a.hash] = entry
     log(f"corpus: {len(autos)} automations, {len(bound_by_id)} bound; {len(envs)} environments, rung {rung}")
 
     if fetch:
         _prefetch_weather(envs, cache)
-    args = (str(home_yaml), str(cache), bound_by_id, catalog_dir, batch)
+    args = (str(home_yaml), str(cache), bound_by_id, catalog_dir, batch, reporting_rule)
     per_env: dict[str, tuple] = {}
     t0 = time.monotonic()
     if workers <= 1 or len(envs) <= 1:
@@ -274,11 +287,13 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
 
     failed_envs: dict[str, str] = {}
     for env in envs:  # the given order, whatever order the workers finished in
-        _, outcomes, refused, approximations, _, failure = per_env[env.key]
+        _, outcomes, refused, approximations, _, failure, rich = per_env[env.key]
         if failure:
             failed_envs[env.key] = failure
         for aid, o in outcomes.items():
             autos[aid]["outcomes"][env.key] = o
+        for aid, r in rich.items():
+            autos[aid].setdefault("rich", {})[env.key] = r
         for aid, why in refused.items():
             if aid in autos:
                 autos[aid]["refused"][env.key] = why
@@ -286,7 +301,12 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
             if aid in autos:
                 autos[aid]["approximations"] = sorted(set(autos[aid]["approximations"]) | set(approx))
 
+    env_of = {e.key: e for e in envs}
     for entry in autos.values():
+        if entry["bound"] is not None:  # protocol Addendum 6: the frames, beside every bound automation
+            frames = frames_of(entry["bound"])
+            entry["frames"] = sorted(frames.frames)
+            entry["sun_frame_computable"] = bool(frames.sun_refs)
         outs = {k: Outcome(**o) for k, o in entry["outcomes"].items()}
         if not outs:
             continue
@@ -294,7 +314,13 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
         static = {k for k in ENVELOPE if k in kinds and all(getattr(o, k) for o in outs.values())}
         entry["divergences"] = sorted(kinds - static)
         entry["static"] = sorted(static)
+        rich = entry.get("rich", {})
+        first_t = {env_of[k]: (rich.get(k) or {}).get("first_t") for k in outs}
+        by_env = {env_of[k]: o for k, o in outs.items()}
+        entry["frame_divergences"] = sorted(frame_divergences(by_env, first_t, frames) - static)
+        entry["rich_divergences"] = sorted(rich_divergences(rich))
     result = _summarise(rung, envs, dict(sorted(autos.items())), failed_envs)
+    result = {**result, "reporting_rule": reporting_rule, "binder": binder}  # protocol A6.9
     return result if home_variant is None else {**result, "home_variant": home_variant}
 
 
@@ -316,13 +342,14 @@ def _yield(autos: list) -> dict:
             "run": sum(1 for a in autos if a["outcomes"])}
 
 
-def _flagged(flagged: list) -> dict:
-    return {"n": len(flagged), "by_kind": dict(sorted(Counter(k for a in flagged for k in a["divergences"]).items()))}
+def _flagged(flagged: list, key: str = "divergences") -> dict:
+    return {"n": len(flagged), "by_kind": dict(sorted(Counter(k for a in flagged for k in a[key]).items()))}
 
 
 def _summarise(rung: int, envs: list[Env], autos: dict, failed_envs: dict[str, str]) -> dict:
     ran = [a for a in autos.values() if a["outcomes"]]
     flagged = [a for a in ran if a["divergences"]]
+    flagged_frame = [a for a in ran if a.get("frame_divergences")]
     free = [a for a in autos.values() if not a.get("assumptions")]  # protocol A2: also over the assumption-free
     static = [a for a in ran if a["static"]]
     nc = negative_control_summary(autos)
@@ -339,6 +366,8 @@ def _summarise(rung: int, envs: list[Env], autos: dict, failed_envs: dict[str, s
         "yield_assumption_free": {**_yield(free), "parsed": len(autos)},
         "flagged": _flagged(flagged),
         "flagged_assumption_free": _flagged([a for a in flagged if not a.get("assumptions")]),
+        "flagged_frame": _flagged(flagged_frame, "frame_divergences"),  # protocol Addendum 6, A6.3
+        "rich_divergent": dict(sorted(Counter(k for a in ran for k in a.get("rich_divergences", [])).items())),
         "static": {"n": len(static), "by_kind": dict(sorted(Counter(k for a in static for k in a["static"]).items()))},
         "unbindable_reasons": dict(sorted(Counter(reason_class(a["unbindable"]) for a in autos.values()
                                                   if a["unbindable"]).items())),

@@ -1,7 +1,7 @@
 """Types the environmental-differential-testing tasks share: an environment, a firing, an outcome."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 def _escape(text: str, keep: str = "") -> str:
@@ -38,11 +38,13 @@ class Env:
 
 @dataclass
 class Firing:
-    """One automation action that ran: when (logical seconds), which automation, which service, on what."""
+    """One automation action that ran: when (logical seconds), which automation, which service, on what, and the
+    command parts the engine sent with it ((feature, value) pairs; empty for an action it only records)."""
     t: float
     automation: str
     service: str
     target: str
+    data: tuple = field(default=(), compare=False)  # kept for the richer outcome (protocol A6.4), not identity
 
 
 @dataclass

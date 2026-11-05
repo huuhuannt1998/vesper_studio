@@ -43,6 +43,7 @@ class Replay:
     refused: dict[str, str] = field(default_factory=dict)
     approximations: dict[str, list[str]] = field(default_factory=dict)
     start_states: dict[str, str] = field(default_factory=dict)  # entity id -> its state when the run starts
+    branches: dict[str, list[tuple[float, int, int]]] = field(default_factory=dict)  # id -> (t, step, option)
 
 
 class _TraceRuntime:
@@ -63,6 +64,7 @@ class TraceSession:
         self.home, self.clock = home, clock
         self.runtime = _TraceRuntime(twins, initial_state)
         self.firings: list[Firing] = []
+        self.branches: list[tuple[float, str, int, int]] = []  # (t, automation, choose step, option)
         self.skipped: list[tuple[str, str, str]] = []
         self._hub: list = []
         self._last: tuple | None = None  # the command being written down, and which of its parts we have seen
@@ -81,16 +83,22 @@ class TraceSession:
     def automation_command(self, automation: str, trigger: str, service: str, entity: str, twin_id: str,
                            feature: str, value) -> None:
         """One Firing per (action, target). A command the engine can execute arrives once per part (a light's state
-        and its brightness): the parts of one command are one firing."""
+        and its brightness): the parts of one command are one firing, and its `data` (protocol A6.4)."""
         if twin_id:
             key = (self.clock.now(), automation, trigger, service, entity)
             if key == self._last and feature not in self._parts:
                 self._parts.add(feature)
+                self.firings[-1].data += ((feature, value),)
                 return
             self._last, self._parts = key, {feature}
-        else:
-            self._last = None
+            self.firings.append(Firing(self.clock.now(), automation, service, entity, ((feature, value),)))
+            return
+        self._last = None
         self.firings.append(Firing(self.clock.now(), automation, service, entity))
+
+    def automation_branch(self, automation: str, step: int, option: int) -> None:
+        """The engine took option `option` (-1: the default) of the automation's choose or if step `step`."""
+        self.branches.append((self.clock.now(), automation, step, option))
 
 
 @functools.lru_cache(maxsize=4)
@@ -162,7 +170,11 @@ def replay_detailed(home_yaml: Path, trace: Path, automations: dict[str, dict], 
             out[key].append(dataclasses.replace(f, automation=key))
     refused = {key_of[x["automation"]]: x["reason"] for x in engine.refused if x["automation"] in key_of}
     approximations = {key_of[a.name]: a.approximations for a in engine.automations if a.approximations}
-    return Replay(out, refused, approximations, start_states)
+    branches: dict[str, list[tuple[float, int, int]]] = {}
+    for t, label, step, option in session.branches:
+        if DAY_S <= t < end and label in key_of:
+            branches.setdefault(key_of[label], []).append((t, step, option))
+    return Replay(out, refused, approximations, start_states, branches)
 
 
 def replay(home_yaml: Path, trace: Path, automations: dict[str, dict], *, until: float | None = None,

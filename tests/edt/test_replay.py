@@ -371,3 +371,25 @@ def test_replay_equals_a_live_permissive_session(edt, trace4, tmp_path):
         assert live[k], k  # each kind really fires in these days
         assert [f.service for f in got[k]] == [s for _, s in live[k]], k
         assert [f.t for f in got[k]] == pytest.approx([t for t, _ in live[k]], abs=0.1), k
+
+
+def test_firings_keep_the_command_data_and_the_branch_taken(edt, trace4):
+    """Protocol A6.4: an executed command's parts are the firing's data; a choose or if records the option taken
+    (-1: the default), each step numbered in the order written."""
+    _, roles = edt
+    dim = bind({"alias": "dim", "triggers": [{"trigger": "time", "at": "07:00:00"}, {"trigger": "time", "at": "21:00"}],
+                "actions": [{"if": [{"condition": "time", "after": "12:00"}],
+                             "then": [{"action": "light.turn_on", "data": {"brightness": 50},
+                                       "target": {"entity_id": "light.office"}}],
+                             "else": [{"choose": [{"conditions": [{"condition": "time", "before": "06:00"}],
+                                                   "sequence": [{"action": "switch.turn_on",
+                                                                 "target": {"entity_id": "switch.office_plug"}}]}],
+                                       "default": [{"action": "light.turn_on", "data": {"brightness": 200},
+                                                    "target": {"entity_id": "light.office"}}]}]}]}, roles, 0)
+    r = replay_detailed(edt[0], trace4, {"dim": dim})
+    assert [f.t % DAY for f in r.firings["dim"]] == pytest.approx([7 * 3600, 21 * 3600] * 2, abs=1)
+    brightness = [dict(f.data).get("brightness") for f in r.firings["dim"]]
+    assert brightness[0] != brightness[1] and brightness[0] == brightness[2] and None not in brightness
+    morning, evening = r.firings["dim"][0].t, r.firings["dim"][1].t
+    assert [(t, s, o) for t, s, o in r.branches["dim"] if t in (morning, evening)] == \
+        [(morning, 0, -1), (morning, 1, -1), (evening, 0, 0)]

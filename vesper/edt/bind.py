@@ -24,6 +24,8 @@ temperature threshold outside -30..35, and two distinct names bound onto one hom
 """
 from __future__ import annotations
 
+import contextlib
+
 import copy
 import re
 from dataclasses import dataclass
@@ -152,9 +154,48 @@ class Unbindable:
     reason: str
 
 
-def _outdoor(tokens) -> bool:
+# The binder's rules (protocol Addendum 6, A6.9): "current" binds a weather-token name by its room tokens and refuses
+# enclosures and media; "120f4ca" is the binder of the 120f4ca sweeps, kept for the reproduction check (A6.8).
+BINDER_RULES = "current"
+ENCLOSURE_TOKENS = {  # a sensor in an enclosure, or in water, reads no room's air (the R4-C audit's classes)
+    "server", "servers", "serverroom", "serverrum", "comms", "rack", "humidor", "freezer", "fridge", "frys",
+    "kylskap", "kuehlschrank", "filament", "filamentbox", "growbox", "growtent", "terrarium", "vivarium",
+    "aquarium", "water", "pool", "tub", "hottub", "jacuzzi", "spa", "sauna", "beer", "fermenter", "fermentation",
+    "kombucha"}
+ENCLOSURE_PAIRS = {("grow", "box"), ("grow", "tent"), ("hot", "tub"), ("server", "room")}
+AMBIENT_WORDS = WORDS["temperature"] | WORDS["humidity"] | WORDS["illuminance"]
+
+
+@contextlib.contextmanager
+def binder_rules(rules: str):
+    """Within the block, bind by `rules` ("current" or "120f4ca"); restored after, whatever happens."""
+    global BINDER_RULES
+    if rules not in ("current", "120f4ca"):
+        raise ValueError(f"binder rules {rules!r}: current or 120f4ca")
+    old, BINDER_RULES = BINDER_RULES, rules
+    try:
+        yield
+    finally:
+        BINDER_RULES = old
+
+
+def _enclosure(entity_id: str) -> bool:
+    """A temperature, humidity or light sensor of an enclosure or a medium (server room, rack, humidor, freezer,
+    filament or grow box, terrarium, aquarium, water, a tub, a sauna, a fermenter): not a room's air."""
+    domain, _, name = entity_id.partition(".")
+    tokens = name.split("_")
+    if BINDER_RULES == "120f4ca" or domain not in ("sensor", "binary_sensor") or not AMBIENT_WORDS & set(tokens):
+        return False
+    return bool(ENCLOSURE_TOKENS & set(tokens)) or any(p in ENCLOSURE_PAIRS for p in zip(tokens, tokens[1:]))
+
+
+def _outdoor_place(tokens) -> bool:
     return any(t.startswith(prefix) for t in tokens for prefix in OUTDOOR) or bool(OUTDOOR_TOKENS & set(tokens)) or \
-        any(s in t for t in tokens for s in OUTDOOR_ANYWHERE) or _weather_service(tokens)
+        any(s in t for t in tokens for s in OUTDOOR_ANYWHERE)
+
+
+def _outdoor(tokens) -> bool:
+    return _outdoor_place(tokens) or _weather_service(tokens)
 
 
 def _semi_outdoor(entity_id: str) -> bool:
@@ -183,12 +224,16 @@ def _other_measure(tokens) -> bool:
 
 
 def _room(tokens, default: str | None = "living") -> str | None:
-    """The room a name's tokens say: the porch if outdoors, else ROOMS' first match, else `default`."""
-    if _outdoor(tokens):
-        return OUTDOOR_ROOM
+    """The room a name's tokens say: the porch if outdoors, else ROOMS' first match, else `default`. A name outdoors
+    only by a weather token (`weather_bedroom`, Aqara's `lumi_weather`) is in the room its other tokens name
+    (`lumi_weather` with none: `default`); with no room token it stays outdoors (A6.9; not under "120f4ca")."""
     room = next((rid for prefix, rid in ROOMS if any(t.startswith(prefix) for t in tokens)), None)
     if room in (None, "bedroom_1") and BEDROOM_2.search("_".join(tokens)):
         room = "bedroom_2"
+    if _outdoor(tokens):
+        lumi = any(a == "lumi" and b == "weather" for a, b in zip(tokens, tokens[1:], strict=False))
+        if BINDER_RULES == "120f4ca" or _outdoor_place(tokens) or (room is None and not lumi):
+            return OUTDOOR_ROOM
     return room or default
 
 
@@ -268,6 +313,8 @@ def _roles_for(entity_id: str, roles: dict, variant: int) -> str | Unbindable:
         return Unbindable(f"{entity_id}: {domain} entities are not modelled")
     if _semi_outdoor(entity_id):
         return Unbindable(f"semi-outdoor spaces are not modelled (for {entity_id})")
+    if _enclosure(entity_id):
+        return Unbindable(f"enclosure or medium, not room air (for {entity_id})")
     found = infer_role(entity_id)
     if found is None:
         return _no_role(entity_id)
