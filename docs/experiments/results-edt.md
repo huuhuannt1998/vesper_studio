@@ -3514,6 +3514,183 @@ What moves, by anonymous index among the 67 (kinds are the oracle's names):
 - The trade-off curve's pooled scores come from five fold models; the split's held-out half is one model on 2,777 rows,
   and the two give budgets that differ by a factor of two in opposite directions for the frame flags.
 
+## Revision R11-P1 (Addendum 22): the binder discount's arithmetic, the 2 x 2 time-spread attribution, the gate-open assumption, the occupancy range, the full rung-0 curve
+
+**Post hoc** (after the eighth internal review, items 2(a), 3, 5(a), 5(b) and 9), registered before its runs as
+protocol Addendum 22 (`docs/experiments/edt-protocol.md`, commit `d4e52bc`). New knobs: `sun_normalise` and
+`sensed_exempt` on `vesper.edt.oracle.frame_invariance`, `frame_divergences` and `frame_restricted_divergences`
+(commit `ba38af8`), both default on. **Bit-identical at the default:** on all 5,926 run automations of `8fcd672` the
+defaults recompute the stored frame divergences (0 differ), and both off recompute the stored clock divergences (0
+differ). Script: `scripts/revision/r11p1.py`; numbers: `results/edt/r11p1-ba38af8.json` (aggregates only). No trace was
+recorded and no sweep was run: every number re-reads saved outcomes, saved labels or printed counts.
+
+### Item 2(a): the binder discount's arithmetic (A22.1)
+
+A12.5's code and A17.5's, re-run on their own inputs. **Both printed numbers reproduce.**
+
+- **D = O + (c - m) + u x (1 - m/c) = 51 + (146 - 40) + 2 x (1 - 40/146) = 158.4521**, printed as 158.5. O is the
+  51 frame flags with no sensed frame (not discounted). c = 146 of the 148 sensed-frame flags carry an R4-C label
+  (65 correct, 37 correct by convention, 40 mis-bind, 4 uncertain); m = 40 mis-binds; u = 2 carry none and take the
+  covered share.
+- **The uncertain labels are weighted 0 as mis-binds**: the 4 uncertain among the 146 count as kept flags, at full
+  weight. No half weight is used anywhere. As mis-binds at weight 0.5 they give 156.42; at weight 1, 154.40 (A12.5's
+  sensitivity row, 154.4).
+- **D_ext = D - s = 158.4521 - 14 = 144.4521**, printed as 144.5. s = 14 sun-reading frame flags outside the 148 that
+  A17.5 found mislocated.
+- **Why the review's arithmetic does not reach 158.5.** It applies R4-C's whole-sample rates to the 148. R4-C labelled
+  179 binder cases (75 correct, 44 by convention, 51 mis-bind, 9 uncertain), drawn from its audit of the flagged
+  set, not only from the sensed-frame frame flags.
+  A12.5 uses only the 146 of them that are sensed-frame frame flags, whose mis-bind share is **40/146 = 27.4 %**,
+  against 51/179 = 28.5 % and 51/170 = 30.0 % over the whole sample. The review's forms give 51 + 148 x 119/170 =
+  154.6 and 51 + 148 x (1 - 51/179) = 156.8 (A12.5's table printed the second as "the review's form"). The review's
+  "40.5 flags discounted" is right: 148 - 107.45 = 40.55 = the 40 labelled mis-binds + the 2 unlabelled flags x
+  40/146.
+
+### Item 3: the 2 x 2 attribution of 709 -> 8 (A22.2)
+
+Population: the 5,926 run automations of `8fcd672`; static envelope kinds removed as the sweep removes them. "Sun
+normalisation off": the sun frame is judged by local clock time (with or without a computable reference). "Exemption
+off": the sensed frame is judged by local clock time. Both off is exactly the clock relation. **The checks hold:**
+709 and 790 in the clock-only cell, 8 and 199 in the published one.
+
+| *time_spread* (flags of any kind) | sensed exemption off | sensed exemption on |
+|---|---|---|
+| **sun normalisation off** | **709** (790): the clock relation | 583 (761) |
+| **sun normalisation on** | 130 (225) | **8** (199): the published relation |
+
+- **Of the 701 time spreads removed, the sun normalisation alone removes 579 (82.6 %), the exemption alone 126
+  (18.0 %).** The interaction is -4: 4 automations that declare both a sun and a sensed frame lose their spread to
+  either component, so the two main effects overlap by 4. Over flags of any kind: 790 -> 199, the sun normalisation
+  alone removes 565 and the exemption alone 29 (interaction -3).
+- **By declared frame set** (clock relation -> sun normalisation only -> exemption only -> published): sun only 528 ->
+  4 -> 528 -> 4; clock + sun 54 -> 3 -> 54 -> 3; sensed only 104 -> 104 -> 0 -> 0; clock + sensed 15 -> 15 -> 0 -> 0;
+  sensed + sun 5 -> 3 -> 0 -> 0; clock + sensed + sun 2 -> 0 -> 0 -> 0; clock only 1 in every cell.
+- So the timing component nearly vanishes mainly through the technique: measuring a sun trigger from its own sun event
+  takes 709 to 130 with no exemption at all. The exemption is what takes the remaining 130 to 8: 122 spreads, all on
+  automations that declare a sensed frame (104 sensed-only, 15 clock + sensed, 3 sensed + sun). Those 122 are the
+  convention's share of the reduction.
+- 148 of the 199 published frame flags declare a sensed frame (the review's 148). They are flagged for kinds other than
+  a time spread: the exemption removes their spreads, not their flags.
+
+### Item 5(a): the gate-open assumption (A22.3)
+
+**The review's counts hold: frame 199 -> 155, clock 790 -> 641** once the 867 run automations carrying a gate-open
+assumption are excluded (5,059 assumption-free of 5,926).
+
+| | all run (5,926) | assumption-free (5,059) | with an assumption (867) |
+|---|---|---|---|
+| frame flags | 199 (3.36 %, Wilson [2.93, 3.85]) | 155 (3.06 %, [2.62, 3.58]) | 44 (5.07 %) |
+| clock flags | 790 (13.3 %, [12.5, 14.2]) | 641 (12.7 %, [11.8, 13.6]) | 149 (17.2 %) |
+
+- The 44 frame flags with an assumption: kinds fires_somewhere_only 42, night_light 5, time_spread 1. They read a
+  temperature 31 times, the sun 9, an illuminance 3, a humidity 1.
+- **Their deleted guards, by the registered lexicon: none reads an environmental quantity.** The 44 carry 54 guards (8
+  flags carry several), none a numeric range. 13 guards are presence (a person, or a group required `home` or
+  `not_home`) and 41 are other (modes, schedules, holidays, work shifts, switches). By flag: **0 environmental, 12
+  presence, 32 other.**
+- *Hand reading, one rater (the lane), of the 32 distinct guards:* 4 guards on 7 flags are classed differently. 3 name a
+  resident's state that the lexicon misses (being present, asleep): presence. 1, on 1 flag, is a seasonal fitting set
+  by hand (an engine heater fitted): season. No guard reads a physical quantity. So at most 1 of the 44 has a guard
+  that bears on the environment, and it is a hand-set mode.
+- Reading: the gate-open rewrite (A2.1) runs these 44 in the mode their authors gated them for. With the guard closed
+  they would not fire at all. They are not environmental findings smuggled in by the guard; they are environmental
+  findings conditional on a mode or on someone being home.
+
+### Item 5(b): the occupancy exclusion, bounded by arithmetic (A22.4)
+
+Printed counts only. E1, E1' and E4 are re-read from `8fcd672`'s summary and match. E2 is R4-A's 8fcd672 table and E3
+is R4-C's scope count (as printed, not re-read).
+
+| Occupancy-dependent exclusion cause (of 43,280) | Automations |
+|---|---|
+| E1 unbindable: a helper or presence entity in a trigger | 7,257 |
+| E2 run but dead: trigger entities never change (inside the 5,926) | 2,762 |
+| E3 command a cover, not run (1,116 - 4) | 1,112 |
+| E4 read an illuminance, not run (462 - 67) | 395 |
+| *E1' (secondary): every helper/presence unbindable class (7,257 + 4,418 + 814)* | *12,489* |
+
+The headline is 199 of 5,926 = **3.36 %**. Suppose the excluded classes are counted, and they and the dead flag at q =
+15.27 % (184/1,205, the environment-coupled run rate). The rate is then (199 + q (X + 2,762)) / (5,926 + X), with X
+the excluded automations not run. The printed counts do not give the overlap of E1, E3 and E4, so 7,257 <= X <= 8,764.
+
+| Counted at q = 15.3 % | Frame flag rate |
+|---|---|
+| none (published) | 3.36 % |
+| E1 alone | 9.92 % |
+| E2 alone (the dead re-flagged in place) | 10.48 % |
+| E3 alone | 5.24 % |
+| E4 alone | 4.10 % |
+| **E1-E4 together** | **13.11-13.34 %** |
+| E1'-E4 together (secondary) | 13.73-13.84 % |
+| *floor: E1-E4 counted, flagging at 0* | *1.35-1.51 %* (E1': 1.00-1.08 %) |
+
+- **So the 3.4 % could lie anywhere between about 1.4 % (the excluded classes counted and never flagging) and about
+  13.3 % (all of them flagging at the environment-coupled rate).** The upper end is driven by the 7,257 helper-trigger
+  refusals and the 2,762 dead rules, which together outnumber the run population.
+- *Limit, as registered:* 15.3 % is the rate of the environment-coupled run automations. Most of the excluded do not
+  read the environment, so it is an upper reference, not an estimate. The range says what the headline could be, not
+  what it is.
+
+### Item 9: the full rung-0 precision-recall curve (A22.5)
+
+A21.2's code path and scores, unchanged. **The check holds:** all 16 of A21.2's operating points at recall 0.8 and 0.9
+(both relations, both feature sets, both sources) reproduce exactly. The complete curves are in the JSON: every
+threshold, with its passed count, true positives, precision and recall. There are 205 points (frame, 8 features), 275
+(frame, 8+4), 231 (clock, 8) and 312 (clock, 8+4) out of fold.
+
+**Frame flags, precision (passed) at recall r**: the fewest automations passed that reach r.
+
+| Scores, features | r 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 1.0 | AP |
+|---|---|---|---|---|---|---|---|
+| out-of-fold, 8 | 0.612 (170) | 0.498 (241) | 0.060 (2,332) | 0.063 (2,539) | 0.034 (5,258) | 0.034 (5,884) | 0.364 |
+| out-of-fold, 8+4 | 0.574 (183) | 0.569 (211) | 0.370 (381) | **0.350 (457)** | 0.071 (2,523) | 0.037 (5,349) | 0.445 |
+| split, 8 (of 2,777) | 0.537 (80) | 0.473 (112) | 0.122 (510) | 0.057 (1,301) | 0.058 (1,383) | 0.032 (2,654) | 0.362 |
+| split, 8+4 (of 2,777) | 0.528 (89) | 0.474 (114) | 0.355 (172) | 0.141 (488) | 0.032 (2,612) | 0.031 (2,753) | 0.399 |
+
+Below recall 0.5 the precision is 0.38-0.59 for every frame curve (JSON).
+
+**The budget at recall 0.8 and 0.9** (frame flags, of 5,926; random triage passes r x 5,926 in expectation: 4,741
+and 5,333; out-of-fold intervals are repository bootstrap 95 %):
+
+| Features | recall 0.8: out of fold | split, scaled | recall 0.9: out of fold | split, scaled |
+|---|---|---|---|---|
+| 8 | 2,539 (42.8 %, [38.3, 87.1] %; P 0.063) | 2,776 (P 0.057) | 5,258 (88.7 %, [80.7, 93.7] %; P 0.034) | 2,951 (P 0.058) |
+| 8+4 | **457 (7.7 %, [6.5, 17.6] %; P 0.350)** | 1,041 (P 0.141) | 2,523 (42.6 %, [15.7, 52.0] %; P 0.071) | 5,574 (P 0.032) |
+
+- **The conclusion is operating-point specific.** With the four frame features, rung 0 catches 80 % of the frame flags
+  by simulating 457 of 5,926 (7.7 %; on the split, 1,041 scaled). Catching 90 % takes 2,523 (42.6 %), and on the
+  split 5,574, worse than random's 5,333. The 8 features alone do not cut the budget at either recall: precision at 0.8 is
+  0.063, against the base rate of 0.034.
+- The steep step lies between recall 0.8 and 0.9, where the remaining flags share their scores with thousands of
+  unflagged automations (A21.2's tie blocks). The 8+4 gain is the frame map: adding its four features raises precision
+  at recall 0.8 from 0.063 to 0.350.
+- Recall at a fixed budget (out of fold, 8+4): 0.814 at 10 % (528 passed, precision 0.307), 0.889 at 25 %, 0.945 at
+  50 %, 0.985 at 75 %. With 8 features: 0.658, 0.698, 0.819, 0.819.
+- Clock flags, for comparison: recall 0.8 costs 745 (8; P 0.850) or 758 (8+4); recall 0.9 costs 896 or 877; AP 0.837
+  and 0.858.
+
+### What this changes, stated
+
+- 158.5 and 144.5 reproduce, with the uncertain labels at weight 0. The difference from the review's ≈157 is the label
+  population, 146 own labels at 27.4 % against 179 at 28.5 %, not a hidden weight.
+- 709 -> 8 is mostly the sun normalisation (579 of 701 alone). The sensed exemption is responsible for the last 122
+  (130 -> 8), and those are the reduction's conventional part.
+- 44 of the 199 frame flags (22 %) come from gate-open automations. By the lexicon no deleted guard reads an
+  environmental quantity; by hand, one is a seasonal mode.
+- If the occupancy-excluded classes flagged at the environment-coupled rate, the 3.4 % could be anywhere between 1.4 %
+  and 13.3 %.
+- Rung 0 with the frame map cuts the budget at recall 0.8 (7.7 %), not at 0.9.
+
+*Concerns, stated.*
+- The guard classes rest on a name lexicon and one rater's reading of 32 names. A helper's name may not say what sets
+  it: a mode set by another automation from a temperature would read as "other".
+- A22.4 is arithmetic on counts. The overlap among E1, E3 and E4 is bracketed, not measured, and q is a reference
+  rate, not an estimate for the excluded.
+- In A22.2 "sun normalisation off" judges a sun frame by clock time, including the sun frames that name no computable
+  reference. Those are invariant in the published relation; that is a convention within the normalisation component.
+- The out-of-fold budget intervals are wide (8+4 at recall 0.8: 6.5-17.6 %), and the split disagrees with the pooled
+  scores by a factor of two at 0.8 and in the opposite direction at 0.9.
+
 ## Revision R11-K (Addendum 24): a blind second rater
 
 **Post hoc** (Addendum 24, `90af7ab`, written before any comparison). The second rater did not build the binder and
