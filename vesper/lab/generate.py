@@ -452,7 +452,8 @@ RULES = {"light": "ceiling", "smoke_sensor": "ceiling", "gas_sensor": "ceiling",
          "thermostat": "wall", "plug": "floor"}  # anything else: a table position
 SHORT = {"motion_sensor": "motion", "contact_sensor": "contact", "smoke_sensor": "smoke", "gas_sensor": "gas",
          "climate_sensor": "climate", "leak_sensor": "leak", "air_quality_sensor": "air"}
-REQUEST_FIELDS = {"format", "rooms", "program", "scene", "seed", "devices", "residents", "furnish", "site"}
+REQUEST_FIELDS = {"format", "rooms", "program", "scene", "seed", "devices", "residents", "furnish", "site",
+                  "daylight_lights"}
 DEVICE_FIELDS = {"product", "category", "at", "per", "except", "count", "protocol"}
 
 
@@ -465,6 +466,9 @@ class Request:
     scene: str | None = None  # an HSSD scene id: the home is that real house, not a generated layout
     furnish: bool = True  # each room gets its furniture (vesper.lab.furnishing), solid on the walking map
     site: dict | None = None  # where and when the home is (vesper.env.site), written to home.yaml as given
+    # each lit room with an illuminance sensor gets a daylight-following automation (vesper.lab.daylight); off for a
+    # request that does not ask, so an existing request makes the same home; compose asks by default
+    daylight_lights: bool = False
 
 
 def load_request(path: Path) -> Request:
@@ -505,7 +509,10 @@ def load_request(path: Path) -> Request:
     furnish = spec.get("furnish", True)
     if not isinstance(furnish, bool):
         raise GenerateError(f"furnish: {furnish!r} is not true or false")
-    return Request(path, list(types), seed, devices, scene, furnish, site_of(spec.get("site")))
+    daylight = spec.get("daylight_lights", False)
+    if not isinstance(daylight, bool):
+        raise GenerateError(f"daylight_lights: {daylight!r} is not true or false")
+    return Request(path, list(types), seed, devices, scene, furnish, site_of(spec.get("site")), daylight)
 
 
 def site_of(raw) -> dict | None:
@@ -558,6 +565,14 @@ def generate_home(request: Request, catalog: dict, out: Path, export=None) -> No
     (out / "home.yaml").write_text("\n".join(lines) + "\n")
     if request.furnish:
         _furnish(out, catalog)
+    _daylight(out, request, catalog)
+
+
+def _daylight(out: Path, request: Request, catalog: dict) -> None:
+    """The daylight-following lights (vesper.lab.daylight), when the request asks for them."""
+    if request.daylight_lights:
+        from vesper.lab.daylight import write_daylight_automations
+        write_daylight_automations(out / "home.yaml", catalog)
 
 
 def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path, source: str = "plan.json",
@@ -638,6 +653,7 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
                 _furnish(out, catalog)
         else:
             _scan_files(out, catalog, request, scan, plan, numbers, scan_items, model, heights)
+        _daylight(out, request, catalog)
     except BaseException:
         import shutil
         shutil.rmtree(out, ignore_errors=True)
@@ -736,6 +752,7 @@ def _house(request: Request, catalog: dict, out: Path, export) -> None:
     lines += [f"  - {yaml.safe_dump(d, default_flow_style=True, sort_keys=False, width=1000).strip()}"
               for d in devices]
     (out / "home.yaml").write_text("\n".join(lines) + "\n")
+    _daylight(out, request, catalog)
 
 
 AVOID_M = 0.15  # a device placed beside a scanned piece keeps this far from its footprint
