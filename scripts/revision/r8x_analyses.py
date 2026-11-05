@@ -314,7 +314,7 @@ def part_sunref(a, lab: Path, scratch: Path) -> dict:
     run = {i: x for i, x in s6["automations"].items() if x["outcomes"]}
     amb_i, amb_ii = set(), set()
     nominal_mismatch, gained, lost, other_kinds, ts_pub, ts_first = 0, set(), set(), set(), 0, 0
-    wit_changed, flagged_i = 0, set()
+    wit_changed, flagged_i, rise_set, with_elev = 0, set(), 0, 0
     for i, x in run.items():
         fr = oracle.frames_of(x["bound"])
         inst, ev = sun_ambiguity(fr)
@@ -323,6 +323,9 @@ def part_sunref(a, lab: Path, scratch: Path) -> dict:
         amb_i.add(i)
         if ev:
             amb_ii.add(i)
+            names = {r.event for r in fr.sun_refs}
+            rise_set += {"sunrise", "sunset"} <= names
+            with_elev += "elevation" in names
         outs = {e: Outcome(**x["outcomes"][e.key]) for e in envs if e.key in x["outcomes"]}
         ft = {e: ((x.get("rich") or {}).get(e.key) or {}).get("first_t") for e in envs}
         pub = sorted(x["frame_divergences"])
@@ -345,6 +348,7 @@ def part_sunref(a, lab: Path, scratch: Path) -> dict:
     frame_flags = {i for i, x in run.items() if x["frame_divergences"]}
     res = {"run": len(run), "ambiguous_two_or_more_instants": len(amb_i),
            "ambiguous_two_or_more_events": len(amb_ii),
+           "of_them_sunrise_and_sunset": rise_set, "of_them_with_an_elevation": with_elev,
            "frame_flags_among_instants": len(amb_i & frame_flags),
            "frame_flags_among_events": len(amb_ii & frame_flags),
            "check_nominal_recomputation_mismatches": nominal_mismatch,
