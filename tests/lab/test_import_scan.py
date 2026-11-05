@@ -287,7 +287,7 @@ def test_without_trimesh_a_mesh_import_names_the_scan_extra(tmp_path, monkeypatc
     monkeypatch.setitem(sys.modules, "trimesh", None)  # import trimesh raises ImportError
     out = tmp_path / "scan"
     assert cli.main(["lab", "import", str(src), str(out), "--catalog", str(cat)]) == 1
-    assert "pip install 'vesper[scan]'" in capsys.readouterr().err
+    assert "install the scan extra" in (err := capsys.readouterr().err) and "'.[scan]'" in err
     assert not out.exists()
 
 

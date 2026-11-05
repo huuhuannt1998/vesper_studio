@@ -16,7 +16,7 @@ its geometry in the stage's frame turned to y up and metres, and handed to `scan
 JSON reader does with RoomPlan's CapturedRoom, this does with its USDZ. The parametric group is read when there is
 one; the mesh export only when there is not, and then the warnings say so.
 
-usd-core (`pxr`) is an optional dependency: `pip install 'vesper[scan]'`.
+usd-core (`pxr`) is an optional dependency: the `scan` extra (`EXTRA` says how to install it).
 """
 from __future__ import annotations
 
@@ -24,9 +24,8 @@ import math
 import re
 from pathlib import Path
 
-from vesper.lab.scan_roomplan import ScanError, plan_from_parts
+from vesper.lab.scan_roomplan import EXTRA, ScanError, plan_from_parts
 
-EXTRA = "install the scan extra: pip install 'vesper[scan]'"
 ARCH = re.compile(r"^(Wall|Door|Window|Opening)(\d+)$")
 FLOOR = re.compile(r"^Floor\d*$")
 NUMBERED = re.compile(r"^(.*?)(\d+)$")

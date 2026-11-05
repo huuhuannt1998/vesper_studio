@@ -1212,11 +1212,11 @@ def _lab_import_scan(args, catalog, src: Path, out: Path) -> int:
             names = {r["id"]: r["name"] for r in plan["rooms"]}
             room = next(names[s] for s in d["rooms"] if s != "outside")
             out_doors = sum(1 for x in plan["doors"] if "outside" in x["rooms"])
-            line = (f"entrance: {door_name(ent, numbers)} ({d['width']:.2f} m) from the {room} to the outside, as the "
-                    "reader chose it")
+            line = (f"entrance: {door_name(ent, numbers)} ({d['width']:.2f} m) between {room!r} and the outside, as "
+                    "the reader chose it")
             if len(plan["rooms"]) == 1 and out_doors > 1:
-                line += (f"; a one-room scan, so all {out_doors} of its doors count as doors to the outside (rooms "
-                         "beyond them were not scanned)")
+                line += (f"; a one-room scan, so {'both' if out_doors == 2 else f'all {out_doors}'} of its doors "
+                         "count as doors to the outside (rooms beyond them were not scanned)")
             print(line)
         if (out / "scene.glb").is_file():
             print(f"3D view: {out / 'scene.glb'} (the model in the home's frame); the original in {out / 'source'}; "
@@ -2301,7 +2301,7 @@ def main(argv: list[str] | None = None) -> int:
     lab_import.add_argument("src", help="the plan: a vesper-plan/1 .json file, a floor-plan image (.png .jpg .pdf) "
                                         "that Claude reads (sent to Anthropic through your Claude Code login), a "
                                         "RoomPlan scan (.json .usdz: Polycam's Room mode, the 3D Scanner App) or a "
-                                        "3D model (.glb .gltf .obj .ply; needs pip install 'vesper[scan]')")
+                                        "3D model (.glb .gltf .obj .ply; a model or a USDZ needs the scan extra)")
     lab_import.add_argument("dir", help="the new home's directory")
     lab_import.add_argument("--scale", help="a plan in pixels: a room's dimension, such as 'kitchen width 3.2 m'; a "
                                             "3D model: metres per unit, such as 0.01 (a RoomPlan scan is in metres)")

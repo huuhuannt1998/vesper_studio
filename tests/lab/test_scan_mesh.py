@@ -217,7 +217,7 @@ def test_two_storeys_read_the_lowest_with_a_warning(tmp_path):
 def test_without_trimesh_the_extra_is_named(tmp_path, monkeypatch):
     path = save(house(), tmp_path / "house.glb")
     monkeypatch.setitem(sys.modules, "trimesh", None)
-    with pytest.raises(ScanError, match=r"vesper\[scan\]"):
+    with pytest.raises(ScanError, match=r"the scan extra: .*'\.\[scan\]'"):
         read_mesh(path)
 
 

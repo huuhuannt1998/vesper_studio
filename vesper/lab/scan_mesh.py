@@ -43,10 +43,9 @@ import math
 from pathlib import Path
 
 from vesper.lab.plan import FORMAT, PlanError, _polygon_problem, load_plan
-from vesper.lab.scan_roomplan import ScanError
+from vesper.lab.scan_roomplan import EXTRA, ScanError
 
 SUFFIXES = (".glb", ".gltf", ".obj", ".ply")
-EXTRA = "install the scan extra: pip install 'vesper[scan]'"
 
 CELL_M = 0.05  # the occupancy grids' cell
 FLOOR_SLICE_M = 0.1  # a doorway has no wall below this

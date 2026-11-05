@@ -52,6 +52,10 @@ OBJECT_KINDS = {"bed": "bed", "sofa": "sofa", "chair": "chair", "table": "table"
 _LISTS = ("walls", "doors", "windows", "openings", "floors", "objects")
 
 
+EXTRA = ("install the scan extra: in your VESPER clone, uv tool install --python 3.12 --editable '.[scan]' (or "
+         "uv pip install -e '.[scan]' in its .venv)")
+
+
 class ScanError(PlanError):
     """A scan or 3D model VESPER cannot turn into a plan, with the reason."""
 

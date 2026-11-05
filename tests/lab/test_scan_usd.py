@@ -237,7 +237,7 @@ def test_without_usd_core_the_reader_names_the_extra(tmp_path, monkeypatch):
     path = tmp_path / "room.usdz"
     path.write_bytes(b"PK\x03\x04")
     monkeypatch.setitem(sys.modules, "pxr", None)
-    with pytest.raises(ScanError, match=r"pip install 'vesper\[scan\]'"):
+    with pytest.raises(ScanError, match=r"the scan extra: .*'\.\[scan\]'"):
         read_roomplan_usdz(path)
 
 
