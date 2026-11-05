@@ -29,7 +29,7 @@ Y = [1, 1, 0, 1, 0, 0, 1, 0, 0, 0]
 
 def test_precision_at_recall_takes_the_highest_threshold_that_reaches_it_and_ties_pass_together():
     p = q.at_recall(S, Y, 0.5)  # 2 of 4 positives: the tie at 0.8 passes 3, with 2 positives
-    assert (p["passed"], p["tp"], p["threshold"]) == (3, 2, 0.8)
+    assert (p["passed"], p["tp"], p["threshold"], p["tie_block"]) == (3, 2, 0.8, 2)
     assert p["recall"] == 0.5 and p["precision"] == pytest.approx(2 / 3)
     p = q.at_recall(S, Y, 0.75)  # the third positive at 0.7
     assert (p["passed"], p["tp"]) == (4, 3) and p["precision"] == 0.75

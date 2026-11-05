@@ -70,7 +70,8 @@ def at_recall(scores, labels, r: float) -> dict:
     prec = tp / passed
     return {"threshold": float(thr[i]), "passed": int(passed[i]), "tp": int(tp[i]),
             "precision": float(prec[i]), "recall": float(tp[i] / total),
-            "interpolated_precision": float(prec[ok].max())}
+            "interpolated_precision": float(prec[ok].max()),
+            "tie_block": int(passed[i] - (passed[i - 1] if i else 0))}  # passed together at this one score
 
 
 def at_precision(scores, labels, p: float) -> dict:
@@ -112,7 +113,7 @@ def budget_share_ci(scores, labels, groups, r: float = 0.9, n: int = BOOT, seed:
 
 def _curve(scores, labels) -> dict:
     n = len(scores)
-    return {"n": n, "n_flagged": int(np.sum(labels)),
+    return {"n": n, "n_flagged": int(np.sum(labels)), "distinct_scores": len(set(np.asarray(scores).tolist())),
             "precision_at_recall": {str(r): at_recall(scores, labels, r) for r in RECALLS},
             "recall_at_precision": {str(p): at_precision(scores, labels, p) for p in PRECISIONS}}
 
