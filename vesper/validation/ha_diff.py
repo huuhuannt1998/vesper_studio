@@ -325,17 +325,15 @@ def _brightness(f: Firing, scale: float | None, side: str) -> float | None:
     if side == "vesper":
         v = d.get("brightness")
         return None if v is None or not scale else round(float(v) * 255 / scale)
-    if d.get("brightness") is not None:
-        try:
-            return min(max(int(float(d["brightness"])), 0), 255)
-        except (TypeError, ValueError):
-            return None
-    if d.get("brightness_pct") is not None:
-        try:
-            return round(float(d["brightness_pct"]) * 255 / 100)
-        except (TypeError, ValueError):
-            return None
-    return None
+    out = None
+    try:
+        if d.get("brightness") is not None:
+            out = min(max(int(float(d["brightness"])), 0), 255)
+        elif d.get("brightness_pct") is not None:
+            out = round(float(d["brightness_pct"]) * 255 / 100)
+    except (TypeError, ValueError):
+        return None
+    return out or None  # brightness 0 is Home Assistant's light turning off: no brightness (deviation, R6-C)
 
 
 def compare_pair(v: list[Firing], h: list[Firing], lo: float, hi: float, scales: dict) -> dict:
@@ -608,6 +606,9 @@ def classify(p: dict, bound: dict, fixed: dict | None) -> tuple[str, str]:
         return "HA semantics VESPER lacks", "initial_state off: Home Assistant never runs it"
     if "response" in text and ("from_json" in text or "stdout" in text or "response" in text):
         return "harness artifact", "a stub service's empty response (response_variable)"
+    if (p.get("brightness_equal") is False and p["v_fired"] == p["h_fired"] and p["calls_equal"]
+            and p["v_count"] == p["h_count"] and (p["delta_s"] is None or abs(p["delta_s"]) < SUBSECOND_S)):
+        return "harness artifact", "the comparison read Home Assistant's brightness 0 (a turn-off) as a brightness"
     if p["delta_s"] is not None and abs(p["delta_s"]) < SUBSECOND_S:
         return "HA semantics VESPER lacks", "the 50-500 ms offset of time triggers (a now()-dependent outcome)"
     return "unexplained", ""

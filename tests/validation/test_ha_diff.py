@@ -91,6 +91,8 @@ def test_compare_pair_measures_the_difference():
     assert r["v_fired"] and r["h_fired"] and r["delta_s"] == pytest.approx(0.5)
     assert r["calls_equal"] and r["v_count"] == r["h_count"] == 2
     assert r["brightness_comparable"] and r["brightness_equal"]  # 127 of 254 is 128 of 255, 50 % is 128
+    off = [Firing(DAY + 5, "a", "light.turn_on", "light.x", (("brightness_pct", 0),))]  # Home Assistant: off
+    assert ha_diff._brightness(off[0], None, "ha") is None
     r = ha_diff.compare_pair(v, [], DAY, 3 * DAY, {})
     assert r["v_fired"] and not r["h_fired"] and r["delta_s"] is None and not r["calls_equal"]
 
@@ -155,6 +157,8 @@ def test_classes_follow_the_rules_of_addendum_10():
     assert ha_diff.classify(resp, plain, resp)[0] == "harness artifact"
     assert ha_diff.classify(_pair(delta_s=-0.26, h_count=4, v_count=8), plain, None)[1].startswith("the 50-500")
     assert ha_diff.classify(_pair(delta_s=30.0), plain, _pair(delta_s=30.0)) == ("unexplained", "")
+    b = _pair(brightness_equal=False)
+    assert ha_diff.classify(b, plain, b)[1].startswith("the comparison read Home Assistant's brightness 0")
 
 
 def test_fix_reach_counts_the_run_automations_a_fix_touches():
