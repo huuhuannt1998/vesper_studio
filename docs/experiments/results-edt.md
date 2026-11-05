@@ -1957,3 +1957,29 @@ kinds the oracle depends on and VESPER-firing automations; it measures the engin
 template and `for:` strata are thin in firing pairs (44 and 36) because the resident-free home seldom moves what they
 watch. One environment of the harness shakedown (Phoenix 2026-04-15) had shown the `sun.sun` and `kelvin` differences
 before the run; their occurrence in the four is a confirmation.
+
+## Revision R6-D (Addendum 11): the engine-corrected sweep
+
+**Post hoc** (registered as Addendum 11 at `5b54586`, before the run). The run is one rung-4 sweep at `5b54586`: the
+current binder, the device reporting rule, the recorded ERA5 weather and fresh traces. That commit carries Addendum 10's
+two engine fixes: `sun.sun` as Home Assistant 2026.10.2 has it, and `kelvin`/`color_temp` refused. It ran
+2026-11-05 08:21–08:31Z with 5 workers. Script: `scripts/revision/r6d_compare.py`; aggregates:
+`results/edt/r6d-5b54586.json`. The sweep at `8fcd672` stays the primary result.
+
+| | `8fcd672` (published) | `5b54586` (engine-corrected) |
+|---|---|---|
+| bound / run | 9,515 / 5,926 | 9,515 / 5,926 |
+| flags, frame relation | 199 (185 fires_somewhere_only, 30 night_light, 8 flaps, 8 time_spread) | 199, the same kinds |
+| flags, clock relation | 790 (709 time_spread) | 785 (704 time_spread) |
+| negative control | 0 of 1,247 firing | 0 of 1,243 firing |
+| environment-coupled run automations that never fire | 390 | 395 |
+
+- **Frame relation:** all 199 flags hold with the same kinds. None is lost and none is new; the 8 time_spread flags all
+  hold. The defects' reach among the run automations is 235 reading `sun.sun` and 36 using `kelvin`/`color_temp` (by a
+  text match on the bound automation). None of these changes a frame flag.
+- **Clock relation:** 785 of the 790 flags hold with the same kinds. The 5 lost flags are all time_spread, and all
+  within the defects' reach: 4 `kelvin`/`color_temp` (now refused mid-run, as Home Assistant refuses them) and 1
+  `sun.sun`. No flag is new.
+
+Read with Addendum 10: the registered propagation criterion failed on the sampled discrepancies (10 of 199 > 9). With
+the defects fixed and the whole population re-run, the frame relation's flag set does not change at all.

@@ -1,0 +1,110 @@
+{
+ "bound": {
+  "8fcd672": 9515,
+  "r6d": 9515
+ },
+ "clock_relation": {
+  "by_kind": {
+   "8fcd672": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 709
+   },
+   "r6d": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 704
+   }
+  },
+  "flags": {
+   "8fcd672": 790,
+   "r6d": 785
+  },
+  "held_other_kinds": 0,
+  "held_same_kinds": 785,
+  "lost": 5,
+  "lost_by_reach": {
+   "kelvin/color_temp": 4,
+   "sun.sun": 1
+  },
+  "new": 0,
+  "new_by_reach": {},
+  "other_kinds_by_reach": {},
+  "time_spread": {
+   "8fcd672": 709,
+   "held": 704,
+   "r6d": 704
+  }
+ },
+ "commit": "5b54586",
+ "dead_environment_coupled": {
+  "8fcd672": 390,
+  "r6d": 395
+ },
+ "frame_relation": {
+  "by_kind": {
+   "8fcd672": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 8
+   },
+   "r6d": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 8
+   }
+  },
+  "flags": {
+   "8fcd672": 199,
+   "r6d": 199
+  },
+  "held_other_kinds": 0,
+  "held_same_kinds": 199,
+  "lost": 0,
+  "lost_by_reach": {},
+  "new": 0,
+  "new_by_reach": {},
+  "other_kinds_by_reach": {},
+  "time_spread": {
+   "8fcd672": 8,
+   "held": 8,
+   "r6d": 8
+  }
+ },
+ "negative_control": {
+  "8fcd672": {
+   "fired": 1247,
+   "flagged": 0,
+   "halt": false,
+   "n": 3466,
+   "rate": 0.0,
+   "rate_over": "control automations that fire somewhere",
+   "threshold": 0.05,
+   "uninformative": false
+  },
+  "r6d": {
+   "fired": 1243,
+   "flagged": 0,
+   "halt": false,
+   "n": 3466,
+   "rate": 0.0,
+   "rate_over": "control automations that fire somewhere",
+   "threshold": 0.05,
+   "uninformative": false
+  }
+ },
+ "protocol": "docs/experiments/edt-protocol.md, Addendum 11",
+ "reach_among_run_8fcd672": {
+  "kelvin/color_temp": 36,
+  "other": 5655,
+  "sun.sun": 235
+ },
+ "run": {
+  "8fcd672": 5926,
+  "r6d": 5926
+ }
+}
