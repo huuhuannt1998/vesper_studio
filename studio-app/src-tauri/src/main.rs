@@ -22,6 +22,42 @@ const START_TIMEOUT: Duration = Duration::from_secs(90);
 struct Server(Mutex<Option<Child>>);
 struct LastError(Mutex<Option<String>>); // re-sent when the start page loads: an early error is never lost
 
+/// Where VESPER's output goes (it was discarded): when VESPER stops before its page opens, its last line says why.
+fn log_path() -> PathBuf {
+    std::env::temp_dir().join("vesper-studio.log")
+}
+
+/// The output's last non-empty line, at most 400 characters: VESPER ends a failed start with one line saying why
+/// (a missing Python package, a catalog, a port), or a traceback whose last line names the error.
+fn last_line(text: &str) -> Option<String> {
+    let line = text.lines().rev().map(str::trim).find(|l| !l.is_empty())?;
+    Some(line.chars().take(400).collect())
+}
+
+/// Stdout and stderr for VESPER: the log file (both into it), or nowhere if it cannot be made.
+fn log_stdio() -> (Stdio, Stdio) {
+    match std::fs::File::create(log_path()) {
+        Ok(f) => match f.try_clone() {
+            Ok(g) => (Stdio::from(f), Stdio::from(g)),
+            Err(_) => (Stdio::null(), Stdio::from(f)),
+        },
+        Err(_) => (Stdio::null(), Stdio::null()),
+    }
+}
+
+/// The message shown when VESPER stops before its page opens.
+fn stopped_message() -> String {
+    let said = std::fs::read_to_string(log_path()).ok().as_deref().and_then(last_line);
+    let base = "VESPER stopped before its page opened.";
+    let causes = "Common causes: a Python package missing from an old install (reinstall from the VESPER folder: \
+                  `uv tool install --python 3.12 --editable '.[scan]' --force`), a missing catalog (`vesper catalog \
+                  fetch` or `build`), port 18080 held by another program, or VESPER missing inside WSL on Windows.";
+    match said {
+        Some(line) => format!("{base} It said: {line} (full output: {}). {causes}", log_path().display()),
+        None => format!("{base} In a terminal, run `vesper studio` to see why. {causes}"),
+    }
+}
+
 fn home() -> PathBuf {
     std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default()
 }
@@ -58,13 +94,14 @@ fn find_vesper() -> Option<PathBuf> {
 fn start_vesper() -> Result<Child, String> {
     use std::os::unix::process::CommandExt;
     let vesper = find_vesper().ok_or("VESPER is not installed (no `vesper` command found)")?;
+    let (out, err) = log_stdio();
     Command::new(&vesper)
         .args(["studio", "--no-browser", "--port", &PORT.to_string()])
         .current_dir(home())
         .process_group(0) // its own group: a SIGTERM reaches a wrapper script and the python under it alike
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(out)
+        .stderr(err)
         .spawn()
         .map_err(|e| format!("{} could not start: {e}", vesper.display()))
 }
@@ -86,10 +123,11 @@ fn wsl(script: &str) -> Command {
 
 #[cfg(windows)]
 fn start_vesper() -> Result<Child, String> {
+    let (out, err) = log_stdio();
     wsl(&format!("cd ~ && echo $$ > {WSL_PID} && exec vesper studio --no-browser --port {PORT}"))
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(out)
+        .stderr(err)
         .spawn()
         .map_err(|e| format!("WSL could not start VESPER: {e} (install WSL2, then VESPER inside it)"))
 }
@@ -188,10 +226,7 @@ fn main() {
                     let exited = handle.state::<Server>().0.lock().unwrap().as_mut()
                         .map(|c| matches!(c.try_wait(), Ok(Some(_)))).unwrap_or(false);
                     if exited {
-                        return show_error(&handle, "VESPER stopped before its page opened. In a terminal, run \
-                                                    `vesper studio` to see why: a missing catalog (`vesper catalog \
-                                                    fetch` or `build`), port 18080 held by another program, or \
-                                                    VESPER missing inside WSL on Windows.");
+                        return show_error(&handle, &stopped_message());
                     }
                     if !told && start.elapsed() > START_TIMEOUT {
                         told = true; // keep waiting: a first start in WSL, or a large catalog, can be slow
@@ -212,4 +247,19 @@ fn main() {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::last_line;
+
+    #[test]
+    fn the_last_line_is_the_reason_vesper_gave() {
+        let out = "Traceback (most recent call last):\n  File x\nModuleNotFoundError: No module named 'astral'\n\n";
+        assert_eq!(last_line(out).as_deref(), Some("ModuleNotFoundError: No module named 'astral'"));
+        assert_eq!(last_line("VESPER cannot start: the Python package 'astral' is missing\n").as_deref(),
+                   Some("VESPER cannot start: the Python package 'astral' is missing"));
+        assert_eq!(last_line("\n  \n"), None);
+        assert_eq!(last_line(&"x".repeat(1000)).map(|l| l.len()), Some(400));
+    }
 }

@@ -2104,7 +2104,24 @@ def _lab_replay(args, catalog, load_lab_home) -> int:
     return 0
 
 
+REINSTALL = "uv tool install --python 3.12 --editable '.[scan]' --force"
+
+
 def main(argv: list[str] | None = None) -> int:
+    """`vesper`. A Python package VESPER needs but this install lacks (installed before VESPER needed it) ends the run
+    with one line naming it and the reinstall, the line the Studio app shows, rather than a traceback."""
+    try:
+        return _main(argv)
+    except ModuleNotFoundError as e:
+        name = (e.name or "").partition(".")[0]
+        if not name or name in ("vesper", "vesper_world"):
+            raise
+        print(f"VESPER cannot start: the Python package '{name}' is missing, so this install predates a dependency "
+              f"VESPER now needs. Reinstall it from the VESPER folder: {REINSTALL}", file=sys.stderr)
+        return 3
+
+
+def _main(argv: list[str] | None = None) -> int:
     from vesper.validation.stats import N_SAMPLES
     parser = argparse.ArgumentParser(prog="vesper")
     commands = parser.add_subparsers(dest="command", required=True)
