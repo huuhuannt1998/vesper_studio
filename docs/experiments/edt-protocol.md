@@ -630,3 +630,109 @@ this order:
    many of the 179 sensor-driven flags of `120f4ca` the binder fixes unbind or unflag.
 
 Section 5's halt rule applies to every run.
+
+## Addendum 7 (2026-11-04, post hoc, after the second internal review; before any of its runs)
+
+**Post hoc**: written after the second internal review (Major Revision) asked for it and after the results it revisits
+were seen (revision R2-a, R2-c and the ERA5 re-run in `docs/experiments/results-edt.md`), but before any run below.
+Nothing earlier changes; the numbers below are reported beside the earlier ones, not in place of them. Base: the
+rung-4 ERA5 sweep at 120f4ca, its home, its recorded weather (never fetched again) and the R2-c setback population.
+Script: `scripts/revision/r4b_error_budget.py`; results: `results/edt/error-budget-r4b-120f4ca.json` (aggregates and
+anonymous indices only) and a section "Revision R4-B (Addendum 7)" of `results-edt.md`.
+
+**A7.1 New knobs of the indoor model** (`vesper.env.indoor`, set only through `indoor.knobs`; at the defaults the model
+is the one built, to the bit: the pinned fingerprint test covers them):
+
+- `INTERNAL_GAINS_W_PER_M2` (default 0): a constant heat gain per m² of floor in every indoor room (appliances,
+  standby, distribution losses), added to the room's heat balance.
+- `ROOF_GROUND` (default 0, off; 1 on): every indoor room also loses heat through a roof, U_ROOF = 0.15 W/(m² K), and a
+  ground floor, U_GROUND = 0.25 W/(m² K), each over its floor area (the home is one storey), both to the outdoor air
+  (a ground at the outdoor air temperature is the pessimistic reading; stated with the results).
+- `PREWARM_DAYS` (default 0): extra warm-up before the run's first instant. The rooms start at START_C (20.5 C) that
+  many days earlier and live them on the run's first day's weather repeated (each earlier day is day 0 again), the
+  thermostat at the home's own setpoint (20 C, the EDT home's thermostat before any command; heating band 0.3 K,
+  100 W/m² of floor) and no automation, every 60 s (the session's ambient step); then the run starts as before (day 0
+  in the run is still the run's own day 0). `inf`: the periodic steady state of day 0, the warm-up repeated until no
+  room's temperature at the day's end differs from the day before by more than 0.001 K (at most 365 days). Warm-up
+  length in the sense of the review = 1 + PREWARM_DAYS days (day 0 in the run counts): 1, 5, 10 days are 0, 4, 9.
+- `SOLAR_APERTURE_SCALE` (default 1): the solar heat through every window (G_SOLAR x glass area x the irradiance on
+  it) times this. Daylight is not scaled (it has DAYLIGHT_SCALE).
+- `OUTDOOR_T_OFFSET_C` (default 0): kelvin added to the outdoor air temperature wherever the model reads it (every
+  room's heat balance, the porch's sensors). The outdoor air's vapour pressure is kept, so the porch's relative
+  humidity is recomputed at the shifted temperature (the bias is in the temperature, not the moisture).
+- `HUMIDITY_CLASS` becomes a knob (default 1, as built): EN ISO 13788 class 1, 2, 3 = 270, 540, 810 Pa of indoor
+  vapour-pressure excess at an outdoor temperature at or below 0 C.
+
+Each knob is tested to move the model in its expected direction (gains warm a room, roof and ground cool it, a larger
+aperture warms a sunny room, an outdoor offset moves the rooms the same way, a higher class raises the humidity, a
+longer warm-up brings a room nearer its periodic state).
+
+**A7.2 Review item 4: the setback population over the error-budget corners.** The 22 automations of R2-c (same static
+rule), each alone, closed loop (`vesper.edt.confirm.closed_loop`, unchanged; three days, days 1-2 judged), against
+the same corner's baseline (no automation) in the same environment; R2-c's causal rule (a room-run cell counts when
+the room's minimum over days 1-2 is below 10 C with the automation and not in the baseline). The rooms start at
+20.5 C; the baseline thermostat holds 20 C.
+
+Corners (the full product, 120): internal gains G in {0, 2, 5} W/m² x roof and ground F in {off, on} x warm-up W in
+{1, 5, 10 days, periodic steady state} x heat capacity C in EN ISO 13790's five classes {80, 110, 165, 260, 370}
+kJ/(m² K) (CAPACITY_SCALE = C / 165). The nominal corner (G 0, F off, W 1 day, C 165) is the model as built.
+
+Design (fractional, stated now, because the product over all 48 environments, 120 x 48 x 23 runs, is about 132,000
+runs):
+- *Stage 1, screen, all 48 environments*: the four corners (G 0, F on, C 80, each W), the corner that loses the most
+  heat fastest at each warm-up length, for all 22 automations and the baselines (4 x 48 x 23 runs).
+- *Stage 2, full product on E*: all 120 corners, all 22 automations, in E = the environments with any caused breach in
+  stage 1, together with R2-c's four breach environments (Minneapolis and Stockholm, 2026-01-14, both orientations).
+  If E holds more than 8 environments, stage 2 runs W in {1 day, periodic} only outside those four (stated with the
+  results).
+- *Outside E* every corner is counted as no breach. This rests on the stage-1 corner being the most breach-prone at
+  its warm-up length; it is checked on E (at every corner, the set of breaching runs is compared with that of the
+  stage-1 corner of the same W, and every run that breaches at a corner but not at its screen corner is reported).
+
+Reported, per corner: breaching runs as a numerator over two fixed denominators in the same environments for every
+corner: (a) 22 x |J| runs, J = the January environments of E with a caused breach at any corner; (b) 22 x 48 runs (all
+environments). Also per corner: caused cells, automations and repositories with a breach, per city, the coldest caused
+room per run (min / median / max) and the baseline's coldest room. Summaries: the minimum and maximum over the 120
+corners with the corners that attain them (the worst and the best corner), the marginal mean per level of each factor,
+whether Minneapolis and Stockholm each breach at every corner. Check: the nominal corner reproduces R2-c step 2 on E
+exactly (every minimum, baseline minimum and breach), reported.
+
+**A7.3 Review item 5: propagating the solar-aperture, outdoor-temperature and humidity-class errors (open loop).**
+Affected set: the automations that run at rung 4 and read a temperature or a humidity (environment kinds as written),
+or have an orientation witness (A5.3's rule). Each setting below records all 48 traces afresh in its own cache (the
+sweep's weather copied in, no trace copied) and replays the affected set with the sweep's own worker; the reference
+is the aperture-1 setting (class 1, offset 0), recorded afresh, which must reproduce the published sweep's outcomes for
+the affected set exactly (reported).
+
+- Aperture x {0.25, 0.5, 1, 2} (SOLAR_APERTURE_SCALE): how many of the 129 automations with an orientation witness
+  keep one, how many of the 37 flagged humidity automations and of the 128 flagged temperature automations stay
+  flagged; flags lost and gained, divergence kinds changed, over the affected set.
+- Outdoor temperature -2 and +2 K (OUTDOOR_T_OFFSET_C): how many of the 128 flagged temperature automations change
+  flag (lost, gained) or divergence kinds; the same for the humidity ones and the orientation witnesses.
+- Humidity class 1, 2, 3 (270, 540, 810 Pa): how many room relative-humidity series reach the model's 85 % clamp (a
+  series is one indoor room in one environment over days 1-2 of the baseline home, no automation; 7 rooms x 48
+  environments), and how many reach 70 % and 55 % (the reported automations' thresholds); and how many of the 37
+  humidity flags change.
+- Check (the affected set is the right one): at aperture x2 and at +2 K, every automation that runs at rung 4 is
+  replayed; the outcomes of those outside the affected set must be identical to the published sweep's (reported).
+
+**A7.4 Review item 6: isolation versus the rule set.** Context of an automation: every other automation of its
+repository in the sweep that binds and runs at rung 4 (its stored bound form); automations of the repository that do
+not bind (or were de-duplicated into another repository) cannot run and are counted, not run. First: the engine must
+run several automations in one session (`closed_loop` gets a `companions` argument, tested; alone it is unchanged).
+Each run labels every automation by its index so that firings are attributed.
+
+- Setback (the 22): in R2-c's four breach environments, each automation (i) alone, (ii) with its context, (iii) its
+  context without it. A breach survives when the room-run cell breaches in (ii) and not in the no-automation baseline;
+  it is the automation's when it also does not breach in (iii). Reported: of R2-c's 53 breaching runs, how many
+  survive with the context, how many are the automation's own; new breaches in context; and, per lost one, why: a
+  companion commands a setpoint of 10 C or more during the setback (the restore; whether the companion's thermostat
+  is the same author entity or a different one the binder put on the home's single thermostat), the automation no
+  longer commands its setback, or other.
+- night_light: the 30 automations flagged with a night_light divergence, in every environment where the screening
+  outcome has night_light; and the 226 with a static night_light, in the first two such environments (sorted keys).
+  Each alone and with its context. The automation's outcome is the oracle's own, from its own firings, except that a
+  lamp it turned on counts as turned off by any automation of the run (the rule set's "nothing turned it off").
+  Reported: how many night_light outcomes (run level) and automations survive with the context, and per lost one why:
+  a companion turns that lamp off before 01:00 (same author entity, or a different one the binder put on the same home
+  lamp: a binding collision, which would make the loss an artifact), the automation no longer turns it on, or other.
