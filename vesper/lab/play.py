@@ -172,6 +172,7 @@ def device_card(session, name: str) -> dict:
     from urllib.parse import quote
 
     from vesper.lab.automations import entity_ids
+    from vesper.lab.daylight import illuminance_thresholds
     from vesper.lab.network import link_quality
     d = next((x for x in session.home.devices if x.name == name), None)
     if d is None:
@@ -213,7 +214,19 @@ def device_card(session, name: str) -> dict:
                             "reasons": fidelity.get("reasons") or {}, "sources": record.get("sources") or []},
             "connections": connections, "interfaces": {"entities": entities, "automations": automations},
             "state": dict(session.rules.twin(name).state), "operable": session.rules.operable(name),
-            "effect": session.rules.effects.get(name), "reference": reference}
+            "effect": session.rules.effects.get(name), "reference": reference,
+            "readings": _readings(session, name), "thresholds": illuminance_thresholds(home, name)}
+
+
+READINGS_MAX = 720  # an illuminance sensor's readings its card shows (12 h of minute ticks)
+
+
+def _readings(session, name: str) -> list[list[float]]:
+    """An illuminance sensor's readings this session, [[t, lux], ...], the newest READINGS_MAX."""
+    from vesper.lab.daylight import ILLUMINANCE
+    out = [[r["t"], r["value"]] for r in session.records if r.get("kind") == "report" and r.get("device") == name
+           and r.get("feature") in ILLUMINANCE and isinstance(r.get("value"), int | float)]
+    return out[-READINGS_MAX:]
 
 
 def _resident(session, r) -> dict:
@@ -335,6 +348,8 @@ class PlayServer:
             if f is None:
                 return _response(404, "text/plain; charset=utf-8", b"this home has no model of its own")
             return _response(200, CONTENT_TYPES[".glb"], f.read_bytes())
+        if path == "/api/daylight":  # the day's daylight, for the page's time-of-day preview (read only)
+            return self._daylight(request.path)
         if path == "/hub.json":
             card = hub_card(self.session, self.hub_url, self.hub_login)
             return _response(200, "application/json", json.dumps(card).encode())
@@ -357,6 +372,19 @@ class PlayServer:
         if not f.is_relative_to(root) or not f.is_file():
             return _response(404, "text/plain; charset=utf-8", b"not found")
         return _response(200, CONTENT_TYPES.get(f.suffix, "application/octet-stream"), f.read_bytes())
+
+    def _daylight(self, raw_path: str):
+        from urllib.parse import parse_qs
+
+        from vesper.lab.daylight import daylight_table
+        step = (parse_qs(urlsplit(raw_path).query).get("step") or ["900"])[0]
+        try:
+            table = daylight_table(self.session, float(step))
+        except ValueError as e:
+            return _response(400, "text/plain; charset=utf-8", f"step: {e}".encode())
+        if table is None:
+            return _response(404, "text/plain; charset=utf-8", b"this home has no site: its day is the assumed one")
+        return _response(200, "application/json", json.dumps(table).encode())
 
     def _scene_file(self, path: str):
         w = self.world3d
