@@ -60,11 +60,12 @@ class StudioServer(ComposeServer):
 
     def __init__(self, catalog: dict, catalog_dir: Path, results_dir: Path, roots: list[Path], *, root: Path,
                  port: int = 18080, play_port: int = 18082, launch=None, wait_for_play=None, run_setup=None,
-                 doctor=None):
+                 doctor=None, plan_library: Path | str | None = None):
         self.roots = [Path(r).expanduser() for r in roots]
         self.roots[0].mkdir(parents=True, exist_ok=True)
         super().__init__(catalog, catalog_dir, results_dir, self.roots[0] / "untitled", port=port,
-                         play_port=play_port, launch=launch, wait_for_play=wait_for_play, stack_root=root)
+                         play_port=play_port, launch=launch, wait_for_play=wait_for_play, stack_root=root,
+                         plan_library=plan_library)
         self._run_setup = run_setup or self._setup_child
         self._doctor = doctor
         self.setups: dict[str, dict] = {}

@@ -34,6 +34,9 @@ IMAGE = "F1_scaled.png"  # the image whose pixels the ground truth's coordinates
 TRUTH = "model.svg"
 FOLDER = "cubicasa5k"  # the library's own folder, when `plan_library` names the folder holding it
 LICENCE = "CC BY-NC-SA 4.0"
+# the archive's Zenodo record, as vesper.validation.plans fetches it (kept here so setup needs no numpy; a test keeps
+# the two equal)
+SOURCE_URL = "https://zenodo.org/records/2613548/files/cubicasa5k.zip?download=1"
 INDEX_VERSION = 1  # bumped when an index row changes meaning: an old cache is rebuilt
 THUMB_WIDTH = 320
 PAGE = 24

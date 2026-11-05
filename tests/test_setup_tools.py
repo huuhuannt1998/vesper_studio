@@ -137,3 +137,74 @@ def test_a_scene_vesper_cannot_use_is_not_reported_done(tmp_path):
     (hssd / "metadata" / "fpmodels-with-decomposed.csv").write_text("id\n")
     with pytest.raises(st.SetupError, match="no ground-floor rooms"):
         st.setup_scenes(hssd, ["9"], which=lambda t: "/bin/hf", run=never, say=lambda _: None)
+
+
+# -- the plan library (vesper setup plan-library) ------------------------------------------------------------------
+def library_zip(tmp_path) -> bytes:
+    """A zip in the archive's layout (every member under cubicasa5k/) of the gallery's hand-made fixture plans."""
+    import io
+    import zipfile
+
+    from tests.lab.plan_library_fixture import write_library
+    src = write_library(tmp_path / "src")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        for f in sorted(src.rglob("*")):
+            if f.is_file():
+                z.write(f, "cubicasa5k/" + f.relative_to(src).as_posix())
+        z.writestr("cubicasa5k/../escape.txt", "never written")  # a member that would leave the folder
+    return buf.getvalue()
+
+
+def archive_client(data: bytes, seen: list):
+    """The archive's server, faked: it answers a range request with the rest of the file."""
+    import httpx
+
+    def handler(request):
+        seen.append(request.headers.get("range"))
+        start = int(request.headers["range"].split("=")[1].rstrip("-")) if "range" in request.headers else 0
+        body = data[start:]
+        return httpx.Response(206 if start else 200, content=body, headers={"content-length": str(len(body))})
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_the_plan_library_is_downloaded_resumed_unpacked_and_recorded(tmp_path):
+    data, seen = library_zip(tmp_path), []
+    dest = tmp_path / "datasets"
+    dest.mkdir()
+    (dest / "cubicasa5k.zip.part").write_bytes(data[:1000])  # an earlier download that stopped
+    found = st.setup_plan_library(dest, client=archive_client(data, seen), say=lambda text: None)
+    assert seen == ["bytes=1000-"]  # resumed, not started again
+    assert found == dest / "cubicasa5k" and (found / "hq" / "1" / "model.svg").is_file()
+    assert not (dest / "escape.txt").exists() and not (tmp_path / "escape.txt").exists()
+    assert not (dest / "cubicasa5k.zip").exists()  # unpacked: the archive is not kept
+    assert st.configured("plan_library") == str(dest.resolve())
+
+
+def test_a_plan_library_already_there_is_only_recorded(tmp_path):
+    from tests.lab.plan_library_fixture import write_library
+    write_library(tmp_path / "datasets")
+
+    class Never:
+        def stream(self, *a, **k):
+            raise AssertionError("downloaded again")
+    assert st.setup_plan_library(tmp_path / "datasets", client=Never(), say=lambda text: None) == (
+        tmp_path / "datasets" / "cubicasa5k")
+    assert st.configured("plan_library") == str((tmp_path / "datasets").resolve())
+
+
+def test_the_plan_library_comes_from_the_source_the_floor_plan_evaluation_uses():
+    from vesper.lab import plan_library
+    from vesper.validation import plans
+    assert plan_library.SOURCE_URL == plans.SOURCE_URL and plan_library.LICENCE in plans.LICENCE
+
+
+def test_vesper_setup_plan_library_records_the_folder(tmp_path, capsys):
+    from tests.lab.plan_library_fixture import write_library
+    from vesper.cli import main
+    write_library(tmp_path / "datasets")
+    assert main(["setup", "plan-library", "--path", str(tmp_path / "datasets")]) == 0
+    out = capsys.readouterr().out
+    assert "3 plan(s)" in out and "CC BY-NC-SA 4.0" in out
+    assert st.configured("plan_library") == str((tmp_path / "datasets").resolve())
+    assert main(["setup", "plan-library"]) == 0  # the configured folder by default

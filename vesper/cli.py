@@ -174,6 +174,8 @@ def _setup(args) -> int:
         return _setup_claude_desktop(args)
     if args.action in ("habitat", "scenes", "all"):
         return _setup_more(args)
+    if args.action == "plan-library":
+        return _setup_plan_library(args)
     if args.action == "assets":
         from vesper.lab.assets import AssetError, setup_assets
         try:
@@ -1676,7 +1678,7 @@ def _lab_compose(args, catalog) -> int:
 
     from vesper.lab.compose import ComposeServer
     server = ComposeServer(catalog, Path(args.catalog), Path(args.results), Path(args.out), port=args.port,
-                           play_port=args.play_port)
+                           play_port=args.play_port, plan_library=args.plan_library)
     try:
         server.start()
     except OSError as e:
@@ -2200,6 +2202,12 @@ def _main(argv: list[str] | None = None) -> int:
     setup_scn.add_argument("scenes", nargs="+", help="HSSD scene ids, e.g. 102344022")
     setup_scn.add_argument("--hssd", help="where HSSD goes (default: the configured folder, else "
                                           "~/vesper-data/hssd-hab)")
+    setup_lib = setup_actions.add_parser("plan-library", help="the plan library compose's gallery shows: CubiCasa5K, "
+                                                               "about 5,000 real floor plans (CC BY-NC-SA 4.0; a 5 GB "
+                                                               "download, resumable)")
+    setup_lib.add_argument("--path", help="the folder it goes in (default: the configured one, else "
+                                          "~/vesper-data/plan-library); a folder that holds it already is only "
+                                          "recorded")
     setup_all = setup_actions.add_parser("all", help="Home Assistant, the Matter host and Habitat, each skipped when "
                                                      "already done")
     setup_all.add_argument("--root", default=".vesper")
@@ -2215,6 +2223,8 @@ def _main(argv: list[str] | None = None) -> int:
     studio.add_argument("--port", type=int, default=18080)
     studio.add_argument("--play-port", type=int, default=18082)
     studio.add_argument("--no-browser", action="store_true")
+    studio.add_argument("--plan-library", metavar="DIR", help="the plan library's folder for compose's gallery "
+                                                              "(default: the configured one)")
     doc = commands.add_parser("doctor", help="check every prerequisite and say which commands need what is missing")
     doc.add_argument("--root", default=".vesper")
     doc.add_argument("--catalog", default="catalog/vds")
@@ -2422,6 +2432,9 @@ def _main(argv: list[str] | None = None) -> int:
     lab_compose.add_argument("--port", type=int, default=18081, help="the page's port on 127.0.0.1 (default 18081)")
     lab_compose.add_argument("--play-port", type=int, default=18082, help="the played home's port (default 18082)")
     lab_compose.add_argument("--no-browser", action="store_true", help="print the page's address, do not open it")
+    lab_compose.add_argument("--plan-library", metavar="DIR", help="the plan library's folder for the gallery "
+                                                                   "(default: the configured one, `vesper setup "
+                                                                   "plan-library`)")
     lab_play = lab_actions.add_parser("play", help="play a home in the browser: the map, the hub and the console")
     lab_play.add_argument("home", nargs="?", help="the home (or give --scenario: its home is played)")
     lab_play.add_argument("--scenario", help="play a scenario: its home, its actors, its attack and its defenses, "
@@ -2676,7 +2689,7 @@ def _studio(args) -> int:
         return 1
     roots = [Path(h).expanduser() for h in (args.homes or _default_homes())]
     server = StudioServer(catalog, Path(args.catalog), Path(args.results), roots, root=Path(args.root),
-                          port=args.port, play_port=args.play_port)
+                          port=args.port, play_port=args.play_port, plan_library=args.plan_library)
     try:
         server.start()
     except OSError as e:
@@ -2742,6 +2755,21 @@ def _setup_more(args) -> int:
     except (SetupError, stack.StackError) as e:
         print(f"FAILED setup {args.action}: {e}", file=sys.stderr)
         return 1
+
+
+def _setup_plan_library(args) -> int:
+    """`vesper setup plan-library [--path DIR]`: the library in DIR (downloaded unless it is there), recorded."""
+    from vesper.lab.plan_library import LICENCE, plan_ids
+    from vesper.setup_tools import SetupError, configured, setup_plan_library
+    dest = Path(args.path or configured("plan_library") or Path.home() / "vesper-data" / "plan-library")
+    try:
+        found = setup_plan_library(dest)
+    except (SetupError, OSError) as e:
+        print(f"FAILED setup plan-library: {e}", file=sys.stderr)
+        return 1
+    print(f"Plan library: {len(plan_ids(found))} plan(s) in {found} (CubiCasa5K, {LICENCE}: non-commercial use, "
+          "with credit, shared alike); recorded in VESPER's configuration. It stays on this computer.")
+    return 0
 
 
 def _mcp_arguments(p) -> None:

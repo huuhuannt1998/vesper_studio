@@ -8,6 +8,8 @@ or build them.
 - `vesper setup habitat` makes the Habitat environment (conda or micromamba, habitat-sim 0.3.3 with Bullet, Python
   3.9). `vesper setup scenes ID...` downloads exactly the HSSD files a scene needs, through the user's own Hugging
   Face login (`hf auth login`, after accepting HSSD's terms); VESPER never reads the token.
+- `vesper setup plan-library` downloads the plan library compose's gallery shows (CubiCasa5K, CC BY-NC-SA 4.0, from
+  its Zenodo record), resuming a download that stopped, and records its folder as `plan_library`.
 """
 from __future__ import annotations
 
@@ -248,3 +250,91 @@ def setup_scenes(hssd: Path, scenes: list[str], *, which: Callable = shutil.whic
                                  f"{left[0]}")
     save_config(hssd=hssd.resolve())
     return got
+
+
+# -- the plan library ----------------------------------------------------------------------------------------------
+DOWNLOAD_RETRIES = 20  # a 5 GB download over a connection that drops: each retry resumes where the last one stopped
+
+
+def setup_plan_library(dest: Path, *, client=None, say: Callable = print) -> Path:
+    """The plan library (vesper.lab.plan_library) in `dest`: a library already there is only recorded; else its
+    archive is downloaded from its Zenodo record (a stopped download resumed, by a range request), unpacked into
+    `dest/cubicasa5k/` (the archive deleted after) and recorded as `plan_library`. Returns the library's folder.
+    `client` is an httpx client (a test's fake)."""
+    from vesper.lab.plan_library import FOLDER, SOURCE_URL, find_library
+    dest = Path(dest).expanduser()
+    found = find_library(dest)
+    if found is None:
+        dest.mkdir(parents=True, exist_ok=True)
+        archive = dest / f"{FOLDER}.zip"
+        if not archive.is_file():
+            _download(SOURCE_URL, archive, client, say)
+        _unpack(archive, dest, f"{FOLDER}/", say)
+        found = find_library(dest)
+        if found is None:
+            raise SetupError(f"{archive} held no plans (a folder with F1_scaled.png and model.svg): delete it and "
+                             "run vesper setup plan-library again")
+        archive.unlink()
+    save_config(plan_library=dest.resolve())
+    return found
+
+
+def _download(url: str, path: Path, client, say: Callable) -> None:
+    import httpx
+    part = path.with_name(path.name + ".part")
+    own = client is None
+    client = client or httpx.Client(follow_redirects=True, timeout=120)
+    try:
+        for _attempt in range(DOWNLOAD_RETRIES):
+            have = part.stat().st_size if part.exists() else 0
+            try:
+                with client.stream("GET", url, headers={"Range": f"bytes={have}-"} if have else {}) as r:
+                    if r.status_code == 416:  # nothing left to send: it was complete
+                        break
+                    if r.status_code not in (200, 206):
+                        raise SetupError(f"{url}: the server answered {r.status_code}")
+                    if r.status_code == 200:
+                        have = 0  # the server sent the whole file again
+                    total = have + int(r.headers.get("content-length") or 0)
+                    say(f"downloading {url} to {path} ({total / 1e9:.1f} GB" + (f", resuming at {have / 1e9:.1f} GB"
+                                                                                  if have else "") + ")")
+                    shown = -1
+                    with open(part, "ab" if have else "wb") as f:
+                        for chunk in r.iter_bytes(1 << 20):
+                            f.write(chunk)
+                            have += len(chunk)
+                            if total and (pct := 100 * have // total) // 5 > shown:
+                                shown = pct // 5
+                                say(f"  {pct}%")
+                if not total or have >= total:
+                    break
+            except httpx.TransportError as e:
+                say(f"  the connection dropped ({e}); resuming")
+        else:
+            raise SetupError(f"{url}: the download did not finish after {DOWNLOAD_RETRIES} tries; run it again to "
+                             "resume")
+    finally:
+        if own:
+            client.close()
+    part.replace(path)
+
+
+def _unpack(archive: Path, dest: Path, root: str, say: Callable) -> None:
+    """Every file under `root` in the zip into dest/<root>, each written whole (a .part renamed) and skipped when it
+    is there already, so an unpacking that stopped goes on; a member that would leave the folder is never written."""
+    import zipfile
+    with zipfile.ZipFile(archive) as z:
+        members = [m for m in z.infolist() if m.filename.startswith(root) and not m.is_dir()]
+        say(f"unpacking {len(members)} files into {dest / root}")
+        for m in members:
+            parts = m.filename.split("/")
+            if m.filename.startswith("/") or any(p in ("", ".", "..") or "\\" in p for p in parts):
+                continue
+            out = dest.joinpath(*parts)
+            if out.is_file() and out.stat().st_size == m.file_size:
+                continue
+            out.parent.mkdir(parents=True, exist_ok=True)
+            tmp = out.with_name(out.name + ".part")
+            with z.open(m) as src, open(tmp, "wb") as f:
+                shutil.copyfileobj(src, f, 1 << 20)
+            tmp.replace(out)
