@@ -28,9 +28,11 @@ class TraceError(ValueError):
 
 
 class Session:
-    def __init__(self, home, *, clock=None, world=None, trace: Path | None = None, live_network: bool = False):
+    def __init__(self, home, *, clock=None, world=None, trace: Path | None = None, live_network: bool = False,
+                 dimmed_lamps: bool = False):
         """`live_network`: the relay carries the home's TCP links (Home Assistant in the loop); otherwise the link
-        layer carries them in-process, on the session's clock."""
+        layer carries them in-process, on the session's clock. `dimmed_lamps`: a dimmed lamp adds its brightness's
+        share of its light to the room (the play view; EDT and the scenario runs keep every lamp that is on at full)."""
         self.home = home
         self.clock = clock or LogicalClock()
         self.clock_kind = getattr(self.clock, "kind", "logical" if hasattr(self.clock, "advance") else "wall")
@@ -53,6 +55,7 @@ class Session:
             raise TraceError(f"the trace {trace} already exists; a session never overwrites one") from e
         self.rules = Rules(home, self.runtime, self.world, self.twin_ids,
                            record=lambda r: self._write({**r, "kind": "rule"}))
+        self.rules.dimmed_lamps = dimmed_lamps
         self.relay = None  # the live network's relay, when Home Assistant is in the loop (set by the hub)
         self.report_filters: list = []  # fn(event) -> deliver it?: a defense at the hub's edge (plan W4a1)
         self._hub: list = []  # who hears the reports as the hub does

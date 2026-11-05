@@ -54,7 +54,10 @@ def rule_for(room: str, room_name: str, sensor: str, lights: list[str], occupanc
              target: float = DEFAULT_TARGET_LUX, lamp_lux: float = LAMP_LUX) -> dict:
     """The automation for one room: `sensor` its illuminance entity, `lights` its dimmable lights' entities,
     `occupancy` the home's motion sensors' entities (any one on: someone is home)."""
-    lit = " + ".join(f"(1 if is_state('{e}', 'on') else 0)" for e in lights)
+    # each lamp that is on adds its brightness's share of lamp_lux (Home Assistant's 0..255; a light that does not
+    # dim reports none and counts at full), as the room model adds it (vesper.lab.rules.lamp_share)
+    lit = " + ".join(f"((state_attr('{e}', 'brightness') | float(255)) / 255 if is_state('{e}', 'on') else 0)"
+                     for e in lights)
     rule = {
         "id": f"{RULE_ID}{room}",
         "alias": f"Lights follow daylight: {room_name}",

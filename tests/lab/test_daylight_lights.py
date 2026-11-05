@@ -139,3 +139,50 @@ def test_generating_a_home_writes_the_rule_only_when_the_request_asks(tmp_path):
     from vesper.lab.generate import GenerateError
     with pytest.raises(GenerateError, match="daylight_lights"):
         load_request(tmp_path / "c.yaml")
+
+
+def test_a_dimmed_lamp_adds_light_in_proportion_to_its_brightness_and_the_rule_holds_on_it(tmp_path):
+    """The PI's example: the sun makes a room brighter or darker and the lights adjust. A lamp the rule dims must add
+    less light to the room's reading than one at full, or the reading cannot show the adjustment."""
+    path = home_with_sensor(tmp_path)
+    cat = lux_catalog()
+    path.write_text(path.read_text().replace('start_time: "07:30"', 'start_time: "11:00"'))
+    write_daylight_automations(path, cat)
+    home = load_lab_home(path, cat)
+    s = Session(home, clock=LogicalClock(), dimmed_lamps=True)  # as the play session runs
+    s.start(spawn_player=False, automations=True)
+    s.spawn("player", "female_0", (1.5, 3.0))
+    s.clock.advance(2 * 60)  # while the hall's motion sensor still sees the player
+    lamp = s.rules.twin("bedroom_lamp").state
+    daylight = 300 * __import__("math").sin(__import__("math").pi * (5 + 2 / 60) / 14)  # the assumed day at 11:02
+    assert 0 < lamp["brightness"] < 254, lamp  # dimmed, not full
+    reading = s.rules.twin("bedroom_lux").state["illuminance"]
+    assert abs(reading - (daylight + LAMP_LUX * lamp["brightness"] / 254)) <= 3, (reading, lamp)
+    assert abs(reading - 300) <= 6  # the lamp made up the gap to the target, as the rule meant
+
+
+def test_without_dimmed_lamps_every_lamp_that_is_on_adds_all_its_light_as_edt_assumes(tmp_path):
+    """EDT's closed loop and the scenario runs keep the model their results were computed with."""
+    from vesper.lab.rules import ambient_at
+    path = home_with_sensor(tmp_path)
+    path.write_text(path.read_text().replace('start_time: "07:30"', 'start_time: "11:00"'))
+    home = load_lab_home(path, lux_catalog())
+    s = Session(home, clock=LogicalClock())
+    s.start(spawn_player=False)
+    s.rules.twin("bedroom_lamp").state.update({"state": "ON", "brightness": 37})
+    s.clock.advance(60)
+    want = ambient_at(home.start_time + 60, 1)["illuminance"]
+    assert abs(s.rules.twin("bedroom_lux").state["illuminance"] - want) <= 1
+
+
+def test_a_light_on_with_no_level_counts_at_full(tmp_path):
+    from vesper.lab.rules import lamp_share
+    s = Session(load_lab_home(home_with_sensor(tmp_path), lux_catalog()), clock=LogicalClock())
+    s.start(spawn_player=False)
+    twin = s.rules.twin("bedroom_lamp")
+    twin.state.update({"state": "ON", "brightness": 0})
+    assert lamp_share(twin) == 1.0
+    twin.state.update({"brightness": 127})
+    assert lamp_share(twin) == 127 / 254
+    twin.state.update({"state": "OFF"})
+    assert lamp_share(twin) == 0.0

@@ -1842,7 +1842,7 @@ def _lab_session(home, trace, lab):
     """A wall-clock session; with the hub, on the live network: the relay carries its TCP links."""
     from vesper.lab.session import Session
     from vesper.twins.clock import WallClock
-    session = Session(home, clock=WallClock(), trace=trace, live_network=lab is not None)
+    session = Session(home, clock=WallClock(), trace=trace, live_network=lab is not None, dimmed_lamps=True)
     if lab is not None:
         session.relay = lab.relay
         lab.sink.attach(session)

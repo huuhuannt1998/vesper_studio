@@ -57,9 +57,9 @@ def per_room_thermostat() -> bool:
     return bool(indoor.PER_ROOM_THERMOSTAT)
 
 
-def ambient_at(seconds_of_day: float, lamps_on: int) -> dict:
+def ambient_at(seconds_of_day: float, lamps_on: float) -> dict:
     """The assumed indoor climate at a time of day: 21 °C ± 1.5 (warmest at 15:00), 45 % humidity, daylight
-    rising from 06:00 to a 300 lx noon and gone at 20:00, plus LAMP_LUX per lamp on."""
+    rising from 06:00 to a 300 lx noon and gone at 20:00, plus LAMP_LUX per lamp at full."""
     h = (seconds_of_day / 3600) % 24
     daylight = 300 * math.sin(math.pi * (h - 6) / 14) if 6 < h < 20 else 0.0
     return {"temperature": round(21 + 1.5 * math.sin(2 * math.pi * (h - 9) / 24), 1), "humidity": 45.0,
@@ -119,6 +119,20 @@ def toggle_command(twin) -> tuple[str, str | None, object] | None:
     return None
 
 
+def lamp_share(twin) -> float:
+    """The share of LAMP_LUX a light adds to its room: 0 when off, its brightness over its range's top when it dims,
+    1 when on and not dimmable. A lamp the daylight rule dims adds less light, so a room's reading shows the rule
+    working (PI 2026-11-05: the sun makes a room brighter or darker and the lights adjust)."""
+    if not is_on(twin):
+        return 0.0
+    f = twin.features.get("brightness")
+    level = twin.state.get("brightness")
+    if f and f.get("type") == "numeric" and isinstance(level, (int, float)) and level > 0:  # 0 while on: no level
+        top = float((f.get("range") or [0, 254])[1]) or 254.0
+        return max(0.0, min(1.0, float(level) / top))
+    return 1.0
+
+
 def is_on(twin) -> bool | None:
     f = twin.features.get("state")
     if f and f["type"] == "binary" and twin.vds["identity"]["category"] != "lock":
@@ -160,6 +174,9 @@ class Rules:
         self.devices = {d.name: d for d in home.devices}
         self._by_twin = {tid: name for name, tid in twin_ids.items()}
         self.effects: dict[str, dict] = {}
+        # A dimmed lamp adds its brightness's share of LAMP_LUX (lamp_share); off, every lamp that is on adds all of
+        # it, as EDT's closed loop and every run before 2026-11-05 assume. The play session turns it on.
+        self.dimmed_lamps = False
         self._effect_handlers: list[Callable[[str, dict], None]] = []
         self._covered: dict[tuple[str, str], bool] = {}
         self._last_trigger: dict[tuple[str, str], float] = {}
@@ -370,10 +387,13 @@ class Rules:
                 self.record({"t": self.now(), "rule": "contact", "device": name, "open": is_open})
 
     def _ambient_tick(self) -> None:
-        lamps: dict[str, int] = {}
+        lamps: dict[str, float] = {}  # per room, its lamps' light as a number of lamps at full
         for name, dev in self.devices.items():
-            if dev.room and dev.record["identity"]["category"] == "light" and is_on(self.twin(name)):
-                lamps[dev.room] = lamps.get(dev.room, 0) + 1
+            if dev.room and dev.record["identity"]["category"] == "light":
+                twin = self.twin(name)
+                share = lamp_share(twin) if self.dimmed_lamps else (1.0 if is_on(twin) else 0.0)
+                if share:
+                    lamps[dev.room] = lamps.get(dev.room, 0.0) + share
         seconds = self.home.start_time + self.now()
         if self.env is not None:
             people: dict[str, int] = {}
