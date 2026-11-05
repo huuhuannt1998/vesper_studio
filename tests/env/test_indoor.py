@@ -172,13 +172,23 @@ def _fingerprint() -> str:
 BEFORE_KNOBS = "671b22a0fa68c482465b3c557564058a282263a1ed876a9fab05eb484b55d8d8"
 
 
+DEFAULTS = {"DAYLIGHT_SCALE": 1.0, "CAPACITY_SCALE": 1.0, "HUMIDITY_T_OFFSET_C": 0.0, "INTERNAL_GAINS_W_PER_M2": 0.0,
+            "ROOF_GROUND": 0.0, "PREWARM_DAYS": 0.0, "SOLAR_APERTURE_SCALE": 1.0, "OUTDOOR_T_OFFSET_C": 0.0,
+            "HUMIDITY_CLASS": 1}
+
+
 def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
+    """Every knob (R2-a's and Addendum 7's) at its default: the model of 120f4ca, to the bit."""
     from vesper.env import indoor
-    assert (indoor.DAYLIGHT_SCALE, indoor.CAPACITY_SCALE, indoor.HUMIDITY_T_OFFSET_C) == (1.0, 1.0, 0.0)
+    assert set(indoor.KNOBS) == set(DEFAULTS)
+    assert {k: getattr(indoor, k) for k in DEFAULTS} == DEFAULTS
     assert _fingerprint() == BEFORE_KNOBS
-    with indoor.knobs(CAPACITY_SCALE=1.0, HUMIDITY_T_OFFSET_C=0.0):
+    with indoor.knobs(**DEFAULTS):
         assert _fingerprint() == BEFORE_KNOBS
-    assert "capacity_scale" not in env().provenance()["indoor"]
+    e = env()
+    assert e.prewarm(0.0, lambda: {}) == 0.0  # no warm-up at the default
+    assert not {"capacity_scale", "internal_gains_w_per_m2", "roof_ground", "prewarm_days", "solar_aperture_scale",
+                "outdoor_t_offset_c"} & set(e.provenance()["indoor"])
 
 
 def test_knobs_restore_their_values_even_when_the_block_fails():
@@ -222,3 +232,105 @@ def test_the_humidity_offset_moves_only_the_humidity():
         assert a[rid]["temperature"] == b[rid]["temperature"] and a[rid]["illuminance"] == b[rid]["illuminance"]
         assert b[rid]["humidity"] <= a[rid]["humidity"]  # the same vapour at a warmer temperature: drier
     assert any(b[rid]["humidity"] < a[rid]["humidity"] for rid in a)
+
+
+# -- the error-budget knobs (revision R4-B, protocol Addendum 7) ------------------------------------------------------
+def _day(**knob_values) -> dict[str, float]:
+    """Every room's temperature after a January day (00:00-24:00, every minute, nobody heating), under the knobs."""
+    from vesper.env import indoor
+    e = env()
+    with indoor.knobs(**knob_values):
+        for t in range(0, 24 * 3600 + 1, 60):
+            e.step(t, {}, {}, {}, 0)
+    return {rid: r.temperature for rid, r in e.rooms.items()}
+
+
+def test_internal_gains_warm_every_room():
+    base, warm = _day(), _day(INTERNAL_GAINS_W_PER_M2=5.0)
+    assert all(warm[r] > base[r] + 0.5 for r in base)
+    assert all(_day(INTERNAL_GAINS_W_PER_M2=2.0)[r] < warm[r] for r in base)
+
+
+def test_a_roof_and_a_ground_floor_lose_heat_and_cool_every_room():
+    from vesper.env import indoor
+    room = env().rooms["bedroom"]
+    h0 = room.h_w_per_k
+    with indoor.knobs(ROOF_GROUND=1.0):
+        assert room.h_w_per_k == pytest.approx(h0 + (0.15 + 0.25) * room.floor_m2)
+    base, lossy = _day(), _day(ROOF_GROUND=1.0)
+    assert all(lossy[r] < base[r] for r in base)
+
+
+def test_a_larger_solar_aperture_warms_a_sunny_room_and_leaves_the_windowless_one():
+    e = env()
+    s = state(elev=30, az=180)
+    from vesper.env import indoor
+    full = e._solar_w(e.rooms["bedroom"], s)
+    with indoor.knobs(SOLAR_APERTURE_SCALE=0.25):
+        assert e._solar_w(e.rooms["bedroom"], s) == pytest.approx(0.25 * full)
+    base, big, small = _day(), _day(SOLAR_APERTURE_SCALE=2.0), _day(SOLAR_APERTURE_SCALE=0.25)
+    assert small["bedroom"] < base["bedroom"] < big["bedroom"]  # the bedroom's window faces the winter sun
+    assert big["hall"] > base["hall"]  # through its walls only: the hall has no window
+    assert big["hall"] - base["hall"] < big["bedroom"] - base["bedroom"]
+
+
+def test_an_outdoor_offset_moves_the_outdoor_air_and_the_rooms_and_keeps_the_vapour():
+    from vesper.env import indoor
+    e, f = env(), env()
+    a = e.outdoor_at(12 * 3600)
+    with indoor.knobs(OUTDOOR_T_OFFSET_C=2.0):
+        b = f.outdoor_at(12 * 3600)
+    assert b.temperature_c == pytest.approx(a.temperature_c + 2.0)
+    assert b.humidity_pct / 100 * e_sat(b.temperature_c) == pytest.approx(a.humidity_pct / 100 * e_sat(a.temperature_c))
+    assert b.humidity_pct < a.humidity_pct
+    base, warm, cold = _day(), _day(OUTDOOR_T_OFFSET_C=2.0), _day(OUTDOOR_T_OFFSET_C=-2.0)
+    assert all(cold[r] < base[r] < warm[r] for r in base)
+    with indoor.knobs(OUTDOOR_T_OFFSET_C=2.0):  # the porch reads env.last
+        f.step(0, {}, {}, {}, 0)
+    assert f.last.temperature_c == pytest.approx(e.outdoor.at(0).temperature_c + 2.0)
+
+
+def test_a_higher_humidity_class_raises_the_room_humidity():
+    from vesper.env import indoor
+    out = {}
+    for c in (1, 2, 3):
+        with indoor.knobs(HUMIDITY_CLASS=c):
+            out[c] = env().step(3600, {}, {}, {}, 0)["bedroom"]["humidity"]
+    assert out[1] < out[2] < out[3]
+
+
+def test_a_longer_warm_up_brings_the_rooms_nearer_their_periodic_state():
+    """PREWARM_DAYS days on day 0's weather before the run, the heating asked before every step; inf: until the
+    periodic steady state. The rooms start at START_C; the farther the warm-up, the nearer that state."""
+    import math
+
+    from vesper.env import indoor
+    asked, on = [], [False]
+
+    def heating():  # a thermostat in the bedroom, 20 C, 0.3 K band (vesper.lab.rules)
+        asked.append(1)
+        t = e.rooms["bedroom"].temperature
+        on[0] = t < 19.7 or (on[0] and t < 20.3)
+        return {"bedroom": 1.0} if on[0] else {}
+
+    e = env()
+    with indoor.knobs(PREWARM_DAYS=2.0):
+        assert e.prewarm(0.0, heating) == 2.0
+    assert len(asked) == 2 * 1440 and e.rooms["bedroom"].temperature > 19.0  # asked once per step; it heated
+    temps = {}
+    for days in (1.0, 4.0, 9.0, math.inf):  # free-running (no heating): a pure decay toward the periodic state
+        e = env()
+        with indoor.knobs(PREWARM_DAYS=days):
+            lived = e.prewarm(0.0, dict)
+        temps[days] = {rid: r.temperature for rid, r in e.rooms.items()}
+        assert lived == days if days != math.inf else 9 < lived < indoor.PREWARM_MAX_DAYS
+    steady = temps[math.inf]
+    gap = {d: max(abs(temps[d][r] - steady[r]) for r in steady) for d in (1.0, 4.0, 9.0)}
+    assert gap[1.0] > gap[4.0] > gap[9.0]
+    assert temps[1.0]["hall"] != indoor.START_C  # it did live the day
+    e = env()
+    e.step(0, {}, {}, {}, 0)
+    with indoor.knobs(PREWARM_DAYS=4.0):
+        assert e.prewarm(0.0, heating) == 0.0  # only before the first step
+    with indoor.knobs(PREWARM_DAYS=1.5), pytest.raises(ValueError):
+        env().prewarm(0.0, heating)

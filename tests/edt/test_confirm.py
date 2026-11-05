@@ -421,3 +421,46 @@ def test_cli_confirm_refuses_a_missing_sweep(tmp_path, capsys):
     assert cli.main(["edt", "confirm", "--sweep", str(tmp_path / "absent.json"), "--work", str(tmp_path / "w"),
                      "--out", str(tmp_path / "o.json")]) == 1
     assert "FAILED edt confirm" in capsys.readouterr().err
+
+
+# -- several automations in one run: the rule set (revision R4-B, protocol Addendum 7) --------------------------------
+def test_companions_live_in_the_same_session_and_each_firing_is_attributed(edt):
+    """An evening lamp alone is left on all night; with its repository's off-rule beside it, it is not. The target's
+    outcome is from its own firings; every automation's are in firings_by, labelled by index."""
+    work, home_yaml, roles = edt
+    lamp = roles[("light", "living", 0)]
+    on = {"alias": "evening", "id": "same", "triggers": [{"trigger": "time", "at": "20:00:00"}],
+          "actions": [{"action": "light.turn_on", "target": {"entity_id": lamp}}]}
+    off = {"alias": "evening", "id": "same", "triggers": [{"trigger": "time", "at": "23:30:00"}],
+           "actions": [{"action": "light.turn_off", "target": {"entity_id": lamp}}]}
+    env = Env(CITY, "2026-01-15", 0.0, 4)
+    alone = cf.closed_loop(on, env, home_yaml, work / "cache")
+    assert alone["outcome"].night_light is True and "firings_by" not in alone  # the unchanged path
+    labelled = cf.closed_loop(on, env, home_yaml, work / "cache", companions=[])
+    assert labelled["outcome"] == alone["outcome"] and set(labelled["firings_by"]) == {"edt:0"}
+    both = cf.closed_loop(on, env, home_yaml, work / "cache", companions=[off])
+    assert set(both["firings_by"]) == {"edt:0", "edt:1"}  # the same alias and id twice: still two automations
+    assert [f.service for f in both["firings"]] == ["light.turn_on"] * 3  # days 0-2, the target's own
+    assert [f.service for f in both["firings_by"]["edt:1"]] == ["light.turn_off"] * 3
+    assert both["outcome"].fired and both["outcome"].night_light is True  # the oracle reads the target's own firings
+    rest = cf.closed_loop(None, env, home_yaml, work / "cache", companions=[off])
+    assert set(rest["firings_by"]) == {"edt:1"} and rest["firings"] == [] and rest["outcome"].fired is False
+
+
+def test_a_warm_up_before_the_run_changes_the_first_hours_and_its_default_changes_nothing(edt):
+    """PREWARM_DAYS (protocol Addendum 7): the rooms live days before the run on its first day's weather, the
+    thermostat at its own setpoint, so a cold January run starts nearer its periodic state; 0 is the run as before."""
+    from vesper.env import indoor
+    work, home_yaml, _ = edt
+    env = Env(CITY, "2026-01-15", 0.0, 4)
+    a = cf.closed_loop(None, env, home_yaml, work / "cache", days=1)
+    with indoor.knobs(PREWARM_DAYS=0.0):
+        b = cf.closed_loop(None, env, home_yaml, work / "cache", days=1)
+    assert a["temperatures"] == b["temperatures"]
+    with indoor.knobs(PREWARM_DAYS=4.0):
+        c = cf.closed_loop(None, env, home_yaml, work / "cache", days=1)
+    first = {room: series[0][1] for room, series in a["temperatures"].items()}
+    warmed = {room: series[0][1] for room, series in c["temperatures"].items()}
+    assert set(first.values()) == {indoor.START_C}  # every room at 20.5 C without a warm-up
+    assert warmed != first and all(10 < v < 30 for v in warmed.values())
+    assert [r for r in c["rows"]] == []  # no automation, no command, warm-up or not

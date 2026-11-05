@@ -176,6 +176,8 @@ class Rules:
             self._update_effect(name)
         for door in self.world.doors:
             self._update_effect(door)
+        if self.env is not None:  # a warm-up before the run, only when the model's PREWARM_DAYS asks for one
+            self.env.prewarm(self.home.start_time + self.now(), lambda: self._heating_now(report=False))
         self._ambient_tick()
         if self._still:
             self.runtime.clock.call_at(self.now() + RETRIGGER_S, self._presence_tick)
@@ -395,10 +397,11 @@ class Rules:
             self.runtime.stimulate(self.twin_ids[name], {"type": "measured", "feature": "running_state",
                                                          "value": value})
 
-    def _heating_now(self) -> dict[str, float]:
+    def _heating_now(self, report: bool = True) -> dict[str, float]:
         """Each room's heating or cooling from the thermostats' states and the rooms' temperatures: 1 heating, -1
         cooling, 0 neither. A thermostat heats in heat or auto below its heating setpoint and cools in cool or
-        auto above its cooling setpoint, each within HEAT_BAND_C; one in a hallway does so for the whole home."""
+        auto above its cooling setpoint, each within HEAT_BAND_C; one in a hallway does so for the whole home.
+        `report` False: the thermostats' running state is not reported (the warm-up before a run)."""
         rooms = self.env.rooms
         out: dict[str, float] = {}
         central = []
@@ -413,7 +416,8 @@ class Rules:
             on = heats and (temp < sp - HEAT_BAND_C or (was and temp < sp + HEAT_BAND_C))
             cool = not on and cools and (temp > csp + HEAT_BAND_C or (wasc and temp > csp - HEAT_BAND_C))
             self._heating[name], self._cooling[name] = on, cool
-            self._report_running(name, "heat" if on else "cool" if cool else "idle")
+            if report:  # not during a warm-up before the run (no twin reports before its first instant)
+                self._report_running(name, "heat" if on else "cool" if cool else "idle")
             share = 1.0 if on else -1.0 if cool else 0.0
             label = self.home.map.room(dev.room).label.lower()
             if any(w in label for w in CENTRAL_ROOMS):

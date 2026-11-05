@@ -15,11 +15,17 @@
   (HUMIDITY_CLASS; 0 none), plus what people add, at the room's temperature (Magnus formula).
 
 Sensitivity knobs (module-level, set them only through `knobs`, which restores them): DAYLIGHT_SCALE on all daylight,
-CAPACITY_SCALE on every room's heat capacity, HUMIDITY_T_OFFSET_C on the temperature the humidity is computed at. At
-their defaults (1.0, 1.0, 0.0) the model is the one built, to the bit.
+CAPACITY_SCALE on every room's heat capacity, HUMIDITY_T_OFFSET_C on the temperature the humidity is computed at; and
+for the error budget (revision R4-B, protocol Addendum 7): INTERNAL_GAINS_W_PER_M2 (a constant gain per m² of floor),
+ROOF_GROUND (1: a roof and a ground floor lose heat to the outdoor air, U_ROOF and U_GROUND over the floor),
+PREWARM_DAYS (extra warm-up days on the first day's weather before the run, `HomeEnvironment.prewarm`; inf: its
+periodic steady state), SOLAR_APERTURE_SCALE (on the solar heat through the glass), OUTDOOR_T_OFFSET_C (on the outdoor
+air temperature, its vapour pressure kept) and HUMIDITY_CLASS. At their defaults the model is the one built, to the
+bit.
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -52,9 +58,19 @@ HUMIDITY_T_OFFSET_C = 0.0
 CLASS_PA = 270.0  # the vapour-pressure excess per class at an outdoor temperature at or below 0 °C (EN ISO 13788)
 U_INTERIOR = 2.0  # W/m²K, an interior partition with its doorway (assumed; plasterboard or block, 1.5-2.5)
 NEIGHBOUR_GAP_M = 0.35  # rooms whose facing edges are at most this apart share a wall (a wall's thickness)
+# The error-budget knobs (revision R4-B, protocol Addendum 7); each default is the model as built
+INTERNAL_GAINS_W_PER_M2 = 0.0  # appliances, standby, distribution losses: a constant gain per m² of floor
+ROOF_GROUND = 0.0  # 1.0: every room loses heat through a roof and a ground floor (one storey), to the outdoor air
+U_ROOF, U_GROUND = 0.15, 0.25  # W/m²K, over the room's floor area, when ROOF_GROUND is on
+PREWARM_DAYS = 0.0  # extra warm-up days before the run, on its first day's weather; math.inf: periodic steady state
+PREWARM_STEP_S = 60.0  # the warm-up's step (the session's ambient step, vesper.lab.rules.AMBIENT_EVERY_S)
+PREWARM_TOL_K, PREWARM_MAX_DAYS = 0.001, 60  # the periodic steady state: no room's daily mean moves more, day to day
+SOLAR_APERTURE_SCALE = 1.0  # on the solar heat through the glass (G_SOLAR x glass area); daylight unchanged
+OUTDOOR_T_OFFSET_C = 0.0  # kelvin added to the outdoor air temperature (its vapour pressure kept)
 
 
-KNOBS = ("DAYLIGHT_SCALE", "CAPACITY_SCALE", "HUMIDITY_T_OFFSET_C")
+KNOBS = ("DAYLIGHT_SCALE", "CAPACITY_SCALE", "HUMIDITY_T_OFFSET_C", "INTERNAL_GAINS_W_PER_M2", "ROOF_GROUND",
+         "PREWARM_DAYS", "SOLAR_APERTURE_SCALE", "OUTDOOR_T_OFFSET_C", "HUMIDITY_CLASS")
 
 
 @contextmanager
@@ -109,7 +125,10 @@ class RoomModel:
     @property
     def h_w_per_k(self) -> float:
         glass = sum(w["width"] * w["height"] for w in self.windows)
-        return U_WALL * self.outside_wall_m2 + U_WINDOW * glass + 0.34 * ACH * self.volume
+        h = U_WALL * self.outside_wall_m2 + U_WINDOW * glass + 0.34 * ACH * self.volume
+        if ROOF_GROUND:
+            h += ROOF_GROUND * (U_ROOF + U_GROUND) * self.floor_m2
+        return h
 
 
 def room_models(world_map, windows: list[dict]) -> dict[str, RoomModel]:
@@ -203,30 +222,84 @@ class HomeEnvironment:
                 beam = direct / max(math.sin(math.radians(s.elevation)), 0.05) * \
                     math.cos(math.radians(s.elevation)) * math.cos(math.radians(off))
             total += G_SOLAR * glass * (diffuse_vertical + beam) * through
+        if SOLAR_APERTURE_SCALE != 1.0:
+            total *= SOLAR_APERTURE_SCALE
         return SOLAR_TO_AIR * total
 
     # -- the run ------------------------------------------------------------------------------
+    def outdoor_at(self, seconds: float) -> OutdoorState:
+        """The outdoors at `seconds`, with OUTDOOR_T_OFFSET_C added to the air temperature (its vapour pressure kept,
+        so its relative humidity is that vapour at the shifted temperature)."""
+        state = self.outdoor.at(seconds)
+        if OUTDOOR_T_OFFSET_C:
+            vapour = state.humidity_pct / 100 * e_sat(state.temperature_c)
+            t = state.temperature_c + OUTDOOR_T_OFFSET_C
+            state = dataclasses.replace(state, temperature_c=t, humidity_pct=min(100.0, 100 * vapour / e_sat(t)))
+        return state
+
+    def _advance(self, state: OutdoorState, dt_s: float, heating: dict[str, float], people: dict[str, int],
+                 solar: dict[str, float] | None = None) -> None:
+        """Every room's temperature `dt_s` later, under `state` (integrated exactly over the step). `solar`: each
+        room's solar gain under `state`, if already known (the warm-up's repeated day)."""
+        before = {rid: r.temperature for rid, r in self.rooms.items()}  # the walls pass heat from the last step's
+        for rid, r in self.rooms.items():
+            inner = {n: U_INTERIOR * a for n, a in r.neighbours.items() if n in before}
+            h = r.h_w_per_k + sum(inner.values())
+            share = heating.get(rid, 0.0)  # heating (> 0) or cooling (< 0), a share of full output
+            sun = self._solar_w(r, state) if solar is None else solar[rid]
+            q = sun + share * (HEAT_W_PER_M2 if share > 0 else COOL_W_PER_M2) * r.floor_m2 + \
+                people.get(rid, 0) * PERSON_W
+            if INTERNAL_GAINS_W_PER_M2:
+                q += INTERNAL_GAINS_W_PER_M2 * r.floor_m2
+            # the equilibrium with the outdoor air and the neighbours' temperatures, each through its own wall
+            eq = (r.h_w_per_k * state.temperature_c + sum(g * before[n] for n, g in inner.items()) + q) / h
+            c = CAPACITY_SCALE * C_PER_M2 * r.floor_m2
+            r.temperature = eq + (before[rid] - eq) * math.exp(-h * dt_s / c)
+
+    def prewarm(self, start_s: float, heating) -> float:
+        """Before a run that starts at `start_s` (its first day's local midnight): live PREWARM_DAYS days before it,
+        each on the first day's weather (the outdoors at the same time of day on day 0), every PREWARM_STEP_S, the
+        heating from `heating()` (each room's share, asked before every step: the home's thermostat at its own
+        setpoint), no people, the shades as they are. PREWARM_DAYS inf: until the periodic steady state (no room's
+        daily mean temperature more than PREWARM_TOL_K from the day before's: a heated room's on-off cycle is not
+        locked to the day, so its temperature at midnight wanders within the thermostat's band; at most
+        PREWARM_MAX_DAYS). Only before the first `step`. Returns the days lived (0: nothing done)."""
+        if not PREWARM_DAYS or self._t is not None:
+            return 0.0
+        periodic = math.isinf(PREWARM_DAYS)
+        days = PREWARM_MAX_DAYS if periodic else int(PREWARM_DAYS)
+        if not periodic and days != PREWARM_DAYS:
+            raise ValueError(f"PREWARM_DAYS {PREWARM_DAYS}: a whole number of days, or inf")
+        per_day = int(round(86400 / PREWARM_STEP_S))
+        # the repeated day, computed once: its outdoors and each room's solar gain at every step
+        day = [self.outdoor_at(start_s + (j * PREWARM_STEP_S) % 86400) for j in range(1, per_day + 1)]
+        gains = [{rid: self._solar_w(r, s) for rid, r in self.rooms.items()} for s in day]
+        lived, last = 0, None
+        for _ in range(days):
+            total = dict.fromkeys(self.rooms, 0.0)
+            for state, solar in zip(day, gains, strict=True):
+                self._advance(state, PREWARM_STEP_S, heating(), {}, solar)
+                for rid, r in self.rooms.items():
+                    total[rid] += r.temperature
+            lived += 1
+            mean = {rid: v / per_day for rid, v in total.items()}
+            if periodic and last is not None and max(abs(mean[r] - last[r]) for r in mean) <= PREWARM_TOL_K:
+                break
+            last = mean
+        return float(lived)
+
     def step(self, seconds: float, lamps: dict[str, int], heating: dict[str, float], people: dict[str, int],
              lamp_lux: float) -> dict[str, dict]:
         """Advance every room to `seconds` (after the first day's local midnight) and give each one's values:
         {room: {temperature, humidity, illuminance}}. `heating`: each room's heating output as a share of full."""
-        state = self.outdoor.at(seconds)
+        state = self.outdoor_at(seconds)
         dt_s = 0.0 if self._t is None else max(0.0, seconds - self._t)
         self._t, self.last = seconds, state
         e_out = state.humidity_pct / 100 * e_sat(state.temperature_c) + moisture_excess_kpa(state.temperature_c)
+        if dt_s > 0:
+            self._advance(state, dt_s, heating, people)
         out = {}
-        before = {rid: r.temperature for rid, r in self.rooms.items()}  # the walls pass heat from the last step's
         for rid, r in self.rooms.items():
-            if dt_s > 0:
-                inner = {n: U_INTERIOR * a for n, a in r.neighbours.items() if n in before}
-                h = r.h_w_per_k + sum(inner.values())
-                share = heating.get(rid, 0.0)  # heating (> 0) or cooling (< 0), a share of full output
-                q = self._solar_w(r, state) + share * (HEAT_W_PER_M2 if share > 0 else COOL_W_PER_M2) * r.floor_m2 + \
-                    people.get(rid, 0) * PERSON_W
-                # the equilibrium with the outdoor air and the neighbours' temperatures, each through its own wall
-                eq = (r.h_w_per_k * state.temperature_c + sum(g * before[n] for n, g in inner.items()) + q) / h
-                c = CAPACITY_SCALE * C_PER_M2 * r.floor_m2
-                r.temperature = eq + (before[rid] - eq) * math.exp(-h * dt_s / c)
             e_in = e_out + PERSON_VAPOUR_KPA * min(people.get(rid, 0), 4)
             rh = min(85.0, max(15.0, 100 * e_in / e_sat(r.temperature + HUMIDITY_T_OFFSET_C)))
             out[rid] = {"temperature": round(r.temperature, 1), "humidity": round(rh),
@@ -247,5 +320,9 @@ class HomeEnvironment:
             "cool_w_per_m2": COOL_W_PER_M2, "u_interior": U_INTERIOR,
             "humidity_class": HUMIDITY_CLASS,
             **{k.lower(): v for k, v, d in (("CAPACITY_SCALE", CAPACITY_SCALE, 1.0),
-                                            ("HUMIDITY_T_OFFSET_C", HUMIDITY_T_OFFSET_C, 0.0)) if v != d},
+                                            ("HUMIDITY_T_OFFSET_C", HUMIDITY_T_OFFSET_C, 0.0),
+                                            ("INTERNAL_GAINS_W_PER_M2", INTERNAL_GAINS_W_PER_M2, 0.0),
+                                            ("ROOF_GROUND", ROOF_GROUND, 0.0), ("PREWARM_DAYS", PREWARM_DAYS, 0.0),
+                                            ("SOLAR_APERTURE_SCALE", SOLAR_APERTURE_SCALE, 1.0),
+                                            ("OUTDOOR_T_OFFSET_C", OUTDOOR_T_OFFSET_C, 0.0)) if v != d},
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}

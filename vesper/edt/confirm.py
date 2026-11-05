@@ -164,12 +164,21 @@ def controlled_rooms(bound: dict, home) -> list[str]:
 
 
 # -- one closed-loop run ---------------------------------------------------------------------------
+COMPANION_LABEL = "edt:{}"  # with companions, every automation of the run is labelled by its index (the target 0)
+
+
 def closed_loop(bound: dict | None, env: Env, home_yaml: Path, cache: Path, *, days: int = 3,
-                catalog_dir: str = "catalog/vds") -> dict:
+                catalog_dir: str = "catalog/vds", companions: list[dict] | None = None) -> dict:
     """Live `bound` alone for `days` days from local midnight in `env`, its actions real (lights, switches, locks and
     climate; the rest recorded). Returns {"outcome": Outcome, "firings": [Firing], "refused": [...], "rooms": [room]
     (those its climate targets heat or cool), "temperatures": {room: [(t, C), ...]} for those rooms}. The home is
-    copied, never touched. `bound` None: the home with no automation (the baseline), "rooms" every indoor room."""
+    copied, never touched. `bound` None: the home with no automation (the baseline), "rooms" every indoor room.
+
+    `companions` (revision R4-B: the rule set an automation runs in): other automations that live in the same session
+    (one engine). Then every automation is labelled COMPANION_LABEL by its index (`bound` 0, the companions 1, 2, ...
+    in order; `bound` None leaves 0 unused), "outcome" and "firings" are `bound`'s own, and "firings_by" holds every
+    label's firings. Without `companions` (None) the run is the one above, unchanged; an empty list labels `bound`
+    alone."""
     from vesper.edt.trace import copy_home, env_site, has_home_site, rung_scaling
     from vesper.lab.automations import Engine
     from vesper.lab.home import load_lab_home
@@ -177,9 +186,13 @@ def closed_loop(bound: dict | None, env: Env, home_yaml: Path, cache: Path, *, d
     from vesper.twins.clock import LogicalClock
     from vesper.twins.home import load_catalog
     site = env_site(env)
+    if companions is None:
+        autos = [bound] if bound else None
+    else:
+        autos = [{**a, "alias": COMPANION_LABEL.format(k)} for k, a in enumerate([bound, *companions]) if a]
     with rung_scaling(env), tempfile.TemporaryDirectory(prefix="edt-confirm-") as tmp:
         run_yaml = copy_home(Path(home_yaml), Path(tmp) / "home", site if has_home_site(env) else None,
-                             Path(cache) / "weather", [bound] if bound else None)
+                             Path(cache) / "weather", autos)
         home = load_lab_home(run_yaml, load_catalog(Path(catalog_dir)))
         s = Session(home, clock=LogicalClock())
         s.start(spawn_player=False, residents=False, automations=False)
@@ -198,8 +211,14 @@ def closed_loop(bound: dict | None, env: Env, home_yaml: Path, cache: Path, *, d
             for room in rooms:
                 if room in r["rooms"]:
                     temps[room].append((r["t"], r["rooms"][room]["temperature"]))
-    return {"outcome": oracle_outcome(firings, site, (1, days - 1)), "firings": firings,
-            "refused": s.automations.refused, "rooms": rooms, "temperatures": temps, "rows": rows}
+    out = {"refused": s.automations.refused, "rooms": rooms, "temperatures": temps, "rows": rows}
+    if companions is not None:
+        by: dict[str, list[Firing]] = {}
+        for f in firings:
+            by.setdefault(f.automation, []).append(f)
+        firings = by.get(COMPANION_LABEL.format(0), [])
+        out["firings_by"] = by
+    return {"outcome": oracle_outcome(firings, site, (1, days - 1)), "firings": firings, **out}
 
 
 _BASELINES: dict[tuple, dict] = {}  # (home sha256, env key, days, cache, catalog) -> temperatures; cleared per confirm
