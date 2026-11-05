@@ -24,8 +24,10 @@ air temperature, its vapour pressure kept) and HUMIDITY_CLASS; and (revision R6-
 ventilation's air changes per hour) and DIRECT_SHARE (the beam share's coefficient, which lives in vesper.env.sun); and
 (revision R7-W, protocol Addendum 14) two options that live in vesper.env.sun, 0 (off) by default: RECORDED_SPLIT (the
 beam share from ERA5's recorded direct and diffuse radiation) and GROUND_REFLECTED (the ground's reflection on vertical
-glass, in the solar heat; daylight unchanged). At their defaults the model is the one built, to the bit.
-"""
+glass, in the solar heat; daylight unchanged); and (revision R7-B, protocol Addendum 13) INDOOR_T_OFFSET_C (kelvin added
+to every indoor room's air temperature as its sensors read it, the relative humidity computed at that temperature; the
+room's own heat balance, and so every thermostat's control, unchanged). At their defaults the model is the one built, to
+the bit."""
 from __future__ import annotations
 
 import dataclasses
@@ -73,11 +75,15 @@ PREWARM_STEP_S = 60.0  # the warm-up's step (the session's ambient step, vesper.
 PREWARM_PERIODIC_DAYS = 30
 SOLAR_APERTURE_SCALE = 1.0  # on the solar heat through the glass (G_SOLAR x glass area); daylight unchanged
 OUTDOOR_T_OFFSET_C = 0.0  # kelvin added to the outdoor air temperature (its vapour pressure kept)
+# kelvin added to every indoor room's air temperature as its sensors read it, the room's vapour then read at that
+# temperature; the room's own temperature (its heat balance, every thermostat's control) unchanged (revision R7-B,
+# protocol Addendum 13; 0.0 as built)
+INDOOR_T_OFFSET_C = 0.0
 
 
 KNOBS = ("DAYLIGHT_SCALE", "CAPACITY_SCALE", "HUMIDITY_T_OFFSET_C", "INTERNAL_GAINS_W_PER_M2", "ROOF_GROUND",
          "PREWARM_DAYS", "SOLAR_APERTURE_SCALE", "OUTDOOR_T_OFFSET_C", "HUMIDITY_CLASS", "ACH", "DIRECT_SHARE",
-         "RECORDED_SPLIT", "GROUND_REFLECTED")
+         "RECORDED_SPLIT", "GROUND_REFLECTED", "INDOOR_T_OFFSET_C")
 # knobs that live in another module; every other one is this module's
 _KNOB_HOME = {"DIRECT_SHARE": _sun, "RECORDED_SPLIT": _sun, "GROUND_REFLECTED": _sun}
 
@@ -332,8 +338,9 @@ class HomeEnvironment:
         out = {}
         for rid, r in self.rooms.items():
             e_in = e_out + PERSON_VAPOUR_KPA * min(people.get(rid, 0), 4)
-            rh = min(85.0, max(15.0, 100 * e_in / e_sat(r.temperature + HUMIDITY_T_OFFSET_C)))
-            out[rid] = {"temperature": round(r.temperature, 1), "humidity": round(rh),
+            read = r.temperature + INDOOR_T_OFFSET_C if INDOOR_T_OFFSET_C else r.temperature  # what sensors read
+            rh = min(85.0, max(15.0, 100 * e_in / e_sat(read + HUMIDITY_T_OFFSET_C)))
+            out[rid] = {"temperature": round(read, 1), "humidity": round(rh),
                         "illuminance": round(self.daylight(rid, state) + lamp_lux * lamps.get(rid, 0))}
         return out
 
@@ -358,5 +365,6 @@ class HomeEnvironment:
                                             ("OUTDOOR_T_OFFSET_C", OUTDOOR_T_OFFSET_C, 0.0),
                                             ("DIRECT_SHARE", _sun.DIRECT_SHARE, 0.8),
                                             ("RECORDED_SPLIT", _sun.RECORDED_SPLIT, 0),
-                                            ("GROUND_REFLECTED", _sun.GROUND_REFLECTED, 0)) if v != d},
+                                            ("GROUND_REFLECTED", _sun.GROUND_REFLECTED, 0),
+                                            ("INDOOR_T_OFFSET_C", INDOOR_T_OFFSET_C, 0.0)) if v != d},
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}

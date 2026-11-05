@@ -174,11 +174,12 @@ BEFORE_KNOBS = "671b22a0fa68c482465b3c557564058a282263a1ed876a9fab05eb484b55d8d8
 
 DEFAULTS = {"DAYLIGHT_SCALE": 1.0, "CAPACITY_SCALE": 1.0, "HUMIDITY_T_OFFSET_C": 0.0, "INTERNAL_GAINS_W_PER_M2": 0.0,
             "ROOF_GROUND": 0.0, "PREWARM_DAYS": 0.0, "SOLAR_APERTURE_SCALE": 1.0, "OUTDOOR_T_OFFSET_C": 0.0,
-            "HUMIDITY_CLASS": 1, "ACH": 0.5, "DIRECT_SHARE": 0.8, "RECORDED_SPLIT": 0, "GROUND_REFLECTED": 0}
+            "HUMIDITY_CLASS": 1, "ACH": 0.5, "DIRECT_SHARE": 0.8, "RECORDED_SPLIT": 0, "GROUND_REFLECTED": 0,
+            "INDOOR_T_OFFSET_C": 0.0}
 
 
 def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
-    """Every knob (R2-a's, Addendum 7's, Addendum 9's and Addendum 14's) at its default: the model of 120f4ca, to the
+    """Every knob (R2-a's, Addendum 7's, Addendum 9's, 13's and 14's) at its default: the model of 120f4ca, to the
     bit."""
     from vesper.env import indoor
     assert set(indoor.KNOBS) == set(DEFAULTS)
@@ -190,7 +191,8 @@ def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
     e = env()
     assert e.prewarm(0.0, lambda: {}) == 0.0  # no warm-up at the default
     assert not {"capacity_scale", "internal_gains_w_per_m2", "roof_ground", "prewarm_days", "solar_aperture_scale",
-                "outdoor_t_offset_c", "direct_share", "recorded_split", "ground_reflected"} & \
+                "outdoor_t_offset_c", "direct_share", "recorded_split", "ground_reflected",
+                "indoor_t_offset_c"} & \
         set(e.provenance()["indoor"])
 
 
@@ -378,3 +380,48 @@ def test_a_larger_direct_share_moves_heat_into_the_sun_facing_room():
         dull = e.outdoor_at(12 * 3600)
     assert sunny.direct_fraction > dull.direct_fraction
     assert e._solar_w(e.rooms["bedroom"], sunny) > e._solar_w(e.rooms["bedroom"], dull)
+
+
+# -- the indoor-temperature offset (revision R7-B, protocol Addendum 13) ----------------------------------------------
+def _heated_days(**knob_values) -> tuple[list, list]:
+    """Two January days stepped every 10 min with the bedroom heated on and off: (every reading, every room's own
+    full-precision temperature), under the knobs."""
+    from vesper.env import indoor
+    e, readings, inside = env(), [], []
+    with indoor.knobs(**knob_values):
+        for k in range(2 * 144):
+            readings.append(e.step(k * 600, {}, {"bedroom": 1.0 if (k // 18) % 2 else 0.0}, {"hall": k % 3}, 200))
+            inside.append({rid: r.temperature for rid, r in e.rooms.items()})
+    return readings, inside
+
+
+@pytest.mark.parametrize("offset", [-1.7, -0.9, 2.0, 7.0])
+def test_the_indoor_offset_moves_what_sensors_read_and_not_the_room(offset):
+    """INDOOR_T_OFFSET_C adds a constant to every indoor room's air temperature as its sensors read it, and the
+    relative humidity is that room's vapour at the shifted temperature; the room itself (its heat balance, so any
+    thermostat's control) and the daylight are unchanged."""
+    from vesper.env import indoor
+    base, base_in = _heated_days()
+    moved, moved_in = _heated_days(INDOOR_T_OFFSET_C=offset)
+    shifted, _ = _heated_days(HUMIDITY_T_OFFSET_C=offset)  # the same vapour at the same shifted temperature
+    assert moved_in == base_in  # to the bit: the rooms' own temperatures
+    for a, b, h, inside in zip(base, moved, shifted, base_in, strict=True):
+        for rid in a:
+            assert b[rid]["temperature"] == round(inside[rid] + offset, 1)
+            assert b[rid]["illuminance"] == a[rid]["illuminance"]
+            assert b[rid]["humidity"] == h[rid]["humidity"]
+    drier = [b[r]["humidity"] - a[r]["humidity"] for a, b in zip(base, moved, strict=True) for r in a]
+    assert all(x <= 0 for x in drier) if offset > 0 else all(x >= 0 for x in drier)
+    assert any(x != 0 for x in drier)
+    with indoor.knobs(INDOOR_T_OFFSET_C=offset):
+        assert indoor.nondefault_knobs() == {"INDOOR_T_OFFSET_C": offset}
+        assert env().provenance()["indoor"]["indoor_t_offset_c"] == offset
+
+
+def test_the_indoor_offset_leaves_the_outdoor_air_alone():
+    from vesper.env import indoor
+    e, f = env(), env()
+    e.step(3600, {}, {}, {}, 0)
+    with indoor.knobs(INDOOR_T_OFFSET_C=7.0):
+        f.step(3600, {}, {}, {}, 0)
+    assert f.last == e.last  # the porch reads env.last
