@@ -89,10 +89,10 @@ class _Boxes:
         self.UsdGeom = UsdGeom
 
     def box(self, prim, plane: bool) -> dict | None:
-        """{center: [x, y, z], axis: [ux, uz] (the box's x axis, level), size: [w, h, d]}, or None for a prim with no
-        geometry or an x axis that is not level. `plane`: an architectural element, whose local origin is RoomPlan's
-        centre of it even in the mesh export (drawn thick behind its plane, a wall carried on past one end): the
-        width is the part of the box symmetric about the origin, and the element stands in the plane through it."""
+        """{center: [x, y, z], axis: [ux, uz] (the box's x axis, level), size: [w, h, d], top: its highest y}, or
+        None for a prim with no geometry or an x axis that is not level. `plane`: an architectural element, whose local
+        origin is RoomPlan's centre of it even in the mesh export (drawn thick behind its plane, a wall carried on past
+        one end): the width is the part of the box symmetric about the origin, and it stands in the plane through it."""
         if not prim.IsA(self.UsdGeom.Boundable):
             return None
         rng = self.cache.ComputeUntransformedBound(prim).ComputeAlignedRange()
@@ -114,7 +114,7 @@ class _Boxes:
             return None
         return {"center": [c[0], c[1], c[2]], "axis": [ax[0] / level, ax[2] / level],
                 "size": [size[0] * ax.GetLength(), size[1] * ay.GetLength(), size[2] * az.GetLength()],
-                "top": c[1] + size[1] * ay.GetLength() / 2}
+                "top": Gf.BBox3d(rng, m).ComputeAlignedRange().GetMax()[1]}  # a floor's local z is up
 
 
 def _number(prim) -> int:
@@ -136,7 +136,8 @@ def _source(stage) -> tuple[object, bool]:
 
 def read_roomplan_usdz(path: Path) -> tuple[dict, list[dict], list[str]]:
     """A RoomPlan USDZ export (parametric, else mesh) as (the `vesper-plan/1` in metres, the objects as pieces of
-    furniture `{kind, room, box, h, yaw}`, warnings), through `scan_roomplan.plan_from_parts`. A ScanError when usd-core
+    furniture `{kind, room, box, h, yaw}`, warnings as `ScanWarnings`, whose `heights` hold each door's and window's
+    bottom and top), through `scan_roomplan.plan_from_parts`. A ScanError when usd-core
     is not installed, the file cannot be opened, or it holds no RoomPlan walls."""
     path = Path(path)
     stage = _open(path)
@@ -224,4 +225,5 @@ def read_roomplan_usdz(path: Path) -> tuple[dict, list[dict], list[str]]:
 
     plan, pieces, more = plan_from_parts(walls, elements("doors"), elements("windows"), elements("openings"),
                                          sections, objects)
-    return plan, pieces, warnings + more
+    more[:0] = warnings  # a ScanWarnings: the doors' and windows' heights travel in it
+    return plan, pieces, more

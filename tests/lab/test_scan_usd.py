@@ -13,10 +13,9 @@ from vesper.lab.geometry import polygon_area
 from vesper.lab.scan_roomplan import ScanError, read_roomplan_json
 from vesper.lab.scan_usd import read_roomplan_usdz
 
+from tests.lab.test_scan_roomplan import SCANS  # $VESPER_SCANS, else the main checkout's test set
+
 FIXTURES = Path(__file__).parent / "fixtures" / "roomplan"
-SCANS = Path(__file__).resolve().parents[2] / ".vesper" / "datasets" / "scans"
-if not SCANS.is_dir():  # a worktree: the test set lives in the main checkout
-    SCANS = Path(__file__).resolve().parents[5] / ".vesper" / "datasets" / "scans"
 
 KINDS = (("walls", "Wall"), ("doors", "Door"), ("windows", "Window"), ("openings", "Opening"))
 THICK = 0.16  # how thick RoomPlan's mesh export draws a wall (a door or window half that)
@@ -156,6 +155,20 @@ def same_plan(got: dict, want: dict) -> None:
         assert key(got["doors"][got["entrance"]]) == key(want["doors"][want["entrance"]])
 
 
+def same_heights(plan: dict, warnings, want_plan: dict, want_warnings) -> None:
+    """Each door's and window's bottom and top (ScanWarnings.heights, in the plan's order) as the JSON reader gives
+    them, matched by position."""
+    for kind in ("doors", "windows"):
+        assert len(warnings.heights[kind]) == len(plan[kind])
+
+        def by_at(p, w):
+            return {tuple(round(v, 3) for v in d["at"]): h for d, h in zip(p[kind], w.heights[kind], strict=True)}
+        got, want = by_at(plan, warnings), by_at(want_plan, want_warnings)
+        assert got.keys() == want.keys()
+        for at, h in want.items():
+            assert got[at] == pytest.approx(h, abs=1e-4), (kind, at)
+
+
 def same_pieces(got: list[dict], want: list[dict]) -> None:
     def key(p):
         return (p["kind"], p["room"], tuple(round(v, 3) for v in p["box"]), round(p["h"], 3), round(p["yaw"], 2))
@@ -176,6 +189,7 @@ def test_the_parametric_export_gives_the_plan_the_json_gives(tmp_path, packaged)
     same_plan(plan, want_plan)
     same_pieces(pieces, want_pieces)
     assert warnings == want_warnings
+    same_heights(plan, warnings, want_plan, want_warnings)
 
 
 def test_an_opening_on_its_wall_and_short_walls_as_the_json_reads_them(tmp_path):
@@ -191,6 +205,7 @@ def test_an_opening_on_its_wall_and_short_walls_as_the_json_reads_them(tmp_path)
     same_plan(plan, want_plan)
     same_pieces(pieces, want_pieces)
     assert warnings == want_warnings
+    same_heights(plan, warnings, want_plan, want_warnings)
     assert any(w.startswith("ceiling not scanned") and "2.42" in w for w in warnings), warnings
 
 
@@ -201,6 +216,7 @@ def test_a_turned_scan_in_centimetres_with_z_up_gives_the_same_plan(tmp_path):
     same_plan(plan, want_plan)
     same_pieces(pieces, want_pieces)
     assert warnings == want_warnings
+    same_heights(plan, warnings, want_plan, want_warnings)
 
 
 # --- the mesh export: no parametric group -------------------------------------------------------------------------
@@ -208,9 +224,10 @@ def test_a_turned_scan_in_centimetres_with_z_up_gives_the_same_plan(tmp_path):
 def test_the_mesh_export_gives_the_same_rooms_doors_and_windows_and_says_what_it_lacks(tmp_path):
     raw = fixture()
     plan, pieces, warnings = read_roomplan_usdz(write_usd(raw, tmp_path / "room.usda", export="mesh"))
-    want_plan, want_pieces, _ = read_roomplan_json(raw)
+    want_plan, want_pieces, want_warnings = read_roomplan_json(raw)
     same_plan(plan, want_plan)
     same_pieces(pieces, want_pieces)
+    same_heights(plan, warnings, want_plan, want_warnings)
     assert any("mesh export" in w and "openings" in w for w in warnings), warnings
 
 
@@ -259,13 +276,14 @@ def scan_file(name: str) -> Path:
                                     "litereality-cued-meeting-room-roomplan"])
 def test_the_litereality_parametric_export_agrees_with_its_json(folder):
     usd = scan_file(f"{folder}/roomplan/room_p.usdz")
-    plan, pieces, _ = read_roomplan_usdz(usd)
-    want, want_pieces, _ = read_roomplan_json(json.loads((usd.parent / "room.json").read_text()))
+    plan, pieces, warnings = read_roomplan_usdz(usd)
+    want, want_pieces, want_warnings = read_roomplan_json(json.loads((usd.parent / "room.json").read_text()))
     assert [r["type"] for r in plan["rooms"]] == [r["type"] for r in want["rooms"]]
     assert sum(map(area, plan["rooms"])) == pytest.approx(sum(map(area, want["rooms"])), rel=0.03)
     assert len(plan["doors"]) == len(want["doors"]) and len(plan["windows"]) == len(want["windows"])
     assert (plan["entrance"] is None) == (want["entrance"] is None)
     assert len(pieces) == len(want_pieces)
+    same_heights(plan, warnings, want, want_warnings)
 
 
 def test_the_litereality_bedroom_mesh_export_has_the_same_room():
