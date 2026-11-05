@@ -17,6 +17,13 @@ fallback (`vesper.env.outdoor`), marked assumed.
 
 Open-Meteo's hourly radiation is the mean over the hour before its time stamp, so it is assigned to the hour's
 middle; instantaneous values (temperature, humidity, cloud cover) to their time stamp.
+
+Recorded shortwave (revision R7-W, protocol Addendum 14): `fetch_shortwave` adds ERA5's direct and diffuse
+(horizontal) radiation and snow depth for cached days, as a sidecar file beside each day (`<day>_era5-shortwave.json`;
+the day's own file is never fetched again or touched). The archive answers snow_depth with nulls under
+`models=era5`, so `fetch_snow` takes it from ERA5-Land (`models=era5_land`, `<day>_era5_land-snow.json`).
+`load(..., shortwave=True)` reads the sidecars too; without it (the default) a load reads exactly what it read
+before, sidecars or not.
 """
 from __future__ import annotations
 
@@ -34,9 +41,14 @@ FORMAT = "vesper-weather/1"
 ATTRIBUTION = "Weather data by Open-Meteo.com, CC BY 4.0 (ERA5: Copernicus Climate Change Service)"
 ARCHIVE_MODEL = "era5"  # the archive's product, pinned (revision R-A)
 FORECAST_MODEL = "best_match"  # the forecast service's default product, named explicitly
+SHORTWAVE_VARIABLES = ("direct_radiation", "diffuse_radiation", "snow_depth")  # revision R7-W (Addendum 14)
+SIDECAR_FORMAT = "vesper-weather-shortwave/1"
+SNOW_MODEL = "era5_land"  # the archive answers snow_depth with nulls under models=era5 (live 2026-11-05)
+RADIATION = ("shortwave_radiation", "direct_radiation", "diffuse_radiation")  # hour-before means: on the hour's middle
 PRODUCTS = {  # a cached day's model -> its product, as a record's source names it
     ARCHIVE_MODEL: "Open-Meteo archive, ERA5 (models=era5)",
     FORECAST_MODEL: "Open-Meteo forecast, best_match (models' past days)",
+    SNOW_MODEL: "Open-Meteo archive, ERA5-Land (models=era5_land)",
 }
 LEGACY_ARCHIVE = "Open-Meteo archive, default blend (no models=: ERA5, ERA5-Land, ECMWF IFS; cached before the pin)"
 
@@ -60,7 +72,7 @@ class Weather:
         when = when.astimezone(dt.UTC)
         out = {}
         for name, series in self.values.items():
-            shift = dt.timedelta(minutes=-30) if name == "shortwave_radiation" else dt.timedelta(0)
+            shift = dt.timedelta(minutes=-30) if name in RADIATION else dt.timedelta(0)
             out[name] = _interp([t + shift for t in self.times], series, when)
         return out
 
@@ -91,6 +103,22 @@ def cache_path(cache_dir: Path, lat: float, lon: float, day: dt.date, model: str
 def legacy_cache_path(cache_dir: Path, lat: float, lon: float, day: dt.date) -> Path:
     """A day cached before the pin: no product in its name (the archive's default blend, or the forecast's)."""
     return Path(cache_dir) / f"{lat:.4f}_{lon:.4f}_{day.isoformat()}.json"
+
+
+def shortwave_path(cache_dir: Path, lat: float, lon: float, day: dt.date) -> Path:
+    """A day's recorded-shortwave sidecar (ERA5 direct and diffuse radiation, snow depth; revision R7-W)."""
+    return Path(cache_dir) / f"{lat:.4f}_{lon:.4f}_{day.isoformat()}_{ARCHIVE_MODEL}-shortwave.json"
+
+
+def snow_path(cache_dir: Path, lat: float, lon: float, day: dt.date) -> Path:
+    """A day's snow-depth sidecar (ERA5-Land; revision R7-W)."""
+    return Path(cache_dir) / f"{lat:.4f}_{lon:.4f}_{day.isoformat()}_{SNOW_MODEL}-snow.json"
+
+
+SIDECARS = {  # kind -> (variables, archive model, a day's file)
+    "shortwave": (SHORTWAVE_VARIABLES, ARCHIVE_MODEL, shortwave_path),
+    "snow": (("snow_depth",), SNOW_MODEL, snow_path),
+}
 
 
 def cached(cache_dir: Path, lat: float, lon: float, day: dt.date) -> Path | None:
@@ -152,11 +180,87 @@ def fetch(lat: float, lon: float, start: dt.date, end: dt.date, cache_dir: Path,
     return paths
 
 
-def load(lat: float, lon: float, days: list[dt.date], cache_dir: Path) -> Weather | None:
+def _fetch_sidecar(kind: str, lat: float, lon: float, start: dt.date, end: dt.date, cache_dir: Path, get) -> list[Path]:
+    """One archive request for a sidecar kind's variables over the UTC days start..end, one file per day holding the
+    request's URL and parameters; days already there are never asked for again (all there: no request)."""
+    variables, model, path_of = SIDECARS[kind]
+    if end < start:
+        raise WeatherError(f"the last day {end} is before the first {start}")
+    days = [start + dt.timedelta(days=k) for k in range((end - start).days + 1)]
+    paths = [path_of(cache_dir, lat, lon, d) for d in days]
+    if all(p.is_file() for p in paths):
+        return paths
+    if get is None:
+        import httpx
+        get = httpx.get
+    params = {"latitude": lat, "longitude": lon, "hourly": ",".join(variables), "timezone": "GMT", "models": model,
+              "start_date": start.isoformat(), "end_date": end.isoformat()}
+    try:
+        r = get(ARCHIVE_URL, params=params, timeout=60)
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:  # noqa: BLE001 - the network, the server, a non-JSON answer: one message
+        raise WeatherError(f"the Open-Meteo archive gave no {kind} for {lat}, {lon} {start}..{end}: {e}") from e
+    hourly = data.get("hourly") or {}
+    times = hourly.get("time")
+    if not isinstance(times, list) or not times or any(not isinstance(hourly.get(v), list) for v in variables):
+        raise WeatherError(f"the archive's answer has no hourly {', '.join(variables)}")
+    by_day: dict[str, dict] = {}
+    for k, t in enumerate(times):
+        day = by_day.setdefault(t[:10], {"time": [], **{v: [] for v in variables}})
+        day["time"].append(t)
+        for v in variables:
+            day[v].append(hourly[v][k])
+    Path(cache_dir).mkdir(parents=True, exist_ok=True)
+    for d, p in zip(days, paths, strict=True):
+        series = by_day.get(d.isoformat())
+        if series is None or p.is_file():
+            continue
+        p.write_text(json.dumps({"format": SIDECAR_FORMAT, "kind": kind, "attribution": ATTRIBUTION,
+                                 "url": ARCHIVE_URL, "params": params, "model": model, "product": PRODUCTS[model],
+                                 "site": {"lat": lat, "lon": lon},
+                                 "cell": {"lat": data.get("latitude"), "lon": data.get("longitude"),
+                                          "elevation": data.get("elevation")},
+                                 "units": data.get("hourly_units", {}), "hourly": series}, indent=1))
+    return [p for p in paths if p.is_file()]
+
+
+def fetch_shortwave(lat: float, lon: float, start: dt.date, end: dt.date, cache_dir: Path, *, get=None) -> list[Path]:
+    """Revision R7-W (protocol Addendum 14): ERA5's hourly direct and diffuse radiation (and its snow depth, which
+    the archive answers with nulls under models=era5) for the UTC days start..end, from the archive (`models=era5`),
+    into one sidecar per day (`shortwave_path`); the paths. `get` is httpx.get, injectable."""
+    return _fetch_sidecar("shortwave", lat, lon, start, end, cache_dir, get)
+
+
+def fetch_snow(lat: float, lon: float, start: dt.date, end: dt.date, cache_dir: Path, *, get=None) -> list[Path]:
+    """Revision R7-W (protocol Addendum 14): the hourly snow depth, which the archive serves from ERA5-Land
+    (`models=era5_land`; ERA5 itself answers nulls), into one sidecar per day (`snow_path`); the paths."""
+    return _fetch_sidecar("snow", lat, lon, start, end, cache_dir, get)
+
+
+def _sidecar_day(kind: str, cache_dir: Path, lat: float, lon: float, day: dt.date, times: list[str]) -> dict | None:
+    """A day's sidecar series of a kind, if there is one for exactly these hours."""
+    p = SIDECARS[kind][2](cache_dir, lat, lon, day)
+    if not p.is_file():
+        return None
+    data = json.loads(p.read_text())
+    h = data.get("hourly") or {}
+    if data.get("format") != SIDECAR_FORMAT or h.get("time") != times:
+        return None
+    return h
+
+
+def load(lat: float, lon: float, days: list[dt.date], cache_dir: Path, *, shortwave: bool = False) -> Weather | None:
     """The cached weather of these UTC days, from the first up to the first one missing (a run longer than its
     cache keeps the recorded days; past them the outdoors is assumed), or None when the first is missing. Never
-    fetches."""
+    fetches. `shortwave` (revision R7-W): also each day's recorded direct and diffuse radiation (ERA5) and snow depth
+    (ERA5-Land's sidecar where there is one, else the ERA5 sidecar's) (None for a day without one), named in the
+    source with how many days had each."""
     times, values, cell, products = [], {v: [] for v in VARIABLES}, None, []
+    if shortwave:
+        values |= {v: [] for v in SHORTWAVE_VARIABLES}
+    with_sidecar = {"shortwave": 0, "snow": 0}
+    n_days = 0
     for day in sorted(set(days)):
         p = cached(cache_dir, lat, lon, day) or legacy_cache_path(cache_dir, lat, lon, day)
         data = json.loads(p.read_text()) if p.is_file() else {}
@@ -169,10 +273,23 @@ def load(lat: float, lon: float, days: list[dt.date], cache_dir: Path) -> Weathe
         times += [dt.datetime.fromisoformat(t).replace(tzinfo=dt.UTC) for t in h["time"]]
         for v in VARIABLES:
             values[v] += h[v]
+        if shortwave:
+            n_days += 1
+            side = _sidecar_day("shortwave", cache_dir, lat, lon, day, h["time"])
+            snow = _sidecar_day("snow", cache_dir, lat, lon, day, h["time"])
+            with_sidecar["shortwave"] += side is not None
+            with_sidecar["snow"] += snow is not None
+            for v in SHORTWAVE_VARIABLES:
+                src = snow if v == "snow_depth" and snow is not None else side
+                values[v] += src[v] if src is not None else [None] * len(h["time"])
     if not times:
         return None
-    return Weather(lat=cell.get("lat") or lat, lon=cell.get("lon") or lon, times=times, values=values,
-                   source=" + ".join(products) + f", cell {cell.get('lat')}, {cell.get('lon')}")
+    source = " + ".join(products) + f", cell {cell.get('lat')}, {cell.get('lon')}"
+    if shortwave:
+        source += (f"; recorded shortwave: {PRODUCTS[ARCHIVE_MODEL]} direct_radiation, diffuse_radiation "
+                   f"({with_sidecar['shortwave']} of {n_days} days); {PRODUCTS[SNOW_MODEL]} snow_depth "
+                   f"({with_sidecar['snow']} of {n_days} days)")
+    return Weather(lat=cell.get("lat") or lat, lon=cell.get("lon") or lon, times=times, values=values, source=source)
 
 
 def _product(data: dict) -> str:

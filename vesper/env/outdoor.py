@@ -30,12 +30,19 @@ class OutdoorState:
     cloud_cover_pct: float | None
     direct_fraction: float  # share of horizontal irradiance straight from the sun
     sources: dict = field(default_factory=dict)
+    snow_depth_m: float | None = None  # ERA5's, when a revision R7-W option has the recorded shortwave read
 
     def as_dict(self) -> dict:
         return {"sun_elevation": self.sun.elevation, "sun_azimuth": self.sun.azimuth,
                 "ghi_w_m2": round(self.ghi_w_m2, 1), "illuminance_lux": round(self.illuminance_lux),
                 "temperature_c": round(self.temperature_c, 1), "humidity_pct": round(self.humidity_pct),
                 "cloud_cover_pct": self.cloud_cover_pct}
+
+
+def shortwave_options() -> bool:
+    """Whether a revision R7-W option (vesper.env.sun.RECORDED_SPLIT, GROUND_REFLECTED) is on: only then is the
+    recorded shortwave read."""
+    return bool(sunmod.RECORDED_SPLIT or sunmod.GROUND_REFLECTED)
 
 
 class Outdoor:
@@ -48,6 +55,8 @@ class Outdoor:
     def for_run(cls, site: Site, cache_dir: Path, days: float | None = None) -> Outdoor:
         """The site with whatever weather the cache holds for the run's first `days` days (never fetched here)."""
         first, last = site.utc(0), site.utc((RUN_DAYS if days is None else days) * 86400)
+        if shortwave_options():  # revision R7-W: the recorded shortwave too, only when an option reads it
+            return cls(site, wx.load(site.lat, site.lon, wx.utc_days(first, last), cache_dir, shortwave=True))
         rec = wx.load(site.lat, site.lon, wx.utc_days(first, last), cache_dir)
         return cls(site, rec)
 
@@ -78,9 +87,20 @@ class Outdoor:
             sources["humidity"] = self.weather.source
         sources["cloud_cover"] = self.weather.source if cloud is not None else "unknown (taken as clear)"
         sources["illuminance"] = f"irradiance x {sunmod.LUMINOUS_EFFICACY:g} lm/W (assumed efficacy)"
+        if not shortwave_options():
+            return OutdoorState(sun=s, ghi_w_m2=ghi, illuminance_lux=sunmod.lux(ghi), temperature_c=temp,
+                                humidity_pct=rh, cloud_cover_pct=cloud, direct_fraction=sunmod.direct_fraction(cloud),
+                                sources=sources)
+        # revision R7-W (protocol Addendum 14): the recorded split and the snow depth, where the options read them
+        share = None
+        if sunmod.RECORDED_SPLIT:
+            share = sunmod.recorded_direct_fraction(rec.get("direct_radiation"), rec.get("diffuse_radiation"))
+            sources["split"] = (f"recorded ({self.weather.source})" if share is not None else
+                                f"assumed ({sunmod.DIRECT_SHARE:g} x (1 - cloud); no recorded split this hour)")
         return OutdoorState(sun=s, ghi_w_m2=ghi, illuminance_lux=sunmod.lux(ghi), temperature_c=temp,
-                            humidity_pct=rh, cloud_cover_pct=cloud, direct_fraction=sunmod.direct_fraction(cloud),
-                            sources=sources)
+                            humidity_pct=rh, cloud_cover_pct=cloud,
+                            direct_fraction=sunmod.direct_fraction(cloud) if share is None else share,
+                            sources=sources, snow_depth_m=rec.get("snow_depth"))
 
     def provenance(self) -> dict:
         """For a trace header: the site and where each kind of value comes from in this run."""

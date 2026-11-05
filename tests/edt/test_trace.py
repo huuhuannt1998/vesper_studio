@@ -36,6 +36,19 @@ def test_grid():
     assert len({e.key for e in ENVIRONMENTS}) == 48
 
 
+def test_environments_of_another_year_keep_the_month_and_day_and_change_only_the_date():
+    """Revision R7-W (protocol Addendum 14): the 48 environments in another weather year."""
+    from vesper.edt.trace import environments
+    assert environments() == ENVIRONMENTS and environments(None) == ENVIRONMENTS and environments(2026) == ENVIRONMENTS
+    y = environments(2023)
+    assert len(y) == 48 and len({e.key for e in y}) == 48
+    assert {e.date for e in y} == {"2023-01-14", "2023-04-15", "2023-07-15", "2023-10-14"}
+    for a, b in zip(ENVIRONMENTS, y, strict=True):
+        assert (a.city, a.north_deg, a.rung, a.date[4:]) == (b.city, b.north_deg, b.rung, b.date[4:])
+        assert a.key != b.key
+    assert [e.rung for e in environments(2024, rung=2)] == [2] * 48
+
+
 def test_trace_has_header_and_sensor_reports(home, tmp_path):
     env = Env(PHOENIX, "2026-07-15", 0.0, 4)
     out = record_trace(home, env, tmp_path, hours=14, fetch=False)

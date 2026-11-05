@@ -58,6 +58,13 @@ ENVIRONMENTS: list[Env] = [Env(city, date, north, 4)
                            for city, date, north in itertools.product(CITIES, DATES, NORTHS)]
 
 
+def environments(year: int | None = None, rung: float = 4) -> list[Env]:
+    """The 48 environments (ENVIRONMENTS' order) with each date in `year`, the same month and day (revision R7-W,
+    protocol Addendum 14: further ERA5 years; a date's weekday is not kept). None: DATES' own year."""
+    dates = DATES if year is None else tuple(f"{int(year):04d}{d[4:]}" for d in DATES)
+    return [Env(city, date, north, rung) for city, date, north in itertools.product(CITIES, dates, NORTHS)]
+
+
 def trace_file(cache: Path, env: Env, reporting_rule: str = "catalog") -> Path:
     """The cached trace's path for `env` under `reporting_rule`: `trace-<Env.key>.jsonl.gz` for the catalog's rule,
     `trace-<Env.key>-rho_<rule>.jsonl.gz` otherwise. `record_trace` writes through it, so a reader of cached traces

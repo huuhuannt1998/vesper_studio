@@ -107,9 +107,21 @@ _W: dict = {}
 
 
 def _init(home_yaml: str, cache: str, bound: dict, catalog_dir: str, batch: int,
-          reporting_rule: str = "catalog") -> None:
+          reporting_rule: str = "catalog", knobs: dict | None = None) -> None:
     _W.update(home_yaml=Path(home_yaml), cache=Path(cache), bound=bound, catalog_dir=catalog_dir, batch=batch,
               reporting_rule=reporting_rule)
+    if knobs:  # revision R7-W: a pool worker lives under the sweep's indoor-model knobs for its whole life
+        from vesper.env import indoor
+        _check_knobs(knobs)
+        for k, v in knobs.items():
+            indoor._set_knob(k, v)
+
+
+def _check_knobs(knobs: dict) -> None:
+    from vesper.env import indoor
+    unknown = set(knobs) - set(indoor.KNOBS)
+    if unknown:
+        raise ValueError(f"not a knob: {sorted(unknown)}")
 
 
 def _site_of(trace: Path):
@@ -206,7 +218,7 @@ def _prefetch_weather(envs: list[Env], cache: Path) -> None:
 
 def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int | None = None, *, fetch: bool = True,
           catalog_dir: str = "catalog/vds", batch: int = BATCH, log=None, home_variant: str | None = None,
-          reporting_rule: str = "device", binder: str = "current") -> dict:
+          reporting_rule: str = "device", binder: str = "current", knobs: dict | None = None) -> dict:
     """Sweep the corpus (`corpus/raw`, or `corpus` itself) across `envs` (default: the 48 of
     `vesper.edt.trace.ENVIRONMENTS`), every one at `rung`. `work`: the EDT home and the trace cache (`work/cache`;
     one work directory per catalog version). `limit`: the first N de-duplicated automations. `fetch`: fetch recorded
@@ -215,7 +227,10 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
     then also names it (`home_variant`), and is otherwise the same shape. `reporting_rule`: the twins' reporting
     ("device": a device's real rule where it departs from the catalog, the default since protocol A6.9; "catalog": the
     catalog's, as at 120f4ca). `binder`: the binder's rules ("current"; "120f4ca": the rules of the 120f4ca sweeps).
-    Both are named in the result.
+    Both are named in the result. `knobs` (revision R7-W, protocol Addendum 14): indoor-model knobs
+    ({name: value}, names in vesper.env.indoor.KNOBS) the whole sweep runs under, every worker included; named in
+    the result (`indoor_knobs`) when given, and the caller's values restored after. None (the default): the sweep
+    as before, to the byte.
 
     Returns {"rung", "envs": [{city, date, north_deg, rung, key}], "automations": {id: {repo, hash, kinds, raw,
     bound, unbindable, outcomes: {env key: Outcome fields}, refused: {env key: reason}, approximations, divergences,
@@ -223,6 +238,19 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
     {parsed, bound, run}, "yield_assumption_free", "flagged": {n, by_kind}, "flagged_assumption_free", "static": {n,
     by_kind}, "unbindable_reasons", "refused_reasons", "protocol"}. `assumptions`: the helper gates the binder held
     open (protocol addendum 2); the `_assumption_free` counts are over the automations with none."""
+    kw = dict(fetch=fetch, catalog_dir=catalog_dir, batch=batch, log=log, home_variant=home_variant,
+              reporting_rule=reporting_rule, binder=binder)
+    if not knobs:
+        return _sweep(corpus, work, envs, rung, workers, limit, **kw)
+    from vesper.env import indoor
+    _check_knobs(knobs)
+    with indoor.knobs(**knobs):
+        result = _sweep(corpus, work, envs, rung, workers, limit, **kw, knobs=dict(knobs))
+    return {**result, "indoor_knobs": dict(knobs)}
+
+
+def _sweep(corpus, work, envs, rung, workers, limit, *, fetch, catalog_dir, batch, log, home_variant,
+           reporting_rule, binder, knobs: dict | None = None) -> dict:
     from vesper.edt.home import build_edt_home
     from vesper.edt.trace import ENVIRONMENTS
     log = log or (lambda _msg: None)
@@ -269,6 +297,8 @@ def sweep(corpus, work, envs=None, rung: int = 4, workers: int = 2, limit: int |
     if fetch:
         _prefetch_weather(envs, cache)
     args = (str(home_yaml), str(cache), bound_by_id, catalog_dir, batch, reporting_rule)
+    if knobs:
+        args += (knobs,)
     per_env: dict[str, tuple] = {}
     t0 = time.monotonic()
     if workers <= 1 or len(envs) <= 1:

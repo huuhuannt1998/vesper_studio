@@ -19,6 +19,15 @@ LUMINOUS_EFFICACY = 110.0  # lm/W, global daylight (assumed; Perez et al. 1990 r
 # the beam share of horizontal irradiance under a clear sky (assumed); a sensitivity knob (revision R6-B, protocol
 # Addendum 9), set only through vesper.env.indoor.knobs; 0.8 as built
 DIRECT_SHARE = 0.8
+# Revision R7-W (protocol Addendum 14), two options, each off (0) by default and set only through
+# vesper.env.indoor.knobs: RECORDED_SPLIT 1 takes the beam share from ERA5's recorded direct and diffuse radiation
+# (vesper.env.weather.fetch_shortwave) where the hour has them, in place of DIRECT_SHARE (1 - cloud); GROUND_REFLECTED 1
+# adds the ground's reflection on vertical glass, GROUND_VIEW x albedo x global horizontal irradiance, the albedo
+# ALBEDO, or ALBEDO_SNOW where ERA5's snow depth exceeds SNOW_DEPTH_M (assumed constants)
+RECORDED_SPLIT = 0
+GROUND_REFLECTED = 0
+ALBEDO, ALBEDO_SNOW, SNOW_DEPTH_M = 0.2, 0.6, 0.01
+GROUND_VIEW = 0.5  # a vertical surface's view factor to the ground
 
 
 @dataclass(frozen=True)
@@ -59,6 +68,20 @@ def direct_fraction(cloud_cover_pct: float | None) -> float:
     sky (DIRECT_SHARE), falling to 0 under overcast (assumed linear in cloud cover)."""
     c = 0.0 if cloud_cover_pct is None else min(max(cloud_cover_pct, 0.0), 100.0) / 100
     return DIRECT_SHARE * (1 - c)
+
+
+def recorded_direct_fraction(direct_w_m2: float | None, diffuse_w_m2: float | None) -> float | None:
+    """Revision R7-W: the beam share from recorded direct and diffuse horizontal radiation, or None when either is
+    missing or both are zero (the caller falls back to the assumed share)."""
+    if direct_w_m2 is None or diffuse_w_m2 is None:
+        return None
+    d, f = max(direct_w_m2, 0.0), max(diffuse_w_m2, 0.0)
+    return None if d + f <= 0 else d / (d + f)
+
+
+def ground_albedo(snow_depth_m: float | None) -> float:
+    """Revision R7-W: the ground's albedo, ALBEDO_SNOW on snow deeper than SNOW_DEPTH_M, else ALBEDO (assumed)."""
+    return ALBEDO_SNOW if snow_depth_m is not None and snow_depth_m > SNOW_DEPTH_M else ALBEDO
 
 
 def sun_events(site, day: int) -> dict[str, float | None]:
