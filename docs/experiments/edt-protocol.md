@@ -1215,3 +1215,152 @@ one engine-corrected sweep reported beside it.
 
 No pass/fail criterion. If the run disagrees with `8fcd672` beyond the two defects' reach, that is reported as a
 finding about the engine, not explained away.
+
+## Addendum 15 (2026-11-05, post hoc, after the fourth internal review; before any comparison run of its stratum)
+
+**Post hoc**: written after the fourth internal review, before its runs (item 8(a): the engine differential test
+does not exercise `mode`, `max`, `max_exceeded`, `initial_state`, `delay` or `wait_for_trigger`), and before any
+comparison run of the stratum below. Nothing earlier changes: Addendum 10's 263 automations, its criterion and its
+results stand, and this addendum's numbers are reported beside them, never pooled with them. Code:
+`vesper/validation/ha_semantics.py` (the stratum, the reading run, the analysis), on Addendum 10's harness
+(`ha_diff.run_env`, `ha_diff_driver.py`), unchanged but for three additions that are inert at their defaults: the
+per-pair firing count, the count of Home Assistant's "Already running" log lines, and an optional transform of what
+Home Assistant is given. Results: `results/edt/r7c-ha-diff-<commit7>.json` (aggregates and anonymous sample indices
+only) and a section "Revision R7-C (Addendum 15)" of `results-edt.md`.
+
+**A15.0 What was seen before this addendum (disclosed).** Static counts only, on the two sweeps' bound automations
+(no engine was run): the pool sizes of A15.2; that the engine-corrected sweep (`r6d-5b54586`) has the same 199 frame
+flags as `8fcd672`; that `ha_diff.draw_sample` on `8fcd672` reproduces Addendum 10's 263 exactly; and the reach
+counts of A15.8 (among the 5,926 run automations: 1,553 carry a construct of the stratum; 330 a mode other than
+`single`, of which 2 are frame flags, both `restart`; 48 of the 199 frame flags carry a construct, 2 of them
+time_spread). No comparison with Home Assistant has been run on any automation of this stratum.
+
+**A15.1 Design.** Addendum 10's design (A10.1), with three changes.
+
+- *The engine and the sweep.* VESPER's side is the engine at this addendum's commit. That is the engine of the
+  engine-corrected sweep (`r6d-5b54586`, Addendum 11, which carries Addendum 10's two fixes): no engine code changed
+  between `5b54586` and this commit. The gate is that sweep: VESPER's replay must reproduce its cached outcome and
+  richer outcome in every pair; a pair that does not is reported and excluded. The inputs are that sweep's cached
+  device-rule traces (`work-r6d-5b54586/cache`, never recorded again). The published engine (`8fcd672`) differs from
+  this one only in the two defects Addendum 10 fixed; their reach within this stratum is reported.
+- *What VESPER's engine does with the constructs*, stated from `vesper.lab.automations` and reported:
+  - `mode: single` runs as Home Assistant runs it: conditions are checked first, then a trigger that arrives during
+    a run is dropped.
+  - In the replay (permissive), `restart`, `queued` and `parallel` run as `single` and are listed as an
+    approximation; strict mode refuses them.
+  - `max` and `max_exceeded` are accepted and ignored.
+  - `initial_state` is accepted and ignored: the automation always starts enabled.
+  - `delay` holds the run, which stays "running" for `single`. Only a fixed duration runs; a templated delay is
+    refused, so none is replayed.
+  - `wait_for_trigger` holds the run until one of its triggers fires or its timeout ends; `continue_on_timeout`
+    defaults to true.
+
+  The run tests each statement.
+- *The reading run* (diagnostic). Home Assistant runs the stratum twice per environment: as bound (the comparison),
+  and given VESPER's reading of each automation, the bound automation without `mode`, `max`, `max_exceeded` and
+  `initial_state` (`ha_semantics.vesper_reading`). VESPER's side is the same in both. The reading run is not a second
+  comparison; it only classifies (A15.6). Home Assistant's seeded sub-second offsets of time triggers may fall
+  differently in the reading run, because an automation that `initial_state: off` keeps from starting draws no
+  offset in the comparison run.
+
+What is compared per pair is A10.1's, plus the firing count (the number of firings, one per call and target, besides
+A10.4's distinct instants) and each of the oracle's five outcome components (fired; the first firing's time of day,
+equal within 1 s; flaps; night_light; night_cover).
+
+**A15.2 The stratum.** Eligible: the run automations of `r6d-5b54586` with an outcome in each of Addendum 10's four
+environments that carry a construct: a `delay` or a `wait_for_trigger` anywhere in the actions, a `mode` other than
+`single`, or an `initial_state` (`ha_semantics.carries`; `max` and `max_exceeded` alone do not count). Each is
+assigned to the first sub-stratum whose rule it meets, in this order. The sizes are drawn with seed 20261105
+(`ha_semantics.draw_semantic_sample`), from automations not in Addendum 10's 263, except the frame flags, which are
+all taken:
+
+| Sub-stratum | Rule | Pool | Size |
+|---|---|---|---|
+| frame_flag | one of the 199 frame flags | 48 (13 of them in the 263) | all (48) |
+| mode | `restart`, `queued` or `parallel` | 315 (33 fire in the four) | 70 |
+| wait_for_trigger | a `wait_for_trigger` | 19 (2 fire) | all (19) |
+| delay | a `delay` | 330 (93 fire) | 60 |
+| initial_state_off | `initial_state` false/off | 71 (24 fire) | 20 |
+| initial_state_on | `initial_state` true/on only | 721 (253 fire) | 10 |
+
+As in A10.2, three quarters of each drawn sub-stratum come from automations VESPER fires in at least one of the four
+environments and a quarter from those it fires in none, a short side filled from the other (so the mode sub-stratum
+takes all 33 that fire). Total **227 automations, 908 automation-environment pairs**: the denominators of everything
+below. Per-construct results count an automation under every construct it carries, besides by sub-stratum. The 13
+frame flags also in the 263 are reported within the stratum and, apart, the stratum without them (214 automations,
+856 pairs).
+
+**A15.3 Environments.** Addendum 10's four (A10.3). A shakedown on Addendum 10's shakedown environment (Phoenix
+2026-04-15 north 0, never reported) precedes the comparison runs. A harness change after the first comparison run is
+a dated deviation.
+
+**A15.4 Measures.** A10.4's, over the stratum's 908 pairs, reported for the stratum, per sub-stratum and per
+construct, never pooled with the 263:
+
+1. Pairs where exactly one engine fires (VESPER only, Home Assistant only), and their automations. Home Assistant
+   refusing to load an automation counts as not firing and is its own row.
+2. The first-firing difference Δ (VESPER minus Home Assistant) over the jointly firing pairs: quantiles, and the
+   shares within 1 s, 60 s and 3 h.
+3. Firing counts over the jointly firing pairs: equal distinct instants, equal number of firings, and the direction
+   of a difference (VESPER fewer or more). Also the pairs where Home Assistant logged a trigger it dropped because
+   the automation was already running (mode `single`'s "Already running").
+4. Payloads over the jointly firing pairs: equal (service, target) sets; equal brightness where comparable.
+5. The oracle's outcome components over all 908 pairs: how many agree, per component; the pairs each engine flags as
+   flapping.
+6. A discrepant pair is A10.4(4)'s: exactly one fires, or |Δ| >= 1 s, or the call sets, the instant counts or the
+   brightness differ. A pair whose only difference is |Δ| < 1 s is counted apart.
+7. Beside the stratum, descriptive: the reading run's own measures 1-6.
+
+**A15.5 The flags.** Over the 48 frame flags that carry a construct, the 2 time_spread flags among them, and the
+clock flags that carry one. The other 151 frame flags carry none, so this stratum says nothing about them.
+
+- (a) *Direct substitution* (A10.5(a)) for the 48: Home Assistant's outcome and first firing in place of VESPER's in
+  the four environments, the sweep's in the other 44; a flag changes if its set of kinds changes.
+- (b) *Propagation* (A10.5(b), 1,000 replicates, seed 20261105), with one change. The primary propagation draws by
+  automation: each flag draws one sampled automation that fires somewhere, and every environment draws from that
+  automation's own pairs. Addendum 10 showed that its registered per-environment draws scatter an automation-level
+  difference over 48 environments, and the constructs here (`initial_state: off`, a mode) act per automation. Beside
+  it (secondary): the per-environment propagation, and the by-automation propagation with every pair as observed.
+  Primary: harness artifacts count as agreeing.
+- (c) *Margin* (A10.5(c)) for the 48 and the 2, with m the largest |Δ| of the non-artifact jointly firing pairs.
+
+**A15.6 Classes.** A10.6's four classes. Every discrepant pair is assigned by these rules, in order:
+
+1. If a fixed engine exists (A15.8) and the pair agrees with it: *engine bug*, the defect named.
+2. If the pair agrees in the reading run: *HA semantics VESPER lacks*, named by the key the automation carries (its
+   mode, run as single; `initial_state: off`; otherwise the other ignored keys).
+3. A10.6's rules as Addendum 10 applies them: `initial_state: off` with VESPER firing and Home Assistant not (HA
+   semantics); a stub service's empty response, and Home Assistant's brightness 0 read as a brightness (harness
+   artifacts); the 50-500 ms offset of time triggers (HA semantics), only where the first firings differ by more
+   than 0 and less than 1 s.
+4. Otherwise *unexplained*. Each unexplained pair is read by hand from both engines' calls and Home Assistant's log.
+   A difference that is VESPER's engine running a construct it documents as supported (A15.1) differently from
+   2026.10.2 is an engine-bug candidate, handled by A15.8. Any other cause is reported as found and stays
+   unexplained in the counts unless a rule above covers it.
+
+**A15.7 Criterion (fixed now; Addendum 10's four parts over this stratum).** VESPER's engine agrees with Home
+Assistant on the semantic stratum if, with the pairs classified harness artifacts counted as agreeing:
+
+1. the pairs where exactly one engine fires are at most 2 % of the stratum's pairs (at most 18 of 908);
+2. at least 95 % of the jointly firing pairs have |Δ| < 60 s;
+3. (a) direct substitution changes none of the stratum's time_spread frame flags (2); (b) the 97.5th percentile of
+   the frame flags whose kinds change in the primary propagation (A15.5(b), over the 48) is at most 9 (5 % of 199, as
+   in A10.7).
+
+Otherwise it fails and is reported as failing. Pairs classified "HA semantics VESPER lacks" count as discrepant: the
+criterion measures the engine as it runs the sweeps.
+
+**A15.8 Engine defects.** A difference that is VESPER's engine running a documented-as-supported construct
+differently from Home Assistant 2026.10.2 gets a failing test and a fix; the sweeps are not re-run. Reported for
+each: its reach among the 5,926 run automations, the 199 frame flags and the clock flags (a static count); and, as a
+secondary analysis, this addendum's comparison repeated with the fixed engine on the same stratum and environments
+(its gate then reports the pairs the fix changes). "HA semantics VESPER lacks" (a mode run as single, `initial_state`
+ignored) is not fixed here; its reach is reported the same way.
+
+**A15.9 Beside the stratum (descriptive).** Addendum 10's 263 already held 62 automations that carry a construct
+(`ha_semantics.carries` on `8fcd672`). Their agreement in Addendum 10's fixed-engine records (`3dcd4e7`) is tabulated
+with the same measures, for completeness.
+
+**A15.10 Resources.** At most 2 processes at a time, under `nice -n 5`; each runs one environment's VESPER replay,
+then its Home Assistant run. Home Assistant runs in-process on the virtual clock, as in Addendum 10; no port is
+opened.
