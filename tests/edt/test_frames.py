@@ -258,3 +258,36 @@ def test_first_firing_frames_name_the_triggers_that_could_have_fired_then():
                        {"platform": "template", "value_template": "{{ now().hour == 7 }}"}]}
     assert first_firing_frames(tpl, DAY + 3 * H + 0.05, site, changes) == {SENSED}
     assert first_firing_frames(tpl, DAY + 7 * H, site, changes) == {CLOCK}
+
+
+def test_env_latency_is_off_by_default_and_holds_only_for_a_waiting_spread():
+    """Protocol A12.10: env_latency, a kind of the named variant frame+crossing+env_latency."""
+    from vesper.edt.oracle import ENV_LATENCY, env_latency
+    outs = {JAN: outcome(fire(DAY + 6 * H), site_of(JAN)), JUL: outcome(fire(DAY + 14 * H), site_of(JUL))}
+    first_t = {JAN: DAY + 6 * H, JUL: DAY + 14 * H}
+    late = {JAN: DAY + 6 * H, JUL: DAY + 6 * H}  # crossed at 06:00 in both; fired 0 h and 8 h later
+    f = frames_of(HEAT)
+    # off by default: the published relation and A8.5's option are unchanged
+    assert frame_divergences(outs, first_t, f, sensed_crossing=late) == {"time_spread"}
+    assert frame_divergences(outs, first_t, f, sensed_crossing=late, env_latency=False) == {"time_spread"}
+    assert frame_divergences(outs, first_t, f) == set()
+    # on: the waiting spread of 8 h > 3 h is env_latency
+    assert env_latency(outs, first_t, late) is True
+    assert frame_divergences(outs, first_t, f, sensed_crossing=late, env_latency=True) == {"time_spread", ENV_LATENCY}
+    # a firing before its crossing in some environment ("precede") is not env_latency, though the spread is large
+    precede = {JAN: DAY + 6 * H, JUL: DAY + 20 * H}
+    assert env_latency(outs, first_t, precede) is False
+    assert ENV_LATENCY not in frame_divergences(outs, first_t, f, sensed_crossing=precede, env_latency=True)
+    # within the tolerance, or fewer than two latencies: not env_latency
+    assert env_latency(outs, first_t, {JAN: DAY + 6 * H, JUL: DAY + 12 * H}) is False
+    assert env_latency(outs, first_t, {JAN: DAY + 6 * H, JUL: None}) is False
+    assert frame_divergences(outs, first_t, f, env_latency=True) == set()  # needs the crossing reference
+    # a clock+sensed automation can carry env_latency without time_spread (its clock frame is invariant)
+    mixed = frames_of({**HEAT, "condition": [{"condition": "time", "after": "05:00"}]})
+    outs2 = {JAN: outcome(fire(DAY + 6 * H), site_of(JAN)), JUL: outcome(fire(DAY + 7 * H), site_of(JUL))}
+    ft2 = {JAN: DAY + 6 * H, JUL: DAY + 7 * H}
+    early = {JAN: DAY + 6 * H, JUL: DAY + 2 * H}  # the July crossing waited 5 h for the condition
+    assert frame_divergences(outs2, ft2, mixed, sensed_crossing=early, env_latency=True) == {ENV_LATENCY}
+    # restricted to a pair, the kind is judged on the pair alone
+    assert frame_restricted_divergences(outs2, ft2, mixed, [JAN, JUL], sensed_crossing=early,
+                                        env_latency=True) == {ENV_LATENCY}

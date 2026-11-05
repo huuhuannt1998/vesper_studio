@@ -412,25 +412,51 @@ def frame_invariance(by_env: dict[Env, Outcome], first_t: dict[Env, float | None
 
 def frame_divergences(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
                       h: float = TIME_SPREAD_H, sensed_invariant: bool = True,
-                      sensed_crossing: dict | None = None) -> set[str]:
+                      sensed_crossing: dict | None = None, env_latency: bool = False) -> set[str]:
     """The kinds of disagreement under the frame-relative relation (A6.3): the clock relation's, with `time_spread`
-    held iff the first firings are invariant within `h` in none of the automation's frames."""
+    held iff the first firings are invariant within `h` in none of the automation's frames. `env_latency` (A12.10's
+    named variant, off by default; it needs `sensed_crossing`): also the kind ENV_LATENCY when `env_latency(...)`
+    holds."""
     out = divergences(by_env) - {"time_spread"}
     inv = frame_invariance(by_env, first_t, frames, h, sensed_invariant, sensed_crossing)
     if inv and not any(inv.values()):
         out.add("time_spread")
+    if env_latency and sensed_crossing is not None and _env_latency(by_env, first_t, sensed_crossing, h):
+        out.add(ENV_LATENCY)
     return out
 
 
 def frame_restricted_divergences(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
                                  envs, h: float = TIME_SPREAD_H, sensed_invariant: bool = True,
-                                 sensed_crossing: dict | None = None) -> set[str]:
+                                 sensed_crossing: dict | None = None, env_latency: bool = False) -> set[str]:
     """Divergences under the frame relation over `envs` alone, minus an envelope kind holding in all of them."""
     outs = {e: by_env[e] for e in envs if e in by_env}
     if not outs:
         return set()
-    kinds = frame_divergences(outs, first_t, frames, h, sensed_invariant, sensed_crossing)
+    kinds = frame_divergences(outs, first_t, frames, h, sensed_invariant, sensed_crossing, env_latency)
     return {k for k in kinds if k not in ENVELOPE_KINDS or not all(getattr(o, k) for o in outs.values())}
+
+
+# ---- protocol Addendum 12 (A12.10): env_latency, a kind of the named variant frame+crossing+env_latency -----------
+
+ENV_LATENCY = "env_latency"
+
+
+def _latencies_min(by_env, first_t, crossing) -> list[float]:
+    return [(first_t[e] - crossing[e]) / 60.0 for e, o in by_env.items()
+            if o.fired and first_t.get(e) is not None and crossing.get(e) is not None]
+
+
+def _env_latency(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], crossing: dict,
+                 h: float = TIME_SPREAD_H) -> bool:
+    """Whether the first firing waits on its sensed crossing for an environment-dependent time (A12.10): among the
+    environments where it fires and `crossing` gives a first crossing, at least two latencies (first firing minus
+    crossing, minutes), every one >= 0 (none fires before its crossing), ranging over more than `h` hours."""
+    lat = _latencies_min(by_env, first_t, crossing)
+    return len(lat) >= 2 and min(lat) >= 0 and max(lat) - min(lat) > h * 60.0
+
+
+env_latency = _env_latency  # the public name (the relation's option of the same name switches the kind on)
 
 
 # ---- protocol Addendum 8: the crossing-time sensed reference (A8.5) and the first firing's frame (A8.4) ----------
