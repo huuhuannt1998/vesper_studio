@@ -230,3 +230,30 @@ def test_unknown_suffix_and_bad_scale(tmp_path):
     for bad in (0, -1.0, float("nan")):
         with pytest.raises(ScanError, match="scale"):
             read_mesh(glb, scale=bad)
+
+
+def test_a_rescale_beyond_x5_is_refused_unless_a_scale_is_given(tmp_path):
+    """A model in decimetres (the ceiling 0.25 units up) would be rescaled x10: refused, with the way out named."""
+    mesh = house(wall_h=2.5)
+    mesh.apply_scale(1 / 10)
+    path = save(mesh, tmp_path / "tiny.glb")
+    with pytest.raises(ScanError, match=r"the scale looks wrong: the model would be rescaled by 10.*give --scale"):
+        read_mesh(path)
+    plan, meta, _ = read_mesh(path, scale=10)
+    assert meta["scale"] == 10
+    assert_two_room_house(plan)
+
+
+def test_several_rooms_and_no_door_between_them_are_refused(tmp_path):
+    """Two rooms, each with its own door to the outside and none between them (a model whose inner doors were not
+    found): refused, not built as two houses."""
+    parts = [box(-T / 2, 8 + T / 2, -0.1, 0.0, -T / 2, 4 + T / 2),
+             box(-T / 2, 8 + T / 2, H, H + 0.1, -T / 2, 4 + T / 2)]
+    parts += wall("x", 0.0, -T / 2, 8 + T / 2, (), H)
+    parts += wall("x", 4.0, -T / 2, 8 + T / 2, [(1.5, 2.4, 0.0, 2.1), (6.0, 6.9, 0.0, 2.1)], H)
+    parts += wall("z", 0.0, T / 2, 4 - T / 2, (), H)
+    parts += wall("z", 8.0, T / 2, 4 - T / 2, (), H)
+    parts += wall("z", 4.0, T / 2, 4 - T / 2, (), H)
+    path = save(trimesh.util.concatenate(parts), tmp_path / "apart.glb")
+    with pytest.raises(ScanError, match="2 rooms and no door between any of them: the model's doors were not found"):
+        read_mesh(path)

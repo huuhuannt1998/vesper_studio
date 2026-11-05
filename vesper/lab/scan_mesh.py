@@ -15,7 +15,8 @@ A photogrammetry or LiDAR scan, or a model from the web, names nothing: its floo
    under it (seats and tables are higher), so a ground plane far larger than the house is not the floor.
 3. **Scale.** Floor to ceiling 2.1-4.0: metres. Another height: the factor putting the ceiling at 2.5 m, said in a
    warning. No ceiling: the walls' height, if 2.1-4.0, else the doors' width (0.85 m a door); with neither, refused
-   ("the scale looks wrong: ... give --scale"). Never guessed silently; `scale` overrides all of it.
+   ("the scale looks wrong: ... give --scale"). A rescale beyond x0.2-x5 is refused too (a model in millimetres, a
+   dollhouse misread: give --scale). Never guessed silently; `scale` overrides all of it.
 4. **Slices.** The model, upright and turned so its walls run along x and z, is cut at 0.1, 0.5, 1.0, 1.6 and 2.15 m
    above the floor (and just under the ceiling) into occupancy grids of 5 cm cells, gaps under 0.5 m closed (holes
    in a scan, a wall's two faces). An opening is a free run along a wall's line in the 1.0 and 1.6 m cuts, with the
@@ -29,6 +30,7 @@ A photogrammetry or LiDAR scan, or a model from the web, names nothing: its floo
    the plan's two directions already, keeps no step under 10 cm. Rooms are typed "other" and named "room 1..N".
 6. **Doors and windows** join the rooms (or a room and the outside) on their two sides; the entrance is the widest
    door to the outside, else the widest door out into a space too small to be a room (said), else none (said).
+   Several rooms with no door between any of them are refused: the model's doors were not found.
 
 The result goes through part A's `rectify` and `check_house` unchanged. trimesh, numpy and scipy are the optional
 `scan` extra; without them `read_mesh` says which extra to install. Downloaded models are data: they are only read by
@@ -41,6 +43,7 @@ import math
 from pathlib import Path
 
 from vesper.lab.plan import FORMAT, PlanError, _polygon_problem, load_plan
+from vesper.lab.scan_roomplan import ScanError
 
 SUFFIXES = (".glb", ".gltf", ".obj", ".ply")
 EXTRA = "install the scan extra: pip install 'vesper[scan]'"
@@ -75,11 +78,8 @@ GENERIC_STOREY = 0.4  # with no metric storey, a ceiling is at least this share 
 INSIDE_RISE = 0.3  # ceilings this far (a share of the height) above floors on the whole: that way is up
 AMBIGUOUS = 0.67  # a second axis scoring this share of the best one is read too, and the plan decides
 MAX_CELLS = 3000  # a grid side longer than this (150 m) is cropped to the floor
-
-
-class ScanError(PlanError):
-    """A scan or model VESPER cannot read as a floor plan, with the reason. A PlanError, so the CLI's handling of
-    plans catches it (task B1 defines the same class in scan_roomplan.py: one of the two is to import the other)."""
+RESCALE = (0.2, 5.0)  # a detected rescale outside this is refused unless --scale is given (not a home in other units:
+# a model in millimetres or a dollhouse misread)
 
 
 def _libs():
@@ -865,6 +865,11 @@ def _read_up(tris, normals, areas, up, scale, np, ndi):
                         f" to make its doors {DOOR_TYPICAL_M} m wide (they measure {measured:.3g} units); give "
                         "--scale if that is wrong")
 
+    if scale is None and not RESCALE[0] <= s <= RESCALE[1]:
+        raise ScanError(f"the scale looks wrong: the model would be rescaled by {s:.4g} (more than x{RESCALE[1]:g} or "
+                        f"less than x{RESCALE[0]:g}), so it is not a home in metres or in another unit VESPER can "
+                        "tell; give --scale (metres per unit)")
+
     floor_m = floor * s
     ceiling_m = None if ceiling is None else ceiling * s
     up_scaled = tris * s
@@ -960,6 +965,9 @@ def _read_up(tris, normals, areas, up, scale, np, ndi):
         if not DOOR_PLAUSIBLE_M[0] <= med <= DOOR_PLAUSIBLE_M[1]:
             warnings.append(f"the doors are on the whole {med:.2f} m wide (usually {DOOR_PLAUSIBLE_M[0]}-"
                             f"{DOOR_PLAUSIBLE_M[1]} m): check the scale")
+    if len(rooms_out) > 1 and not any("outside" not in d["rooms"] for d in doors):
+        raise ScanError(f"{len(rooms_out)} rooms and no door between any of them: the model's doors were not found "
+                        "(a closed door reads as wall; an opening wider than 1.6 m joins two rooms into one)")
     reached = {r for d in doors for r in d["rooms"]}
     for r in rooms_out:
         if r["id"] not in reached:
