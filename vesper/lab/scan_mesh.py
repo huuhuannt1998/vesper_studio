@@ -311,7 +311,8 @@ class _Layers:
         60 % of what the best does, the floor is the lowest that lies mostly under it (not seats or tables, which are
         higher), else the highest (a ground plane far larger than the house is lower). Over one floor the ceiling is
         the lowest covering 80 % of what the best does (a table's underside covers far less). Not in metres, a ceiling
-        is at least GENERIC_STOREY of the model's height above its floor (not a table, nor the underside of a rug)."""
+        is at least GENERIC_STOREY of the model's height above its floor (not a table, nor the underside of a rug) and
+        covers at least 30 % as much as the floor does (not the heads of the doors)."""
         ups, downs = self.layers["up"], self.layers["down"]
         pairs = []
         for d in downs:
@@ -320,7 +321,8 @@ class _Layers:
                 gap = d[0] - u[0]
                 if metric and not CEILING_M[0] <= gap <= CEILING_M[1]:
                     continue
-                if not metric and gap < GENERIC_STOREY * (self.lo + self.span - u[0]):
+                if not metric and (gap < GENERIC_STOREY * (self.lo + self.span - u[0])
+                                   or d[2].sum() < 0.3 * u[2].sum()):
                     continue
                 o = self.overlap(u[2], d[2])
                 if o > 0 and o >= 0.3 * min(u[2].sum(), d[2].sum()) * self.cell ** 2:
