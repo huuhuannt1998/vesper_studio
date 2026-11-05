@@ -1,0 +1,1992 @@
+{
+ "analysis": "R6-B (protocol Addendum 9, post hoc): infiltration corners, home A free-floating, the aperture implied by home B, the daylight chain, the direct share, the sun at 0-5 deg, ERA5 against the station",
+ "code_commit": "66407d5",
+ "inputs": {
+  "clock": "120f4ca",
+  "frame": "8fcd672"
+ },
+ "item8a_ach": {
+  "automations": 22,
+  "best_corner": "G5-Foff-W1-C370",
+  "checks": {
+   "ach0.5_nominal_48_breaching_runs": 53,
+   "ach0.5_nominal_48_outside_core": 0,
+   "ach0.5_nominal_core_reproduces_r2c": true,
+   "monotone_0.3_subset_0.5": true,
+   "monotone_0.5_subset_1.0": true,
+   "r2c_breaching_runs": 53
+  },
+  "core": [
+   "Minneapolis 2026-01-14 n0",
+   "Minneapolis 2026-01-14 n180",
+   "Stockholm 2026-01-14 n0",
+   "Stockholm 2026-01-14 n180"
+  ],
+  "elapsed_s": 1979.9,
+  "settings": {
+   "ACH0.3": {
+    "best_corner_core": {
+     "automations": 0,
+     "baseline_coldest_room_c": 17.0,
+     "breaching_runs": 0,
+     "by_city": {},
+     "by_env": {},
+     "caused_cells": 0,
+     "coldest_caused_room_per_run_c": null,
+     "denominator": 88,
+     "runs": 88
+    },
+    "nominal_48": {
+     "automations": 12,
+     "baseline_coldest_room_c": 15.5,
+     "breaching_runs": 31,
+     "by_city": {
+      "Minneapolis": 23,
+      "Stockholm": 8
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 11,
+      "Minneapolis 2026-01-14 n180": 12,
+      "Stockholm 2026-01-14 n0": 4,
+      "Stockholm 2026-01-14 n180": 4
+     },
+     "caused_cells": 193,
+     "coldest_caused_room_per_run_c": [
+      5.0,
+      7.1,
+      9.8
+     ],
+     "denominator": 1056,
+     "runs": 1056
+    },
+    "nominal_core": {
+     "automations": 12,
+     "baseline_coldest_room_c": 15.5,
+     "breaching_runs": 31,
+     "by_city": {
+      "Minneapolis": 23,
+      "Stockholm": 8
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 11,
+      "Minneapolis 2026-01-14 n180": 12,
+      "Stockholm 2026-01-14 n0": 4,
+      "Stockholm 2026-01-14 n180": 4
+     },
+     "caused_cells": 193,
+     "coldest_caused_room_per_run_c": [
+      5.0,
+      7.1,
+      9.8
+     ],
+     "denominator": 88,
+     "runs": 88
+    },
+    "worst_corner_core": {
+     "automations": 17,
+     "baseline_coldest_room_c": 14.9,
+     "breaching_runs": 63,
+     "by_city": {
+      "Minneapolis": 33,
+      "Stockholm": 30
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 16,
+      "Minneapolis 2026-01-14 n180": 17,
+      "Stockholm 2026-01-14 n0": 15,
+      "Stockholm 2026-01-14 n180": 15
+     },
+     "caused_cells": 441,
+     "coldest_caused_room_per_run_c": [
+      -4.8,
+      5.3,
+      8.1
+     ],
+     "denominator": 88,
+     "runs": 88
+    }
+   },
+   "ACH0.5": {
+    "best_corner_core": {
+     "automations": 0,
+     "baseline_coldest_room_c": 17.0,
+     "breaching_runs": 0,
+     "by_city": {},
+     "by_env": {},
+     "caused_cells": 0,
+     "coldest_caused_room_per_run_c": null,
+     "denominator": 88,
+     "runs": 88
+    },
+    "nominal_48": {
+     "automations": 16,
+     "baseline_coldest_room_c": 15.6,
+     "breaching_runs": 53,
+     "by_city": {
+      "Minneapolis": 31,
+      "Stockholm": 22
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 15,
+      "Minneapolis 2026-01-14 n180": 16,
+      "Stockholm 2026-01-14 n0": 11,
+      "Stockholm 2026-01-14 n180": 11
+     },
+     "caused_cells": 315,
+     "coldest_caused_room_per_run_c": [
+      2.7,
+      8.1,
+      9.8
+     ],
+     "denominator": 1056,
+     "runs": 1056
+    },
+    "nominal_core": {
+     "automations": 16,
+     "baseline_coldest_room_c": 15.6,
+     "breaching_runs": 53,
+     "by_city": {
+      "Minneapolis": 31,
+      "Stockholm": 22
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 15,
+      "Minneapolis 2026-01-14 n180": 16,
+      "Stockholm 2026-01-14 n0": 11,
+      "Stockholm 2026-01-14 n180": 11
+     },
+     "caused_cells": 315,
+     "coldest_caused_room_per_run_c": [
+      2.7,
+      8.1,
+      9.8
+     ],
+     "denominator": 88,
+     "runs": 88
+    },
+    "worst_corner_core": {
+     "automations": 17,
+     "baseline_coldest_room_c": 15.1,
+     "breaching_runs": 63,
+     "by_city": {
+      "Minneapolis": 33,
+      "Stockholm": 30
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 16,
+      "Minneapolis 2026-01-14 n180": 17,
+      "Stockholm 2026-01-14 n0": 15,
+      "Stockholm 2026-01-14 n180": 15
+     },
+     "caused_cells": 441,
+     "coldest_caused_room_per_run_c": [
+      -6.0,
+      5.3,
+      7.2
+     ],
+     "denominator": 88,
+     "runs": 88
+    }
+   },
+   "ACH1": {
+    "best_corner_core": {
+     "automations": 12,
+     "baseline_coldest_room_c": 17.1,
+     "breaching_runs": 23,
+     "by_city": {
+      "Minneapolis": 23
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 11,
+      "Minneapolis 2026-01-14 n180": 12
+     },
+     "caused_cells": 123,
+     "coldest_caused_room_per_run_c": [
+      7.2,
+      8.6,
+      9.2
+     ],
+     "denominator": 88,
+     "runs": 88
+    },
+    "nominal_48": {
+     "automations": 17,
+     "baseline_coldest_room_c": 15.9,
+     "breaching_runs": 54,
+     "by_city": {
+      "Minneapolis": 32,
+      "Stockholm": 22
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 15,
+      "Minneapolis 2026-01-14 n180": 17,
+      "Stockholm 2026-01-14 n0": 11,
+      "Stockholm 2026-01-14 n180": 11
+     },
+     "caused_cells": 370,
+     "coldest_caused_room_per_run_c": [
+      -1.3,
+      6.3,
+      9.6
+     ],
+     "denominator": 1056,
+     "runs": 1056
+    },
+    "nominal_core": {
+     "automations": 17,
+     "baseline_coldest_room_c": 15.9,
+     "breaching_runs": 54,
+     "by_city": {
+      "Minneapolis": 32,
+      "Stockholm": 22
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 15,
+      "Minneapolis 2026-01-14 n180": 17,
+      "Stockholm 2026-01-14 n0": 11,
+      "Stockholm 2026-01-14 n180": 11
+     },
+     "caused_cells": 370,
+     "coldest_caused_room_per_run_c": [
+      -1.3,
+      6.3,
+      9.6
+     ],
+     "denominator": 88,
+     "runs": 88
+    },
+    "worst_corner_core": {
+     "automations": 18,
+     "baseline_coldest_room_c": 15.8,
+     "breaching_runs": 67,
+     "by_city": {
+      "Minneapolis": 35,
+      "Stockholm": 32
+     },
+     "by_env": {
+      "Minneapolis 2026-01-14 n0": 17,
+      "Minneapolis 2026-01-14 n180": 18,
+      "Stockholm 2026-01-14 n0": 16,
+      "Stockholm 2026-01-14 n180": 16
+     },
+     "caused_cells": 461,
+     "coldest_caused_room_per_run_c": [
+      -7.2,
+      5.4,
+      9.4
+     ],
+     "denominator": 88,
+     "runs": 88
+    }
+   }
+  },
+  "worst_corner": "G0-Fon-Wpss-C80"
+ },
+ "item8a_h_breakdown": {
+  "ach": 0.5,
+  "glass_w_k": 14.22,
+  "interior_partitions_w_k_counted_twice": 344.0,
+  "rooms": {
+   "bathroom": {
+    "floor_m2": 6.84,
+    "glass_m2": 0.36,
+    "glass_w_k": 0.5,
+    "interior_partitions_w_k": 47.0,
+    "model_h_w_k": 4.86,
+    "outside_wall_m2": 4.14,
+    "total_w_k": 4.86,
+    "ventilation_w_k": 2.91,
+    "volume_m3": 17.1,
+    "walls_w_k": 1.45
+   },
+   "bedroom_1": {
+    "floor_m2": 9.12,
+    "glass_m2": 1.44,
+    "glass_w_k": 2.02,
+    "interior_partitions_w_k": 31.0,
+    "model_h_w_k": 10.81,
+    "outside_wall_m2": 14.06,
+    "total_w_k": 10.81,
+    "ventilation_w_k": 3.88,
+    "volume_m3": 22.8,
+    "walls_w_k": 4.92
+   },
+   "bedroom_2": {
+    "floor_m2": 14.44,
+    "glass_m2": 1.44,
+    "glass_w_k": 2.02,
+    "interior_partitions_w_k": 38.0,
+    "model_h_w_k": 14.3,
+    "outside_wall_m2": 17.56,
+    "total_w_k": 14.3,
+    "ventilation_w_k": 6.14,
+    "volume_m3": 36.1,
+    "walls_w_k": 6.15
+   },
+   "corridor": {
+    "floor_m2": 10.0,
+    "glass_m2": 0,
+    "glass_w_k": 0.0,
+    "interior_partitions_w_k": 96.0,
+    "model_h_w_k": 6.0,
+    "outside_wall_m2": 5.0,
+    "total_w_k": 6.0,
+    "ventilation_w_k": 4.25,
+    "volume_m3": 25.0,
+    "walls_w_k": 1.75
+   },
+   "kitchen": {
+    "floor_m2": 6.84,
+    "glass_m2": 1.0,
+    "glass_w_k": 1.4,
+    "interior_partitions_w_k": 47.0,
+    "model_h_w_k": 5.53,
+    "outside_wall_m2": 3.5,
+    "total_w_k": 5.53,
+    "ventilation_w_k": 2.91,
+    "volume_m3": 17.1,
+    "walls_w_k": 1.22
+   },
+   "living": {
+    "floor_m2": 22.8,
+    "glass_m2": 4.48,
+    "glass_w_k": 6.27,
+    "interior_partitions_w_k": 49.0,
+    "model_h_w_k": 22.97,
+    "outside_wall_m2": 20.02,
+    "total_w_k": 22.97,
+    "ventilation_w_k": 9.69,
+    "volume_m3": 57.0,
+    "walls_w_k": 7.01
+   },
+   "office": {
+    "floor_m2": 12.92,
+    "glass_m2": 1.44,
+    "glass_w_k": 2.02,
+    "interior_partitions_w_k": 36.0,
+    "model_h_w_k": 13.3,
+    "outside_wall_m2": 16.56,
+    "total_w_k": 13.3,
+    "ventilation_w_k": 5.49,
+    "volume_m3": 32.3,
+    "walls_w_k": 5.8
+   }
+  },
+  "shares": {
+   "glass": 0.1829,
+   "ventilation": 0.4533,
+   "walls": 0.3638
+  },
+  "total_w_k": 77.78,
+  "total_w_k_at": {
+   "0.3": 63.67,
+   "0.5": 77.78,
+   "1.0": 113.03
+  },
+  "ventilation_w_k": 35.26,
+  "ventilation_w_k_at": {
+   "0.3": 21.15,
+   "0.5": 35.26,
+   "1.0": 70.52
+  },
+  "walls_w_k": 28.29
+ },
+ "items3_16e_open_loop": {
+  "120f4ca": {
+   "affected_set": {
+    "automations": 281,
+    "clock_humidity_flagged": 37,
+    "clock_temperature_flagged": 128,
+    "humidity_read": 63,
+    "orientation_witnessed": 129,
+    "temperature_read": 214
+   },
+   "commit": "120f4ca",
+   "relations": [
+    "clock"
+   ],
+   "reporting_rule": "catalog",
+   "settings": {
+    "ap0.21": {
+     "affected_outcomes_changed": 2288,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 19,
+      "affected_kinds_changed": 43,
+      "humidity_flagged": {
+       "kinds_changed": 6,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 36,
+       "lost": 18,
+       "published": 128,
+       "still_flagged": 110
+      }
+     },
+     "elapsed_s": 140.6,
+     "failed_environments": 0,
+     "knobs": {
+      "SOLAR_APERTURE_SCALE": 0.21
+     },
+     "new_orientation_witnesses": 0,
+     "orientation_witnesses_kept": 69,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       23,
+       32
+      ],
+      "neither": [
+       4,
+       8
+      ],
+      "temperature": [
+       43,
+       90
+      ]
+     },
+     "orientation_witnesses_of": 129
+    },
+    "ap0.25": {
+     "affected_outcomes_changed": 2297,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 20,
+      "affected_kinds_changed": 35,
+      "humidity_flagged": {
+       "kinds_changed": 5,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 29,
+       "lost": 19,
+       "published": 128,
+       "still_flagged": 109
+      }
+     },
+     "elapsed_s": 141.4,
+     "failed_environments": 0,
+     "knobs": {
+      "SOLAR_APERTURE_SCALE": 0.25
+     },
+     "new_orientation_witnesses": 0,
+     "orientation_witnesses_kept": 66,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       27,
+       32
+      ],
+      "neither": [
+       4,
+       8
+      ],
+      "temperature": [
+       36,
+       90
+      ]
+     },
+     "orientation_witnesses_of": 129
+    },
+    "ap0.29": {
+     "affected_outcomes_changed": 2213,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 28,
+      "affected_kinds_changed": 47,
+      "humidity_flagged": {
+       "kinds_changed": 3,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 43,
+       "lost": 26,
+       "published": 128,
+       "still_flagged": 102
+      }
+     },
+     "elapsed_s": 145.3,
+     "failed_environments": 0,
+     "knobs": {
+      "SOLAR_APERTURE_SCALE": 0.29
+     },
+     "new_orientation_witnesses": 2,
+     "orientation_witnesses_kept": 83,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       26,
+       32
+      ],
+      "neither": [
+       4,
+       8
+      ],
+      "temperature": [
+       54,
+       90
+      ]
+     },
+     "orientation_witnesses_of": 129
+    },
+    "ds0.6": {
+     "affected_outcomes_changed": 1444,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 17,
+      "affected_kinds_changed": 24,
+      "humidity_flagged": {
+       "kinds_changed": 7,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 17,
+       "lost": 16,
+       "published": 128,
+       "still_flagged": 112
+      }
+     },
+     "elapsed_s": 148.5,
+     "failed_environments": 0,
+     "knobs": {
+      "DIRECT_SHARE": 0.6
+     },
+     "new_orientation_witnesses": 1,
+     "orientation_witnesses_kept": 111,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       31,
+       32
+      ],
+      "neither": [
+       7,
+       8
+      ],
+      "temperature": [
+       74,
+       90
+      ]
+     },
+     "orientation_witnesses_of": 129
+    },
+    "ds0.95": {
+     "affected_outcomes_changed": 1401,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 0,
+      "affected_kinds_changed": 2,
+      "humidity_flagged": {
+       "kinds_changed": 0,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 2,
+       "lost": 0,
+       "published": 128,
+       "still_flagged": 128
+      }
+     },
+     "elapsed_s": 141.9,
+     "failed_environments": 0,
+     "knobs": {
+      "DIRECT_SHARE": 0.95
+     },
+     "new_orientation_witnesses": 0,
+     "orientation_witnesses_kept": 126,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       32,
+       32
+      ],
+      "neither": [
+       8,
+       8
+      ],
+      "temperature": [
+       87,
+       90
+      ]
+     },
+     "orientation_witnesses_of": 129
+    },
+    "ref": {
+     "clock_flag_mismatches": 0,
+     "clock_kind_mismatches": 0,
+     "failed_environments": 0,
+     "orientation_witnesses": 129,
+     "outcome_mismatches_exact": 0,
+     "outcomes": 13488
+    }
+   }
+  },
+  "8fcd672": {
+   "affected_set": {
+    "automations": 273,
+    "clock_humidity_flagged": 37,
+    "clock_temperature_flagged": 121,
+    "frame_humidity_flagged": 36,
+    "frame_temperature_flagged": 104,
+    "humidity_read": 63,
+    "orientation_witnessed": 123,
+    "temperature_read": 206
+   },
+   "commit": "8fcd672",
+   "relations": [
+    "clock",
+    "frame"
+   ],
+   "reporting_rule": "device",
+   "settings": {
+    "ap0.21": {
+     "affected_outcomes_changed": 2207,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 15,
+      "affected_kinds_changed": 37,
+      "humidity_flagged": {
+       "kinds_changed": 7,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 29,
+       "lost": 14,
+       "published": 121,
+       "still_flagged": 107
+      }
+     },
+     "elapsed_s": 77.4,
+     "failed_environments": 0,
+     "frame": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 13,
+      "affected_kinds_changed": 17,
+      "humidity_flagged": {
+       "kinds_changed": 3,
+       "lost": 0,
+       "published": 36,
+       "still_flagged": 36
+      },
+      "temperature_flagged": {
+       "kinds_changed": 13,
+       "lost": 12,
+       "published": 104,
+       "still_flagged": 92
+      }
+     },
+     "knobs": {
+      "SOLAR_APERTURE_SCALE": 0.21
+     },
+     "new_orientation_witnesses": 1,
+     "orientation_witnesses_kept": 69,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       24,
+       33
+      ],
+      "neither": [
+       4,
+       8
+      ],
+      "temperature": [
+       42,
+       83
+      ]
+     },
+     "orientation_witnesses_of": 123
+    },
+    "ap0.25": {
+     "affected_outcomes_changed": 2217,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 16,
+      "affected_kinds_changed": 29,
+      "humidity_flagged": {
+       "kinds_changed": 5,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 23,
+       "lost": 15,
+       "published": 121,
+       "still_flagged": 106
+      }
+     },
+     "elapsed_s": 75.1,
+     "failed_environments": 0,
+     "frame": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 16,
+      "affected_kinds_changed": 20,
+      "humidity_flagged": {
+       "kinds_changed": 3,
+       "lost": 0,
+       "published": 36,
+       "still_flagged": 36
+      },
+      "temperature_flagged": {
+       "kinds_changed": 16,
+       "lost": 15,
+       "published": 104,
+       "still_flagged": 89
+      }
+     },
+     "knobs": {
+      "SOLAR_APERTURE_SCALE": 0.25
+     },
+     "new_orientation_witnesses": 0,
+     "orientation_witnesses_kept": 64,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       27,
+       33
+      ],
+      "neither": [
+       4,
+       8
+      ],
+      "temperature": [
+       34,
+       83
+      ]
+     },
+     "orientation_witnesses_of": 123
+    },
+    "ap0.29": {
+     "affected_outcomes_changed": 2128,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 24,
+      "affected_kinds_changed": 42,
+      "humidity_flagged": {
+       "kinds_changed": 4,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 37,
+       "lost": 22,
+       "published": 121,
+       "still_flagged": 99
+      }
+     },
+     "elapsed_s": 74.0,
+     "failed_environments": 0,
+     "frame": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 11,
+      "affected_kinds_changed": 11,
+      "humidity_flagged": {
+       "kinds_changed": 0,
+       "lost": 0,
+       "published": 36,
+       "still_flagged": 36
+      },
+      "temperature_flagged": {
+       "kinds_changed": 10,
+       "lost": 10,
+       "published": 104,
+       "still_flagged": 94
+      }
+     },
+     "knobs": {
+      "SOLAR_APERTURE_SCALE": 0.29
+     },
+     "new_orientation_witnesses": 2,
+     "orientation_witnesses_kept": 81,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       26,
+       33
+      ],
+      "neither": [
+       4,
+       8
+      ],
+      "temperature": [
+       52,
+       83
+      ]
+     },
+     "orientation_witnesses_of": 123
+    },
+    "ap0.5": {
+     "affected_outcomes_changed": 2030,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 9,
+      "affected_kinds_changed": 23,
+      "humidity_flagged": {
+       "kinds_changed": 6,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 16,
+       "lost": 8,
+       "published": 121,
+       "still_flagged": 113
+      }
+     },
+     "elapsed_s": 79.0,
+     "failed_environments": 0,
+     "frame": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 9,
+      "affected_kinds_changed": 9,
+      "humidity_flagged": {
+       "kinds_changed": 0,
+       "lost": 0,
+       "published": 36,
+       "still_flagged": 36
+      },
+      "temperature_flagged": {
+       "kinds_changed": 8,
+       "lost": 8,
+       "published": 104,
+       "still_flagged": 96
+      }
+     },
+     "knobs": {
+      "SOLAR_APERTURE_SCALE": 0.5
+     },
+     "new_orientation_witnesses": 1,
+     "orientation_witnesses_kept": 109,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       33,
+       33
+      ],
+      "neither": [
+       7,
+       8
+      ],
+      "temperature": [
+       70,
+       83
+      ]
+     },
+     "orientation_witnesses_of": 123
+    },
+    "ap2": {
+     "affected_outcomes_changed": 2426,
+     "clock": {
+      "affected_flag_gained": 2,
+      "affected_flag_lost": 15,
+      "affected_kinds_changed": 27,
+      "humidity_flagged": {
+       "kinds_changed": 8,
+       "lost": 1,
+       "published": 37,
+       "still_flagged": 36
+      },
+      "temperature_flagged": {
+       "kinds_changed": 16,
+       "lost": 13,
+       "published": 121,
+       "still_flagged": 108
+      }
+     },
+     "elapsed_s": 83.1,
+     "failed_environments": 0,
+     "frame": {
+      "affected_flag_gained": 1,
+      "affected_flag_lost": 1,
+      "affected_kinds_changed": 2,
+      "humidity_flagged": {
+       "kinds_changed": 1,
+       "lost": 1,
+       "published": 36,
+       "still_flagged": 35
+      },
+      "temperature_flagged": {
+       "kinds_changed": 0,
+       "lost": 0,
+       "published": 104,
+       "still_flagged": 104
+      }
+     },
+     "knobs": {
+      "SOLAR_APERTURE_SCALE": 2.0
+     },
+     "new_orientation_witnesses": 4,
+     "orientation_witnesses_kept": 103,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       28,
+       33
+      ],
+      "neither": [
+       7,
+       8
+      ],
+      "temperature": [
+       69,
+       83
+      ]
+     },
+     "orientation_witnesses_of": 123
+    },
+    "ds0.6": {
+     "affected_outcomes_changed": 1348,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 18,
+      "affected_kinds_changed": 27,
+      "humidity_flagged": {
+       "kinds_changed": 8,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 17,
+       "lost": 16,
+       "published": 121,
+       "still_flagged": 105
+      }
+     },
+     "elapsed_s": 69.9,
+     "failed_environments": 0,
+     "frame": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 4,
+      "affected_kinds_changed": 4,
+      "humidity_flagged": {
+       "kinds_changed": 0,
+       "lost": 0,
+       "published": 36,
+       "still_flagged": 36
+      },
+      "temperature_flagged": {
+       "kinds_changed": 3,
+       "lost": 3,
+       "published": 104,
+       "still_flagged": 101
+      }
+     },
+     "knobs": {
+      "DIRECT_SHARE": 0.6
+     },
+     "new_orientation_witnesses": 1,
+     "orientation_witnesses_kept": 102,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       31,
+       33
+      ],
+      "neither": [
+       5,
+       8
+      ],
+      "temperature": [
+       67,
+       83
+      ]
+     },
+     "orientation_witnesses_of": 123
+    },
+    "ds0.95": {
+     "affected_outcomes_changed": 1296,
+     "clock": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 0,
+      "affected_kinds_changed": 1,
+      "humidity_flagged": {
+       "kinds_changed": 0,
+       "lost": 0,
+       "published": 37,
+       "still_flagged": 37
+      },
+      "temperature_flagged": {
+       "kinds_changed": 1,
+       "lost": 0,
+       "published": 121,
+       "still_flagged": 121
+      }
+     },
+     "elapsed_s": 61.0,
+     "failed_environments": 0,
+     "frame": {
+      "affected_flag_gained": 0,
+      "affected_flag_lost": 0,
+      "affected_kinds_changed": 0,
+      "humidity_flagged": {
+       "kinds_changed": 0,
+       "lost": 0,
+       "published": 36,
+       "still_flagged": 36
+      },
+      "temperature_flagged": {
+       "kinds_changed": 0,
+       "lost": 0,
+       "published": 104,
+       "still_flagged": 104
+      }
+     },
+     "knobs": {
+      "DIRECT_SHARE": 0.95
+     },
+     "new_orientation_witnesses": 0,
+     "orientation_witnesses_kept": 120,
+     "orientation_witnesses_kept_by_read_kind": {
+      "humidity": [
+       33,
+       33
+      ],
+      "neither": [
+       8,
+       8
+      ],
+      "temperature": [
+       80,
+       83
+      ]
+     },
+     "orientation_witnesses_of": 123
+    },
+    "ref": {
+     "clock_flag_mismatches": 0,
+     "clock_kind_mismatches": 0,
+     "failed_environments": 0,
+     "frame_flag_mismatches": 0,
+     "frame_kind_mismatches": 0,
+     "orientation_witnesses": 123,
+     "outcome_mismatches_exact": 0,
+     "outcomes": 13104
+    }
+   }
+  }
+ },
+ "validation": {
+  "item16a_low_sun": {
+   "band_deg": [
+    0,
+    5
+   ],
+   "days": [
+    "2026-01-14",
+    "2026-01-15",
+    "2026-01-16"
+   ],
+   "per_city": {
+    "Minneapolis": {
+     "az": {
+      "max_abs": 0.003422,
+      "mean_abs": 0.002493,
+      "n": 219,
+      "p95_abs": 0.00335
+     },
+     "el": {
+      "max_abs": 0.007877,
+      "mean_abs": 0.004266,
+      "n": 219,
+      "p95_abs": 0.00752
+     },
+     "sep": {
+      "max_abs": 0.008129,
+      "mean_abs": 0.005193,
+      "n": 219,
+      "p95_abs": 0.007816
+     }
+    },
+    "Phoenix": {
+     "az": {
+      "max_abs": 0.003047,
+      "mean_abs": 0.001983,
+      "n": 175,
+      "p95_abs": 0.00289
+     },
+     "el": {
+      "max_abs": 0.008276,
+      "mean_abs": 0.004159,
+      "n": 175,
+      "p95_abs": 0.007853
+     },
+     "sep": {
+      "max_abs": 0.008361,
+      "mean_abs": 0.004944,
+      "n": 175,
+      "p95_abs": 0.007979
+     }
+    },
+    "Seattle": {
+     "az": {
+      "max_abs": 0.003482,
+      "mean_abs": 0.0026,
+      "n": 235,
+      "p95_abs": 0.003401
+     },
+     "el": {
+      "max_abs": 0.007757,
+      "mean_abs": 0.004301,
+      "n": 235,
+      "p95_abs": 0.007192
+     },
+     "sep": {
+      "max_abs": 0.008134,
+      "mean_abs": 0.005237,
+      "n": 235,
+      "p95_abs": 0.007597
+     }
+    },
+    "Singapore": {
+     "az": {
+      "max_abs": 0.001369,
+      "mean_abs": 0.000728,
+      "n": 140,
+      "p95_abs": 0.001281
+     },
+     "el": {
+      "max_abs": 0.008481,
+      "mean_abs": 0.003952,
+      "n": 140,
+      "p95_abs": 0.00791
+     },
+     "sep": {
+      "max_abs": 0.008536,
+      "mean_abs": 0.004162,
+      "n": 140,
+      "p95_abs": 0.007911
+     }
+    },
+    "Stockholm": {
+     "az": {
+      "max_abs": 0.003739,
+      "mean_abs": 0.003032,
+      "n": 403,
+      "p95_abs": 0.003648
+     },
+     "el": {
+      "max_abs": 0.007105,
+      "mean_abs": 0.004344,
+      "n": 403,
+      "p95_abs": 0.006727
+     },
+     "sep": {
+      "max_abs": 0.007755,
+      "mean_abs": 0.005402,
+      "n": 403,
+      "p95_abs": 0.007288
+     }
+    },
+    "Sydney": {
+     "az": {
+      "max_abs": 0.002925,
+      "mean_abs": 0.00186,
+      "n": 172,
+      "p95_abs": 0.002824
+     },
+     "el": {
+      "max_abs": 0.007531,
+      "mean_abs": 0.003536,
+      "n": 172,
+      "p95_abs": 0.007018
+     },
+     "sep": {
+      "max_abs": 0.007964,
+      "mean_abs": 0.0041,
+      "n": 172,
+      "p95_abs": 0.007473
+     }
+    }
+   },
+   "pooled": {
+    "az": {
+     "max_abs": 0.003739,
+     "mean_abs": 0.002342,
+     "n": 1344,
+     "p95_abs": 0.003454
+    },
+    "el": {
+     "max_abs": 0.008481,
+     "mean_abs": 0.004156,
+     "n": 1344,
+     "p95_abs": 0.007421
+    },
+    "sep": {
+     "max_abs": 0.008536,
+     "mean_abs": 0.004984,
+     "n": 1344,
+     "p95_abs": 0.007637
+    }
+   },
+   "registered_S_bound_above_5_deg": 0.05,
+   "step_min": 1
+  },
+  "item16b_station": {
+   "available": true,
+   "dataset_hours": 1197,
+   "era5_minus_house": {
+    "bias": -2.091,
+    "n": 1035,
+    "r": 0.931,
+    "rmse": 2.633
+   },
+   "era5_minus_house_all_house_hours": {
+    "bias": -2.087,
+    "n": 1036,
+    "r": 0.9305,
+    "rmse": 2.633
+   },
+   "era5_minus_station": {
+    "bias": 0.704,
+    "n": 1035,
+    "r": 0.9647,
+    "rmse": 1.469
+   },
+   "hours_all_three": 1035,
+   "house_minus_station": {
+    "bias": 2.795,
+    "n": 1035,
+    "r": 0.9296,
+    "rmse": 3.308
+   },
+   "source": "NOAA ISD global-hourly, VALENCIA, SP (Manises airport), USAF 082840 WBAN 99999, via the NOAA open data bucket; no login",
+   "station_hours_with_a_report": 1196
+  },
+  "item3_khat": {
+   "bias_pooled_at": {
+    "0.0": -2.111,
+    "0.25": -0.0,
+    "0.5": 2.416,
+    "1.0": 7.291,
+    "2.0": 17.041
+   },
+   "bias_pooled_at_0": -2.111,
+   "bias_pooled_at_1": 7.291,
+   "bootstrap": {
+    "ci95": [
+     0.2052,
+     0.2894
+    ],
+    "median": 0.2501,
+    "no_root": 0,
+    "resamples": 2000,
+    "seed": 20261105,
+    "unit": "local day"
+   },
+   "bracket_contains_khat": true,
+   "days": 51,
+   "grid": [
+    0.0,
+    2.0,
+    201
+   ],
+   "hours_pooled": 2072,
+   "khat": 0.25,
+   "khat_linear_crosscheck": 0.2868,
+   "khat_rounded": 0.25,
+   "mean_solar_gain_w": 120.76,
+   "per_room": {
+    "dining room": {
+     "bias_at_0": -2.228,
+     "bias_at_1": 7.13,
+     "hours": 1036,
+     "khat": 0.2643
+    },
+    "room": {
+     "bias_at_0": -1.994,
+     "bias_at_1": 7.452,
+     "hours": 1036,
+     "khat": 0.2358
+    }
+   },
+   "r4b_bracket": [
+    0.25,
+    2.0
+   ],
+   "setpoints_c": {
+    "dining room": 16.26,
+    "room": 15.83
+   },
+   "standard_room_h_w_k": 11.812
+  },
+  "item8b_free_float_A": {
+   "primary_margin_1K": {
+    "median": {
+     "free_float": {
+      "median_rmse_c": 0.895,
+      "median_within_2c": 0.9531,
+      "would_pass_T_post_hoc": true
+     },
+     "persistence": {
+      "median_rmse_c": 0.58,
+      "median_within_2c": 1.0
+     },
+     "registered_heated_same_hours": {
+      "median_rmse_c": 1.859,
+      "median_within_2c": 0.7031
+     }
+    },
+    "rooms": [
+     {
+      "episode_h_max": 22,
+      "episode_h_median": 5,
+      "episodes": 13,
+      "free_float": {
+       "bias_c": -0.559,
+       "n": 81,
+       "rmse_c": 0.873,
+       "within_2c": 0.9259
+      },
+      "hours": 81,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.528,
+       "n": 81,
+       "rmse_c": 0.658,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 1.776,
+       "n": 81,
+       "rmse_c": 1.859,
+       "within_2c": 0.679
+      },
+      "room": "kitchen",
+      "setpoint_c": 19.73
+     },
+     {
+      "episode_h_max": 9,
+      "episode_h_median": 2,
+      "episodes": 17,
+      "free_float": {
+       "bias_c": -0.157,
+       "n": 49,
+       "rmse_c": 0.318,
+       "within_2c": 1.0
+      },
+      "hours": 49,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.275,
+       "n": 49,
+       "rmse_c": 0.332,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 1.356,
+       "n": 49,
+       "rmse_c": 1.379,
+       "within_2c": 1.0
+      },
+      "room": "living room",
+      "setpoint_c": 17.86
+     },
+     {
+      "episode_h_max": 18,
+      "episode_h_median": 3,
+      "episodes": 14,
+      "free_float": {
+       "bias_c": -0.573,
+       "n": 63,
+       "rmse_c": 0.925,
+       "within_2c": 0.9365
+      },
+      "hours": 63,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.327,
+       "n": 63,
+       "rmse_c": 0.406,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 1.842,
+       "n": 63,
+       "rmse_c": 1.922,
+       "within_2c": 0.619
+      },
+      "room": "laundry room",
+      "setpoint_c": 19.93
+     },
+     {
+      "episode_h_max": 15,
+      "episode_h_median": 4,
+      "episodes": 16,
+      "free_float": {
+       "bias_c": -0.576,
+       "n": 97,
+       "rmse_c": 0.812,
+       "within_2c": 0.9897
+      },
+      "hours": 97,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.452,
+       "n": 97,
+       "rmse_c": 0.615,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 2.093,
+       "n": 97,
+       "rmse_c": 2.19,
+       "within_2c": 0.4536
+      },
+      "room": "office",
+      "setpoint_c": 18.48
+     },
+     {
+      "episode_h_max": 29,
+      "episode_h_median": 5,
+      "episodes": 8,
+      "free_float": {
+       "bias_c": -0.806,
+       "n": 59,
+       "rmse_c": 1.3,
+       "within_2c": 0.8136
+      },
+      "hours": 59,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.461,
+       "n": 59,
+       "rmse_c": 0.58,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 1.804,
+       "n": 59,
+       "rmse_c": 1.914,
+       "within_2c": 0.6949
+      },
+      "room": "bathroom",
+      "setpoint_c": 17.5
+     },
+     {
+      "episode_h_max": 13,
+      "episode_h_median": 8,
+      "episodes": 10,
+      "free_float": {
+       "bias_c": -0.672,
+       "n": 64,
+       "rmse_c": 0.895,
+       "within_2c": 0.9531
+      },
+      "hours": 64,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.274,
+       "n": 64,
+       "rmse_c": 0.334,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 1.812,
+       "n": 64,
+       "rmse_c": 1.852,
+       "within_2c": 0.7031
+      },
+      "room": "ironing room",
+      "setpoint_c": 17.79
+     },
+     {
+      "episode_h_max": 29,
+      "episode_h_median": 4,
+      "episodes": 21,
+      "free_float": {
+       "bias_c": -0.641,
+       "n": 138,
+       "rmse_c": 0.951,
+       "within_2c": 0.942
+      },
+      "hours": 138,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.643,
+       "n": 138,
+       "rmse_c": 0.867,
+       "within_2c": 0.9638
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 1.741,
+       "n": 138,
+       "rmse_c": 1.82,
+       "within_2c": 0.7246
+      },
+      "room": "teenager room",
+      "setpoint_c": 19.42
+     },
+     {
+      "episode_h_max": 10,
+      "episode_h_median": 2,
+      "episodes": 20,
+      "free_float": {
+       "bias_c": -0.228,
+       "n": 57,
+       "rmse_c": 0.345,
+       "within_2c": 1.0
+      },
+      "hours": 57,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.133,
+       "n": 57,
+       "rmse_c": 0.181,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 1.641,
+       "n": 57,
+       "rmse_c": 1.707,
+       "within_2c": 0.7895
+      },
+      "room": "parents' room",
+      "setpoint_c": 17.09
+     }
+    ],
+    "rooms_in_median": 8,
+    "rule": "T(h) < s - 1 K and T(h) < T(h-1)"
+   },
+   "sensitivity_margin_0K": {
+    "median": {
+     "free_float": {
+      "median_rmse_c": 0.774,
+      "median_within_2c": 0.9718,
+      "would_pass_T_post_hoc": true
+     },
+     "persistence": {
+      "median_rmse_c": 0.777,
+      "median_within_2c": 1.0
+     },
+     "registered_heated_same_hours": {
+      "median_rmse_c": 1.254,
+      "median_within_2c": 0.8805
+     }
+    },
+    "rooms": [
+     {
+      "episode_h_max": 22,
+      "episode_h_median": 4,
+      "episodes": 41,
+      "free_float": {
+       "bias_c": -0.499,
+       "n": 238,
+       "rmse_c": 0.768,
+       "within_2c": 0.9622
+      },
+      "hours": 238,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.612,
+       "n": 238,
+       "rmse_c": 0.777,
+       "within_2c": 0.9916
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 0.944,
+       "n": 238,
+       "rmse_c": 1.218,
+       "within_2c": 0.8824
+      },
+      "room": "kitchen",
+      "setpoint_c": 19.73
+     },
+     {
+      "episode_h_max": 13,
+      "episode_h_median": 4,
+      "episodes": 55,
+      "free_float": {
+       "bias_c": -0.128,
+       "n": 239,
+       "rmse_c": 0.373,
+       "within_2c": 1.0
+      },
+      "hours": 239,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.601,
+       "n": 239,
+       "rmse_c": 0.744,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 0.71,
+       "n": 239,
+       "rmse_c": 0.867,
+       "within_2c": 0.9958
+      },
+      "room": "living room",
+      "setpoint_c": 17.86
+     },
+     {
+      "episode_h_max": 18,
+      "episode_h_median": 2,
+      "episodes": 73,
+      "free_float": {
+       "bias_c": -0.278,
+       "n": 222,
+       "rmse_c": 0.697,
+       "within_2c": 0.9775
+      },
+      "hours": 222,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.311,
+       "n": 222,
+       "rmse_c": 0.428,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 0.879,
+       "n": 222,
+       "rmse_c": 1.221,
+       "within_2c": 0.8694
+      },
+      "room": "laundry room",
+      "setpoint_c": 19.93
+     },
+     {
+      "episode_h_max": 20,
+      "episode_h_median": 4,
+      "episodes": 44,
+      "free_float": {
+       "bias_c": -0.428,
+       "n": 248,
+       "rmse_c": 0.775,
+       "within_2c": 0.9718
+      },
+      "hours": 248,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.602,
+       "n": 248,
+       "rmse_c": 0.823,
+       "within_2c": 0.9597
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 1.245,
+       "n": 248,
+       "rmse_c": 1.603,
+       "within_2c": 0.7379
+      },
+      "room": "office",
+      "setpoint_c": 18.48
+     },
+     {
+      "episode_h_max": 36,
+      "episode_h_median": 3,
+      "episodes": 50,
+      "free_float": {
+       "bias_c": -0.414,
+       "n": 213,
+       "rmse_c": 1.108,
+       "within_2c": 0.8967
+      },
+      "hours": 213,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.517,
+       "n": 213,
+       "rmse_c": 0.82,
+       "within_2c": 0.9671
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 0.905,
+       "n": 213,
+       "rmse_c": 1.207,
+       "within_2c": 0.8873
+      },
+      "room": "bathroom",
+      "setpoint_c": 17.5
+     },
+     {
+      "episode_h_max": 16,
+      "episode_h_median": 3,
+      "episodes": 43,
+      "free_float": {
+       "bias_c": -0.497,
+       "n": 195,
+       "rmse_c": 0.774,
+       "within_2c": 0.9641
+      },
+      "hours": 195,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.354,
+       "n": 195,
+       "rmse_c": 0.542,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 0.982,
+       "n": 195,
+       "rmse_c": 1.254,
+       "within_2c": 0.8718
+      },
+      "room": "ironing room",
+      "setpoint_c": 17.79
+     },
+     {
+      "episode_h_max": 36,
+      "episode_h_median": 3,
+      "episodes": 36,
+      "free_float": {
+       "bias_c": -0.671,
+       "n": 244,
+       "rmse_c": 1.08,
+       "within_2c": 0.9221
+      },
+      "hours": 244,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.866,
+       "n": 244,
+       "rmse_c": 1.154,
+       "within_2c": 0.9098
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 1.305,
+       "n": 244,
+       "rmse_c": 1.533,
+       "within_2c": 0.8115
+      },
+      "room": "teenager room",
+      "setpoint_c": 19.42
+     },
+     {
+      "episode_h_max": 13,
+      "episode_h_median": 2,
+      "episodes": 56,
+      "free_float": {
+       "bias_c": -0.286,
+       "n": 159,
+       "rmse_c": 0.463,
+       "within_2c": 1.0
+      },
+      "hours": 159,
+      "in_median": true,
+      "persistence": {
+       "bias_c": 0.156,
+       "n": 159,
+       "rmse_c": 0.226,
+       "within_2c": 1.0
+      },
+      "registered_heated_same_hours": {
+       "bias_c": 0.99,
+       "n": 159,
+       "rmse_c": 1.264,
+       "within_2c": 0.8805
+      },
+      "room": "parents' room",
+      "setpoint_c": 17.09
+     }
+    ],
+    "rooms_in_median": 8,
+    "rule": "T(h) < s - 0 K and T(h) < T(h-1)"
+   }
+  },
+  "item8b_heating_shares": {
+   "A": {
+    "median_share_hours_heater_on": 0.1417,
+    "rooms": [
+     {
+      "hours": 3289,
+      "mean_heating_duty": 0.051,
+      "room": "kitchen",
+      "setpoint_c": 19.73,
+      "share_hours_heater_on": 0.1697,
+      "share_measured_below_setpoint": 0.1
+     },
+     {
+      "hours": 3289,
+      "mean_heating_duty": 0.0396,
+      "room": "living room",
+      "setpoint_c": 17.86,
+      "share_hours_heater_on": 0.1329,
+      "share_measured_below_setpoint": 0.1
+     },
+     {
+      "hours": 3289,
+      "mean_heating_duty": 0.0524,
+      "room": "laundry room",
+      "setpoint_c": 19.93,
+      "share_hours_heater_on": 0.1742,
+      "share_measured_below_setpoint": 0.1
+     },
+     {
+      "hours": 3289,
+      "mean_heating_duty": 0.0433,
+      "room": "office",
+      "setpoint_c": 18.48,
+      "share_hours_heater_on": 0.1417,
+      "share_measured_below_setpoint": 0.1
+     },
+     {
+      "hours": 3289,
+      "mean_heating_duty": 0.0377,
+      "room": "bathroom",
+      "setpoint_c": 17.5,
+      "share_hours_heater_on": 0.1271,
+      "share_measured_below_setpoint": 0.0958
+     },
+     {
+      "hours": 3289,
+      "mean_heating_duty": 0.0394,
+      "room": "ironing room",
+      "setpoint_c": 17.79,
+      "share_hours_heater_on": 0.1359,
+      "share_measured_below_setpoint": 0.0997
+     },
+     {
+      "hours": 3289,
+      "mean_heating_duty": 0.0492,
+      "room": "teenager room",
+      "setpoint_c": 19.42,
+      "share_hours_heater_on": 0.1614,
+      "share_measured_below_setpoint": 0.1
+     },
+     {
+      "hours": 3289,
+      "mean_heating_duty": 0.0354,
+      "room": "parents' room",
+      "setpoint_c": 17.09,
+      "share_hours_heater_on": 0.1192,
+      "share_measured_below_setpoint": 0.0994
+     }
+    ]
+   },
+   "B": {
+    "median_share_hours_heater_on": 0.0,
+    "rooms": [
+     {
+      "hours": 1036,
+      "mean_heating_duty": 0.0,
+      "room": "dining room",
+      "setpoint_c": 16.26,
+      "share_hours_heater_on": 0.0,
+      "share_measured_below_setpoint": 0.1004
+     },
+     {
+      "hours": 1036,
+      "mean_heating_duty": 0.0,
+      "room": "room",
+      "setpoint_c": 15.83,
+      "share_hours_heater_on": 0.0,
+      "share_measured_below_setpoint": 0.1004
+     }
+    ]
+   }
+  },
+  "item8c_geometry": {
+   "both_checks_drive": {
+    "d": 4.0,
+    "facing": 180,
+    "outside_wall_m": 4.0,
+    "w": 4.0,
+    "window": [
+     1.2,
+     1.2
+    ]
+   },
+   "note": "the standard room of vesper.validation.environment, for every room of home A and home B; neither home's own geometry"
+  },
+  "item9_daylight_chain": {
+   "arithmetic": {
+    "R0_unrounded": 14.7838,
+    "daylight_scale_0.0676_inverse": 14.7929,
+    "registered_D_pass": false,
+    "rounded_inputs_1.76_over_0.12": 14.6667
+   },
+   "chain": [
+    {
+     "factor": null,
+     "residual": 14.7838,
+     "step": "R0: VESPER's ADF median over D's measured median"
+    },
+    {
+     "factor": 0.2154,
+     "residual": 3.1846,
+     "step": "1. global to diffuse (Erbs kd, median over D's hours)"
+    },
+    {
+     "factor": 1.4281,
+     "range_factor": [
+      0.6188,
+      1.4281
+     ],
+     "range_residual": [
+      1.9706,
+      4.5479
+     ],
+     "residual": 4.5479,
+     "step": "2. point sensor (room centre) over the room average"
+    },
+    {
+     "factor": 0.5484,
+     "range_factor": [
+      0.4725,
+      0.768
+     ],
+     "range_residual": [
+      0.9311,
+      3.4928
+     ],
+     "residual": 2.4942,
+     "step": "3. frame 0.75 x maintenance 0.9 x sky angle 65/80"
+    }
+   ],
+   "framing": {
+    "frame": [
+     0.75,
+     0.7,
+     0.8
+    ],
+    "maintenance": [
+     0.9,
+     0.9,
+     0.96
+    ],
+    "theta_deg": [
+     65.0,
+     60.0,
+     80.0
+    ]
+   },
+   "hours": 240,
+   "kd_erbs_median": 0.2154,
+   "kd_erbs_range": [
+    0.1646,
+    0.9554
+   ],
+   "kd_model_median": 0.272,
+   "kt_median": 0.7207,
+   "measured_median_pct": 0.1191,
+   "measured_rooms_pct": {
+    "dining room": 0.0885,
+    "room": 0.1496
+   },
+   "point_over_average": {
+    "adf_unobstructed_pct": 1.632,
+    "depth_2m": {
+     "df_pct": 2.3307,
+     "ratio_to_average": 1.4281,
+     "sc_pct": 1.7323
+    },
+    "depth_3.5m": {
+     "df_pct": 1.0098,
+     "ratio_to_average": 0.6188,
+     "sc_pct": 0.4114
+    },
+    "irc_pct": 0.5984
+   },
+   "residual_after_1_with_model_kd": 4.0212,
+   "vesper_median_adf_pct": 1.7608
+  }
+ }
+}

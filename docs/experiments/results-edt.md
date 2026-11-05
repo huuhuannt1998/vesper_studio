@@ -1443,6 +1443,193 @@ setback automation's repository puts its climate entities on one hallway thermos
 different author entity, but the night_light losses partly do); the aperture knob scales the solar heat, not the
 daylight (which has its own knob and changes one flag in 797 at rung 3).
 
+## Revision R6-B (Addendum 9): infiltration, home A free-floating, the implied aperture, the daylight chain, the beam share
+
+**Post hoc** (after the third internal review), registered before its runs as protocol Addendum 9
+(`docs/experiments/edt-protocol.md`, commit `ce93b79`; nothing in it was changed after a run). Base: the ERA5 sweeps
+`120f4ca` (clock relation) and `8fcd672` (frame relation), their homes and recorded weather, R2-c's setback population,
+R4-B's corners and open-loop path. New indoor-model knobs, bit-identical at their defaults by the extended fingerprint
+test: `ACH` (0.5) and `DIRECT_SHARE` (0.8, the coefficient in direct = 0.8 (1 - cloud), in `vesper.env.sun`, set
+through `vesper.env.indoor.knobs` and named in a trace's reuse key when moved). The validation room gained a heater log
+and a free-floating episode runner (`vesper.validation.environment`, tested; the registered check is unchanged).
+Script: `scripts/revision/r6b_physics.py`; numbers: `results/edt/r6b-66407d5.json` (aggregates only).
+No registered verdict changes; where a registered criterion is applied again it says "would pass (post hoc)".
+
+### Item 8(a): infiltration (closed loop, A9.2)
+
+**The H breakdown of the standard home** (the EDT home, 7 indoor rooms, at 0.5 ACH): **77.8 W/K** = outside walls
+28.3 W/K (36 %) + glass 14.2 W/K (18 %) + ventilation 35.3 W/K (**45 %**). At 0.3 ACH the ventilation is 21.2 W/K
+(house 63.7 W/K); at 1.0 ACH 70.5 W/K (house 113.0 W/K). Interior partitions (U 2.0 W/(m² K)) move heat between rooms,
+not out of the house, and are not in H. Every earlier result held infiltration at 0.5 ACH; a deep setback's stack
+effect would raise it.
+
+R2-c's 22 setback automations, each alone, against the same setting's baseline, R2-c's causal rule:
+
+| ACH | Nominal, core (of 88) | Nominal, all 48 (of 1,056) | Automations (nominal) | Minneapolis / Stockholm | Coldest caused room per run, min / median / max (nominal) | Baseline coldest room | Worst corner G0-Fon-Wpss-C80, core (of 88) | Best corner G5-Foff-W1-C370, core (of 88) |
+|---|---|---|---|---|---|---|---|---|
+| 0.3 | 31 | 31 | 12 | 23 / 8 | 5.0 / 7.1 / 9.8 C | 15.5 C | 63 (coldest -4.8 C) | 0 |
+| 0.5 | **53** | **53** | 16 | 31 / 22 | 2.7 / 8.1 / 9.8 C | 15.6 C | 63 (-6.0 C) | 0 |
+| 1.0 | 54 | 54 | 17 | 32 / 22 | **-1.3** / 6.3 / 9.6 C | 15.9 C | **67** (-7.2 C) | **23** (7.2 C) |
+
+- *Checks.* At 0.5 ACH the nominal setting reproduces R2-c's 53 breaching runs exactly (the same runs), and the two
+  corners reproduce R4-B's (63 and 0). Over all 48 environments the nominal 53 are all in the core: **A7.2's "outside
+  E, no breach" held at the nominal corner** (0 of the 44 other environments). The breaching runs are nested: every
+  run that breaches at 0.3 breaches at 0.5, and every one at 0.5 at 1.0.
+- *Reading.* The count is not monotone in size so much as in depth: from 0.5 to 1.0 ACH one more run breaches (54) but
+  the coldest caused room falls from 2.7 to -1.3 C; from 0.5 to 0.3 the count falls to 31. **The ACH term moves the
+  core count over 31-54 at the nominal setting and over 0-67 with the corners**: 1.0 ACH takes the worst corner past
+  R4-B's ceiling of 63 (to 67, 18 automations) and the best corner from 0 to 23. Mean over the three settings run
+  (nominal, worst, best) of the core count: 31.3 / 38.7 / 48.0 at 0.3 / 0.5 / 1.0 ACH. R4-B's 0-63 interval is
+  therefore not a bound once infiltration is free: with it, **0-67 of 88**. The full 120-corner product was not
+  re-run at each ACH (A9.2 registered the nominal setting and the two corners only).
+
+### Item 8(b, c): home A free-floating (A9.3)
+
+An hour of one of home A's eight rooms counts as evidently free-floating when the measured room is below the proxy
+setpoint (its 10th percentile) minus 1 K and falling. Each episode (a run of such hours) is simulated without heating
+from the measured temperature of the hour before it.
+
+| Rule | Rooms in the median | Hours per room | Episode length, median per room | Free-float median RMSE / within 2 K | Persistence (the last measured value held) | The registered heated model, same hours |
+|---|---|---|---|---|---|---|
+| below s - 1 K and falling (primary) | 8 of 8 | 49-138 | 2-8 h (longest 29 h) | **0.90 C / 0.95** | 0.58 C / 1.00 | 1.86 C / 0.70 |
+| below s and falling (sensitivity) | 8 of 8 | 159-248 | 2-4 h (longest 36 h) | 0.77 C / 0.97 | 0.78 C / 1.00 | 1.25 C / 0.88 |
+
+Per room (primary), the free-float RMSE is 0.32-1.30 C with a bias of -0.16 to -0.81 C (the model cools a little too
+fast). On these hours **T's criterion would pass (post hoc)**: median RMSE 0.90 C <= 1.5, within 2 K 0.95 >= 0.7, where
+the registered heated model on the same hours has 1.86 C (the proxy holds it at the setpoint while the room is a
+kelvin or more below). **But this is weak evidence**: the episodes are short (half of them 2-8 hours), and holding the
+last measured temperature does as well or better (0.58 C primary, 0.78 C in the sensitivity). The free-float pass
+shows that the one-node room's cooling rate is not wrong by much over a few hours; it does not show skill beyond
+persistence. The registered T fail on A stands.
+
+*How home B's check differs.* In the hours the registered check uses, its heater runs in **0 of 1,036 hours in both of
+B's rooms**, against a median of 14 % of hours (12-17 %, duty 4-5 %) in A's eight rooms; the measured room is below
+the proxy in 10 % of hours in both homes (the percentile's definition). B's check is therefore a free-floating solar
+test throughout, A's a heated one, which is what the review said; B's failure (+7.1 and +7.5 K) is the binding one for
+the orientation findings.
+
+*Item 8(c), geometry.* Both checks drive the same standard room (`STANDARD_ROOM`): 4 x 4 m, 2.5 m high, one 4 m
+outside wall, one 1.2 x 1.2 m window facing south, VESPER's constants, for every measured room of A (8) and B (2). It
+is neither home's own test-room geometry, which weakens both checks as evidence for any particular room.
+
+### Item 3(a, b): the aperture implied by home B's residual (A9.4)
+
+The registered T simulation of home B with SOLAR_APERTURE_SCALE k on a grid 0-2 (step 0.01), both rooms, the mean
+bias over the 2 x 1,036 hours the check uses: b(1) = +7.29 K (dining room 7.13, room 7.45, as registered), b(0) =
+-2.11 K, b(0.5) = +2.42 K, b(2) = +17.04 K. **k̂ = 0.250** (dining room 0.264, room 0.236), **95 % interval
+0.205-0.289** (2,000 bootstrap resamples of B's 51 local days; every resample had a root). The cross-check from the
+published quantities, k̂_lin = 1 - b(1) H / Q̄ with the room's H = 11.8 W/K and its mean modelled solar gain Q̄ =
+120.8 W over the same hours, gives 0.287 (the heater never runs in B, so the linear reading is close). **R4-B's
+x0.25-x2 bracket contains k̂, at its lower end**; the interval's lower half lies below it.
+
+Propagation at k̂ (0.25, the bracket's point) and at the interval's ends (0.21, 0.29), R4-B's aperture path, every
+trace recorded afresh; each reference (x1, recorded afresh with the current code) reproduces its sweep exactly
+(120f4ca: 13,488 outcomes, 0 flag, kind or outcome mismatches, 129 witnesses; 8fcd672: 13,104 outcomes, 0 mismatches
+under either relation, 123 witnesses). At 0.25 the clock set reproduces R4-B's x0.25 row exactly.
+
+| Set | Aperture | Orientation witnesses kept: temperature / humidity / other (new) | Temperature flags kept | Humidity flags kept | Affected: lost / gained, kinds changed |
+|---|---|---|---|---|---|
+| clock, 120f4ca | x0.21 | 69 of 129: 43 of 90 / 23 of 32 / 4 of 8 (0) | 110 of 128 | 37 of 37 | 19 / 0, 43 |
+| clock, 120f4ca | **x0.25 = k̂** | **66 of 129**: 36 / 27 / 4 (0) | **109 of 128** | **37 of 37** | 20 / 0, 35 |
+| clock, 120f4ca | x0.29 | 83 of 129: 54 / 26 / 4 (2) | 102 of 128 | 37 of 37 | 28 / 0, 47 |
+| frame, 8fcd672 | x0.21 | 69 of 123: 42 of 83 / 24 of 33 / 4 of 8 (1) | 92 of 104 | 36 of 36 | 13 / 0, 17 |
+| frame, 8fcd672 | **x0.25 = k̂** | **64 of 123**: 34 / 27 / 4 (0) | **89 of 104** | **36 of 36** | 16 / 0, 20 |
+| frame, 8fcd672 | x0.29 | 81 of 123: 52 / 26 / 4 (2) | 94 of 104 | 36 of 36 | 11 / 0, 11 |
+| frame, 8fcd672 | x0.5 | 109 of 123 (1) | 96 of 104 | 36 of 36 | 9 / 0, 9 |
+| frame, 8fcd672 | x2 | 103 of 123 (4) | 104 of 104 | 35 of 36 | 1 / 1, 2 |
+
+(At 8fcd672 the clock relation gives, at k̂: 106 of 121 temperature flags, 37 of 37 humidity; the witnesses are the
+same, being outcome classes.) **Restated at k̂: about half the orientation witnesses survive (66 of 129 on the clock
+set, 64 of 123 on the frame set), the humidity flags all survive (37 of 37; 36 of 36), and about 85 % of the
+temperature flags do (109 of 128; 89 of 104).** Over the interval 0.21-0.29 the witnesses range over 66-83 (clock) and
+64-81 (frame), not monotonically in the aperture (x0.29 keeps more witnesses than x0.25 but loses more temperature
+flags): a witness is a difference of outcome classes between the two orientations, and which thresholds are crossed
+in which orientation changes with the aperture in steps. Under the frame relation the temperature flags are more
+robust to the aperture than under the clock relation (x2: 104 of 104 against 108 of 121).
+
+### Item 16(e): the beam-share coefficient (A9.5)
+
+DIRECT_SHARE moves the beam/diffuse split of both the solar heat and the daylight (the outdoor illuminance itself is
+unchanged):
+
+| Set | Direct share | Orientation witnesses kept (new) | Temperature flags kept | Humidity flags kept | Affected: lost / gained, kinds changed | Outcomes changed |
+|---|---|---|---|---|---|---|
+| clock, 120f4ca | 0.6 | 111 of 129: 74 / 31 / 7 (1) | 112 of 128 | 37 of 37 | 17 / 0, 24 | 1,444 of 13,488 |
+| clock, 120f4ca | 0.95 | 126 of 129: 87 / 32 / 8 (0) | 128 of 128 | 37 of 37 | 0 / 0, 2 | 1,401 |
+| frame, 8fcd672 | 0.6 | 102 of 123: 67 / 31 / 5 (1) | 101 of 104 | 36 of 36 | 4 / 0, 4 | 1,348 of 13,104 |
+| frame, 8fcd672 | 0.95 | 120 of 123: 80 / 33 / 8 (0) | 104 of 104 | 36 of 36 | 0 / 0, 0 | 1,296 |
+
+A smaller beam share (0.6) costs about as much as halving the aperture (111 against R4-B's 111 of 129 witnesses at
+x0.5); a larger one (0.95) almost nothing. The coefficient now has a sensitivity row; the orientation findings that
+read a temperature are again the exposed ones.
+
+### Item 9: the daylight decomposition chain (A9.6; the registered D "fail" stands)
+
+Check D's 240 hours (10:00-16:00 local, measured irradiance >= 300 W/m²). The model's side is multiplied by each factor
+in turn; the residual is model / measured.
+
+| Step | Factor | Residual |
+|---|---|---|
+| R0: VESPER's median average daylight factor (80 generated rooms) 1.7608 % / D's measured 0.1191 % | | **14.78** |
+| 1. Global to diffuse under the measured sky: Erbs et al. (1982) diffuse fraction from B's measured clearness index (median kt 0.72), median over the hours | 0.215 (0.16-0.96 by hour) | **3.18** |
+| 2. Point sensor against the room average (standard 4 x 4 m room, sky component of the window under a uniform sky plus BRE's split-flux internal reflection, over its unobstructed ADF 1.63 %): at the room's centre 1.43, 0.5 m from the back wall 0.62 | 1.43 (range 0.62-1.43) | 4.55 (range 1.97-4.55) |
+| 3. Framing and obstruction: frame 0.75 (0.7-0.8) x maintenance 0.9 (0.9-0.96) x visible sky 65/80 deg (60-80) | 0.548 (0.47-0.77) | **2.49** (range 0.93-3.49) |
+
+With the model's own diffuse fraction (1 - 0.8 (1 - cloud), ERA5 cloud, median 0.272) in step 1 instead of Erbs's, the
+residual after step 1 is 4.02. **After the three named factors the residual is 2.5 (0.9-3.5), down from 14.8**: most
+of the factor of 15 is the comparison (a daylight factor is defined on the diffuse sky; D divided by the global light
+on mostly clear spring days), and the rest is within what an unknown sensor position and an obstructed, framed window
+can make. A point sensor need not read below the room average: in a small side-lit room its centre reads above it
+(1.43); only a sensor near the back reads below (0.62). The comparison is not like-for-like and no comparable
+measurement was available; D's registered failure stands, and rung 3 (daylight x 1/14.8) still reproduces rung 4, only
+67 run automations reading illuminance.
+
+*The arithmetic.* **14.8** is 1.7608 / 0.1191 = 14.78 unrounded (DAYLIGHT_SCALE 0.0676 = 1 / 14.79); **14.67** is the
+same quotient from the rounded 1.76 / 0.12. The earlier "about 3.7 of the factor of 15" is 1 / 0.27, the sky's share
+of the global light in the model's own split (direct share 0.73 at the median cloud), and its "4-8 unexplained" is
+0.52 % / 0.119 % = 4.4 and 0.94 % / 0.119 % = 7.9, computed on the standard home's four habitable rooms (median
+overcast DF 1.93 %), not on D's 80-room ensemble (1.76 %): the two halves of that sentence used different room
+populations, which is why it could not be reconstructed from 1.76 / 0.12. On the ensemble with the model's split the
+remainder is 4.0 (14.78 x 0.272).
+
+### Item 16(a): the sun at 0-5 deg elevation (A9.7)
+
+VESPER's sun (astral) against NREL SPA (pvlib), every minute of the three run days of each EDT city's January
+environment (2026-01-14 to 16), only where SPA's apparent elevation is in (0, 5] deg: **1,344 minutes**, of them 403
+in Stockholm. Pooled: elevation error mean 0.0042 deg, 95th percentile 0.0074, max **0.0085 deg**; azimuth max
+0.0037 deg; position on the sky max **0.0085 deg** (Stockholm alone: max 0.0078). The registered S bound (0.05 deg)
+was set above 5 deg; at 0-5 deg the error is a sixth of it, so Stockholm's January, which lies almost wholly in this
+band, is as well placed as the verified band.
+
+### Item 16(b): ERA5 against the official station for home B (A9.8)
+
+NOAA's ISD global-hourly record for Valencia airport (Manises, USAF 082840 WBAN 99999), free with no login, fetched
+once and cached locally (not committed); a station hour is the mean of the passing reports in the UTC hour, as the
+dataset is resampled. Over the **1,035** of B's 1,197 hours with ERA5, the house sensor and the station:
+
+| Comparison | Bias | RMSE | r |
+|---|---|---|---|
+| ERA5 - station | **+0.70 C** | **1.47 C** | 0.965 |
+| house sensor - station | +2.80 C | 3.31 C | 0.930 |
+| ERA5 - house sensor (W's comparison) | -2.09 C | 2.63 C | 0.931 |
+
+The last row reproduces W on B (-2.087 / 2.633 over 1,036 hours). **Against the official station ERA5 would pass W's
+criterion (post hoc)**: |bias| 0.70 <= 1.0 C, RMSE 1.47 <= 2.0 C, r 0.965 >= 0.90. B's registered W failure is the
+house-mounted sensor reading 2.8 C warm of the airport, not ERA5 being 2 C cold. (The station is at the airport, about
+9 km west of VESPER's Valencia site; the comparison is ERA5 at VESPER's cell against the nearest
+official record, not at the house.) The registered W verdict on B stands as registered.
+
+### What this changes, stated
+
+- The setback count is sensitive to infiltration in the direction the review expected and more than R4-B's interval
+  allowed: 31-54 of 88 at the nominal setting, 0-67 of 88 with R4-B's extreme corners.
+- Home A free-floating passes T's criterion post hoc, but no better than persistence on episodes of a few hours.
+- Home B's residual implies an aperture of 0.25 (0.21-0.29), inside R4-B's bracket at its end: at it, about half the
+  orientation witnesses, about 85 % of the temperature flags and all humidity flags survive, on both relations.
+- The daylight factor of 15 shrinks to about 2.5 with the comparison's named factors.
+- The sun at 0-5 deg is as accurate as above 5 deg; ERA5 matches Valencia airport within W's criterion, so B's W
+  failure is the house sensor's.
+
 ## Revision R6-C (Addendum 10): the engine against unmodified Home Assistant 2026.10.2
 
 **Post hoc** (after the third internal review, item 2), registered as protocol Addendum 10 before any comparison run
