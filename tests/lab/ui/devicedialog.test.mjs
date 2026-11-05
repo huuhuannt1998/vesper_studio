@@ -138,6 +138,30 @@ test("its connection and how far to trust it read as one line each", () => {
     "A Zigbee light on the living room's ceiling. It is off now.");
 });
 
+import { sparkPath } from "../../../vesper/lab/ui/devicedialog.js";
+
+const LUX_CARD = { ...CARD, name: "living_lux", category: "light_sensor", vendor: "Aqara", model: "GZCGQ01LM",
+  where: { room: "living", door: null, mount: "wall", position: [1, 2] }, operable: false, effect: null,
+  state: { illuminance: 312, battery: 90 }, readings: [[0, 40], [60, 120], [120, 312]],
+  thresholds: ["lights follow daylight to 300 lx", "dark below 50 lx (Lamp on when dark)"] };
+
+test("an illuminance sensor's dialog reads its light now, draws the session's readings and names its thresholds", () => {
+  const html = dialogHtml(LUX_CARD);
+  assert.match(html, /It reads 312 lx/);
+  assert.match(html, /<svg[^>]*class="spark"/);
+  assert.match(html, /40 to 312 lx this session/);
+  assert.match(html, /lights follow daylight to 300 lx/);
+  assert.match(html, /dark below 50 lx \(Lamp on when dark\)/);
+  assert.ok(!/class="spark"/.test(dialogHtml(CARD))); // a lock has no readings to draw
+  assert.match(dialogHtml({ ...LUX_CARD, readings: [], thresholds: [] }), /No automation compares it with a threshold/);
+});
+
+test("a sparkline spans its box, the lowest reading at the bottom and the highest at the top", () => {
+  assert.equal(sparkPath([[0, 0], [1, 10], [2, 5]], 100, 20), "M0.0 20.0 L50.0 0.0 L100.0 10.0");
+  assert.equal(sparkPath([[0, 7]], 100, 20), "M0.0 10.0 L100.0 10.0"); // one reading: a level line
+  assert.equal(sparkPath([], 100, 20), "");
+});
+
 test("the raw readings, entities, links and levels are kept, folded under Details", () => {
   const html = dialogHtml(CARD);
   const fold = html.indexOf("<details class=\"more\"");

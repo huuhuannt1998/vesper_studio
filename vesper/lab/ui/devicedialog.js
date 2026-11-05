@@ -90,6 +90,8 @@ function nowWords(c) {
     now = `It reads ${s.local_temperature} °C` + (num(s.occupied_heating_setpoint) ? `, set to ${s.occupied_heating_setpoint} °C` : "");
   } else if (num(s.temperature)) {
     now = `It reads ${s.temperature} °C` + (num(s.humidity) ? ` and ${s.humidity}% humidity` : "");
+  } else if (num(s.illuminance) || num(s.illuminance_lux)) {
+    now = `It reads ${Math.round(s.illuminance ?? s.illuminance_lux)} lx`;
   } else if ("smoke" in s) {
     now = s.smoke ? "It detects smoke now" : "No smoke now";
   } else if ("water_leak" in s) {
@@ -134,6 +136,33 @@ export function trustText(c) {
   return missing.length ? `${has} Not yet: ${missing.join(", ")}.` : has;
 }
 
+// A sparkline's SVG path for readings [[t, value], ...] in a w x h box: time across, the lowest value at the bottom
+// and the highest at the top; one reading is a level line across the middle.
+export function sparkPath(readings, w, h) {
+  if (!readings || !readings.length) return "";
+  const f = (v) => v.toFixed(1);
+  if (readings.length === 1) return `M0.0 ${f(h / 2)} L${f(w)} ${f(h / 2)}`;
+  const ts = readings.map((r) => r[0]), vs = readings.map((r) => r[1]);
+  const t0 = Math.min(...ts), t1 = Math.max(...ts), lo = Math.min(...vs), hi = Math.max(...vs);
+  const x = (t) => (t1 > t0 ? ((t - t0) / (t1 - t0)) * w : 0), y = (v) => (hi > lo ? h - ((v - lo) / (hi - lo)) * h : h / 2);
+  return readings.map(([t, v], k) => `${k ? "L" : "M"}${f(x(t))} ${f(y(v))}`).join(" ");
+}
+
+// An illuminance sensor's daylight section: the session's readings as a sparkline, and what the home's automations
+// compare it with (play-view environment design 2026-11-05, §3).
+function daylightHtml(c) {
+  const s = c.state || {};
+  if (!("illuminance" in s || "illuminance_lux" in s)) return ""; // not an illuminance sensor
+  const r = c.readings || [], vs = r.map((p) => p[1]);
+  const spark = r.length ? `<svg class="spark" viewBox="-2 -2 244 44" width="244" height="44" role="img"
+      aria-label="Its readings this session"><path d="${sparkPath(r, 240, 40)}"/></svg>
+    <p class="muted">${Math.round(Math.min(...vs))} to ${Math.round(Math.max(...vs))} lx this session</p>`
+    : `<p class="muted">No readings yet this session.</p>`;
+  const th = (c.thresholds || []).length ? `<ul class="autos">${c.thresholds.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>`
+    : `<p class="muted">No automation compares it with a threshold.</p>`;
+  return `<section><h3>Light</h3>${spark}<p class="sub">What the home's automations compare it with</p>${th}</section>`;
+}
+
 // `ctx`: {inReach, watching}; an action a hand cannot take now is shown disabled with why. As Room 334's: a plain
 // sentence first, the one action, a line each on its connection, Home Assistant and trust; every raw reading,
 // entity, link and level folded under Details.
@@ -171,6 +200,7 @@ export function dialogHtml(c, ctx = {}) {
   <div class="dlg-body">
     <p class="lede">${esc(summaryOf(c))}</p>
     ${actionHtml(c, action, ctx)}
+    ${daylightHtml(c)}
     <section><h3>Connection</h3><p>${esc(connectionText(c))}</p></section>
     <section><h3>In Home Assistant</h3><p>${ha}</p>
       ${autos.length ? `<p class="sub">Automations that use it</p><ul class="autos">${autos.join("")}</ul>` : ""}</section>
