@@ -740,3 +740,138 @@ Each run labels every automation by its index so that firings are attributed.
   Reported: how many night_light outcomes (run level) and automations survive with the context, and per lost one why:
   a companion turns that lamp off before 01:00 (same author entity, or a different one the binder put on the same home
   lamp: a binding collision, which would make the loss an artifact), the automation no longer turns it on, or other.
+
+## Addendum 10 (2026-11-05, post hoc, after the third internal review; before any comparison run in its environments)
+
+**Post hoc**: written after the third internal review (item 2: differentially test the automation engine against an
+unmodified, pinned Home Assistant) and before any comparison run in the four environments below. Nothing earlier
+changes: the published sweep (rung 4, 8fcd672, current binder, device reporting rule) stands, and this addendum's
+numbers are reported beside it. Code: `vesper/validation/ha_diff.py` (VESPER's side and the analysis) and
+`vesper/validation/ha_diff_driver.py` (Home Assistant's side; it imports nothing of VESPER). Results:
+`results/edt/r6c-ha-diff-<commit7>.json` (aggregates and anonymous sample indices only) and a section "Revision R6-C
+(Addendum 10)" of `results-edt.md`.
+
+**A10.0 What was seen before this addendum (disclosed).** The harness was built and shaken down on one environment
+that is not one of the four and is never reported: Phoenix, 2026-04-15, north 0 (rung 4, device rule), first on 40
+and then on all 263 automations of the sample (A10.2). The shakedown changed the harness three times: (1) the home's
+entity domains' own integrations (`light`, `switch`, `lock`, `climate`) are set up, so their services validate data
+with Home Assistant's own schemas (a stub accepted a `brightness_pct` of 120 that the real `light.turn_on` refuses);
+(2) a stub service asked for a response (`response_variable`) answers an empty one, not none; (3) the services that
+would end or reload the harness's Home Assistant (`homeassistant.restart`, `stop`, `reload_*`; `automation.reload`)
+are replaced by handlers that do nothing, so the call is recorded and the run goes on. The shakedown also showed, in
+that environment, discrepancies of the engine itself that this addendum's classes (A10.6) would call engine bugs
+(the `sun.sun` state is switched by a rule older than Home Assistant 2026.10.2's; a `kelvin` light parameter
+2026.10.2 refuses) and HA semantics VESPER lacks (`initial_state: off`; the 50-500 ms offset of time triggers). Their
+occurrence in the four environments is therefore a confirmation, not a discovery; it is still reported in full. Any
+change to the harness after the first run in the four environments is a deviation, dated and reported.
+
+**A10.1 Design.** Same inputs, two engines, one environment at a time.
+
+- *The inputs.* The environment's cached trace (`work-8fcd672/cache`, the device rule; never recorded again).
+  VESPER's engine runs once with no automation and writes down every entity state change it derives from the trace
+  (the reports through the home's MQTT discovery) and every entity's start state: the open-loop input stream, the
+  same whatever the automations do. Home Assistant receives exactly that stream (`hass.states.async_set` at the same
+  logical second) for every entity except `sun.sun`, which is Home Assistant's own `sun` integration at the
+  environment's site; an event entity's state is the time of its event, as Home Assistant's event entities have it.
+  So the comparison is of the automation engines (and of VESPER's emulation of the `sun` entity), given identical
+  entity states; VESPER's trace-to-state mapping is not under test.
+- *VESPER's side.* `vesper.edt.replay.replay_detailed`, the sweep's own replay, unchanged, with the sample in one
+  engine. Gate: for every (automation, environment) pair it must reproduce the published sweep's cached outcome
+  (`fired`, `first_tod_h`, `flaps`, `night_light`, `night_cover`) and richer outcome (first firing, instant count,
+  payload hash) exactly; a pair that does not is reported and excluded.
+- *Home Assistant's side.* Home Assistant 2026.10.2 (`.vesper/ha/venv`, astral 2.2, unmodified) in-process, set up
+  with its own bootstrap functions: the base functionality, the core integrations with the core config set to the
+  environment's latitude, longitude, elevation and time zone, `sun`, the home domains' integrations (A10.0 (1)) and
+  `automation` with its dependencies; the sample loaded as the sweep binds it (the bound YAML, unmodified but for the
+  `alias`, which is the replay's position label, as in VESPER's replay). The clock is virtual: the event loop's
+  `time()`, `time.time`, `dt_util.utcnow` and `dt_util.now` read one variable that only the driver moves, from the
+  trace's local midnight, to the next timer the loop holds or the next state change, so every timer fires at exactly
+  its scheduled instant. Home Assistant's random sub-second offset of time triggers is drawn from a seeded generator
+  (seed 20261105). Service calls are recorded by a subclass of Home Assistant's service registry and executed by
+  nothing that changes a state (the replay is open loop on both sides); a service no loaded integration provides is a
+  stub that does nothing. A call its service refuses (a schema error) is not a firing.
+- *Why not a container with a wall clock* (the review's wording): a trace spans three days; replaying it in real
+  time would take three days per environment, and a speeded-up wall clock is what Home Assistant's own tests replace
+  with exactly this kind of frozen, stepped clock. In-process, Home Assistant's own automation, trigger, condition,
+  template, script and `sun` code runs unmodified and deterministically. Port 8123 is never used; nothing listens on
+  any port.
+- *What is compared*, per (automation, environment), over the judged window (days 1 and 2, as the oracle judges): a
+  firing is one action call on one target, as VESPER's `Firing` (Home Assistant's `homeassistant.turn_on/off/toggle`
+  counts as the domain calls it makes, as VESPER records it; a call is attributed to the automation whose context
+  made it). Fired or not; the first firing's time, Δ = VESPER minus Home Assistant, in seconds; the set of (service,
+  target) pairs; the number of distinct firing instants; a light's requested brightness (0..255) where both engines
+  request one. The oracle's outcome (`vesper.edt.oracle.outcome`) is computed from each engine's firings.
+
+**A10.2 The sample.** Eligible: the automations that run at rung 4 with an outcome in every one of the four
+environments (5,926). Each is assigned to the first stratum whose rule it meets, in this order, and each stratum's
+size is drawn with seed 20261105 (`ha_diff.draw_sample`):
+
+| Stratum | Rule | Size |
+|---|---|---|
+| time_spread frame flags | `time_spread` among its frame divergences | all (8) |
+| frame flags | any frame divergence | 40 of 191 |
+| sun_offset | a sun trigger with a non-zero offset | 30 |
+| numeric_state | a numeric_state trigger | 30 |
+| time_pattern | a time_pattern trigger | 25 |
+| template | a template trigger, a template condition, a value_template | 30 |
+| for | a trigger `for:` | 30 |
+| choose | `choose` or `if` in the actions | 25 |
+| sun_other | another sun trigger, a state or numeric_state trigger on `sun.sun`, a sun condition | 25 |
+| other | none of the above | 20 |
+
+In the strata after the frame flags, three quarters of each draw come from automations VESPER fires in at least one
+of the four environments and one quarter from those it fires in none (a short side is filled from the other). Total
+263 automations, 1,052 (automation, environment) pairs: the denominators of everything below. Per-trigger-kind
+results count an automation under every feature it has (`ha_diff.features`), as well as by stratum.
+
+**A10.3 Environments.** Minneapolis 2026-01-14 north 0; Stockholm 2026-07-15 north 180 (59.3° N: the night has no
+astronomical dusk); Sydney 2026-01-14 north 0 (southern summer, daylight saving); Sydney 2026-07-15 north 180. January
+and July, both hemispheres, a high latitude; the first two are the sweep's best environment pair.
+
+**A10.4 Measures.**
+
+1. The firing-set symmetric difference: pairs where exactly one engine fires (VESPER only, Home Assistant only), and
+   the automations with at least one such pair; Home Assistant refusing to load an automation counts as not firing
+   and is its own row.
+2. The first-firing difference Δ over the pairs where both fire: its distribution (quantiles, the share within 1 s,
+   60 s, 3 h) per trigger-kind feature and per stratum.
+3. Payload agreement over the pairs where both fire: equal (service, target) sets; equal instant counts; equal
+   brightness where comparable (counts and shares).
+4. A pair is *discrepant* if exactly one fires, or |Δ| ≥ 1 s, or the call sets, the instant counts or the
+   brightness differ. A pair whose only difference is |Δ| < 1 s is counted apart (sub-second).
+
+**A10.5 The flags (the 199 frame flags, the 8 time_spread frame flags; the 790 clock flags beside them).**
+
+- (a) *Direct substitution* for the sampled flags (the 8 and the 40): Home Assistant's outcome and first firing in
+  place of VESPER's in each of the four environments, the sweep's in the other 44, the flag recomputed under both
+  relations exactly as the sweep computes it (envelope kinds static in every environment removed); a flag changes if
+  its set of kinds changes. Check: with VESPER's own outcomes the recomputation reproduces the sweep's flags.
+- (b) *Propagation* to every one of the 199 (and the 790): 1,000 Monte Carlo replicates (seed 20261105). For each
+  flag and each of its 48 environments, independently, one observed pair is drawn among the pairs with the same
+  VESPER firing status: if VESPER fires there and Home Assistant did not in the drawn pair, the environment's outcome
+  becomes not fired; if both fired, its first firing moves by -Δ; if VESPER does not fire there and Home Assistant
+  did in the drawn pair, the outcome becomes fired at a first time of day drawn from Home Assistant's observed ones
+  on such pairs. Envelope kinds are kept. Reported: the number of flags that change kinds (mean, 2.5 and 97.5
+  percentiles), and how many flags ever change. Primary: the pairs classified harness artifacts (A10.6) count as
+  agreeing; secondary: every pair as observed.
+- (c) *Margin*: how many flags have a time_spread decision that moving every first firing by at most m could change
+  (in some judged frame the spread lies within 2m of the 3 h tolerance), for m = the 99th percentile and the maximum
+  of |Δ| over the jointly firing, non-artifact pairs.
+
+**A10.6 Classes.** Every discrepant pair is classified by its root cause, read from both engines' calls and Home
+Assistant's log, into: *engine bug* (a construct VESPER's engine documents as supported with Home Assistant's
+semantics, run differently from 2026.10.2); *HA semantics VESPER lacks* (a construct VESPER accepts but does not model,
+or a documented approximation: an ignored key, permissive mode, Home Assistant's sub-second offsets); *harness
+artifact* (the harness, not either engine: a stub service's response or effect, an attribute the input stream does
+not carry); *unexplained*. Each class is reported with its pairs and automations and the rule used to assign it.
+
+**A10.7 Criterion (fixed now).** VESPER's engine agrees with Home Assistant on this sample if, with the pairs
+classified harness artifacts counted as agreeing: (1) the firing-set symmetric difference is at most 2 % of the
+pairs (at most 21 of 1,052); (2) at least 95 % of the jointly firing pairs have |Δ| < 60 s; (3) direct substitution
+changes none of the 8 time_spread flags, and the 97.5th percentile of changed frame flags in (b) is at most 5 % of
+199 (at most 9). Otherwise it fails and is reported as failing; the paper reports the published sweep and this
+analysis beside it.
+
+**A10.8 Engine bugs.** A real engine bug gets a failing test and a fix; the sweeps are not re-run. Reported for each:
+the run automations of the sweep that use the construct (a static count), and, as a secondary analysis, the
+comparison of A10.4 repeated with the fixed engine on the same sample and environments.
