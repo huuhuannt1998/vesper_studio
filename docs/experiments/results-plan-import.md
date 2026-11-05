@@ -2,7 +2,7 @@
 
 How well `vesper lab import <image>` reads a floor-plan image, measured against CubiCasa5K's annotations, with
 `vesper validate plans` (vesper/validation/plans.py, tests/validation/test_plans.py). THIS ROUND: 10 test plans
-(seed 0), the default model; the 50-plan run waits for the PI. With n = 10 every number below is an indication, not
+(seed 0), the default model; then 50 plans (section "Results (50 plans)"). With n = 10 every number below is an indication, not
 an estimate: one plan moves a share by 10 points, and the plans differ widely (6 to 38 rooms).
 
 ## Data
@@ -262,3 +262,38 @@ At this round's rates, 40 more readings take about 2.3 h of wall time (mean 209 
 extremes of 65 to 498 s) and about **$18 notional** (mean $0.44; $7 to $38 at the extremes), one plan at a time, on
 the default model. `vesper validate plans --n 50 --seed 0 --fetch` reuses these 10 readings (the sample of 10 is the
 start of the sample of 50) and fetches 80 more files (~10 MB) by range.
+
+## Results (50 plans, 2026-11-04)
+
+`vesper validate plans --dataset .vesper/datasets/cubicasa5k --n 50 --seed 0 --fetch` (code `26bd304`; the run
+record's `git_commit` reads `543a0bd` because the branch moved while it ran, the modules were loaded at `26bd304`).
+The sample of 10 is the start of the sample of 50, and its 10 readings were reused: they were made with the A5
+prompt (balconies as "other", no one-storey instruction); the other 40 are new readings with the A6 prompt. 2,051 s
+of wall time per 10 plans (mean 205 s a plan), $21.45 notional in all (mean $0.43). Result file (local, not
+committed: it names the dataset's plans): `.vesper/datasets/cubicasa5k/results-n50-seed0.json`.
+
+| Pooled over the plans | 10 (A5 prompt, reused) | 40 (A6 prompt) | all 50 |
+|---|---|---|---|
+| Rooms: F1 at IoU >= 0.5 (precision / recall) | 0.70 (0.78 / 0.63) | **0.79** (0.91 / 0.69) | 0.77 (0.88 / 0.68) |
+| Room types right, of the matched rooms | 71 % | **84 %** | 81 % |
+| Doors found (recall) | 48 % | **71 %** | 65 % |
+| Whole-home area error after scaling, median | 6 % | 4.4 % | 4.6 % |
+| Read plan passes check_house | 6 / 10 | 18 / 40 | 24 / 50 |
+| Read plan built, layout check with 0 errors | 6 / 10 | 9 / 40 | 15 / 50 |
+| True plan (the annotation) passes check_house | | | 12 / 50 |
+| True plan built, layout check with 0 errors | | | 10 / 50 |
+
+The reading is good and the new prompt reads better (F1 0.79, doors 71 %). **What fails is the step from a read plan
+to a home**, and the annotations fail it more often than the readings (12 vs 24 pass check_house), so most refusals
+are the import's rules, not the reading. Where the 34 read plans that do not build stop (16 build; 15 of them with 0 layout errors):
+
+| Stage | Plans | What |
+|---|---|---|
+| build | 8 | the generator refuses "the floor outside every room joins three rooms in one opening": three room polygons meet at a point a few centimetres short of each other, and the floor left between them is one gap into three rooms |
+| check_house: area | 10 | a room outside its type's plausible area: kitchenettes of 2.7-3.5 m², halls and corridors of 0.7-1.8 m², a 4.7 m² bedroom, a 64 m² open-plan living room, a 22 m² kitchen. These are real rooms; the ranges came from the generator |
+| check_house: entrance | 2 | the entrance opens into an outdoor room read as `balcony` (a third plan has it after an area problem; all three a Finnish *kuisti*, an entrance porch) |
+| check_house: reach | 5 | a room no door reaches (doors missed by the reading: recall 71 %) |
+| rectify | 9 | a door between rooms that do not touch (5), a door far from the shared wall (2), walls too far apart (1), a door wider than its wall (1) |
+
+(A plan with several problems is counted at its first.) Fixes follow in task A7: the three-room gap, areas as
+warnings unless the scale itself is implausible, and the entrance through an entrance porch.
