@@ -284,6 +284,7 @@ def test_a_roomplan_json_with_its_mesh_export_beside_is_drawn_by_it(tmp_path, ca
     assert cli.main(["lab", "import", str(tmp_path / "phone" / "room.json"), str(out), "--catalog", str(cat)]) == 0
     assert "3D view:" in capsys.readouterr().out
     assert_view_on_the_plan(out)
+    assert {p.name for p in (out / "source").iterdir()} == {"room.json", "room.usdz"}  # the view's source kept too
     cat2 = tmp_path / "alone"
     cat2.mkdir()
     write(cat2, fixture(), "room.json")  # a JSON alone: no geometry, VESPER draws the home, and nothing to say

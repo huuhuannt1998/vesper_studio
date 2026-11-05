@@ -297,7 +297,7 @@ def keep_source(home: Path, files: list[Path], model: Path | None = None) -> lis
     folder = home / "source"
     folder.mkdir()
     names = []
-    every = [*files, *(_companions(model) if model is not None else [])]
+    every = [*files, *([model, *_companions(model)] if model is not None else [])]
     for f in dict.fromkeys(Path(f).resolve() for f in every):
         base = Path(model).resolve().parent if model is not None else f.parent
         rel = f.relative_to(base) if f.is_relative_to(base) else Path(f.name)
