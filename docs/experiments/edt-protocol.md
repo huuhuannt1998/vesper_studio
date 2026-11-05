@@ -741,6 +741,121 @@ Each run labels every automation by its index so that firings are attributed.
   a companion turns that lamp off before 01:00 (same author entity, or a different one the binder put on the same home
   lamp: a binding collision, which would make the loss an artifact), the automation no longer turns it on, or other.
 
+## Addendum 9 (2026-11-05, post hoc, after the third internal review; before any of its runs)
+
+**Post hoc**: written after the third internal review asked for it (its items 3(a, b), 8(a-c), 9 and 16(a, b, e)) and
+after every result it revisits was seen (revision R4-B, the environment validation, the daylight audit), but before
+any run below. Nothing earlier changes; every number below is reported beside the earlier ones. Base: the rung-4 ERA5
+sweeps at `120f4ca` (the clock relation) and `8fcd672` (Addendum 6's frame relation), their homes and recorded
+weather (never fetched again), R2-c's setback population and R4-B's code paths. Script:
+`scripts/revision/r6b_physics.py`; results: `results/edt/r6b-<commit7>.json` (aggregates and anonymous indices only)
+and a section "Revision R6-B (Addendum 9)" of `results-edt.md`. No pass/fail criterion below is a new registered
+verdict; where a registered criterion is applied again it is labelled "would pass / would fail (post hoc)", and every
+registered verdict stands.
+
+**A9.1 Two new knobs, bit-identical at their defaults** (set only through `vesper.env.indoor.knobs`; the pinned
+fingerprint test is extended to cover them):
+
+- `ACH` (default 0.5, the model as built): the air changes per hour of every room's ventilation term 0.34 ACH V. It
+  was already a module constant; it becomes a named knob, so a trace recorded under another value is keyed by it.
+- `DIRECT_SHARE` (default 0.8): the coefficient of the beam share of horizontal irradiance, direct = DIRECT_SHARE x
+  (1 - cloud), in `vesper.env.sun.direct_fraction`. It sets the beam/diffuse split of both the solar heat and the
+  daylight (the outdoor illuminance itself is unchanged). It lives in `vesper.env.sun` and is set through the same
+  `indoor.knobs`.
+
+**A9.2 Item 8(a): infiltration in the setback corner budget (closed loop).**
+
+- The H breakdown of the standard home (the EDT home of `120f4ca`): per indoor room and in total, U A of the outside
+  walls, U A of the glass and 0.34 ACH V of the ventilation, in W/K and as shares of the total, at ACH 0.5 (and the
+  ventilation term at 0.3 and 1.0). Interior partitions move heat between rooms, not out of the house, and are
+  reported apart.
+- Runs: R2-c's 22 setback automations, each alone, closed loop, against the same setting's baseline, R2-c's causal
+  rule, exactly as A7.2. ACH in {0.3, 0.5, 1.0} at the nominal setting of everything else (gains 0, roof and ground
+  off, warm-up 1 day, 165 kJ/(m² K)), (a) over R2-c's four core environments (Minneapolis and Stockholm, 2026-01-14,
+  both orientations; denominator 22 x 4 = 88 runs) and (b) over all 48 environments (denominator 22 x 48 = 1,056
+  runs; here every environment is run, nothing is counted as no breach). Then (c) ACH x the R4-B worst corner
+  (G0-Fon-Wpss-C80, the unique worst over all 48) and best corner (G5-Foff-W1-C370), over the core (88 runs each).
+- Reported per setting: breaching runs over the denominator, caused cells, automations, per city, the coldest caused
+  room per run (min / median / max) and the baseline's coldest room. Check: ACH 0.5 at the nominal setting reproduces
+  R2-c's 53 breaching runs of 88 exactly, and over all 48 environments gives 53 of 1,056 if A7.2's "outside E no
+  breach" held at the nominal corner (reported either way).
+
+**A9.3 Item 8(b, c): home A free-floating.** Home A's check heats the standard room to the measured room's 10th
+percentile (the registered proxy). An hour h of one of A's eight rooms is **evidently free-floating** when its measured
+hourly mean is below the proxy setpoint minus 1 K and falling: T(h) < s - 1 K and T(h) < T(h - 1), both hours measured.
+An episode is a maximal run of consecutive such hours. Each episode is simulated without heating: the standard room,
+driven exactly as the registered check (A's measured outdoor temperature and humidity, ERA5's irradiance and cloud),
+starts the episode's first hour at the measured T(h0 - 1) and is stepped through the episode (600 s steps, hourly
+means). Reported per room and as the median over rooms (T's statistic): the free-float RMSE and the share of hours
+within 2 K over the pooled episode hours, with n hours and n episodes; beside them (i) persistence (T(h0 - 1) held
+through the episode) and (ii) the registered heated simulation on the same hours. Rooms with fewer than 24
+free-floating hours are reported but left out of the median. Sensitivity (secondary): the same with no 1 K margin
+(T(h) < s and falling). T's registered criterion (median RMSE <= 1.5 C, median within-2 C >= 0.7) is applied as
+"would pass / would fail (post hoc)". For home B, the difference is quantified: the share of the hours the check uses
+in which the registered simulation's heater runs, A against B, and the share of measured hours below the proxy.
+Item 8(c): which geometry each check drives is recorded from the code (`STANDARD_ROOM`).
+
+**A9.4 Item 3(a, b): the aperture factor implied by home B's residual.** Home B as the validation code loads it
+(`load_sml2010`, its proxy setpoints, ERA5 irradiance and cloud, measured outdoor air), the registered T simulation
+with SOLAR_APERTURE_SCALE = k on a grid k = 0, 0.01, ..., 2.00, both rooms. The mean bias b(k) (simulated minus
+measured) over the hours the check uses (both values present), pooled over the two rooms; **k̂ is the root of b(k)
+= 0**, by linear interpolation between grid points (per room as well). Uncertainty: 2,000 bootstrap resamples of B's
+local (Europe/Madrid) days with replacement (seed 20261105), k̂ recomputed from the same grid on each; the 2.5th and
+97.5th percentiles. If b(0) > 0, k̂ is "below 0, not attainable" and k = 0 is used below. Cross-check from published
+quantities: k̂_lin = 1 - b(1) H / Q̄, H the standard room's loss (W/K) and Q̄ its mean modelled solar gain over the
+same hours. Stated: whether R4-B's x0.25-x2 bracket contains k̂.
+
+- Then the open-loop propagation at k̂ (rounded to two decimals) with R4-B's aperture path (A7.3: the affected set,
+  every trace recorded afresh in a cache of its own, replayed with the sweep's worker). **Clock set** at `120f4ca`:
+  how many of the 129 orientation witnesses, the 128 temperature flags and the 37 humidity flags survive. **Frame set**
+  at `8fcd672` (reporting rule `device`, as that sweep): the same counts under the frame relation (`frame_divergences`,
+  with the first firings' instants from the replay), over that sweep's own affected set; the clock counts at
+  `8fcd672` too. Each commit's reference (aperture x1, recorded afresh with the current code) must reproduce that
+  sweep's published outcomes (and at `8fcd672` its frame flags) for the affected set exactly; reported. R4-B's own
+  path unpacked the worker's older six-field result; the new script reads the current seven fields (the seventh, the
+  richer outcome, carries the first firing instants the frame relation needs) and is otherwise R4-B's.
+- If time allows (stated either way): the same at the bootstrap interval's two ends, and R4-B's aperture points x0.25,
+  x0.5, x2 on the frame set.
+
+**A9.5 Item 16(e): the direct-share coefficient.** DIRECT_SHARE in {0.6, 0.95} (0.8 the reference), by the same
+open-loop path and on both sets as A9.4; reported as A9.4 (orientation witnesses, temperature and humidity flags kept,
+flags lost and gained, outcomes changed).
+
+**A9.6 Item 9: the daylight decomposition chain** (dataset B, check D's 240 hours: 10:00-16:00 local, measured
+irradiance >= 300 W/m²; descriptive, the registered D "fail" stands). Start: R0 = VESPER's median average daylight
+factor over D's 80 generated rooms / D's measured median (indoor over global horizontal illuminance). Each factor
+multiplies the model's side, and the residual model/measured is reported after each:
+
+1. *Global to diffuse under the measured sky.* A daylight factor is defined against the diffuse (sky) horizontal
+   illuminance; D divides by the global. Primary: the hourly diffuse fraction kd by Erbs et al. (1982) from the
+   clearness index kt = measured GHI / extraterrestrial horizontal irradiance at the hour's middle; the factor is the
+   median over D's hours of kd (the model's side is DF x kd hour by hour, then the median). Secondary: the model's own
+   kd = 1 - DIRECT_SHARE (1 - cloud), ERA5 cloud.
+2. *Point sensor against the work-plane room average.* For the standard validation room (4 x 4 m, 2.5 m high, one
+   1.2 x 1.2 m window, assumed sill 0.9 m, centred, work plane 0.85 m), the point daylight factor (sky component of the
+   window under a uniform sky by the configuration factor of the rectangle, plus BRE's split-flux internal reflected
+   component with R = 0.5 everywhere, no obstruction) at the room's centre and 0.5 m from the back wall, over the same
+   room's average daylight factor with no obstruction (theta = 90). Central: the centre; range: the back to the centre.
+3. *Framing and obstruction.* The BRE formula takes W as the glazed area: a frame factor 0.75 (range 0.7-0.8) on the
+   model's window opening, a maintenance factor 0.9 (0.9-0.96) for dirt, and a visible sky angle of 65 deg (60-80)
+   against the model's 80 deg; T = 0.68 itself kept. Central and range reported.
+
+Also: what remains after all three, and the arithmetic of 14.8 against 14.67 (where each comes from).
+
+**A9.7 Item 16(a): the sun at 0-5° elevation.** VESPER's sun (astral) against NREL SPA (pvlib), as the registered S,
+restricted to the minutes where SPA's apparent elevation is above 0 and at most 5 deg, every 1 min, for the six EDT
+cities on the three run days of the January environments (2026-01-14 to 16). Reported per city and pooled: n, mean
+and 95th percentile and max absolute elevation, azimuth and position error. S's registered 0.05 deg bound was set above
+5 deg; it is shown beside these as a reference, not applied.
+
+**A9.8 Item 16(b): ERA5 against the nearest official station for home B.** Only if a free source with no login and no
+captcha gives hourly station temperature for B's period (NOAA's ISD global-hourly CSV for Valencia airport, Manises,
+USAF 082840 WBAN 99999, is the candidate): fetched once, politely, cached under `~/vesper-lab/edt/r6-B/`, never
+committed. Station hours: the mean of the reports (quality code passed, temperature not missing) within each UTC hour
+[h, h + 1), the dataset's own resampling. On B's hours with all three values: bias and RMSE (and r) of ERA5 against the
+station, of the house sensor against the station, and of ERA5 against the house sensor (W's comparison, for the
+reproduction). Otherwise: "not available", stated.
+
 ## Addendum 10 (2026-11-05, post hoc, after the third internal review; before any comparison run in its environments)
 
 **Post hoc**: written after the third internal review (item 2: differentially test the automation engine against an
