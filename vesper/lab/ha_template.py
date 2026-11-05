@@ -16,7 +16,7 @@ is refused whole:
 Public templates are not trusted, so beyond Home Assistant's sandbox every template is bounded: jinja2 >= 3.1.6
 (else every template is refused), Jinja's safe_range, no constant folding at load, `*`, `**`, `%`, `+`, replace,
 join, sum, format, center, indent and zfill checked before they make a large value, a namespace value bounded, the
-output at most 64 KB, and half a second of wall-clock time per compile and per render (`budget`), which also
+output at most 64 KB, and half a second of CPU time per compile and per render (`budget`), which also
 interrupts a catastrophic regular expression; `attr` is not offered.
 A render records what it read (entities, domains, all states, the time), as Home Assistant's RenderInfo does, so a
 template trigger re-renders when one of them changes (all states at most once a minute, a domain once a second, the
@@ -43,7 +43,7 @@ STATE_FUNCTIONS = ("states", "is_state", "state_attr", "is_state_attr", "has_val
 TIME_NAMES = ("now", "utcnow", "today_at", "as_local", "timestamp_local", "timestamp_custom")
 # Bounds on untrusted templates (Home Assistant's own sandbox has none of these; a public automation is not trusted):
 JINJA_MIN = (3, 1, 6)  # the sandbox fixes below this version
-BUDGET_S = 0.5  # wall-clock per compile and per render
+BUDGET_S = 0.5  # CPU time per compile and per render (protocol A16.3)
 MAX_OUTPUT = 65536  # characters a render may produce
 MAX_SIZE = 65536  # characters or items one operation (*, %, +, replace, join, ...) may produce
 MAX_WIDTH = 1000  # a format width or padding
@@ -81,19 +81,26 @@ class TemplateTimeout(Exception):
 
 @contextmanager
 def budget(seconds: float, what: str, error: type[Exception] = TemplateTimeout, cooperative: bool = False):
-    """Raise `error` in the block after `seconds` of wall-clock time: by SIGALRM in the main thread (an alarm
-    already set, a sweep batch's, is restored afterwards, less the time spent) and, if `cooperative`, in any thread
-    by a trace function that checks the deadline on every line of Python the block runs (a render's own loops)."""
+    """Raise `error` in the block after `seconds`.
+
+    Not `cooperative` (a sweep batch's replay): `seconds` of wall-clock time, by SIGALRM in the main thread (an alarm
+    already set is restored afterwards, less the time spent).
+
+    `cooperative` (a template's compile or render): `seconds` of CPU time, so the outcome never depends on how loaded
+    the machine is (protocol A16.3: on wall-clock time a busy machine failed renders that an idle one finished). It is
+    enforced in any thread by a trace function that checks the thread's CPU time on every line of Python the block
+    runs, and in the main thread also by SIGVTALRM (process CPU time) for work that runs no Python line. Neither
+    touches the wall-clock alarm of an enclosing replay."""
     if cooperative:
-        deadline, outer_trace = time.monotonic() + seconds, sys.gettrace()
+        deadline, outer_trace = time.thread_time() + seconds, sys.gettrace()
 
         def tracer(frame, event, arg):
-            if time.monotonic() > deadline:
-                raise error(f"{what} took longer than {seconds:g} s")
+            if time.thread_time() > deadline:
+                raise error(f"{what} took longer than {seconds:g} s of CPU time")
             return tracer
         sys.settrace(tracer)
         try:
-            with budget(seconds, what, error):
+            with _cpu_alarm(seconds, what, error):
                 yield
         finally:
             sys.settrace(outer_trace)
@@ -114,6 +121,28 @@ def budget(seconds: float, what: str, error: type[Exception] = TemplateTimeout, 
         signal.signal(signal.SIGALRM, previous)
         if outer:
             signal.setitimer(signal.ITIMER_REAL, max(outer - (time.monotonic() - start), 1e-6), interval)
+
+
+@contextmanager
+def _cpu_alarm(seconds: float, what: str, error: type[Exception]):
+    """`error` after `seconds` of the process's CPU time (SIGVTALRM), in the main thread only; a virtual timer
+    already set is restored afterwards, less the CPU time spent."""
+    if threading.current_thread() is not threading.main_thread() or not hasattr(signal, "ITIMER_VIRTUAL"):
+        yield
+        return
+
+    def on_alarm(signum, frame):
+        raise error(f"{what} took longer than {seconds:g} s of CPU time")
+    start = time.process_time()
+    previous = signal.signal(signal.SIGVTALRM, on_alarm)
+    outer, interval = signal.setitimer(signal.ITIMER_VIRTUAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_VIRTUAL, 0)
+        signal.signal(signal.SIGVTALRM, previous)
+        if outer:
+            signal.setitimer(signal.ITIMER_VIRTUAL, max(outer - (time.process_time() - start), 1e-6), interval)
 
 
 def _too_big(what: str):

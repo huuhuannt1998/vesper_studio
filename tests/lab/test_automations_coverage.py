@@ -1039,3 +1039,17 @@ def test_a_climate_whose_mode_nothing_reports_is_optimistic_as_home_assistants_m
     assert e2._state[climate] == "off"
     s.clock.advance(1 * H)  # 08:00
     assert e2._state[climate] == "heat"
+
+
+def test_a_template_budget_is_cpu_time_so_a_loaded_machine_does_not_fail_a_render(monkeypatch):
+    """Protocol A16.3: a render on a loaded machine (wall-clock time racing ahead while the worker waits for a core)
+    must not fail. The template budget counts the thread's CPU time, not wall-clock time; a sweep's results do not
+    depend on the load it ran under."""
+    import itertools
+
+    from vesper.lab import ha_template
+    templates = hostile_templates()
+    compiled = templates.compile("{% set x = 1 %}{{ states('light.a') == 'on' and x == 1 }}", set(), {"light.a"}, "t")
+    wall = itertools.count(0.0, 10.0)  # every reading of the wall clock is 10 s after the last
+    monkeypatch.setattr(ha_template.time, "monotonic", lambda: next(wall))
+    assert templates.render(compiled, {})[0] == "True"
