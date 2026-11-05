@@ -745,22 +745,6 @@ def _clear(span: tuple[str, float, float, float], c: float) -> float:
     return max(span[2] - c, c - span[3], 0.0)
 
 
-def _away(span: tuple[str, float, float, float], stretch: tuple[float, float], c: float,
-          keep: float) -> tuple[str, float, float, float] | None:
-    """The opening moved along its stretch of wall, away from the point c, to leave `keep` of wall between them (and
-    END_M at the stretch's far end), narrowed when the stretch is too short; None when that leaves it narrower than
-    a door on the shortest wall that carries one."""
-    cls, off, lo, hi = span
-    width = hi - lo
-    if c <= (lo + hi) / 2:
-        lo = c + keep
-        hi = min(lo + width, stretch[1] - END_M)
-    else:
-        hi = c - keep
-        lo = max(hi - width, stretch[0] + END_M)
-    return (cls, off, lo, hi) if hi - lo >= NARROW_LEAST_M - 2 * END_M - 1e-9 else None
-
-
 def _span(q: Point, seg: Seg, width: float) -> tuple[str, float, float, float] | None:
     """An opening at q, `width` wide on an axis-aligned stretch: (class, offset, from, to) along the wall."""
     (a, b) = seg
@@ -1038,8 +1022,29 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
     # two doors on the two walls of one corner, one within CORNER_M of it and the other within twice that, would open
     # through the corner's wall into each other: one gap into three rooms. Each is moved along its wall to leave
     # CORNER_M of wall at the corner, narrowed (and said) only when its wall is too short for that; a door whose wall
-    # is too short even so stays, and the other leaves twice CORNER_M instead
-    for _ in range(MAX_PASSES):
+    # is too short even so stays, and the other leaves twice CORNER_M instead. A door keeps every corner it was moved
+    # from, so that one between two such corners is placed between both (or narrowed to fit), never moved to and fro
+    before = {k: (sp[2], sp[3]) for k, sp in spans.items()}
+    bounds = {k: [stretch[k][0] + END_M, stretch[k][1] - END_M] for k in spans}  # where each door may stand
+    kept: dict[int, dict[int, float]] = {}  # door -> {the door it keeps clear of: how much wall it leaves}
+
+    def bound(k: int, c: float, keep: float) -> list[float]:
+        lo, hi = bounds[k]
+        if c <= (spans[k][2] + spans[k][3]) / 2:
+            return [max(lo, c + keep), hi]
+        return [lo, min(hi, c - keep)]
+
+    def place(k: int) -> None:
+        cls, off, lo, hi = spans[k]
+        b0, b1 = bounds[k]
+        width = min(hi - lo, b1 - b0)
+        lo = min(max(lo, b0), b1 - width)
+        spans[k] = (cls, off, lo, lo + width)
+        doors[k]["width"] = round(width, 9)
+        doors[k]["at"] = rnd(((2 * lo + width) / 2, off) if cls == "h" else (off, (2 * lo + width) / 2))
+
+    least = NARROW_LEAST_M - 2 * END_M - 1e-9  # the narrowest door kept
+    for _ in range(len(spans) * len(spans) + 1):
         moved = False
         for i, j in itertools.combinations(sorted(spans), 2):
             if spans[i][0] == spans[j][0]:
@@ -1048,30 +1053,33 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
             clear = {k: _clear(spans[k], c) for k, c in at.items()}
             if not (min(clear.values()) < CORNER_M - 1e-9 and max(clear.values()) < 2 * CORNER_M - 1e-9):
                 continue
-            keep = CORNER_M
-            to = {k: _away(spans[k], stretch[k], at[k], keep) for k in at if clear[k] < CORNER_M - 1e-9}
-            stuck = [k for k, v in to.items() if v is None]
+            new = {k: (bound(k, at[k], CORNER_M), CORNER_M) for k in at if clear[k] < CORNER_M - 1e-9}
+            stuck = [k for k, (b, _) in new.items() if b[1] - b[0] < least]
             if len(stuck) == 1:
                 other = j if stuck[0] == i else i
-                keep = 2 * CORNER_M
-                to = {other: _away(spans[other], stretch[other], at[other], keep)}
-            if stuck and None in to.values():
+                new = {other: (bound(other, at[other], 2 * CORNER_M), 2 * CORNER_M)}
+            if stuck and any(b[1] - b[0] < least for b, _ in new.values()):
                 raise PlanError(f"{door_name(i, numbers)} and {door_name(j, numbers)[5:]} meet at a corner, with "
                                 f"too little wall to leave {CORNER_M:.2f} m of it at the corner: move one of them")
-            for k, span in to.items():
-                cls, off, lo, hi = span
-                width = spans[k][3] - spans[k][2]
-                if hi - lo < width - 1e-9:
-                    a, b = doors[k]["rooms"]
-                    say(f"{door_name(k, numbers)} between {named(a)} and {named(b)} ({width:.2f} m) meets "
-                        f"{door_name(j if k == i else i, numbers)} at a corner: narrowed to {hi - lo:.2f} m to leave "
-                        f"{keep:.2f} m of wall at the corner")
-                spans[k] = span
-                doors[k]["width"] = round(hi - lo, 9)
-                doors[k]["at"] = rnd(((lo + hi) / 2, off) if cls == "h" else (off, (lo + hi) / 2))
+            for k, (b, keep) in new.items():
+                bounds[k] = b
+                kept.setdefault(k, {})[j if k == i else i] = keep
+                place(k)
             moved = True
         if not moved:
             break
+    for k, partners in sorted(kept.items()):
+        width, now = before[k][1] - before[k][0], spans[k][3] - spans[k][2]
+        if now < width - 1e-9:
+            a, b = doors[k]["rooms"]
+            them = sorted(partners)
+            names = (door_name(them[0], numbers) if len(them) == 1 else
+                     f"doors {', '.join(door_name(m, numbers)[5:] for m in them[:-1])} and "
+                     f"{door_name(them[-1], numbers)[5:]}")
+            where = "the corner" if len(them) == 1 else "the corners"
+            say(f"{door_name(k, numbers)} between {named(a)} and {named(b)} ({width:.2f} m) meets {names} at "
+                f"{'a corner' if len(them) == 1 else 'corners'}: narrowed to {now:.2f} m to leave "
+                f"{max(partners.values()):.2f} m of wall at {where}")
 
     # a door between rooms that do not touch: left out when no room needs it to be reached from the entrance (with
     # no entrance, kept as it is: check_house says the entrance is missing, and this is decided once there is one)
