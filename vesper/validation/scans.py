@@ -379,7 +379,10 @@ def _claude_reading(src: Path, folder: Path, runner, model, timeout, offline: bo
     b3b = _b3b(folder, src)
     if b3b is not None:
         return b3b[0], "saved (B3b)", b3b[1]
-    if offline:
+    if offline:  # no Claude: but a model whose render is refused is refused offline too (it costs nothing)
+        from vesper.lab.scan_render import render_plan_view
+        with tempfile.TemporaryDirectory(prefix="vesper-scans-") as tmp:
+            render_plan_view(src, Path(tmp) / "render.png")
         raise NotRead
     scan, info = _read_with_claude(src, folder, runner, model, timeout)
     return scan, "new", info

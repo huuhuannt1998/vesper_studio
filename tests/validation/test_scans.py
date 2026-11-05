@@ -256,6 +256,15 @@ def test_offline_a_mesh_with_no_saved_reading_is_listed_not_read(tmp_path):
     assert result["rows"] == [] and result["not_read"] == ["box/claude"]
 
 
+
+def test_offline_a_mesh_whose_render_is_refused_is_refused_not_left_unread(tmp_path):
+    from tests.lab.test_scan_mesh import house, save
+    ds = mesh_dataset(tmp_path)
+    save(house(ceiling=False, doors=False, wall_h=1.0), ds / "box" / "house.glb")  # no ceiling, no door: no scale
+    [r] = scans.evaluate(ds, readers=("claude",), offline=True)["rows"]
+    assert r["reading"] == "render refused" and "scale looks wrong" in r["error"] and r["stage"] == "read"
+
+
 def test_a_b3b_reading_beside_its_render_is_used(tmp_path):
     """Task B3b kept Claude's plan (claude-plan.json, metres) and meta (claude-meta.json) per model: read as a saved
     reading, the model under them from the truth's file."""
