@@ -905,3 +905,133 @@ of 36-48 hours (minimum -13.6 to 0.9 C), 16 of them (3 repositories) let the roo
 nominal mass) in 53 of 1,056 runs, while no room of the same home without them falls below 15.6 C; with half the
 mass 63 of the 88 cold-January runs breach, with twice the mass 20 (Minneapolis only), with four times none. The
 rule and the climate set the direction; the thermal model sets how cold and how fast.
+
+## Revision R4-C (post hoc): binder audit on the flagged set, recall, dead rules, scope, reproducibility
+
+**Everything in this section is post hoc** (review 2, items 2, 8, 9 and 11), on the ERA5 rung-4 sweep at `120f4ca`; no
+sweep was re-run. The per-automation labels name corpus entities and stay outside the repository; only counts are
+here. Intervals: Wilson 95 % unless marked "repo bootstrap" (1,000 resamples of whole repositories, seed 0).
+Reproducibility facts and the referee's arithmetic are in `docs/experiments/edt-reproducibility.md`.
+
+### 1. The binder on the 179 sensor-driven flags (item 11)
+
+All 179 flagged automations that read temperature, humidity, illuminance or weather (`analysis-120f4ca.json`,
+`3_reconciliation.sensor_driven`) were labelled by hand from their YAML and entity names: is every bound role the role
+the author meant, in the medium and the room the author meant? "Correct by convention" is a room-less name, or a room
+the standard home lacks (a den, "upstairs", a cinema room), bound to the living room as A2.5 prescribes, with nothing
+in the automation placing it elsewhere; the verdicts follow the A2.5 audit's for the names both audits saw (one
+exception, below).
+
+| Verdict | Automations |
+|---|---|
+| correct (the name says role and room) | 75 |
+| correct by convention | 44 |
+| mis-bind | **51** |
+| uncertain (four bare board names, a redacted name, two "loft" sensors that may be an attic, a 12-18 C band that may be a cellar, a lux sensor that may be outdoors) | 9 |
+
+- **Binder precision per automation: 119 / 170 = 70.0 % [62.7, 76.4]** (uncertain excluded); 119 / 179 = 66.5 %
+  [59.3, 73.0] with the uncertain counted as wrong. This replaces A2.5's 87 % on 54 names as the precision of the
+  bindings that produce findings.
+- **Share of the sensor-driven flags attributable to a mis-bind: 51 / 179 = 28.5 % [22.4, 35.5]; repo bootstrap
+  [18.8, 39.2]** (33 of the 83 repositories behind these flags). Of all 797 flags, 51 (6.4 %).
+- **By class:**
+
+| Class | Automations | The flag is |
+|---|---|---|
+| a heated or closed enclosure read as a room (server room or closet, comms cupboard, rack, humidor, deep freezer, 3D-printer filament box, grow box) | 14 | an artefact |
+| indoor and outdoor swapped: a room sensor named `weather_<room>` or an Aqara `lumi.weather` sensor bound to the porch (7), an outdoor station or balcony sensor bound to a room (3) | 10 | an artefact |
+| water or a bath read as room air (hot tub, sauna, fermenting beer, heating water) | 5 | an artefact |
+| an unconditioned or semi-outdoor space read as the living room (attic, conservatory) | 3 | an artefact |
+| a derived value read as relative humidity ("excess humidity") | 1 | an artefact |
+| **wrong medium or quantity, together** | **33 (18.4 % [13.4, 24.8])** | |
+| right medium, wrong room: a room word the binder lacks in the entity's own name (French *salle de bain*, *ensuite*, *nursery*, *masterbedroom*, German *Bad*) | 5 | likely to survive (another room of the same home) |
+| right medium, wrong room: the room is named only in the alias or a companion entity (a bathroom fan's room-less humidity sensor, a study's sensor, a child's bedroom) | 13 | likely to survive |
+
+  By quantity (an automation can read several): temperature 32 of 128, humidity 16 of 37, illuminance 3 of 15,
+  weather 7 of 8 (the `weather_<room>` names). By flag kind: 47 of the 51 are `fires_somewhere_only`, 49
+  `time_spread`, 2 `night_light`.
+- **Two binder rules generate most of the artefacts:** a `weather` token sends a name to the porch even when the rest
+  of the name is a room (`weather_<room>`, Aqara's model id `lumi.weather`), and no rule recognises an enclosure
+  (server, comms, rack, humidor, freeze, filament box, grow box) as non-ambient.
+- **Against A2.5.** The A2.5 audit's pass 1 and pass 2 used the same frame (every ambient name bound in the first
+  10,000 de-duplicated automations in file order); pass 2 re-audited it after the fixes pass 1 prompted, so its
+  87 % is a within-sample figure after tuning, not an independent estimate. This audit is over automations, not names,
+  over the whole corpus. One label differs from A2.5: an office humidity sensor A2.5 called correct is, by its
+  automation (an alert above 30 % on a 3D printer's filament box), an enclosure.
+
+**Recall (a labelled sample of refusals).** The binder refused 3,617 of the 4,984 environment-coupled automations.
+A seeded sample of 100 (Python `random.sample` over the sorted hashes, seed 20261105) was labelled: did a correct
+binding to the standard home, as it is, exist? The 33 refusals whose reason could hide a miss (a name with no role, a
+Fahrenheit or non-ambient threshold, a semi-outdoor space, a collapse, a device step) were read in full; the 67
+refused by design (a helper or presence entity, an unmodelled domain, a cover, a scene) were checked entity by entity.
+
+| Label | Automations |
+|---|---|
+| a correct binding existed with the home's roles as they are (Danish *bevægelse* twice, German *Belegung*: motion words the binder lacks; an upper sentinel threshold of 100 beside a real 34 C one) | 4 |
+| one existed only with a value translation (three Fahrenheit thresholds, a door as a text sensor Closed/Open, two light groups) | 6 |
+| none existed | 90 |
+
+- **False-refusal rate: 4 % [1.6, 9.8] strict, 10 % [5.5, 17.4] with translations.**
+- **Recall estimate**, recall = TP / (TP + FN) with TP = 1,367 bound x precision and FN = 3,617 x false-refusal
+  rate, using the 70.0 % above as the precision of all bound environment-coupled automations (a proxy: those include
+  many sun-only automations whose bindings are lamps and motion sensors, so it is likely low): **0.87 strict
+  (0.71-0.95 over both intervals), 0.73 with translations (0.58-0.84)**.
+- **Disjoint from A2.5:** yes in units. 27 of the 100 lie in A2.5's 10,000-automation frame, but A2.5 audited bound
+  sensor names only and never a refused automation.
+
+### 2. The dead-rule audit (item 2)
+
+391 environment-coupled automations run and fire in no environment (`analysis-120f4ca.json`,
+`6_blind_spots.classes.fired_in_no_environment`). A seeded sample of 100 (seed 20261104; 70 repositories) was
+labelled by why it never fires, from its bound YAML and the range each bound sensor reports over the 48 judged
+windows:
+
+| Why it never fires | Automations |
+|---|---|
+| missing occupancy or presence: a motion, door, doorbell or lock event a resident makes | **55** [45.2, 64.4] |
+| a needed event never happens: a device state a resident or another rule sets (a lamp, plug or thermostat turned on or off by hand) 17, Home Assistant starting 3, a sensor coming back from unavailable 1 | **21** [14.2, 30.0] |
+| a binding or standard-home artefact: an outdoor, shed or unheated-room sensor bound indoors so its threshold is never crossed (6), a window sun sensor bound as room light, a Fahrenheit threshold inside a template, a text-state sensor bound as numeric humidity, a diagnostic sensor bound as motion (1 each); the home has no covers (1) or no cooling (2) | **13** [7.8, 21.0] |
+| a calendar condition outside the four swept dates (two once-a-year reminders, one weekend-only rule; all four dates are Wednesdays) | 3 |
+| **genuinely dead** | **6 [2.8, 12.5]** |
+| other: an empty action list, the only action disabled | 2 |
+
+Of the six genuinely dead rules, five cannot fire in any home as written (author errors: a numeric window above 75
+and below 10; a motion sensor required to go from state "22:30" to "06:30"; a template that yields "ture"; climate
+states "on", "cooling" and "heating", which a climate entity never takes), and one is a condition unsatisfiable at
+these six sites on these dates (sunrise minus 15 minutes after 08:30). None in the sample has a threshold that is
+unreachable for a correctly bound sensor, and no armed crossing is impossible except where a mis-bound sensor never
+crosses (counted as an artefact). Scaled to the 391: about 23 genuinely dead rules (11-49), about 215 waiting for a
+resident and 82 for an event, 51 artefacts.
+
+### 3. Scope (item 8)
+
+- **Covers.** 1,116 of the 43,280 automations command a cover (a cover service or a cover device action); 361 of
+  them are environment-coupled, 292 read the sun. The binder refused 648 automations naming a cover as its reason
+  (611 "the standard home has no cover in <room>", 37 cover device steps); 403 of these command a cover, 245 read
+  one. These are in the class "the standard home has no cover or climate in that room" (616) and the device-step
+  classes, **not** inside "an entity domain the standard home does not model (6,386)": the binder knows the cover
+  role, the home has no cover. 702 cover-commanding automations are refused first for another reason, 11 bind (their
+  cover command targets no cover entity: `all`, a template or a blueprint input), 4 of them run.
+- **Blueprints.** The referee's 165 is not the corpus's blueprint count: it is the blueprint *definitions* that bound
+  and were refused by the engine for their `blueprint:` key. The 43,280 hold **1,416 blueprint definitions** (3.3 %,
+  309 repositories): 794 refused for `!input`, 457 for another binder reason, 165 by the engine; none runs.
+  **Blueprint instances** (`use_blueprint`) are not automations to the corpus loader: 2,224 (2,216 distinct) in 263
+  repositories, none in the 43,280. So shared blueprints, definitions and instances, are outside the evaluable
+  population entirely.
+- **Aqara RTCGQ11LM illuminance.** Yes, it is motion-gated. zigbee-herdsman-converters 26.123.0 (the catalog's
+  source) handles its illuminance cluster with `lumi_illuminance`, whose comment reads "there is no illuminance
+  without movement" (issue Koenkk/zigbee-herdsman-converters#1925) and which publishes occupancy with every
+  illuminance report; otherwise the device's roughly hourly heartbeat (`genBasic` 0xFF01, key 11, read for this
+  model only) carries an illuminance value. The catalog record has the library-default reporting rule (illuminance
+  min 10 s, max 3600 s, any change), so the twin reports a free-running light level the real sensor would not send in
+  a home with no residents. **It affects all 67 run illuminance-reading automations**: every illuminance sensor of the
+  standard home is this product (`vesper/edt/home.py`, `PRODUCTS`). 25 of the 67 read illuminance in a trigger (12
+  flagged), whose first firing could move by up to the heartbeat interval; 42 only in a condition (3 flagged), which
+  would read a value up to an hour old.
+
+### 4. Arithmetic (item 9)
+
+3,590 is right (9,524 bound - 5,934 run; the refused-reason table sums to 3,591 because one automation carries two
+reasons); 42,031 per minute is over the 652.6 s environment phase and 36,768 over the 746 s wall; "Random 5" is
+65.1 % under minority exposure and 52.6 % under pair coverage, both from the same 100 draws. Details:
+`edt-reproducibility.md`.
