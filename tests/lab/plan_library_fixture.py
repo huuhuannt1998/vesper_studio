@@ -56,6 +56,8 @@ TWO_FLOORS = svg("".join([
     door(900, 345, 990, 355),
 ]))
 
+NO_ENTRANCE = ONE_FLOOR.replace(door(-5, 100, 5, 190), "")  # no front door: it reads, it does not build as drawn
+
 NO_FLOOR = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"><g class="Model"/></svg>'
 
 

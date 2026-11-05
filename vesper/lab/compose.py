@@ -752,7 +752,7 @@ class ComposeServer:
                     try:
                         return self._json(200, server.library().listing(
                             int(q.get("offset", 0)), int(q.get("limit", 24)), q.get("rooms"), q.get("floors"),
-                            q.get("q")))
+                            q.get("q"), q.get("every")))
                     except (LibraryError, ValueError) as e:  # int() of a word: a ValueError
                         return self._json(400, {"error": str(e)})
                 if lib := LIBRARY_PATH.match(u.path):

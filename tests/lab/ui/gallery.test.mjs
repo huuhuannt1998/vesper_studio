@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import {
   cardText, factsText, floorText, floorsBadge, galleryQuery, libraryScaleNote, listingText, matchesFilters,
-  parseHash, previewItems, ROOM_CHOICES, scaleText,
+  buildBadge, parseHash, previewItems, ROOM_CHOICES, scaleText,
 } from "../../../vesper/lab/ui/gallery.js";
 import { importNote } from "../../../vesper/lab/ui/compose.js";
 
@@ -31,11 +31,12 @@ test("3-4 rooms on one floor keeps only such plans", () => {
   const plans = [
     { id: "a/1", ok: true, rooms: 3, floors: 1 }, { id: "a/2", ok: true, rooms: 4, floors: 2 },
     { id: "a/3", ok: true, rooms: 5, floors: 1 }, { id: "a/4", ok: false, rooms: 3, floors: 1 },
-    { id: "b/40", ok: true, rooms: 4, floors: 1 }, { id: "a/5", ok: true, rooms: 2, floors: 1 }];
+    { id: "b/40", ok: true, rooms: 4, floors: 1 }, { id: "a/5", ok: true, rooms: 2, floors: 1 }]
+    .map((p) => ({ ...p, builds: p.ok }));
   const kept = plans.filter((p) => matchesFilters(p, { rooms: "3-4", floors: "1" })).map((p) => p.id);
   assert.deepEqual(kept, ["a/1", "b/40"]);
   assert.deepEqual(plans.filter((p) => matchesFilters(p, { rooms: "7-" })), []);
-  assert.ok(matchesFilters({ ...ITEM, rooms: 9 }, { rooms: "7-" }));
+  assert.ok(matchesFilters({ ...ITEM, builds: true, rooms: 9 }, { rooms: "7-" }));
   assert.deepEqual(plans.filter((p) => matchesFilters(p, { q: "B/4" })).map((p) => p.id), ["b/40"]);
 });
 
@@ -94,4 +95,21 @@ test("a plan taken from the library says it was built from its drawing, with no 
     "its own drawing: no Claude. Check them over the image: Generate home builds this plan as edited here.");
   assert.match(libraryScaleNote({ scale_source: "labels" }), /dimension labels: leave Scale empty/);
   assert.match(libraryScaleNote({ scale_source: "assumed 1 cm a unit" }), /1 px is taken as 1 cm/);
+});
+
+test("by default only plans VESPER builds as drawn are kept; 'every' keeps the others too", () => {
+  const plans = [{ id: "a/1", ok: true, builds: true, rooms: 3, floors: 1 },
+                 { id: "a/2", ok: true, builds: false, rooms: 3, floors: 1 },
+                 { id: "a/3", ok: false, builds: false, rooms: 3, floors: 1 }];
+  assert.deepEqual(plans.filter((p) => matchesFilters(p, {})).map((p) => p.id), ["a/1"]);
+  assert.deepEqual(plans.filter((p) => matchesFilters(p, { every: true })).map((p) => p.id), ["a/1", "a/2"]);
+  assert.equal(galleryQuery({ every: true }), "/api/plan-library?offset=0&limit=24&every=1");
+  assert.equal(buildBadge(plans[0]), "");
+  assert.equal(buildBadge(plans[1]), "Needs Claude's reading");
+});
+
+test("the count says how many plans are hidden for needing Claude, until they are included", () => {
+  const got = { state: "ready", total: 40, unreadable: 0, not_as_drawn: 110 };
+  assert.match(listingText(got), /110 more plans VESPER cannot build as drawn .* are hidden: tick Include plans/);
+  assert.doesNotMatch(listingText({ ...got, every: true }), /hidden/);
 });

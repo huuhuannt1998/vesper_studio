@@ -29,7 +29,7 @@ def test_the_index_records_each_plan_s_rooms_floors_area_and_whether_it_reads(li
     rows = {r["id"]: r for r in lib._rows}
     one, two, bad = rows["hq/1"], rows["hq/2"], rows["colorful/7"]
     assert one == {"id": "hq/1", "group": "hq", "size": [1200, 800], "rooms": 3, "spaces": 6, "floors": 1,
-                   "area_m2": pytest.approx(58.75, abs=0.05), "scale": "labels", "ok": True}
+                   "area_m2": pytest.approx(58.75, abs=0.05), "scale": "labels", "ok": True, "builds": True}
     # two floors: counted on the floor the home is built from, the one with the front door
     assert (two["rooms"], two["spaces"], two["floors"], two["scale"]) == (2, 3, 2, "assumed")
     assert two["area_m2"] == pytest.approx(38.25, abs=0.05)
@@ -71,7 +71,7 @@ def test_the_listing_filters_by_rooms_floors_and_id_and_never_lists_an_unreadabl
 
 
 def test_the_filters_match_rooms_as_a_listing_counts_them():
-    row = {"id": "hq/9", "ok": True, "rooms": 7, "floors": 1}
+    row = {"id": "hq/9", "ok": True, "builds": True, "rooms": 7, "floors": 1}
     assert pl.matches(row, pl.filters("7-")) and not pl.matches(row, pl.filters("5-6"))
     assert pl.matches(row, pl.filters("", "1", "9")) and not pl.matches(row, pl.filters(q="hq 8"))
     assert not pl.matches({**row, "ok": False}, pl.filters())
@@ -325,3 +325,36 @@ def test_the_gallery_s_room_filters_are_the_server_s():
     js = (UI_DIR / "gallery.js").read_text()
     choices = re.search(r"export const ROOM_CHOICES = \[(.*?)\];", js, re.S).group(1)
     assert [v for v in re.findall(r'\["([^"]*)",', choices) if v] == list(pl.ROOMS)
+
+
+def test_the_index_says_whether_vesper_builds_a_plan_as_drawn_and_lists_only_those_unless_asked(tmp_path):
+    """Most plans read but do not build as drawn (a room no door reaches): the gallery shows by default only the plans
+    Use this plan builds, so a user is not sent from card to card; asked, it lists the rest for Claude's reading."""
+    from tests.lab.plan_library_fixture import NO_ENTRANCE
+    write_library(tmp_path / "datasets", {"hq/4": NO_ENTRANCE})
+    lib = pl.PlanLibrary(tmp_path / "datasets", cache=tmp_path / "cache", thumbnailer=lambda src, dest: False)
+    assert lib.wait() == "ready"
+    rows = {r["id"]: r for r in lib._rows}
+    assert rows["hq/1"]["builds"] is True and rows["hq/2"]["builds"] is True
+    four = rows["hq/4"]
+    assert four["ok"] is True and four["builds"] is False and four["problem"]  # why, for the card
+    assert rows["colorful/7"]["builds"] is False
+    shown = lib.listing()
+    assert [i["id"] for i in shown["items"]] == ["hq/1", "hq/2"] and shown["not_as_drawn"] == 1
+    assert [i["id"] for i in lib.listing(every="1")["items"]] == ["hq/1", "hq/2", "hq/4"]
+    with pytest.raises(pl.LibraryError):
+        lib.listing(every="yes")
+
+
+def test_an_index_without_the_build_check_is_built_again(tmp_path):
+    write_library(tmp_path / "datasets")
+    first = pl.PlanLibrary(tmp_path / "datasets", cache=tmp_path / "cache")
+    first.wait()
+    index = first.place / "index.json"
+    data = json.loads(index.read_text())
+    data["version"] = 3
+    for r in data["plans"]:
+        r.pop("builds", None)
+    index.write_text(json.dumps(data))
+    again = pl.PlanLibrary(tmp_path / "datasets", cache=tmp_path / "cache")
+    assert again.wait() == "ready" and again.seconds is not None and all("builds" in r for r in again._rows)

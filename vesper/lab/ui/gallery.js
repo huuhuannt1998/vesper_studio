@@ -14,11 +14,12 @@ export const LICENCE_NOTE = "The plans are CubiCasa5K's (Kalervo et al., 2019), 
 const plural = (n, one, many = `${one}s`) => `${n.toLocaleString("en")} ${n === 1 ? one : many}`;
 
 // The listing's address for a page of plans: only the filters that are set.
-export function galleryQuery({ rooms = "", floors = "", q = "" } = {}, offset = 0, limit = PAGE) {
+export function galleryQuery({ rooms = "", floors = "", q = "", every = false } = {}, offset = 0, limit = PAGE) {
   const p = new URLSearchParams({ offset: String(offset), limit: String(limit) });
   if (rooms) p.set("rooms", rooms);
   if (floors) p.set("floors", floors);
   if (q.trim()) p.set("q", q.trim());
+  if (every) p.set("every", "1");
   return `/api/plan-library?${p}`;
 }
 
@@ -32,9 +33,15 @@ export function floorsBadge(item) {
   return item.floors > 1 ? `${item.floors} floors` : "";
 }
 
-// The same filter the server applies (vesper.lab.plan_library.matches), for a page that keeps what it has shown.
-export function matchesFilters(item, { rooms = "", floors = "", q = "" } = {}) {
-  if (!item.ok) return false;
+// The card's badge for a plan VESPER does not build as drawn (shown only when the gallery lists those too).
+export function buildBadge(item) {
+  return item.ok && !item.builds ? "Needs Claude's reading" : "";
+}
+
+// The same filter the server applies (vesper.lab.plan_library.matches), for a page that keeps what it has shown:
+// only the plans VESPER builds as drawn, unless `every`.
+export function matchesFilters(item, { rooms = "", floors = "", q = "", every = false } = {}) {
+  if (!item.ok || !(item.builds || every)) return false;
   if (rooms) {
     const [lo, hi] = rooms.split("-").map((v) => (v === "" ? Infinity : Number(v)));
     if (item.rooms < lo || item.rooms > hi) return false;
@@ -59,8 +66,11 @@ export function listingText(listing, filtered = false) {
   }
   const left = listing.unreadable ? ` ${plural(listing.unreadable, "plan")} whose drawing VESPER cannot read ` +
     `(a room outline that crosses itself, no rooms) ${listing.unreadable === 1 ? "is" : "are"} left out.` : "";
+  const more = listing.not_as_drawn ? ` ${plural(listing.not_as_drawn, "more plan")} VESPER cannot build as drawn ` +
+    `(no front door, a room no door reaches) ${listing.not_as_drawn === 1 ? "is" : "are"} hidden: tick ` +
+    "Include plans that need Claude to see them." : "";
   return (total ? `${shown}.` : filtered ? "No plan matches: widen the filters." : "The library holds no plans.") +
-    left;
+    (listing.every ? "" : more) + left;
 }
 
 // The preview's scale line: from the plan's dimension labels, or assumed.
@@ -121,7 +131,7 @@ export function parseHash(hash) {
 // `onRead(file)` sends the plan's image to Claude's reading. Returns {open(filters, planId)}.
 export function mountGallery({ $, el, api, overlay, onUse, onRead }) {
   const dialog = $("library");
-  const filters = { rooms: "", floors: "", q: "" };
+  const filters = { rooms: "", floors: "", q: "", every: false };
   let shown = 0, total = 0, state = "", loading = false, seq = 0, poll = 0, current = null;
 
   const fill = (select, choices) => select.replaceChildren(...choices.map(([value, text]) =>
@@ -132,7 +142,7 @@ export function mountGallery({ $, el, api, overlay, onUse, onRead }) {
   $("library-note").textContent = LICENCE_NOTE;
 
   function card(item) {
-    const badge = floorsBadge(item);
+    const badge = [floorsBadge(item), buildBadge(item)].filter(Boolean).join(" · ");
     const button = el("button", { type: "button", className: "plan-card", "data-id": item.id,
                                   "aria-label": `Plan ${item.id}: ${cardText(item)}${badge ? `, ${badge}` : ""}` },
       el("img", { src: `/api/plan-library/thumb/${item.id}`, alt: "", loading: "lazy", decoding: "async",
@@ -155,7 +165,7 @@ export function mountGallery({ $, el, api, overlay, onUse, onRead }) {
       state = got.state;
       total = got.total;
       const filtered = Boolean(filters.rooms || filters.floors || filters.q.trim());
-      $("library-count").textContent = listingText(got, filtered);
+      $("library-count").textContent = listingText({ ...got, every: filters.every }, filtered);
       $("library-grid").append(...got.items.map(card));
       shown += got.items.length;
       clearTimeout(poll);
@@ -190,6 +200,7 @@ export function mountGallery({ $, el, api, overlay, onUse, onRead }) {
   let typing = 0;
   $("library-rooms").onchange = (e) => { filters.rooms = e.target.value; load(true); };
   $("library-floors").onchange = (e) => { filters.floors = e.target.value; load(true); };
+  $("library-every").onchange = (e) => { filters.every = e.target.checked; load(true); };
   $("library-q").oninput = (e) => {
     filters.q = e.target.value;
     clearTimeout(typing);

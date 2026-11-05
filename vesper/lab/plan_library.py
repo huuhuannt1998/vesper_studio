@@ -37,7 +37,7 @@ LICENCE = "CC BY-NC-SA 4.0"
 # the archive's Zenodo record, as vesper.validation.plans fetches it (kept here so setup needs no numpy; a test keeps
 # the two equal)
 SOURCE_URL = "https://zenodo.org/records/2613548/files/cubicasa5k.zip?download=1"
-INDEX_VERSION = 3  # bumped when an index row changes meaning: an old cache is rebuilt
+INDEX_VERSION = 4  # bumped when an index row changes meaning (4: whether VESPER builds it as drawn); old caches rebuild
 THUMB_WIDTH = 320
 PAGE = 24
 PAGE_MAX = 96
@@ -159,10 +159,12 @@ def read_truth(root: Path, pid: str) -> dict:
 def index_row(root: Path, pid: str) -> dict:
     """What the gallery shows and filters a plan by: {id, group, size [w, h], rooms (as a listing counts them, on the
     floor built), spaces (every space drawn on it), floors, area_m2 (indoors, on the floor built), scale ("labels" or
-    "assumed"), ok (its ground truth is a plan VESPER reads)} and, when not ok, why."""
+    "assumed"), ok (its ground truth is a plan VESPER reads), builds (Use this plan builds it: compose's
+    import_check finds no problem; most plans that read do not, a room no door reaches the commonest reason) and
+    problem (the first that stops it)} and, when not ok, why."""
     from vesper.lab.plan import PlanError, load_plan
     row = {"id": pid, "group": pid.split("/", 1)[0], "size": None, "rooms": 0, "spaces": 0, "floors": 0,
-           "area_m2": 0.0, "scale": None, "ok": False}
+           "area_m2": 0.0, "scale": None, "ok": False, "builds": False}
     try:
         row["size"] = png_size(Path(root) / pid / IMAGE)
         truth = read_truth(root, pid)
@@ -176,6 +178,11 @@ def index_row(root: Path, pid: str) -> dict:
                    scale="assumed" if truth["scale_source"] == ASSUMED else "labels")
         load_plan(plan)
         row["ok"] = True
+        from vesper.lab.compose import import_check  # here: compose imports this module
+        problems = import_check(plan, floors_drawn=truth["floors"], drawn=True)["problems"]
+        row["builds"] = not problems
+        if problems:
+            row["problem"] = str(problems[0])[:300]
     except (PlanError, ValueError, KeyError, IndexError, OSError, StopIteration) as e:  # an ElementTree ParseError
         row["error"] = f"{type(e).__name__}: {e}"[:300]  # is a SyntaxError: caught below
     except SyntaxError as e:
@@ -184,19 +191,24 @@ def index_row(root: Path, pid: str) -> dict:
 
 
 # -- the gallery's filters ---------------------------------------------------------------------------------------------
-def filters(rooms: str | None = None, floors: str | None = None, q: str | None = None) -> dict:
+def filters(rooms: str | None = None, floors: str | None = None, q: str | None = None,
+            every: str | None = None) -> dict:
     """The gallery's query as a filter: rooms one of ROOMS' keys (empty: any), floors "1" (one floor) or empty (any),
-    q words found in the plan's id. LibraryError for a filter it does not know."""
-    rooms, floors = (rooms or "").strip(), (floors or "").strip()
+    q words found in the plan's id, every "1" (the plans VESPER does not build as drawn too) or empty (only those it
+    builds). LibraryError for a filter it does not know."""
+    rooms, floors, every = (rooms or "").strip(), (floors or "").strip(), (every or "").strip()
+    if every not in ("", "1"):
+        raise LibraryError("every: 1 (the plans VESPER does not build as drawn too) or empty for only those it builds")
     if rooms and rooms not in ROOMS:
         raise LibraryError(f"rooms: one of {', '.join(ROOMS)}, or empty for any")
     if floors not in ("", "1"):
         raise LibraryError("floors: 1 (one floor) or empty for any")
-    return {"rooms": ROOMS.get(rooms), "one_floor": floors == "1", "words": (q or "").lower().split()[:8]}
+    return {"rooms": ROOMS.get(rooms), "one_floor": floors == "1", "words": (q or "").lower().split()[:8],
+            "every": every == "1"}
 
 
 def matches(row: dict, f: dict) -> bool:
-    if not row.get("ok"):
+    if not row.get("ok") or not (row.get("builds") or f.get("every")):
         return False
     if f["rooms"]:
         lo, hi = f["rooms"]
@@ -343,11 +355,12 @@ class PlanLibrary:
 
     # -- what the gallery asks --------------------------------------------------------------------------------
     def listing(self, offset: int = 0, limit: int = PAGE, rooms: str | None = None, floors: str | None = None,
-                q: str | None = None) -> dict:
+                q: str | None = None, every: str | None = None) -> dict:
         """{state: absent | indexing | ready | failed, progress {done, total}, total (plans matching), items (this
-        page of them), unreadable (plans whose ground truth VESPER cannot read: never listed), folder (the configured
-        path), licence, error}. Starts the index."""
-        f = filters(rooms, floors, q)
+        page of them), unreadable (plans whose ground truth VESPER cannot read: never listed), not_as_drawn (plans it
+        reads but does not build as drawn: listed only with every), folder (the configured path), licence, error}.
+        Starts the index."""
+        f = filters(rooms, floors, q, every)
         offset, limit = max(int(offset), 0), min(max(int(limit), 1), PAGE_MAX)
         self.ensure()
         with self._lock:
@@ -355,6 +368,7 @@ class PlanLibrary:
         found = [r for r in rows if matches(r, f)]
         return {"state": state, "progress": {"done": len(rows), "total": total}, "total": len(found),
                 "items": found[offset:offset + limit], "unreadable": sum(not r["ok"] for r in rows),
+                "not_as_drawn": sum(r["ok"] and not r.get("builds") for r in rows),
                 "folder": self.folder, "licence": LICENCE, "error": error}
 
     def row(self, pid: str) -> dict | None:

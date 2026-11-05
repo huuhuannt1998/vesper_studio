@@ -307,6 +307,8 @@
         <div class="library-filters">
           <label>Rooms <select id="library-rooms" autofocus aria-describedby="library-rooms-note"></select></label>
           <label>Floors <select id="library-floors"></select></label>
+          <label title="Plans with no front door or a room no door reaches: Claude reads their image instead">
+            <input id="library-every" type="checkbox"> Include plans that need Claude</label>
           <input id="library-q" type="search" placeholder="Plan id, like 1245" aria-label="Search by plan id"
                  autocomplete="off">
         </div>
