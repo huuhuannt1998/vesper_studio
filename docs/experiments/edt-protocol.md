@@ -2547,6 +2547,118 @@ a magnitude: it does not move the beam's direction, its timing or which room it 
 one number for every room and hour (check D's residual is a median over 240 hours of one dataset); A21.4's sensor
 rule is the catalog default, as in R7-B.
 
+## Addendum 22 (2026-11-05, post hoc: written after the eighth internal review, before its runs)
+
+**Post hoc**: written after the eighth internal review asked for these analyses (its items 2(a), 3, 5(a), 5(b) and 9)
+and after every number they revisit was seen (A12.5's and A17.5's binder discount, R4-A's 709 and 8 time spreads,
+the funnel's assumption-free rows, R4-A's dead-rule table, R4-C's scope counts, A21.2's operating points), but before
+any number below is computed. Nothing earlier changes and every earlier number stands; what follows is reported beside
+it. A change made after a computation is dated at the end of this addendum and called a deviation. Review 8's item
+numbers are in brackets. **No trace is recorded and no sweep is run**: every analysis re-reads saved outcomes, saved
+labels or printed counts. Script: `scripts/revision/r11p1.py` (tests first, `tests/edt/test_r11p1.py`); results:
+`results/edt/r11p1-<commit7>.json` (aggregates and anonymous indices only: no automation text, alias, entity name,
+assumption string, repository or hash) and a section "Revision R11-P1 (Addendum 22)" of `results-edt.md`. One
+process, under nice. Scratch: `~/vesper-lab/edt/r11-P1/` (local). The sweep is `8fcd672` ($S_6$; its rung-4 file).
+No pass/fail criterion is registered here; every analysis is descriptive, and each has a reproduction check that must
+hold before its numbers are used (a failed check is stated, and its cause found, first).
+
+**A22.1 The binder discount's arithmetic [2(a)].** A12.5's `r7a_analyses.binder_discount` and A17.5's
+`r8x_analyses.sunloc_report`, re-run on their own inputs (the sweep, R4-C's `labels-flagged.tsv`, A17.5's
+`labels-sunloc.tsv`), and the formula printed with its terms filled in.
+
+- *The rule as coded* (A12.5's primary): D = O + (c - m) + u x (1 - m / c), where O is the frame flags that declare no
+  sensed frame (not discounted), c the sensed-frame flags R4-C's labels cover, m those labelled `misbind`, and u the
+  sensed-frame flags no label covers. **An `uncertain` label counts as not a mis-bind, at full weight (weight 1 as a
+  kept flag, 0 as a mis-bind)**; `correct` and `correct_conv` likewise. A17.5's extension: D_ext = D - s, where s is
+  the sun-reading frame flags outside the sensed-frame set labelled `mislocated`.
+- *Printed:* O, c, m, u, the uncertain count among the c, s; the one-line formula with these numbers; D and D_ext to
+  4 decimals. *Check:* D must round to 158.5 and D_ext to 144.5; if either does not, the correct value is stated.
+- *The review's readings, computed beside it* (so the source of the difference is visible): R4-C's whole label set
+  (179 binder cases; correct, correct_conv, misbind, uncertain counts) applied to the sensed-frame flags as (i) the
+  precision over decided labels, O + n_s x correct/decided; (ii) the mis-bind share over all labels, O + n_s x (1 -
+  misbind/179); and A12.5's rule with the uncertain labels at weights 0, 0.5 and 1 as mis-binds. Which population the
+  labels are drawn from (the 179 R4-C cases vs the c of them that are sensed-frame frame flags) is stated, with the
+  mis-bind share in each.
+
+**A22.2 The 2 x 2 attribution of the time spread [3].**
+
+- *Two knobs* on `vesper.edt.oracle.frame_invariance` and `frame_divergences` (and passed through
+  `frame_restricted_divergences`), both default True, bit-identical at the default (tests first, including a test that
+  the defaults reproduce the stored `frame_divergences` of every run automation of $S_6$, done in the run as a check):
+  - `sun_normalise`: when False, the sun frame is judged as the clock frame is (the first firings' local times of day,
+    spread within h = 3 h), whether or not it names a computable reference; when True, as published (minutes from the
+    nearest reference; no reference: invariant).
+  - `sensed_exempt`: when False, the sensed frame is judged as the clock frame is; when True, as published (invariant).
+    It cannot be combined with `sensed_crossing` (an error), which replaces the exemption by another judgement.
+  - With both False every frame is judged by the same clock spread, so `time_spread` holds iff the clock relation's
+    does (a test asserts this for any frame set).
+- *Population:* the 5,926 run automations of $S_6$. The static envelope kinds are removed as the sweep removes them.
+- *Reported, per cell* (clock only = both False; sun normalisation only; exemption only; published = both True): the
+  automations with `time_spread`, and the frame flags of any kind; each broken down by the declared frame set (none,
+  clock, sun, sensed and their mixtures). *Checks:* the clock-only cell must give the clock relation's 709 time spreads
+  and 790 flags; the published cell 8 and 199.
+- *The attribution:* the reduction 709 - 8 split as (a) by sun normalisation alone (clock only minus sun only), (b) by
+  the exemption alone (clock only minus exemption only) and (c) the interaction (the rest, a + b + c = 701); and the
+  same for the flag counts. Beside it, how many of the 199 declare a frame the exemption covers (the review's 148).
+
+**A22.3 The gate-open assumption [5(a)].**
+
+- *Population:* the 5,926 run automations of $S_6$; "with an assumption" = a non-empty `assumptions` list (A2.1, the
+  helper and presence gates the binder removed).
+- *Reported:* run automations, frame flags and clock flags, over all and over the assumption-free, with each flag
+  rate's Wilson 95 % interval; the flags with an assumption, by kind. *Check:* the review's 199 -> 155 and 790 -> 641;
+  if they do not hold, the counts found are stated.
+- *Classifying the affected frame flags by the deleted guard* (mechanical; the strings are read locally, only counts
+  are committed). Each assumption names a helper or presence entity; its entity is classified, in this order:
+  1. **presence**: domain `person`, `device_tracker` or `zone`, or a required state `home`, `not_home` or `away`;
+  2. **environmental, physical**: an object-id token (split on non-letters, lower case) in {temp, temperature,
+     temperatur, heat, heating, heizung, cool, cooling, frost, freeze, freezing, cold, hot, warm, humid, humidity,
+     feucht, feuchte, lux, illuminance, bright, brightness, hell, dark, darkness, dunkel, donker, sun, sunny, sonne,
+     zon, daylight, weather, wetter, rain, raining, regen, wind, windy, storm, snow};
+  3. **environmental, time of day or season**: a token in {night, nacht, day, daytime, evening, morning, dawn, dusk,
+     winter, summer, sommer, season, seasonal};
+  4. **other** (a mode, a schedule, a guest or maintenance switch, ...).
+  A flag's class is "environmental" if any of its guards is class 2 or 3 (reported for 2 alone too), else "presence"
+  if any is 1, else "other". Reported: the flags in each class, the guards in each class, how many guards are
+  `numeric_state` ranges (an `input_number` interval) and how many flags have several guards. *Secondary:* the
+  lane reads the distinct guard names of the affected frame flags by hand (one rater, local only) and reports how many
+  it would class differently from the lexicon, without changing the primary count.
+
+**A22.4 The occupancy exclusion, bounded by arithmetic [5(b)].** Only counts already printed are used; each is
+re-read from `8fcd672`'s saved sweep or summary where it exists there, and a mismatch is stated.
+
+- *The table:* the 43,280 by occupancy-dependent exclusion cause: (E1) unbindable for a helper or presence entity in a
+  trigger (7,257); (E2) run but dead because their trigger entities never change (2,762, already inside the 5,926);
+  (E3) commanding a cover and not run (1,116 - 4); (E4) reading an illuminance and not run (462 - 67). Secondary: the
+  other helper/presence unbindable classes (in a template or an action; elsewhere), as E1'.
+- *The range:* the frame flag rate when the excluded classes are counted and flag at q = 15.3 % (184 / 1,205, the
+  environment-coupled run rate) is (199 + q (X + 2,762)) / (5,926 + X), X the excluded automations not run. The overlap
+  of E1, E3 and E4 is not in the printed counts, so X is bracketed: max(E1, E3, E4) <= X <= E1 + E3 + E4. Reported:
+  the published 3.4 %; each class alone at q; all together at both ends of X; and, as a floor, the same with q = 0
+  (the excluded never flag). The secondary repeats it with E1' added.
+- *Limits, stated now:* 15.3 % is the rate of the environment-coupled automations that run, an upper reference for
+  the excluded classes most of which do not read the environment; the range says what the headline could be, not
+  what it is.
+
+**A22.5 The full rung-0 precision-recall curve [9].** A21.2's code path (`r10q.tradeoff`'s scores:
+`ladder.oof_scores` and `ladder.split_scores`, their own folds, seed and rows), unchanged.
+
+- *For each* relation (frame 199, clock 790), feature set (8; 8+4) and source (i, the pooled out-of-fold scores over
+  5,926; ii, the registered split's held-out 2,777): **every threshold** (tied scores pass together): its passed
+  count, true positives, precision and recall; the curve's average precision (step-wise, sum of precision x recall
+  increment); and the precision at recall 0.1, 0.2, ..., 1.0 (A21.2's rule: the fewest passed reaching it) with its
+  passed count. *Check:* A21.2's operating points at 0.8 and 0.9 must be reproduced exactly.
+- *The budget at recall 0.8 and 0.9:* on source (i), the automations passed of 5,926; on source (ii), the passed
+  share of 2,777 times 5,926; each against random triage (r x 5,926). A 95 % repository-bootstrap interval of source
+  (i)'s passed share at 0.8 and at 0.9 (A21.2's procedure: 1,000 resamples, seed 0, the scores held fixed).
+- *Also:* the recall reached at each passed budget of 10 %, 25 %, 50 % and 75 % of 5,926 (source i).
+
+**A22.6 How it will be read (stated now).** A22.1 says which arithmetic produced 158.5 and whether it reproduces.
+A22.2's four cells say how much of 709 -> 8 the sun normalisation removes by itself, how much the exemption removes
+by itself and how much needs both; whichever it is, the counts are the answer. A22.3 and A22.4 are counts and
+arithmetic, reported as found. A22.5's curve replaces a single-point conclusion: the budget at each recall is stated,
+whatever it is.
+
 ## Addendum 24 (2026-11-05, post hoc: written after the eighth internal review, after the second rater labelled and before any comparison)
 
 **Post hoc.** Review 8, item 2(b), asks for a second rater. A second rater, independent of the binder's authors and
