@@ -2679,3 +2679,133 @@ fixed before any comparison:
   rater's on the same ids. Wilson intervals.
 
 Aggregates only, under the section "Revision R11-K (Addendum 24)". No pass/fail criterion.
+
+## Addendum 23 (2026-11-05, post hoc: written after the eighth internal review, before its runs)
+
+**Post hoc**: written after the eighth internal review asked for these runs (its items 6, 7 and 10(c)) and after every
+result they revisit was seen (R4-B's humidity classes, outdoor offsets and companion runs; R6-B's ERA5-against-station
+check; R7-B's corners and offsets; R9-Z's setback corners), but before any number below is computed. Nothing earlier
+changes and every earlier number stands; what follows is reported beside it. A change made after a computation is
+dated at the end of this addendum and called a deviation. Review 8's item numbers are in brackets. **No sweep is run
+again**: A23.1-A23.2 replay a fixed set open loop on traces recorded afresh, and A23.3 runs closed-loop sessions.
+Script: `scripts/revision/r11p2.py` (tests first, `tests/edt/test_r11p2.py`); results:
+`results/edt/r11p2-<commit7>.json` (aggregates and anonymous indices only: no automation text, alias, entity name,
+repository or hash) and a section "Revision R11-P2 (Addendum 23)" of `results-edt.md`. At most 4 worker processes,
+under nice. Scratch: `~/vesper-lab/edt/r11-P2/` (local). No pass/fail criterion is registered; every analysis is
+descriptive. No weather is fetched.
+
+**A23.0 The open-loop path, shared by A23.1 and A23.2.** R7-B's (A13.1) exactly: the **replay set** is R7-B's 954 run
+automations of `8fcd672` (the 199 frame flags, the 790 clock flags, and every run automation reading a temperature
+(206), a humidity (63) or an illuminance (67)), bound as stored, in the standard home of `8fcd672`'s work directory,
+open loop in all 48 environments, every trace recorded afresh in a cache of the setting's own under its knobs and
+replayed with the sweep's worker (`r6b_physics._trace_job`, reporting rule `device`, via
+`r7b_room_terms.part_run`). The replay set is a superset of each item's population (the 63 humidity readers; the
+temperature readers), so each item also checks that nothing outside the population it perturbs moves.
+
+- *Reference, run first:* every knob at its default, recorded afresh. By A13.6's convention it must reproduce R6-D's
+  engine-corrected sweep `5b54586` on the 954 (0 of 45,792 outcomes differ, as R7-B's references did), and the
+  published memberships are `5b54586`'s: for the frame relation these are `8fcd672`'s (199), for the clock relation
+  785. The replay set and R4-A's rung-2.5 partition stay `8fcd672`'s. A mismatch is stated and its cause found before
+  any bracket number is used.
+- *Robust core* of a family over a set of settings: its members at every setting; *possible set*: at any (within the
+  replay set, so a lower bound on the corpus-wide union). Beside each: the published count, lost somewhere, gained
+  somewhere, per-setting minimum and maximum, and how many published frame flags change kinds somewhere.
+
+**A23.1 The moisture excess [6].**
+
+- *The knob.* `MOISTURE_EXCESS_SCALE` in `vesper.env.indoor` multiplies EN ISO 13788's class excess
+  (`moisture_excess_kpa`: HUMIDITY_CLASS x 270 Pa at or below 0 C outside, linear to 0 at 20 C) and nothing else; it
+  enters only the room vapour pressure, so only humidity readings move. Default 1.0, in `KNOBS` (a trace recorded
+  under it is keyed by it), named in the provenance only when moved; bit-identical at 1 by the indoor model's
+  fingerprint test, extended to it, tests first. (At HUMIDITY_CLASS 1 the scale x0 is class 0, the model before
+  2026-11-04, and x0.5 is half a class; the knob is added because the review asks for the excess, not the class.)
+- *Settings:* x0 (no moisture source: the resident-free home's own assumption, as its internal gains are 0), x0.5
+  (135 Pa at or below 0 C) and x1 (the as-built class 1, the reference of A23.0). Warm-up, gains and every other knob
+  as built.
+- *Families:* the **humidity flags** (frame flags reading a humidity, 36), the primary; and, secondary, the humidity
+  readers' clock flags, the frame orientation witnesses reading a humidity (R7-B's definition), all frame flags (199)
+  and all clock flags (785).
+- *Reported:* per setting, each family's count, lost and gained against the published; over the three settings, the
+  robust core and possible set of each family; how many of the 36 change kinds somewhere; the outcomes changed against
+  the reference inside and outside the 63 humidity readers (*check:* 0 outside them; a change outside is stated and
+  its cause found).
+- *How it will be read (stated now):* if the 36 are all in the robust core, the humidity flags do not rest on the
+  occupancy-derived source; otherwise the core (and the count lost at x0) is the number the manuscript must carry for
+  them, or they are named a hypothesis set.
+
+**A23.2 A per-site outdoor perturbation [7].**
+
+- *The knob.* `OUTDOOR_T_SERIES` in `vesper.env.indoor`: None by default; else a mapping from a site's name (the
+  sweep's city string) to a list of kelvin values at whole hours after the run's first local midnight. `outdoor_at`
+  adds to the outdoor air temperature the value linearly interpolated at the instant (held constant beyond the last
+  hour), its vapour pressure kept (as `OUTDOOR_T_OFFSET_C`, to which it adds); a site not in the mapping is unchanged.
+  It thus reaches every room's heat balance, the porch sensor (which reads `env.last`) and, through the room
+  temperature and the class excess, the humidity. In `KNOBS`, named in the provenance only when set; bit-identical at
+  None by the fingerprint test, tests first.
+- *The residual series (no fetch).* ERA5 minus the measured outdoor temperature, hourly, from the W check's own cached
+  inputs, ERA5 read from the validation's existing cache without fetching:
+  - **Belgium** (dataset A's outdoor temperature, Chièvres airport station, Jan-May 2016, against ERA5 at the site of
+    `vesper.validation.environment`): *check:* bias -0.08 C, RMSE 0.97 C at lag 0 (W on A, to its printed precision);
+  - **Valencia** (NOAA ISD Manises airport, R6-B's cached record, against ERA5 at VESPER's Valencia cell, over the
+    hours with ERA5, the house sensor and the station, as A9.8): *check:* bias +0.70 C, RMSE 1.47 C (A9.8).
+  - A mismatch is stated and its cause found before any series is used. Both series' lag-1 autocorrelation (over
+    consecutive hours) is reported. A residual series is computable from cached inputs, so the **day-block bootstrap**
+    is used (the review's alternative, AR(1), is not run).
+- *The draws.* A *day block* is one local calendar day (the station's time zone) whose 24 hourly residuals are all
+  present (days with a clock change are not blocks). The perturbation is **minus** the residual (the outdoor air as the
+  station measured it, were ERA5 to err at the city as it errs at the station). Draw d = 1..8, numpy
+  `default_rng([20261105, d])`; for each of the 6 cities in sorted order: a source site, Belgium or Valencia with
+  probability 1/2 each (so a city carries one site's bias), then RUN_DAYS + 1 = 4 blocks from that site's blocks,
+  uniformly with replacement, concatenated; the first 73 hourly values are the city's series. Each city has its own
+  series, the same for its 4 dates and both bearings (so the perturbation moves cities apart and leaves an orientation
+  pair alike). Reported per draw: each source's use, and the drawn series' pooled mean and RMSE over the cities.
+- *Settings:* the 8 draws, plus the reference of A23.0.
+- *Families* (frame relation; published memberships `5b54586`'s = `8fcd672`'s):
+  - the **temperature-reader frame flags** (frame flags reading a temperature, 104);
+  - the **city-witness flags**: frame flags with a *city witness*, a pair of environments of one date and one bearing
+    in two cities over which the frame-restricted divergences are not empty (the city axis of R4-A's "axes admitting a
+    witness", computed as R7-B computes the orientation witness);
+  - the **ERA5-only flags**: R4-A's rung-2.5 partition, the 42 sensor-reading frame flags still frame-flagged at rung
+    2.5 (R7-B's `era5_only`); a member counts at a setting when it is frame-flagged there;
+  - secondary: all frame flags (199), the humidity flags (36), the frame orientation witnesses (100), the clock flags
+    (785).
+- *Reported:* per draw, each family's count, lost and gained; the **robust core and possible set over the 8 draws**
+  (primary, as the review asks), and over the 8 draws with the reference (9 settings, R7-B's convention); for the 42,
+  how many draws each survives (a histogram); the outcomes changed against the reference outside the run automations
+  reading a temperature or a humidity (*check*, as R4-B's: expected near 0; any change is stated).
+- *How it will be read (stated now):* the review predicts the 42 ERA5-only flags are the most fragile. Their core over
+  the 8 draws, as a share of 42, is compared with the temperature-reader flags' share of 104 and the city witnesses'
+  share; the comparison is descriptive (8 draws give no test).
+
+**A23.3 The in-context setback set at 2 W/m² [10(c)].**
+
+- *Population, corner and path:* R2-c's 22 setback automations of `120f4ca` (R4-B's and R9-Z's population), each in
+  the core four environments (Minneapolis and Stockholm, 2026-01-14, plan north 0 and 180): 88 runs, closed loop, the
+  hallway thermostat (PER_ROOM_THERMOSTAT 0), at R4-B's corner `G2-Foff-W1-C165` (internal gains 2 W/m², roof and
+  ground off: the envelope as built, the 1-day warm-up, 165 kJ/(m² K)), with R4-B's A7.4 companion path
+  (`vesper.edt.confirm.closed_loop(..., companions=...)`): the context of an automation is every other automation of
+  its repository that binds and runs at rung 4 of `120f4ca`. Per environment a baseline (no automation); per
+  automation and environment three runs: alone, in context, and the context without it. Judged as R4-B's A7.4
+  (`envelope` against the setting's own baseline; a run breaches when a caused room falls below 10 C on days 1-2).
+- *Check, run first:* the same at the nominal corner `G0-Foff-W1-C165` with the current code. Alone it must give R2-c's
+  53 breaching runs; in context it is compared with R4-B's published 15 (5 surviving, 10 new, 48 lost). The current
+  code carries Addendum 10's engine fixes, which R4-B's runs did not, so a difference in context is possible: it is
+  stated, with its runs, and the cause looked for; the G2-against-G0 comparison then uses the current code's G0.
+- *Reported, at G2 (and G0):* breaching runs alone and in context (of 88), surviving, lost (with R4-B's reasons:
+  restored by a companion, no setback in context, other), new in context, those that are the automation's own (the
+  context without it does not breach), automations and repositories (anonymous indices), and the coldest caused room
+  per breaching run.
+- *Rule kind (the review's "by rule kind").* For every in-context breaching run, and so for the new ones: (i) the
+  target's kind by A18.5's static split (`r8y_physics.turns_thermostat_off`: setpoint-only, or turns the thermostat
+  off), and (ii) whether any automation of the run issued an accepted thermostat-off command (`climate.turn_off`, or an
+  HVAC mode of off) during the run, and whether that automation was the target or a companion. Classes: *target turns
+  it off*; *a companion turns it off* (target setpoint-only); *setpoint only* (no off command in the run). Counted for
+  the new in-context breaches and for all in-context breaches.
+- *How it will be read (stated now):* the abstract's in-context count at the headline corner is the number at G2; if
+  G0's check differs from R4-B's, both are stated.
+
+**A23.4 Limits, stated now.** A23.1-A23.2 are open loop over the 954-automation replay set, so flags outside it are not
+seen. The per-site draws borrow two stations' error structure (both airports, both European) for six cities on four
+continents; a day block keeps the diurnal and within-day structure but cuts the day-to-day correlation at block edges;
+one city's series is reused across its four dates, so the dates within a city are not perturbed independently. A23.3's
+contexts are partial (about four in five of a repository's automations cannot run in the standard home, R4-B).
