@@ -594,3 +594,39 @@ from the `120f4ca` work directory (no trace is copied), at rung 4, 2.5, 2, 3 and
 processes. **Check before anything is reported:** the clock relation on the new rung-4 sweep must give the 797
 flagged automations of `120f4ca` exactly; if it does not, the cause is found before any number is used. Section 5's
 halt rule applies to every rung.
+
+**A6.9 Two binder defects and the illuminance reporting rule (added 2026-11-05, before any run under this
+addendum).** The R4-C audit of the 179 sensor-driven flags (results-edt.md, "Revision R4-C") found two binder rules
+that generate artefacts and a reporting rule the catalog gets wrong. Fixed here, before the runs:
+
+- *Weather tokens.* A `weather` token (a weather service's name) sent every name to the porch, `weather_<room>` names
+  and Aqara's `lumi.weather` room sensors included. Now a name that is outdoors only by such a token is bound by its
+  room tokens; with none, a `lumi_weather` name takes the room-less convention (the living room, A2.5) and any other
+  name stays on the porch. A name with an outdoor place word (garden, outdoor, balcony, ...) is on the porch as before.
+- *Enclosures and media.* A temperature, humidity or illuminance sensor whose name says an enclosure or a medium
+  (server room, comms cupboard, rack, humidor, freezer or fridge, filament box, grow box or tent, terrarium, vivarium,
+  aquarium, water, pool, a tub, a sauna, a fermenter) is refused: "enclosure or medium, not room air". A semi-outdoor
+  space (A2.5) is refused as before.
+- *The reporting rule rho_p.* The standard home's only illuminance sensor, the Aqara RTCGQ11LM, sends illuminance only
+  with a motion detection, or on its roughly hourly heartbeat (zigbee-herdsman-converters 26.123.0, `lumi_illuminance`:
+  "there is no illuminance without movement"); the catalog gives it the library default (any change, at most every
+  10 s, at least every 3600 s). The twin now follows the device: under the *device* rule its illuminance is reported
+  only with an occupancy "on" report and on the heartbeat (every 3600 s after its last report), so in the
+  resident-free home only the heartbeat. The catalog's rule stays available (`--reporting-rule catalog`); the device
+  rule is the default of an EDT sweep from this addendum on, and nothing outside EDT changes (the runtime's default
+  stays the catalog's).
+
+**A6.8, as amended by A6.9 (supersedes A6.8 above).** At the commit that implements A6.1-A6.9, in a fresh work
+directory whose ERA5 cache is copied from the `120f4ca` work directory (no trace is copied), 5 worker processes, in
+this order:
+
+1. *The check:* rung 4 with the `120f4ca` binder and the catalog's reporting rule. The clock relation must give the
+   797 flagged automations of `120f4ca` exactly; if it does not, the cause is found before any number is used.
+2. *The main runs:* rungs 4, 2.5, 2, 3 and 1 with the current binder and the device reporting rule. Every number of
+   A6.3-A6.7 is reported from these.
+3. *The reporting-rule comparison:* rung 4 with the current binder and the catalog's rule. Against run 1 it measures
+   the binder fixes alone, against the main rung 4 the reporting rule alone. Reported: flags under both rules, both
+   relations, overall and for the illuminance-reading automations that run (the audit's 67 at `120f4ca`), and how
+   many of the 179 sensor-driven flags of `120f4ca` the binder fixes unbind or unflag.
+
+Section 5's halt rule applies to every run.
