@@ -1,0 +1,1023 @@
+{
+ "analysis": "R8-X (protocol Addendum 17, post hoc): the joint robust core, the glazing core, the first-named sun reference, the residual exposure, the sun-flag location precision",
+ "code_commit": "516ece6",
+ "inputs": {
+  "sweep": "8fcd672"
+ },
+ "item1_4a_cores": {
+  "check_r7a_brackets": {
+   "aperture (R4-B)": {
+    "frame_flags": 181,
+    "humidity_flags": 35,
+    "orientation_witnesses": 52,
+    "temperature_flags": 88
+   },
+   "direct share (R6-B)": {
+    "frame_flags": 195,
+    "humidity_flags": 36,
+    "orientation_witnesses": 92,
+    "temperature_flags": 101
+   },
+   "engine (R6-D)": {
+    "frame_flags": 199,
+    "humidity_flags": 36,
+    "orientation_witnesses": 100,
+    "temperature_flags": 104
+   },
+   "humidity class (R4-B)": {
+    "frame_flags": 198,
+    "humidity_flags": 35,
+    "orientation_witnesses": 97,
+    "temperature_flags": 104
+   },
+   "k_hat (R6-B)": {
+    "frame_flags": 182,
+    "humidity_flags": 36,
+    "orientation_witnesses": 47,
+    "temperature_flags": 88
+   },
+   "outdoor air (R4-B)": {
+    "frame_flags": 198,
+    "humidity_flags": 36,
+    "orientation_witnesses": 91,
+    "temperature_flags": 103
+   }
+  },
+  "check_r7a_every_setting": {
+   "frame_flags": 179,
+   "humidity_flags": 34,
+   "orientation_witnesses": 42,
+   "temperature_flags": 88
+  },
+  "check_r7a_x1_reproduces_published": {
+   "frame_flags": true,
+   "humidity_flags": true,
+   "orientation_witnesses": true,
+   "temperature_flags": true
+  },
+  "check_r7b": {
+   "corner_ref_equals_published": {
+    "frame_flags": true,
+    "humidity_flags": true,
+    "orientation_witnesses": true,
+    "temperature_flags": true
+   },
+   "corners": 120,
+   "corners_core": {
+    "frame_flags": 159,
+    "humidity_flags": 21,
+    "orientation_witnesses": 42,
+    "temperature_flags": 80
+   },
+   "offset_ref_equals_published": {
+    "frame_flags": true,
+    "humidity_flags": true,
+    "orientation_witnesses": true,
+    "temperature_flags": true
+   },
+   "offsets_core": {
+    "frame_flags": 146,
+    "humidity_flags": 19,
+    "orientation_witnesses": 40,
+    "temperature_flags": 69
+   }
+  },
+  "check_r7w_held": {
+   "frame_flags": 198,
+   "humidity_flags": 36,
+   "orientation_witnesses": 95,
+   "temperature_flags": 103
+  },
+  "check_variant_base_equals_published": {
+   "frame_flags": true,
+   "humidity_flags": true,
+   "orientation_witnesses": true,
+   "temperature_flags": true
+  },
+  "glazing_bracket": {
+   "frame_flags": {
+    "core_without": {
+     "glazing": 199
+    },
+    "joint_core": 187,
+    "joint_possible": 201,
+    "own_core": {
+     "glazing": 187
+    },
+    "possible_outside_published": 2,
+    "published": 199,
+    "settings": 3
+   },
+   "humidity_flags": {
+    "core_without": {
+     "glazing": 36
+    },
+    "joint_core": 35,
+    "joint_possible": 36,
+    "own_core": {
+     "glazing": 35
+    },
+    "possible_outside_published": 0,
+    "published": 36,
+    "settings": 3
+   },
+   "orientation_witnesses": {
+    "core_without": {
+     "glazing": 100
+    },
+    "joint_core": 79,
+    "joint_possible": 109,
+    "own_core": {
+     "glazing": 79
+    },
+    "possible_outside_published": 9,
+    "published": 100,
+    "settings": 3
+   },
+   "temperature_flags": {
+    "core_without": {
+     "glazing": 104
+    },
+    "joint_core": 96,
+    "joint_possible": 105,
+    "own_core": {
+     "glazing": 96
+    },
+    "possible_outside_published": 1,
+    "published": 104,
+    "settings": 3
+   }
+  },
+  "joint_139": {
+   "frame_flags": {
+    "core_without": {
+     "R7-A (13 settings)": 132,
+     "R7-B corners (120)": 135,
+     "R7-B offsets (5 registered)": 156,
+     "R7-W shortwave (1)": 129
+    },
+    "joint_core": 129,
+    "joint_possible": 203,
+    "own_core": {
+     "R7-A (13 settings)": 179,
+     "R7-B corners (120)": 159,
+     "R7-B offsets (5 registered)": 146,
+     "R7-W shortwave (1)": 198
+    },
+    "possible_outside_published": 4,
+    "published": 199,
+    "settings": 139
+   },
+   "humidity_flags": {
+    "core_without": {
+     "R7-A (13 settings)": 19,
+     "R7-B corners (120)": 18,
+     "R7-B offsets (5 registered)": 20,
+     "R7-W shortwave (1)": 18
+    },
+    "joint_core": 18,
+    "joint_possible": 37,
+    "own_core": {
+     "R7-A (13 settings)": 34,
+     "R7-B corners (120)": 21,
+     "R7-B offsets (5 registered)": 19,
+     "R7-W shortwave (1)": 36
+    },
+    "possible_outside_published": 1,
+    "published": 36,
+    "settings": 139
+   },
+   "orientation_witnesses": {
+    "core_without": {
+     "R7-A (13 settings)": 22,
+     "R7-B corners (120)": 13,
+     "R7-B offsets (5 registered)": 25,
+     "R7-W shortwave (1)": 7
+    },
+    "joint_core": 7,
+    "joint_possible": 111,
+    "own_core": {
+     "R7-A (13 settings)": 42,
+     "R7-B corners (120)": 42,
+     "R7-B offsets (5 registered)": 40,
+     "R7-W shortwave (1)": 95
+    },
+    "possible_outside_published": 11,
+    "published": 100,
+    "settings": 139
+   },
+   "temperature_flags": {
+    "core_without": {
+     "R7-A (13 settings)": 55,
+     "R7-B corners (120)": 60,
+     "R7-B offsets (5 registered)": 79,
+     "R7-W shortwave (1)": 54
+    },
+    "joint_core": 54,
+    "joint_possible": 107,
+    "own_core": {
+     "R7-A (13 settings)": 88,
+     "R7-B corners (120)": 80,
+     "R7-B offsets (5 registered)": 69,
+     "R7-W shortwave (1)": 103
+    },
+    "possible_outside_published": 3,
+    "published": 104,
+    "settings": 139
+   }
+  },
+  "joint_141_with_glazing": {
+   "frame_flags": {
+    "core_without": {
+     "R7-A (13 settings)": 130,
+     "R7-B corners (120)": 134,
+     "R7-B offsets (5 registered)": 155,
+     "R7-W shortwave (1)": 128,
+     "glazing (2)": 129
+    },
+    "joint_core": 128,
+    "joint_possible": 204,
+    "own_core": {
+     "R7-A (13 settings)": 179,
+     "R7-B corners (120)": 159,
+     "R7-B offsets (5 registered)": 146,
+     "R7-W shortwave (1)": 198,
+     "glazing (2)": 187
+    },
+    "possible_outside_published": 5,
+    "published": 199,
+    "settings": 141
+   },
+   "humidity_flags": {
+    "core_without": {
+     "R7-A (13 settings)": 19,
+     "R7-B corners (120)": 18,
+     "R7-B offsets (5 registered)": 20,
+     "R7-W shortwave (1)": 18,
+     "glazing (2)": 18
+    },
+    "joint_core": 18,
+    "joint_possible": 37,
+    "own_core": {
+     "R7-A (13 settings)": 34,
+     "R7-B corners (120)": 21,
+     "R7-B offsets (5 registered)": 19,
+     "R7-W shortwave (1)": 36,
+     "glazing (2)": 35
+    },
+    "possible_outside_published": 1,
+    "published": 36,
+    "settings": 141
+   },
+   "orientation_witnesses": {
+    "core_without": {
+     "R7-A (13 settings)": 20,
+     "R7-B corners (120)": 13,
+     "R7-B offsets (5 registered)": 25,
+     "R7-W shortwave (1)": 7,
+     "glazing (2)": 7
+    },
+    "joint_core": 7,
+    "joint_possible": 112,
+    "own_core": {
+     "R7-A (13 settings)": 42,
+     "R7-B corners (120)": 42,
+     "R7-B offsets (5 registered)": 40,
+     "R7-W shortwave (1)": 95,
+     "glazing (2)": 79
+    },
+    "possible_outside_published": 12,
+    "published": 100,
+    "settings": 141
+   },
+   "temperature_flags": {
+    "core_without": {
+     "R7-A (13 settings)": 55,
+     "R7-B corners (120)": 60,
+     "R7-B offsets (5 registered)": 79,
+     "R7-W shortwave (1)": 54,
+     "glazing (2)": 54
+    },
+    "joint_core": 54,
+    "joint_possible": 107,
+    "own_core": {
+     "R7-A (13 settings)": 88,
+     "R7-B corners (120)": 80,
+     "R7-B offsets (5 registered)": 69,
+     "R7-W shortwave (1)": 103,
+     "glazing (2)": 96
+    },
+    "possible_outside_published": 3,
+    "published": 104,
+    "settings": 141
+   }
+  },
+  "joint_with_secondary_offsets": {
+   "frame_flags": {
+    "core_without": {
+     "R7-A (13 settings)": 130,
+     "R7-B corners (120)": 133,
+     "R7-B offsets (5 registered)": 155,
+     "R7-W shortwave (1)": 128,
+     "glazing (2)": 129
+    },
+    "joint_core": 128,
+    "joint_possible": 207,
+    "own_core": {
+     "R7-A (13 settings)": 179,
+     "R7-B corners (120)": 159,
+     "R7-B offsets (5 registered)": 141,
+     "R7-W shortwave (1)": 198,
+     "glazing (2)": 187
+    },
+    "possible_outside_published": 8,
+    "published": 199,
+    "settings": 145
+   },
+   "humidity_flags": {
+    "core_without": {
+     "R7-A (13 settings)": 19,
+     "R7-B corners (120)": 18,
+     "R7-B offsets (5 registered)": 20,
+     "R7-W shortwave (1)": 18,
+     "glazing (2)": 18
+    },
+    "joint_core": 18,
+    "joint_possible": 37,
+    "own_core": {
+     "R7-A (13 settings)": 34,
+     "R7-B corners (120)": 21,
+     "R7-B offsets (5 registered)": 19,
+     "R7-W shortwave (1)": 36,
+     "glazing (2)": 35
+    },
+    "possible_outside_published": 1,
+    "published": 36,
+    "settings": 145
+   },
+   "orientation_witnesses": {
+    "core_without": {
+     "R7-A (13 settings)": 20,
+     "R7-B corners (120)": 13,
+     "R7-B offsets (5 registered)": 25,
+     "R7-W shortwave (1)": 7,
+     "glazing (2)": 7
+    },
+    "joint_core": 7,
+    "joint_possible": 115,
+    "own_core": {
+     "R7-A (13 settings)": 42,
+     "R7-B corners (120)": 42,
+     "R7-B offsets (5 registered)": 33,
+     "R7-W shortwave (1)": 95,
+     "glazing (2)": 79
+    },
+    "possible_outside_published": 15,
+    "published": 100,
+    "settings": 145
+   },
+   "temperature_flags": {
+    "core_without": {
+     "R7-A (13 settings)": 55,
+     "R7-B corners (120)": 59,
+     "R7-B offsets (5 registered)": 79,
+     "R7-W shortwave (1)": 54,
+     "glazing (2)": 54
+    },
+    "joint_core": 54,
+    "joint_possible": 110,
+    "own_core": {
+     "R7-A (13 settings)": 88,
+     "R7-B corners (120)": 80,
+     "R7-B offsets (5 registered)": 64,
+     "R7-W shortwave (1)": 103,
+     "glazing (2)": 96
+    },
+    "possible_outside_published": 6,
+    "published": 104,
+    "settings": 145
+   }
+  },
+  "plan_variants_secondary": {
+   "frame_flags": {
+    "core_without": {
+     "plan": 199
+    },
+    "joint_core": 196,
+    "joint_possible": 199,
+    "own_core": {
+     "plan": 196
+    },
+    "possible_outside_published": 0,
+    "published": 199,
+    "settings": 3
+   },
+   "humidity_flags": {
+    "core_without": {
+     "plan": 36
+    },
+    "joint_core": 36,
+    "joint_possible": 36,
+    "own_core": {
+     "plan": 36
+    },
+    "possible_outside_published": 0,
+    "published": 36,
+    "settings": 3
+   },
+   "orientation_witnesses": {
+    "core_without": {
+     "plan": 100
+    },
+    "joint_core": 88,
+    "joint_possible": 106,
+    "own_core": {
+     "plan": 88
+    },
+    "possible_outside_published": 6,
+    "published": 100,
+    "settings": 3
+   },
+   "temperature_flags": {
+    "core_without": {
+     "plan": 104
+    },
+    "joint_core": 101,
+    "joint_possible": 104,
+    "own_core": {
+     "plan": 101
+    },
+    "possible_outside_published": 0,
+    "published": 104,
+    "settings": 3
+   }
+  },
+  "published": {
+   "frame_flags": 199,
+   "humidity_flags": 36,
+   "orientation_witnesses": 100,
+   "temperature_flags": 104
+  },
+  "replayed_sets": {
+   "R7-A|ap2": 327,
+   "R7-A|ref": 327,
+   "R7-B corners|ref": 954,
+   "R7-B offsets|ref": 954,
+   "R7-B offsets|tin+7": 954,
+   "whole|r6a-base-ba8a54c": 5926,
+   "whole|r6a-variant-glazing-x0.5-ba8a54c": 5926,
+   "whole|r6a-variant-glazing-x2-ba8a54c": 5926,
+   "whole|r6a-variant-mirror-ew-ba8a54c": 5926,
+   "whole|r6a-variant-plan-seed8-ba8a54c": 5926,
+   "whole|r6d-5b54586": 5926,
+   "whole|r7w-shortwave-52ded7b": 5926
+  },
+  "variants": {
+   "glazing x0.5": {
+    "frame_flags": {
+     "gained": 0,
+     "held": 190,
+     "lost": 9,
+     "members": 190
+    },
+    "humidity_flags": {
+     "gained": 0,
+     "held": 36,
+     "lost": 0,
+     "members": 36
+    },
+    "orientation_witnesses": {
+     "gained": 5,
+     "held": 82,
+     "lost": 18,
+     "members": 87
+    },
+    "temperature_flags": {
+     "gained": 0,
+     "held": 96,
+     "lost": 8,
+     "members": 96
+    }
+   },
+   "glazing x2": {
+    "frame_flags": {
+     "gained": 2,
+     "held": 196,
+     "lost": 3,
+     "members": 198
+    },
+    "humidity_flags": {
+     "gained": 0,
+     "held": 35,
+     "lost": 1,
+     "members": 35
+    },
+    "orientation_witnesses": {
+     "gained": 7,
+     "held": 95,
+     "lost": 5,
+     "members": 102
+    },
+    "temperature_flags": {
+     "gained": 1,
+     "held": 104,
+     "lost": 0,
+     "members": 105
+    }
+   },
+   "mirror east-west": {
+    "frame_flags": {
+     "gained": 0,
+     "held": 199,
+     "lost": 0,
+     "members": 199
+    },
+    "humidity_flags": {
+     "gained": 0,
+     "held": 36,
+     "lost": 0,
+     "members": 36
+    },
+    "orientation_witnesses": {
+     "gained": 0,
+     "held": 95,
+     "lost": 5,
+     "members": 95
+    },
+    "temperature_flags": {
+     "gained": 0,
+     "held": 104,
+     "lost": 0,
+     "members": 104
+    }
+   },
+   "plan seed 8": {
+    "frame_flags": {
+     "gained": 0,
+     "held": 196,
+     "lost": 3,
+     "members": 196
+    },
+    "humidity_flags": {
+     "gained": 0,
+     "held": 36,
+     "lost": 0,
+     "members": 36
+    },
+    "orientation_witnesses": {
+     "gained": 6,
+     "held": 92,
+     "lost": 8,
+     "members": 98
+    },
+    "temperature_flags": {
+     "gained": 0,
+     "held": 101,
+     "lost": 3,
+     "members": 101
+    }
+   }
+  }
+ },
+ "item2_rate_check": {
+  "checked": 29,
+  "mismatches": [
+   {
+    "den": 36,
+    "num": 15,
+    "ok": false,
+    "rate": "'about a third of the humidity flags rest on the start state' (fewest corner, 15 lost)",
+    "recomputed": 0.4167,
+    "section": "R7-B A13.2",
+    "stated": 0.3333333333333333
+   },
+   {
+    "den": 238,
+    "num": 176,
+    "ok": false,
+    "rate": "best pair coverage, frame, 2024 (numerator implied)",
+    "recomputed": 0.7395,
+    "section": "R7-W A14.7",
+    "stated": 0.74
+   }
+  ],
+  "rows": [
+   {
+    "den": 71111,
+    "num": 0,
+    "ok": true,
+    "rate": "duplicated: flags over automation-pairs",
+    "recomputed": 0.0,
+    "section": "R7-A A12.7",
+    "stated": 0.0
+   },
+   {
+    "den": 71112,
+    "num": 92,
+    "ok": true,
+    "rate": "near-identical primary, clock",
+    "recomputed": 0.1294,
+    "section": "R7-A A12.7",
+    "stated": 0.13
+   },
+   {
+    "den": 71112,
+    "num": 72,
+    "ok": true,
+    "rate": "near-identical primary, frame",
+    "recomputed": 0.1012,
+    "section": "R7-A A12.7",
+    "stated": 0.1
+   },
+   {
+    "den": 47408,
+    "num": 58,
+    "ok": true,
+    "rate": "near-identical secondary, clock",
+    "recomputed": 0.1223,
+    "section": "R7-A A12.7",
+    "stated": 0.12
+   },
+   {
+    "den": 47408,
+    "num": 45,
+    "ok": true,
+    "rate": "near-identical secondary, frame",
+    "recomputed": 0.0949,
+    "section": "R7-A A12.7",
+    "stated": 0.09
+   },
+   {
+    "den": 14460,
+    "num": 91,
+    "ok": true,
+    "rate": "near-identical primary, environment-coupled, clock",
+    "recomputed": 0.6293,
+    "section": "R7-A A12.7",
+    "stated": 0.63
+   },
+   {
+    "den": 14460,
+    "num": 71,
+    "ok": true,
+    "rate": "near-identical primary, environment-coupled, frame",
+    "recomputed": 0.491,
+    "section": "R7-A A12.7",
+    "stated": 0.49
+   },
+   {
+    "den": 9640,
+    "num": 57,
+    "ok": true,
+    "rate": "near-identical secondary, environment-coupled, clock",
+    "recomputed": 0.5913,
+    "section": "R7-A A12.7",
+    "stated": 0.59
+   },
+   {
+    "den": 9640,
+    "num": 44,
+    "ok": true,
+    "rate": "near-identical secondary, environment-coupled, frame",
+    "recomputed": 0.4564,
+    "section": "R7-A A12.7",
+    "stated": 0.46
+   },
+   {
+    "den": 63,
+    "interval_ok": true,
+    "num": 60,
+    "ok": true,
+    "rate": "dead reason: trigger entities never change",
+    "recomputed": 0.9524,
+    "section": "R7-A A12.8",
+    "stated": 0.95,
+    "wilson": [
+     0.8691,
+     0.9837
+    ]
+   },
+   {
+    "den": 13,
+    "interval_ok": true,
+    "num": 10,
+    "ok": true,
+    "rate": "dead reason: entity that never changes",
+    "recomputed": 0.7692,
+    "section": "R7-A A12.8",
+    "stated": 0.77,
+    "wilson": [
+     0.4974,
+     0.9182
+    ]
+   },
+   {
+    "den": 5,
+    "interval_ok": true,
+    "num": 3,
+    "ok": true,
+    "rate": "dead reason: template or another",
+    "recomputed": 0.6,
+    "section": "R7-A A12.8",
+    "stated": 0.6,
+    "wilson": [
+     0.2307,
+     0.8824
+    ]
+   },
+   {
+    "den": 91,
+    "interval_ok": true,
+    "num": 82,
+    "ok": true,
+    "rate": "dead reasons overall",
+    "recomputed": 0.9011,
+    "section": "R7-A A12.8",
+    "stated": 0.9,
+    "wilson": [
+     0.8226,
+     0.9471
+    ]
+   },
+   {
+    "den": 99,
+    "num": 8,
+    "ok": true,
+    "rate": "not derived of the 99",
+    "recomputed": 8.08,
+    "section": "R7-A A12.8",
+    "stated": 8
+   },
+   {
+    "den": 199,
+    "num": 158.5,
+    "ok": true,
+    "rate": "binder discount 'about 4 in 5'",
+    "recomputed": 0.7965,
+    "section": "R7-A A12.5",
+    "stated": 0.8
+   },
+   {
+    "den": 193,
+    "num": 5,
+    "ok": true,
+    "rate": "greedy 3 pairs within 5 flags of the bound",
+    "recomputed": 2.591,
+    "section": "R7-A A12.11",
+    "stated": 2.6
+   },
+   {
+    "den": 36,
+    "num": 15,
+    "ok": false,
+    "rate": "'about a third of the humidity flags rest on the start state' (fewest corner, 15 lost)",
+    "recomputed": 0.4167,
+    "section": "R7-B A13.2",
+    "stated": 0.3333333333333333
+   },
+   {
+    "den": 424,
+    "num": 424,
+    "ok": true,
+    "rate": "(2) jointly firing pairs within 60 s",
+    "recomputed": 100.0,
+    "section": "R7-C",
+    "stated": 100
+   },
+   {
+    "den": 148,
+    "num": 18,
+    "ok": true,
+    "rate": "'about one flag in eight'",
+    "recomputed": 0.1216,
+    "section": "R7-C",
+    "stated": 0.125
+   },
+   {
+    "den": 1252,
+    "num": 30,
+    "ok": true,
+    "rate": "2024 negative control flagged of firing (below the 5 % halt)",
+    "recomputed": 2.396,
+    "section": "R7-W A14.5",
+    "stated": 2.4
+   },
+   {
+    "den": 199,
+    "num": 185,
+    "ok": true,
+    "rate": "frame flags in every year",
+    "recomputed": 92.96,
+    "section": "R7-W A14.5",
+    "stated": 93
+   },
+   {
+    "den": 199,
+    "num": 131,
+    "ok": true,
+    "rate": "best pair coverage, frame, 8fcd672 (numerator implied)",
+    "recomputed": 0.6583,
+    "section": "R7-W A14.7",
+    "stated": 0.658
+   },
+   {
+    "den": 790,
+    "num": 705,
+    "ok": true,
+    "rate": "best pair coverage, clock, 8fcd672 (numerator implied)",
+    "recomputed": 0.8924,
+    "section": "R7-W A14.7",
+    "stated": 0.892
+   },
+   {
+    "den": 196,
+    "num": 119,
+    "ok": true,
+    "rate": "best pair coverage, frame, 2023 (numerator implied)",
+    "recomputed": 0.6071,
+    "section": "R7-W A14.7",
+    "stated": 0.607
+   },
+   {
+    "den": 771,
+    "num": 690,
+    "ok": true,
+    "rate": "best pair coverage, clock, 2023 (numerator implied)",
+    "recomputed": 0.8949,
+    "section": "R7-W A14.7",
+    "stated": 0.895
+   },
+   {
+    "den": 238,
+    "num": 176,
+    "ok": false,
+    "rate": "best pair coverage, frame, 2024 (numerator implied)",
+    "recomputed": 0.7395,
+    "section": "R7-W A14.7",
+    "stated": 0.74
+   },
+   {
+    "den": 822,
+    "num": 745,
+    "ok": true,
+    "rate": "best pair coverage, clock, 2024 (numerator implied)",
+    "recomputed": 0.9063,
+    "section": "R7-W A14.7",
+    "stated": 0.906
+   },
+   {
+    "den": 196,
+    "num": 148,
+    "ok": true,
+    "rate": "best pair coverage, frame, 2025 (numerator implied)",
+    "recomputed": 0.7551,
+    "section": "R7-W A14.7",
+    "stated": 0.755
+   },
+   {
+    "den": 780,
+    "num": 717,
+    "ok": true,
+    "rate": "best pair coverage, clock, 2025 (numerator implied)",
+    "recomputed": 0.9192,
+    "section": "R7-W A14.7",
+    "stated": 0.919
+   }
+  ]
+ },
+ "item6b_sun_reference": {
+  "ambiguous_two_or_more_events": 101,
+  "ambiguous_two_or_more_instants": 114,
+  "check_nominal_recomputation_mismatches": 0,
+  "first_named": {
+   "changed_among_two_or_more_events": 12,
+   "frame_flags_after": 210,
+   "frame_flags_gained": 11,
+   "frame_flags_lost": 0,
+   "frame_flags_other_kinds": 2,
+   "orientation_witness_changed": 0,
+   "time_spread_first_named": 15,
+   "time_spread_published": 2
+  },
+  "frame_flags_among_events": 4,
+  "frame_flags_among_instants": 5,
+  "of_them_sunrise_and_sunset": 98,
+  "of_them_with_an_elevation": 3,
+  "run": 5926
+ },
+ "item6c_residual_exposure": {
+  "crossing_construction_not_flagged": 66,
+  "crossing_construction_run": 157,
+  "not_frame_flagged": 5727,
+  "primary_only_reference_free": {
+   "automations": 111,
+   "by_frames": {
+    "sensed": 104,
+    "sun": 7
+   },
+   "clock_flags": 20,
+   "clock_relation_time_spread": 20,
+   "clock_time_spread_reads": {
+    "humidity": 0,
+    "illuminance": 0,
+    "sun": 0,
+    "temperature": 17,
+    "weather": 0
+   },
+   "fire_in_two_or_more_environments": 21,
+   "reads": {
+    "humidity": 8,
+    "illuminance": 30,
+    "sun": 7,
+    "temperature": 45,
+    "weather": 0
+   }
+  },
+  "run": 5926,
+  "secondary_some_reference_free": {
+   "automations": 148,
+   "by_frames": {
+    "clock+sensed": 25,
+    "clock+sensed+sun": 2,
+    "sensed": 104,
+    "sensed+sun": 10,
+    "sun": 7
+   },
+   "clock_flags": 21,
+   "clock_relation_time_spread": 21,
+   "clock_time_spread_reads": {
+    "humidity": 1,
+    "illuminance": 0,
+    "sun": 0,
+    "temperature": 17,
+    "weather": 0
+   },
+   "fire_in_two_or_more_environments": 32,
+   "reads": {
+    "humidity": 11,
+    "illuminance": 46,
+    "sun": 20,
+    "temperature": 59,
+    "weather": 1
+   }
+  }
+ },
+ "item7b_sun_location": {
+  "classes_of_mislocated": {
+   "C3": 1,
+   "C4": 10,
+   "C5c": 3,
+   "C5n": 4
+  },
+  "discount": {
+   "A12_5_primary_D": 158.45,
+   "D_ext": {
+    "point": 144.45,
+    "repo_bootstrap_95": [
+     122.9,
+     162.9
+    ],
+    "repositories": 94
+   },
+   "D_ext_secondary_inside_too": {
+    "point": 141.41,
+    "repo_bootstrap_95": [
+     119.8,
+     159.5
+    ],
+    "repositories": 94
+   },
+   "others_undiscounted": 13,
+   "sensed_frame": 148,
+   "sun_outside_148": 38
+  },
+  "labelled": 44,
+  "mislocated_inside_the_148": 4,
+  "mislocated_outside_the_148": 14,
+  "mislocated_role_is_a_guard": 5,
+  "no_room_scoped_role": 5,
+  "population": 44,
+  "precision": {
+   "located": 26,
+   "mislocated": 18,
+   "n": 44,
+   "precision": 0.5909,
+   "precision_uncertain_as_mislocated": 0.5909,
+   "repo_bootstrap_95": [
+    0.409,
+    0.76
+   ],
+   "repositories": 33,
+   "uncertain": 0,
+   "wilson_95": [
+    0.4441,
+    0.7231
+   ],
+   "wilson_95_uncertain_as_mislocated": [
+    0.4441,
+    0.7231
+   ]
+  },
+  "sun_readers_with_a_sensed_frame": 6
+ }
+}

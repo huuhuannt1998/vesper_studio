@@ -2712,3 +2712,190 @@ R4-B's class 2 and 3 runs and A13.2 above are the bracket around it.
 - The warm-up's large effect is partly the start temperature (20.5 C) every run assumes, which Addendum 13 did not
   vary on its own.
 - The light sensor's reporting is the catalog default, not a measured rule.
+
+## Revision R8-X (Addendum 17): the joint robust core, the glazing core, the sun reference, the exemption's residual, the sun flags' location, the R7 rates
+
+**Post hoc: written after the fifth internal review, before its runs.** Registered as protocol Addendum 17 at `74ca232`,
+committed alone before any number below was computed. Nothing was run again: every number is recomputed from saved
+runs (R7-A's and R7-B's open-loop pickles, and whole sweeps). Script: `scripts/revision/r8x_analyses.py` (tests
+`tests/edt/test_r8x_analyses.py`, written first). Numbers: `results/edt/r8x-516ece6.json` (aggregates only). At most 3
+worker processes, under nice. Review 5's item numbers are in brackets.
+
+### Item 1: the joint robust core (A17.1)
+
+**The checks hold.** Recomputed here from the saved outcomes and first-firing instants, each source's own cores
+reproduce the published ones:
+- R7-A: every setting together 42 / 88 / 34 (witnesses / temperature / humidity), and all six bracket rows;
+- R7-B: corners 159 / 42 / 80 / 21 and registered offsets 146 / 40 / 69 / 19 (frame flags / witnesses / temperature /
+  humidity);
+- R7-W's shortwave run: 198 frame flags and 95 witnesses held;
+- R7-A's x1 replay and R7-B's two references give the published members of all four families exactly.
+
+R7-A's frame-flag family was never computed there; over its 13 settings it is 179 of 199.
+
+The joint core is the published members held at every one of the **139 settings**: R7-A 13, R7-B's corners 120, its
+registered offsets 5, R7-W 1. The joint possible set is the union, each source within its own replayed set (327, 954,
+or all 5,926 run automations).
+
+| Family | Published | R7-A (13) | R7-B corners (120) | R7-B offsets (5) | R7-W (1) | Glazing (A17.2) | **Joint core (139)** | Joint possible set | **Joint core with glazing (141)** |
+|---|---|---|---|---|---|---|---|---|---|
+| Frame flags | 199 | 179 | 159 | 146 | 198 | 187 | **129** | 203 | **128** |
+| Orientation witnesses | 100 | 42 | 42 | 40 | 95 | 79 | **7** | 111 | **7** |
+| Temperature flags | 104 | 88 | 80 | 69 | 103 | 96 | **54** | 107 | **54** |
+| Humidity flags | 36 | 34 | 21 | 19 | 36 | 35 | **18** | 37 | **18** |
+
+*Which source binds* (the joint core of the 139 without each source in turn):
+
+| Family | Without R7-A | Without corners | Without offsets | Without R7-W |
+|---|---|---|---|---|
+| Frame flags | 132 | 135 | 156 | 129 |
+| Orientation witnesses | 22 | 13 | 25 | 7 |
+| Temperature flags | 55 | 60 | 79 | 54 |
+| Humidity flags | 19 | 18 | 20 | 18 |
+
+- **The single-bracket cores do not compose.** The solar-gain brackets (R7-A), the room-model corners (R7-B) and the
+  indoor offset (R7-B) each keep about 40 of the 100 orientation witnesses, but not the same 40. R7-A's and the
+  offsets' cores share only 13, and all three share 7. So **7 of the 100 orientation witnesses are held at every
+  sampled setting.** The abstract's "42 of 100" is one bracket's core, not the propagation's output.
+- The frame flags keep **129 of 199** jointly (65 %), not the 159 of the corners alone; the indoor offset takes the
+  most (without it, 156).
+- Temperature flags: **54 of 104**. Humidity flags: **18 of 36**; the offset and the corners remove almost the same
+  ones (they share 19).
+- With the secondary offsets {+1.7, +0.9, -2, -7} K added as well (145 settings), the cores are unchanged: 128, 7, 54
+  and 18.
+- The joint possible sets add at most 11 automations to any family (witnesses 111 of a published 100).
+
+*What these numbers are.* The settings move one bracket at a time around the nominal model; no product of brackets was
+run. So the joint core is the matrix-AND over sampled settings. **It is an upper bound on the core over the brackets'
+product**, which can only be smaller; the possible set is a lower bound on that product's union. And within each
+bracket, an intersection over sampled points over-estimates the intersection over the bracket's interval: a finding
+lost between two sampled points is not seen (R7-A found the aperture counts not monotone, 56 / 61 / 68 at x0.25 / 0.21
+/ 0.29, so the gaps matter). Both caveats make the true core smaller, not larger.
+
+### Item 4(a): the glazing variants (A17.2)
+
+The standard home swept at `ba8a54c` reproduces all four families exactly. Per variant (of the published family):
+
+| Variant | Frame flags held / lost / gained | Witnesses held / lost / gained | Temperature | Humidity |
+|---|---|---|---|---|
+| glazing x0.5 | 190 / 9 / 0 | **82 / 18 / 5** | 96 / 8 / 0 | 36 / 0 / 0 |
+| glazing x2 | 196 / 3 / 2 | **95 / 5 / 7** | 104 / 0 / 1 | 35 / 1 / 0 |
+| plan seed 8 (secondary) | 196 / 3 / 0 | 92 / 8 / 6 | 101 / 3 / 0 | 36 / 0 / 0 |
+| mirror east-west (secondary) | 199 / 0 / 0 | 95 / 5 / 0 | 104 / 0 / 0 | 36 / 0 / 0 |
+
+- **Over the glazing bracket {x0.5, x1, x2} the orientation-witness core is 79 of 100** (possible set 109), the frame
+  flags 187 of 199, temperature 96 of 104, humidity 35 of 36. Halving the panes costs 18 witnesses; doubling them, 5.
+- Over the two plan variants (secondary) the witness core is 88. The mirrored home keeps every frame flag but moves 5
+  witnesses: which bearing witnesses an automation depends on which rooms face which way.
+- **The joint core including the glazing variants (141 settings) is 128 / 7 / 54 / 18.** The glazing removes one frame
+  flag beyond the 139 settings and no witness: the witnesses it moves are already lost elsewhere.
+
+### Item 6(b): the sun reference fixed to the first named event (A17.3)
+
+The recomputation with the published references reproduces every published frame divergence of the population (0
+mismatches).
+- **114 run automations** name two or more distinct sun instants, so the nearest-instant rule chooses among them; 5 are
+  frame flags.
+- **101** name two or more distinct events: 98 both sunrise and sunset (R6-A's 98, reproduced) and 3 with an elevation
+  crossing. 4 of the 101 are frame flags.
+- **Fixed to the first named instant**, the frame relation flags **210**, not 199: **11 gained, 0 lost**, and 2 change
+  kinds. All 13 changes are `time_spread`, which goes from 2 to 15 in the 114. 12 of the 13 are among the 101; the
+  other names one event at two offsets. No orientation witness changes.
+
+So the choice is not small. These automations fire at sunrise in some environments and at sunset in others; measured
+from one event, the other event's firings sit hours away. A first-named rule therefore flags ordinary
+"open at sunrise, close at sunset" automations as time-spread. The nearest-instant rule is the right reading, and it
+should be made formal as a set-valued reference rather than replaced.
+
+### Item 6(c): the exemption's residual exposure (A17.4)
+
+Population: the 5,727 run automations that are not frame flags (5,926 - 199). The crossing-time construction reaches
+157 run automations (66 of them in the 5,727).
+
+| Outside the crossing-time construction | Automations (of 5,727) | Fire in 2 or more environments | Clock-relation time_spread | Frames |
+|---|---|---|---|---|
+| **only reference-free frames (the review's)** | **111** | 21 | **20** | sensed 104, sun without a reference 7 |
+| at least one reference-free frame (the exemption's full reach) | 148 | 32 | 21 | also clock+sensed 25, sensed+sun 10, clock+sensed+sun 2 |
+
+- **111 non-flagged run automations declare only reference-free frames and fall outside the crossing-time
+  construction.** 90 of them fire in at most one environment, where no spread can exist.
+- **20 of them carry `time_spread` under the clock relation**: a first firing whose time of day spreads by more than
+  3 h, which the frame relation leaves unjudged. 17 of the 20 read a temperature. This is an upper bound on what the
+  exemption hides: a sensed rule may be right to fire hours apart in two climates.
+- Counting every automation with any reference-free frame (a non-computable frame counts as invariant, so one is
+  enough to exempt it) gives 148, of which 21 carry a clock time spread.
+- Beside A8.5's measured part (lifting the exemption on its 157 adds 0 flags), the unmeasured exposure is therefore at
+  most **20 of 5,727 automations (0.35 %)**, 21 under the wider reading.
+
+### Item 7(b): the location precision of the 44 sun-frame flags (A17.5)
+
+All 44 sun-reading frame flags were read by hand, R4-C's way. The standard home rebuilt for the audit is identical to
+`8fcd672`'s. Labels are local.
+- **Located: 26**, 5 of them with no room-scoped bound role.
+- **Mislocated: 18.** Of these, 10 are an outdoor place bound indoors (a carport, a driveway, a garden, a balcony, a
+  front-door or porch light, an outdoor sign, a pond pump, an outdoor weather station), 4 name the room in the entity
+  (a bedroom, a kitchen, an ensuite), 3 name it only in the alias (a bedroom, a hallway), and 1 is an outbuilding.
+- Uncertain: 0.
+- **Location precision 26 / 44 = 0.59, Wilson 95 % [0.44, 0.72], repository bootstrap [0.41, 0.76]** (33
+  repositories).
+
+So the sun readers are not exempt from binder error: two in five are mislocated. Two facts temper what this means for
+the flags.
+- **Only 5 of the 18 have the mislocated role read by a trigger or a condition.** The other 13 bind a light or switch
+  the rule only acts on. VESPER's oracle judges when the rule fires and whether a lamp stays on; neither depends on the
+  room a commanded light is in.
+- **The binder's room rule is the cause, not the sun.** The binder has no outdoor place but the porch, so a light
+  named for a carport, driveway or garden goes to the living room.
+
+*The binder discount, extended* (the primary rule as registered: every mislocation counts as a mis-bind, as the review
+reads it). A12.5's D recomputes to 158.45 (reported as 158.5).
+- 14 of the 18 mislocated are among the 38 sun readers outside the 148. **D_ext = 158.5 - 14 = 144.5 of 199,
+  repository bootstrap [122.9, 162.9]** (94 repositories; the 148 and the 38 together).
+- Secondary: counting also the 3 sun readers inside the 148 whose actions this check found mislocated, though R4-C's
+  sensor labels are correct: 141.4 [119.8, 159.5]. The fourth inside, the outdoor illuminance, is already a mis-bind
+  there.
+- If only the mislocations a guard reads counted, the discount would be 3 (the guard-read ones among the 38), not 14.
+  The 14 is the review's reading, not the oracle's.
+
+### Item 2: every rate in the R7 sections (A17.6)
+
+29 rates were checked across R7-A, R7-B, R7-C, R7-D and R7-W against their numerators and denominators: Wilson
+intervals, percentages and stated shares. The environment-coupled null rates and the cover coverages were checked
+against the result files.
+
+**27 hold. Two do not:**
+- *R7-B, item 6(a):* "about a third of the humidity flags rest on the run's start state". The 21-flag corners lose 15
+  of 36, **42 %**. They also carry 5 W/m² of gains and no roof or ground. The warm-up alone moves the mean count from
+  33.6 to 26.7, that is 6.9 of 36 or **19 %**. Neither reading is a third. It should read "between a fifth (the warm-up
+  alone) and two fifths (the extreme corners)".
+- *R7-W, item 9(b) A14.7:* the 2024 frame-relation pair coverage is **0.739** (176 / 238 = 0.73950), not 0.740. The
+  result file's 0.7395 was rounded twice.
+
+The paper's §V-B sentence the review cites does not occur in these documents: R4-A's table pairs 771 / 1,205 and
+184 / 1,205 correctly (§"Revision R4-A").
+
+Also noted, not a rate: R7-B's reference check counts 45,792 outcomes against `5b54586` and 45,791 against `8fcd672`.
+The difference is the one outcome `8fcd672` refused in one environment; both are right.
+
+### What this changes, stated
+
+- **The propagation's own output is the joint core:** 129 of 199 frame flags, 54 of 104 temperature flags, 18 of 36
+  humidity flags and **7 of 100 orientation witnesses** hold at all 139 sampled settings. Adding the glazing variants
+  (141 settings) gives 128 / 54 / 18 / 7.
+- These are upper bounds on the core over the brackets' product, and over each bracket's interval.
+- The orientation witnesses do not survive the brackets jointly. Each bracket keeps about 40, but a different 40. The
+  orientation-relevant glazing bracket alone keeps 79, and the recorded beam keeps 95, so the witnesses are robust to
+  the orientation terms and fragile to the room-temperature level and the gain magnitude.
+- The nearest-instant sun reference matters: replacing it by the first named event adds 11 frame flags, all spurious
+  time spreads.
+- The sensed exemption leaves at most 20 non-flagged run automations with an unjudged time-of-day spread.
+- The sun-frame flags are mislocated in 18 of 44, but only 5 through a role their timing reads. As the review reads
+  the discount, D falls from 158.5 to 144.5 [122.9, 162.9].
+- Two R7 rates were wrong: "about a third" (two readings, 19 % and 42 %) and 0.740 for 0.739.
+
+*Concerns, stated.*
+- The joint core weights every setting equally and is sensitive to the number of settings. 120 of the 139 are R7-B's
+  corners, and any one setting can remove a member.
+- The 7 is a demanding count. A witness needs some orientation pair to diverge, and a small change can move that to
+  another pair or to none; holding at all 139 settings is a strict test.
+- The location labels are one reader's (mine), against R4-C's conventions, with no second rater.

@@ -2019,3 +2019,12 @@ the numerator and denominator the text gives, or, where the text gives only the 
 mismatch is a rate that differs from its recomputation beyond its stated rounding, or a numerator and a denominator
 from different populations. Reported: how many rates were checked, and every mismatch with its corrected value. The
 earlier sections are not edited; the corrections are stated in this lane's section.
+
+**A17 deviations (dated 2026-11-05, after the computations).**
+
+- *A17.3:* after the first computation, the 101 automations naming two or more events were split into sunrise and
+  sunset (98, R6-A's count) and those with an elevation crossing (3), to reconcile with R6-A. Nothing else changed.
+- *A17.5:* R4-C's classes were written for sensors. Here C4 ("indoor read as outdoor") is used, the other way round,
+  for any role of an outdoor place bound to an indoor room (a light, a switch or a sensor), and C3 for an outbuilding.
+- *A17.6:* the one R7-B sentence that states a share loosely ("about a third") was checked under its two readings and
+  counted once.
