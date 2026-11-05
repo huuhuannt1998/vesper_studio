@@ -1,0 +1,2338 @@
+{
+ "addendum": 20,
+ "reach_dynamic": {
+  "automations": 329,
+  "automations_changed": 0,
+  "by_mode": {
+   "parallel": {
+    "automations": 39,
+    "changed": 0,
+    "fire_somewhere": 10,
+    "pairs_changed": 0
+   },
+   "queued": {
+    "automations": 31,
+    "changed": 0,
+    "fire_somewhere": 4,
+    "pairs_changed": 0
+   },
+   "restart": {
+    "automations": 259,
+    "changed": 0,
+    "fire_somewhere": 27,
+    "pairs_changed": 0
+   }
+  },
+  "components": {},
+  "engine_after": "6a9023b",
+  "engine_before": "b126515",
+  "environments": 48,
+  "flags": {
+   "clock": {
+    "held_same_kinds": 9
+   },
+   "frame": {
+    "held_same_kinds": 2
+   }
+  },
+  "frame_flags": [
+   {
+    "index": 143,
+    "mode": "restart",
+    "new": [
+     "fires_somewhere_only"
+    ],
+    "new_clock": [
+     "fires_somewhere_only",
+     "time_spread"
+    ],
+    "old": [
+     "fires_somewhere_only"
+    ],
+    "old_clock": [
+     "fires_somewhere_only",
+     "time_spread"
+    ]
+   },
+   {
+    "index": 149,
+    "mode": "restart",
+    "new": [
+     "fires_somewhere_only",
+     "night_light"
+    ],
+    "new_clock": [
+     "fires_somewhere_only",
+     "night_light",
+     "time_spread"
+    ],
+    "old": [
+     "fires_somewhere_only",
+     "night_light"
+    ],
+    "old_clock": [
+     "fires_somewhere_only",
+     "night_light",
+     "time_spread"
+    ]
+   }
+  ],
+  "gate_after_vs_sweep": {
+   "differs": 1,
+   "reproduces": 15791
+  },
+  "gate_before_vs_sweep": {
+   "differs": 1,
+   "reproduces": 15791
+  },
+  "pairs": {
+   "pairs": 15792
+  },
+  "runs": {
+   "cancels_after": 0,
+   "dropped_after": 0,
+   "dropped_before": 0,
+   "starts_after": 654685,
+   "starts_before": 654685
+  },
+  "sweep": "db19e34"
+ },
+ "reach_static": {
+  "8fcd672": {
+   "parallel": {
+    "clock_flags": 1,
+    "fire_somewhere": 10,
+    "frame_flags": 0,
+    "run": 39
+   },
+   "queued": {
+    "clock_flags": 2,
+    "fire_somewhere": 4,
+    "frame_flags": 0,
+    "run": 31
+   },
+   "restart": {
+    "clock_flags": 6,
+    "fire_somewhere": 27,
+    "frame_flags": 2,
+    "run": 260
+   },
+   "single": {
+    "clock_flags": 781,
+    "fire_somewhere": 2301,
+    "frame_flags": 197,
+    "run": 5596
+   }
+  },
+  "db19e34": {
+   "parallel": {
+    "clock_flags": 1,
+    "fire_somewhere": 10,
+    "frame_flags": 0,
+    "run": 39
+   },
+   "queued": {
+    "clock_flags": 2,
+    "fire_somewhere": 4,
+    "frame_flags": 0,
+    "run": 31
+   },
+   "restart": {
+    "clock_flags": 6,
+    "fire_somewhere": 27,
+    "frame_flags": 2,
+    "run": 259
+   },
+   "single": {
+    "clock_flags": 765,
+    "fire_somewhere": 2264,
+    "frame_flags": 194,
+    "run": 5514
+   }
+  }
+ },
+ "restart_flags": {
+  "after_fix": {
+   "all_environments": [
+    {
+     "both_fire": 17,
+     "cancels": [
+      0,
+      0
+     ],
+     "discrepant": 0,
+     "envs": 48,
+     "ha_only": 0,
+     "index": 0,
+     "max_abs_delta_s": 0.0,
+     "mode": "restart",
+     "reproduces": 48,
+     "runs_differ": 0,
+     "starts": [
+      22,
+      22
+     ],
+     "subsecond_only": 0,
+     "survives_with_ha": true,
+     "sweep": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     },
+     "vesper_only": 0,
+     "with_ha_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     },
+     "with_vesper_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     }
+    },
+    {
+     "both_fire": 36,
+     "cancels": [
+      0,
+      0
+     ],
+     "discrepant": 0,
+     "envs": 48,
+     "ha_only": 0,
+     "index": 1,
+     "max_abs_delta_s": 0.0,
+     "mode": "restart",
+     "reproduces": 48,
+     "runs_differ": 0,
+     "starts": [
+      67,
+      67
+     ],
+     "subsecond_only": 0,
+     "survives_with_ha": true,
+     "sweep": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     },
+     "vesper_only": 0,
+     "with_ha_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     },
+     "with_vesper_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     }
+    }
+   ],
+   "engine_commit": "6a9023b",
+   "four_environments": [
+    {
+     "both_fire": 1,
+     "cancels": [
+      0,
+      0
+     ],
+     "discrepant": 0,
+     "envs": 4,
+     "ha_only": 0,
+     "index": 0,
+     "max_abs_delta_s": 0.0,
+     "mode": "restart",
+     "reproduces": 4,
+     "runs_differ": 0,
+     "starts": [
+      2,
+      2
+     ],
+     "subsecond_only": 0,
+     "survives_with_ha": true,
+     "sweep": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     },
+     "vesper_only": 0,
+     "with_ha_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     },
+     "with_vesper_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     }
+    },
+    {
+     "both_fire": 2,
+     "cancels": [
+      0,
+      0
+     ],
+     "discrepant": 0,
+     "envs": 4,
+     "ha_only": 0,
+     "index": 1,
+     "max_abs_delta_s": 0.0,
+     "mode": "restart",
+     "reproduces": 4,
+     "runs_differ": 0,
+     "starts": [
+      4,
+      4
+     ],
+     "subsecond_only": 0,
+     "survives_with_ha": true,
+     "sweep": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     },
+     "vesper_only": 0,
+     "with_ha_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     },
+     "with_vesper_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     }
+    }
+   ]
+  },
+  "before_fix": {
+   "all_environments": [
+    {
+     "both_fire": 17,
+     "cancels": [
+      0,
+      0
+     ],
+     "discrepant": 0,
+     "envs": 48,
+     "ha_only": 0,
+     "index": 0,
+     "max_abs_delta_s": 0.0,
+     "mode": "restart",
+     "reproduces": 48,
+     "runs_differ": 0,
+     "starts": [
+      22,
+      22
+     ],
+     "subsecond_only": 0,
+     "survives_with_ha": true,
+     "sweep": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     },
+     "vesper_only": 0,
+     "with_ha_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     },
+     "with_vesper_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     }
+    },
+    {
+     "both_fire": 36,
+     "cancels": [
+      0,
+      0
+     ],
+     "discrepant": 0,
+     "envs": 48,
+     "ha_only": 0,
+     "index": 1,
+     "max_abs_delta_s": 0.0,
+     "mode": "restart",
+     "reproduces": 48,
+     "runs_differ": 0,
+     "starts": [
+      67,
+      67
+     ],
+     "subsecond_only": 0,
+     "survives_with_ha": true,
+     "sweep": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     },
+     "vesper_only": 0,
+     "with_ha_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     },
+     "with_vesper_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     }
+    }
+   ],
+   "engine_commit": "b126515",
+   "four_environments": [
+    {
+     "both_fire": 1,
+     "cancels": [
+      0,
+      0
+     ],
+     "discrepant": 0,
+     "envs": 4,
+     "ha_only": 0,
+     "index": 0,
+     "max_abs_delta_s": 0.0,
+     "mode": "restart",
+     "reproduces": 4,
+     "runs_differ": 0,
+     "starts": [
+      2,
+      2
+     ],
+     "subsecond_only": 0,
+     "survives_with_ha": true,
+     "sweep": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     },
+     "vesper_only": 0,
+     "with_ha_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     },
+     "with_vesper_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only"
+      ]
+     }
+    },
+    {
+     "both_fire": 2,
+     "cancels": [
+      0,
+      0
+     ],
+     "discrepant": 0,
+     "envs": 4,
+     "ha_only": 0,
+     "index": 1,
+     "max_abs_delta_s": 0.0,
+     "mode": "restart",
+     "reproduces": 4,
+     "runs_differ": 0,
+     "starts": [
+      4,
+      4
+     ],
+     "subsecond_only": 0,
+     "survives_with_ha": true,
+     "sweep": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     },
+     "vesper_only": 0,
+     "with_ha_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     },
+     "with_vesper_outcomes": {
+      "clock": [
+       "fires_somewhere_only",
+       "night_light",
+       "time_spread"
+      ],
+      "frame": [
+       "fires_somewhere_only",
+       "night_light"
+      ]
+     }
+    }
+   ]
+  }
+ },
+ "stratum": {
+  "after_fix": {
+   "agree": 8,
+   "engine_commit": "6a9023b",
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "ha_version": "2026.10.2",
+   "n": 8,
+   "per": {
+    "r1": {
+     "agrees": true,
+     "approximations": [],
+     "differs_in": [],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v797de63cf309dfd0_light",
+        10
+       ],
+       [
+        "light.turn_on",
+        "light.v797de63cf309dfd0_light",
+        10
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 28,
+      "dropped_by": {
+       "Already running": 28
+      },
+      "fired": true,
+      "instants": 20,
+      "n_firings": 20,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": false,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 10
+     },
+     "max": null,
+     "mode": "single",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v797de63cf309dfd0_light",
+        10
+       ],
+       [
+        "light.turn_on",
+        "light.v797de63cf309dfd0_light",
+        10
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 28,
+      "dropped_by": {
+       "already running (mode single)": 28
+      },
+      "fired": true,
+      "instants": 20,
+      "n_firings": 20,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": false,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 10
+     },
+     "vesper_refused": null
+    },
+    "r2": {
+     "agrees": true,
+     "approximations": [],
+     "differs_in": [],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 4,
+        "firings": 8,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 28,
+        "firings": 32,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.vcb28ebd24f750374_light",
+        6
+       ],
+       [
+        "light.turn_on",
+        "light.vcb28ebd24f750374_light",
+        38
+       ]
+      ],
+      "cancels": 32,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 44,
+      "n_firings": 44,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "max": null,
+     "mode": "restart",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 4,
+        "firings": 8,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 28,
+        "firings": 32,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.vcb28ebd24f750374_light",
+        6
+       ],
+       [
+        "light.turn_on",
+        "light.vcb28ebd24f750374_light",
+        38
+       ]
+      ],
+      "cancels": 32,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 44,
+      "n_firings": 44,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "vesper_refused": null
+    },
+    "r3": {
+     "agrees": true,
+     "approximations": [],
+     "differs_in": [],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 4,
+        "firings": 16,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 28,
+        "firings": 36,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 8,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.vbe6672caf72422f0_light",
+        6
+       ],
+       [
+        "light.turn_on",
+        "light.vbe6672caf72422f0_light",
+        38
+       ],
+       [
+        "switch.turn_off",
+        "switch.v3af1486894f55461_state",
+        6
+       ],
+       [
+        "switch.turn_on",
+        "switch.v3af1486894f55461_state",
+        10
+       ]
+      ],
+      "cancels": 32,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 54,
+      "n_firings": 60,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "max": null,
+     "mode": "restart",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 4,
+        "firings": 16,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 28,
+        "firings": 36,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 8,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.vbe6672caf72422f0_light",
+        6
+       ],
+       [
+        "light.turn_on",
+        "light.vbe6672caf72422f0_light",
+        38
+       ],
+       [
+        "switch.turn_off",
+        "switch.v3af1486894f55461_state",
+        6
+       ],
+       [
+        "switch.turn_on",
+        "switch.v3af1486894f55461_state",
+        10
+       ]
+      ],
+      "cancels": 32,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 54,
+      "n_firings": 60,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "vesper_refused": null
+    },
+    "r4": {
+     "agrees": true,
+     "approximations": [],
+     "differs_in": [],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 4,
+        "firings": 8,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 28,
+        "firings": 32,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v448420e8c5d7a56d_light",
+        6
+       ],
+       [
+        "light.turn_on",
+        "light.v448420e8c5d7a56d_light",
+        38
+       ]
+      ],
+      "cancels": 32,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 44,
+      "n_firings": 44,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "max": null,
+     "mode": "restart",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 4,
+        "firings": 8,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 28,
+        "firings": 32,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v448420e8c5d7a56d_light",
+        6
+       ],
+       [
+        "light.turn_on",
+        "light.v448420e8c5d7a56d_light",
+        38
+       ]
+      ],
+      "cancels": 32,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 44,
+      "n_firings": 44,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "vesper_refused": null
+    },
+    "r5": {
+     "agrees": true,
+     "approximations": [],
+     "differs_in": [],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 24,
+        "starts": 12
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.va06f14ac6875b5c7_light",
+        20
+       ],
+       [
+        "light.turn_on",
+        "light.va06f14ac6875b5c7_light",
+        20
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 18,
+      "dropped_by": {
+       "Maximum number of runs exceeded": 18
+      },
+      "fired": true,
+      "instants": 26,
+      "n_firings": 40,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 20
+     },
+     "max": 3,
+     "mode": "queued",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 24,
+        "starts": 12
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.va06f14ac6875b5c7_light",
+        20
+       ],
+       [
+        "light.turn_on",
+        "light.va06f14ac6875b5c7_light",
+        20
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 18,
+      "dropped_by": {
+       "maximum number of runs exceeded (mode queued)": 18
+      },
+      "fired": true,
+      "instants": 26,
+      "n_firings": 40,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 20
+     },
+     "vesper_refused": null
+    },
+    "r6": {
+     "agrees": true,
+     "approximations": [],
+     "differs_in": [],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 60,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v102058219af0465f_light",
+        38
+       ],
+       [
+        "light.turn_on",
+        "light.v102058219af0465f_light",
+        38
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 48,
+      "n_firings": 76,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "max": null,
+     "mode": "queued",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 60,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v102058219af0465f_light",
+        38
+       ],
+       [
+        "light.turn_on",
+        "light.v102058219af0465f_light",
+        38
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 48,
+      "n_firings": 76,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "vesper_refused": null
+    },
+    "r7": {
+     "agrees": true,
+     "approximations": [],
+     "differs_in": [],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 8,
+        "starts": 4
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 24,
+        "starts": 12
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v75bfa14deeb31ea8_light",
+        18
+       ],
+       [
+        "light.turn_on",
+        "light.v75bfa14deeb31ea8_light",
+        18
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 36,
+      "n_firings": 36,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 18
+     },
+     "max": 2,
+     "mode": "parallel",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 8,
+        "starts": 4
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 24,
+        "starts": 12
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v75bfa14deeb31ea8_light",
+        18
+       ],
+       [
+        "light.turn_on",
+        "light.v75bfa14deeb31ea8_light",
+        18
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 20,
+      "dropped_by": {
+       "maximum number of runs exceeded (mode parallel)": 20
+      },
+      "fired": true,
+      "instants": 36,
+      "n_firings": 36,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 18
+     },
+     "vesper_refused": null
+    },
+    "r8": {
+     "agrees": true,
+     "approximations": [],
+     "differs_in": [],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 60,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v4e6968666733fa1a_light",
+        38
+       ],
+       [
+        "light.turn_on",
+        "light.v4e6968666733fa1a_light",
+        38
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 76,
+      "n_firings": 76,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "max": null,
+     "mode": "parallel",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 60,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v4e6968666733fa1a_light",
+        38
+       ],
+       [
+        "light.turn_on",
+        "light.v4e6968666733fa1a_light",
+        38
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 76,
+      "n_firings": 76,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "vesper_refused": null
+    }
+   },
+   "trace": {
+    "days": 3,
+    "entities_changing": [
+     "binary_sensor.v649cfdc326d11195_occupancy"
+    ],
+    "pulses_per_day": 19,
+    "state_changes": 114
+   }
+  },
+  "before_fix": {
+   "agree": 1,
+   "engine_commit": "b126515",
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "ha_version": "2026.10.2",
+   "n": 8,
+   "per": {
+    "r1": {
+     "agrees": true,
+     "approximations": [],
+     "differs_in": [],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v797de63cf309dfd0_light",
+        10
+       ],
+       [
+        "light.turn_on",
+        "light.v797de63cf309dfd0_light",
+        10
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 28,
+      "dropped_by": {
+       "Already running": 28
+      },
+      "fired": true,
+      "instants": 20,
+      "n_firings": 20,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": false,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 10
+     },
+     "max": null,
+     "mode": "single",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v797de63cf309dfd0_light",
+        10
+       ],
+       [
+        "light.turn_on",
+        "light.v797de63cf309dfd0_light",
+        10
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 28,
+      "dropped_by": {
+       "already running (mode single)": 28
+      },
+      "fired": true,
+      "instants": 20,
+      "n_firings": 20,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": false,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 10
+     },
+     "vesper_refused": null
+    },
+    "r2": {
+     "agrees": false,
+     "approximations": [
+      "mode restart run as single"
+     ],
+     "differs_in": [
+      "n_firings",
+      "instants",
+      "calls",
+      "sequence",
+      "starts",
+      "cancels",
+      "outcome"
+     ],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 4,
+        "firings": 8,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 28,
+        "firings": 32,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.vcb28ebd24f750374_light",
+        6
+       ],
+       [
+        "light.turn_on",
+        "light.vcb28ebd24f750374_light",
+        38
+       ]
+      ],
+      "cancels": 32,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 44,
+      "n_firings": 44,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "max": null,
+     "mode": "restart",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.vcb28ebd24f750374_light",
+        10
+       ],
+       [
+        "light.turn_on",
+        "light.vcb28ebd24f750374_light",
+        10
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 28,
+      "dropped_by": {
+       "already running (mode single)": 28
+      },
+      "fired": true,
+      "instants": 20,
+      "n_firings": 20,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": false,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 10
+     },
+     "vesper_refused": null
+    },
+    "r3": {
+     "agrees": false,
+     "approximations": [
+      "mode restart run as single"
+     ],
+     "differs_in": [
+      "n_firings",
+      "instants",
+      "calls",
+      "sequence",
+      "starts",
+      "cancels"
+     ],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 4,
+        "firings": 16,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 28,
+        "firings": 36,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 8,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.vbe6672caf72422f0_light",
+        6
+       ],
+       [
+        "light.turn_on",
+        "light.vbe6672caf72422f0_light",
+        38
+       ],
+       [
+        "switch.turn_off",
+        "switch.v3af1486894f55461_state",
+        6
+       ],
+       [
+        "switch.turn_on",
+        "switch.v3af1486894f55461_state",
+        10
+       ]
+      ],
+      "cancels": 32,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 54,
+      "n_firings": 60,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "max": null,
+     "mode": "restart",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 16,
+        "starts": 4
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 40,
+        "starts": 10
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 8,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.vbe6672caf72422f0_light",
+        16
+       ],
+       [
+        "light.turn_on",
+        "light.vbe6672caf72422f0_light",
+        16
+       ],
+       [
+        "switch.turn_off",
+        "switch.v3af1486894f55461_state",
+        16
+       ],
+       [
+        "switch.turn_on",
+        "switch.v3af1486894f55461_state",
+        16
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 22,
+      "dropped_by": {
+       "already running (mode single)": 22
+      },
+      "fired": true,
+      "instants": 48,
+      "n_firings": 64,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 16
+     },
+     "vesper_refused": null
+    },
+    "r4": {
+     "agrees": false,
+     "approximations": [
+      "mode restart run as single"
+     ],
+     "differs_in": [
+      "n_firings",
+      "instants",
+      "calls",
+      "sequence",
+      "starts",
+      "cancels"
+     ],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 4,
+        "firings": 8,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 28,
+        "firings": 32,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v448420e8c5d7a56d_light",
+        6
+       ],
+       [
+        "light.turn_on",
+        "light.v448420e8c5d7a56d_light",
+        38
+       ]
+      ],
+      "cancels": 32,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 44,
+      "n_firings": 44,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "max": null,
+     "mode": "restart",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 8,
+        "starts": 4
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 20,
+        "starts": 10
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v448420e8c5d7a56d_light",
+        16
+       ],
+       [
+        "light.turn_on",
+        "light.v448420e8c5d7a56d_light",
+        16
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 22,
+      "dropped_by": {
+       "already running (mode single)": 22
+      },
+      "fired": true,
+      "instants": 32,
+      "n_firings": 32,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 16
+     },
+     "vesper_refused": null
+    },
+    "r5": {
+     "agrees": false,
+     "approximations": [
+      "mode queued run as single"
+     ],
+     "differs_in": [
+      "n_firings",
+      "instants",
+      "calls",
+      "sequence",
+      "starts",
+      "outcome"
+     ],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 24,
+        "starts": 12
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.va06f14ac6875b5c7_light",
+        20
+       ],
+       [
+        "light.turn_on",
+        "light.va06f14ac6875b5c7_light",
+        20
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 18,
+      "dropped_by": {
+       "Maximum number of runs exceeded": 18
+      },
+      "fired": true,
+      "instants": 26,
+      "n_firings": 40,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 20
+     },
+     "max": 3,
+     "mode": "queued",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.va06f14ac6875b5c7_light",
+        10
+       ],
+       [
+        "light.turn_on",
+        "light.va06f14ac6875b5c7_light",
+        10
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 28,
+      "dropped_by": {
+       "already running (mode single)": 28
+      },
+      "fired": true,
+      "instants": 20,
+      "n_firings": 20,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": false,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 10
+     },
+     "vesper_refused": null
+    },
+    "r6": {
+     "agrees": false,
+     "approximations": [
+      "mode queued run as single"
+     ],
+     "differs_in": [
+      "n_firings",
+      "calls",
+      "sequence",
+      "starts"
+     ],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 60,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v102058219af0465f_light",
+        38
+       ],
+       [
+        "light.turn_on",
+        "light.v102058219af0465f_light",
+        38
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 48,
+      "n_firings": 76,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "max": null,
+     "mode": "queued",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 32,
+        "starts": 16
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v102058219af0465f_light",
+        24
+       ],
+       [
+        "light.turn_on",
+        "light.v102058219af0465f_light",
+        24
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 14,
+      "dropped_by": {
+       "already running (mode single)": 14
+      },
+      "fired": true,
+      "instants": 48,
+      "n_firings": 48,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 24
+     },
+     "vesper_refused": null
+    },
+    "r7": {
+     "agrees": false,
+     "approximations": [
+      "mode parallel run as single"
+     ],
+     "differs_in": [
+      "n_firings",
+      "instants",
+      "calls",
+      "sequence",
+      "starts",
+      "outcome"
+     ],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 8,
+        "starts": 4
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 24,
+        "starts": 12
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v75bfa14deeb31ea8_light",
+        18
+       ],
+       [
+        "light.turn_on",
+        "light.v75bfa14deeb31ea8_light",
+        18
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 36,
+      "n_firings": 36,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 18
+     },
+     "max": 2,
+     "mode": "parallel",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v75bfa14deeb31ea8_light",
+        10
+       ],
+       [
+        "light.turn_on",
+        "light.v75bfa14deeb31ea8_light",
+        10
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 28,
+      "dropped_by": {
+       "already running (mode single)": 28
+      },
+      "fired": true,
+      "instants": 20,
+      "n_firings": 20,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": false,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 10
+     },
+     "vesper_refused": null
+    },
+    "r8": {
+     "agrees": false,
+     "approximations": [
+      "mode parallel run as single"
+     ],
+     "differs_in": [
+      "n_firings",
+      "instants",
+      "calls",
+      "sequence",
+      "starts",
+      "outcome"
+     ],
+     "ha_unavailable": false,
+     "home_assistant": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 60,
+        "starts": 30
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v4e6968666733fa1a_light",
+        38
+       ],
+       [
+        "light.turn_on",
+        "light.v4e6968666733fa1a_light",
+        38
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 0,
+      "dropped_by": {},
+      "fired": true,
+      "instants": 76,
+      "n_firings": 76,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": true,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 38
+     },
+     "max": null,
+     "mode": "parallel",
+     "vesper": {
+      "by_segment": {
+       "A": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       },
+       "B": {
+        "cancels": 0,
+        "firings": 12,
+        "starts": 6
+       },
+       "C": {
+        "cancels": 0,
+        "firings": 4,
+        "starts": 2
+       }
+      },
+      "calls": [
+       [
+        "light.turn_off",
+        "light.v4e6968666733fa1a_light",
+        10
+       ],
+       [
+        "light.turn_on",
+        "light.v4e6968666733fa1a_light",
+        10
+       ]
+      ],
+      "cancels": 0,
+      "dropped": 28,
+      "dropped_by": {
+       "already running (mode single)": 28
+      },
+      "fired": true,
+      "instants": 20,
+      "n_firings": 20,
+      "outcome": {
+       "fired": true,
+       "first_tod_h": 8.00001388888889,
+       "flaps": false,
+       "night_cover": false,
+       "night_light": false
+      },
+      "starts": 10
+     },
+     "vesper_refused": null
+    }
+   },
+   "trace": {
+    "days": 3,
+    "entities_changing": [
+     "binary_sensor.v649cfdc326d11195_occupancy"
+    ],
+    "pulses_per_day": 19,
+    "state_changes": 114
+   }
+  }
+ }
+}

@@ -3229,3 +3229,108 @@ and the criterion fails by 1, not by more. The registered propagation's excess c
 discrepancies (the two automations Home Assistant never runs) over a flag's environments. Drawing by automation removes
 it; drawing by environment does not. With only 4 compared environments, a site- and date-systematic defect has few
 blocks to show itself in; that limit is stated.
+
+## Revision R9-R (Addendum 20): the re-triggering stratum
+
+**Post hoc** (after the sixth internal review, item 5(b)). Registered as protocol Addendum 20 at `03a9c2e`, before
+any run. Harness (A20.3, instrumentation only) at `b126515`; the comparison before the fix ran there. Engine fix at
+`6a9023b` (failing tests first, `tests/lab/test_automations_modes.py`); the comparison after the fix ran there.
+Aggregates: `results/edt/r9r-6a9023b.json` (`scripts/revision/r9r_results.py`). Harness: Addendum 10's
+(`ha_diff.input_stream`, `ha_job`, `run_ha`), Home Assistant 2026.10.2 in-process on the virtual clock, no port.
+Code: `vesper/validation/ha_retrigger.py`.
+
+**The stratum.** 8 synthetic automations (A20.1), each triggered by one motion sensor turning on: 1 `single` (the
+control), 3 `restart` (a 300 s delay; two 100 s delays between calls; a wait with a 200 s timeout), 2 `queued` (max 3,
+300 s; default max, 95 s), 2 `parallel` (max 2 with `max_exceeded: silent`, 300 s; default max, 300 s). The trace
+(A20.2) is the Minneapolis 2026-01-14 header with 19 pulses a day: a spaced re-trigger (08:00, 08:02, 08:04), a
+burst (15 pulses 70 s apart from 12:00) and an isolated trigger (18:00). Over the judged days, 114 state changes of
+the one sensor, the only entity that changes. Both engines loaded all 8; Home Assistant had none unavailable.
+
+### Before the fix: 1 of 8 agree
+
+With modes run as `single` (the documented permissive approximation), VESPER agrees with Home Assistant only on the
+`single` control. Over the two judged days:
+
+| # | mode | firings V / HA | run starts V / HA | cancellations V / HA | flaps V / HA | differs in |
+|---|---|---|---|---|---|---|
+| 1 | single | 20 / 20 | 10 / 10 | 0 / 0 | no / no | nothing |
+| 2 | restart | 20 / 44 | 10 / 38 | 0 / 32 | no / **yes** | counts, calls, sequence, runs, outcome |
+| 3 | restart (two delays) | 64 / 60 | 16 / 38 | 0 / 32 | yes / yes | counts, calls, sequence, runs |
+| 4 | restart (wait) | 32 / 44 | 16 / 38 | 0 / 32 | yes / yes | counts, calls, sequence, runs |
+| 5 | queued, max 3 | 20 / 40 | 10 / 20 | 0 / 0 | no / **yes** | counts, calls, sequence, starts, outcome |
+| 6 | queued | 48 / 76 | 24 / 38 | 0 / 0 | yes / yes | firings, calls, sequence, starts |
+| 7 | parallel, max 2 | 20 / 36 | 10 / 18 | 0 / 0 | no / **yes** | counts, calls, sequence, starts, outcome |
+| 8 | parallel | 20 / 76 | 10 / 38 | 0 / 0 | no / **yes** | counts, calls, sequence, starts, outcome |
+
+The `single` control agrees in every measure, including the 28 triggers each engine drops ("Already running"). The
+flaps component, the oracle's only re-triggering-sensitive envelope kind, differs in 4 of the 7 others: VESPER's
+single-mode reading under-counts firings. Home Assistant's counts match the semantics of `helpers/script.py` worked
+by hand (for example automation 5: per day 10 accepted runs and 9 triggers dropped at max).
+
+### The fix (A20.5)
+
+`restart` stops the run under way (a pending delay or wait never resumes it) and starts a new one; `queued` holds a
+run until the runs before it end; `parallel` runs beside them; both drop a trigger once `max` runs (running and
+waiting; default 10) exist. Conditions are still checked first. An invalid `mode`, a `max` below 2 or not a number,
+or an unknown `max_exceeded` is refused, as Home Assistant's schema refuses it. The permissive replay no longer lists
+"mode X run as single" as an approximation, and strict mode no longer refuses the three modes (two older tests that
+asserted the approximation and the refusal were changed to assert the new behaviour).
+
+### After the fix: 8 of 8 agree
+
+Every measure of A20.4 is equal for all 8: firings, distinct instants, the (service, target) counts, the sequences
+(every firing at the same instant; the trigger is a `state` trigger, so no sub-second offset), run starts (10, 38,
+38, 38, 20, 38, 18, 38), cancellations (32 for each `restart`, 0 elsewhere), and all five outcome components.
+Dropped triggers agree where Home Assistant logs them: 28 for `single`, 18 for queued max 3. For parallel max 2,
+VESPER drops 20; Home Assistant logs none because the automation is `silent`, and its 18 accepted runs agree.
+
+### Reach (A20.6)
+
+*Static.* Run automations with a mode other than `single`: in `8fcd672`, 330 of 5,926 (260 `restart`, 31 `queued`,
+39 `parallel`); 41 fire somewhere, 9 carry a clock flag and **2 a frame flag (both `restart`)** of the 199. In
+`db19e34`, 329 of 5,843 (259, 31, 39); 41 fire, 9 clock flags, the same **2 of the 196** frame flags. The one
+automation in `8fcd672` and not in `db19e34` is a `restart` refused since Addendum 16 as disabled at startup.
+
+*Dynamic.* The 329 automations were replayed on each of `db19e34`'s 48 cached traces (15,792 pairs), before and after
+the fix.
+- **Gate.** Before the fix, 15,791 of 15,792 pairs reproduce the sweep's outcome and richer outcome. One pair does
+  not: a `queued` automation in Stockholm 2026-07-15 north 0, with 1,560 distinct firing instants against the
+  sweep's 1,559 and the outcome otherwise equal. It is excluded, as registered. The same pair differs identically
+  with the fixed engine, so the fix is not its cause. Most likely it is a sweep-time effect such as the template
+  budget (A16.3). It was not investigated further.
+- **The fix changes nothing.** **0 of 15,792 pairs** change (no outcome component, first firing, count, payload or
+  branch). **0 of the 329 automations** change, and so do 0 flags: the 9 clock flags and the 2 frame flags are held
+  with the same kinds, and there are none lost and none new. The reason is in the run counts. Over the 15,792 pairs
+  the old engine dropped **0** triggers and the fixed engine cancelled **0** runs; both accepted 654,685 runs. In
+  the sweep's inputs, no automation with a non-single mode is ever triggered while it is running, so the mode never
+  acts.
+
+### The 2 `restart` frame flags on their own environments (A20.7)
+
+Both flags were run through the harness with Home Assistant on all 48 of their environments (`db19e34`'s traces),
+and R7-C's four within them, before and after the fix:
+
+| Flag | sweep frame kinds | envs | VESPER reproduces sweep | both fire | one engine only | discrepant (A10.4(4)) | run starts V / HA | cancellations V / HA | max \|Δ\| |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `fires_somewhere_only` | 48 | 48 | 17 | 0 | 0 | 22 / 22 | 0 / 0 | 0.0 s |
+| 2 | `fires_somewhere_only`, `night_light` | 48 | 48 | 36 | 0 | 0 | 67 / 67 | 0 / 0 | 0.0 s |
+
+The numbers are the same before and after the fix. With Home Assistant's outcomes in place of VESPER's in all 48
+environments, **both flags survive with their sweep kinds**: frame `fires_somewhere_only` (plus `night_light` for
+flag 2), and clock with `time_spread` added. In R7-C's four environments alone: 1 and 2 jointly firing pairs, 0
+discrepant. Home Assistant logged no "Restarting" for either in any environment: no trigger arrives during their
+runs. So the 2 flags owe nothing to the `restart` approximation.
+
+*Reading.* Until this revision, the engine's `restart`, `queued` and `parallel` were untested approximations, and
+they were wrong under re-triggering: 7 of 7 non-single automations disagreed with Home Assistant, 4 of them on the
+oracle's flaps component. They are now Home Assistant's semantics, verified 8 of 8 on a trace built to re-trigger
+them. The fix moves none of the sweep's 15,792 non-single-mode pairs and none of its flags, because the sweep never
+re-triggers such an automation mid-run. So the published 199 and the engine-corrected 196 stand as they are.
+
+*Concerns, stated.* The stratum is 8 automations, one trigger kind (`state`) and one environment. It tests the mode
+machinery under known re-triggering, not the modes' interaction with every action kind (the two delays, one wait and
+plain calls are covered; `repeat`, `choose` and a self-triggering loop inside a restarted run are not). The dynamic
+reach is over the sweep's own inputs, which are open loop with no residents: an automation that re-triggers only on
+occupancy or on its own actions' effects is outside it, as everywhere in this instrument. The one gate-differing pair
+is unexplained. `tests/lab/test_ui.py`'s JavaScript check fails in this worktree because node skips one page test;
+it is untouched by this lane and was deselected.
