@@ -595,13 +595,13 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
         raise GenerateError("the plan is not a house: " + "; ".join(problems))
     plan, names = typed_ids(plan_m)
     world_map = floor_plan_from(plan, f"imported/{Path(source).stem}", numbers)
-    devices = place_devices(world_map, request, catalog)
-    heights = (scan or {}).get("heights") or {}
-    windows = from_plan(plan, world_map, heights.get("windows"))
     scan_items = []
-    if scan is not None:
+    if scan is not None:  # the scan's own furniture first: the devices are placed clear of it
         from vesper.lab.scan_import import furniture_items
         scan_items = furniture_items(objects or [], scan["turn"], {old: new for new, old, _ in names})
+    devices = place_devices(world_map, request, catalog, [i["box"] for i in scan_items if i["solid"]])
+    heights = (scan or {}).get("heights") or {}
+    windows = from_plan(plan, world_map, heights.get("windows"))
     indoor = [r.id for r in world_map.rooms if not r.outdoor]
     entrance = plan.get("entrance")
     house_door = (entrance_porch(plan) or (entrance, None))[0]  # through an entrance porch: its door into the home
@@ -738,7 +738,47 @@ def _house(request: Request, catalog: dict, out: Path, export) -> None:
     (out / "home.yaml").write_text("\n".join(lines) + "\n")
 
 
-def place_devices(world_map: WorldMap, request: Request, catalog: dict) -> list[dict]:
+AVOID_M = 0.15  # a device placed beside a scanned piece keeps this far from its footprint
+WALL_BAND_M = 0.25  # a wall device stays this close to its room's outline (the rules put it 0.15 m in)
+
+
+def _blocked(p, boxes) -> bool:
+    return any(x0 - AVOID_M < p[0] < x1 + AVOID_M and z0 - AVOID_M < p[1] < z1 + AVOID_M for x0, z0, x1, z1 in boxes)
+
+
+def _clear_of(device: dict, world_map: WorldMap, boxes) -> None:
+    """A device the rules put on (or within AVOID_M of) a scanned piece of furniture, a wall device behind a
+    wardrobe, a light's switch behind a cabinet, is moved to the nearest free point of its room (0.15 m inside it,
+    on a 5 cm grid; a wall device or switch, by a wall), where a hand reaches it; left where it is if there is none.
+    A ceiling device's own point is above the furniture and stays."""
+    at = device["at"]
+    if "room" not in at:
+        return
+    room = world_map.room(at["room"])
+    xs, zs = [x for x, _ in room.polygon], [z for _, z in room.polygon]
+    edges = _edges(list(room.polygon))
+    for key in ("xy", "wall_switch"):
+        p = at.get(key)
+        if p is None or (key == "xy" and at.get("mount") == "ceiling") or not _blocked(p, boxes):
+            continue
+        wall = key == "wall_switch" or at.get("mount") == "wall"
+        best, best_d = None, math.inf
+        for i in range(int((max(xs) - min(xs)) / 0.05) + 1):
+            for j in range(int((max(zs) - min(zs)) / 0.05) + 1):
+                q = (round(min(xs) + i * 0.05, 3), round(min(zs) + j * 0.05, 3))
+                d = math.dist(q, p)
+                if d >= best_d or _blocked(q, boxes) or (wall and min(_gap(e, q) for e in edges) > WALL_BAND_M):
+                    continue
+                if all(point_in_polygon((q[0] + dx, q[1] + dz), room.polygon)
+                       for dx, dz in ((0, 0), (0.15, 0), (-0.15, 0), (0, 0.15), (0, -0.15))):
+                    best, best_d = q, d
+        if best is not None:
+            at[key] = [round(best[0], 2), round(best[1], 2)]
+
+
+def place_devices(world_map: WorldMap, request: Request, catalog: dict, avoid=()) -> list[dict]:
+    """The request's devices placed by rule; `avoid`: the boxes (x0, z0, x1, z1) of a scan's own furniture, which
+    the devices keep clear of (`_clear_of`)."""
     rng = random.Random(f"vesper-generate-devices:{request.seed}")
     rooms = [r for r in world_map.rooms if not r.outdoor and r.id != "corridor"]
     types = {r.id: _type_of(r.id) for r in rooms}
@@ -755,7 +795,10 @@ def place_devices(world_map: WorldMap, request: Request, catalog: dict) -> list[
         targets = _targets(d, world_map, rooms, types, rule, where)
         switch = category == "light" and switchable(catalog[product])
         for target in targets if rule == "door" else _beside(targets, world_map):
-            out.append(_place(product, category, rule, target, world_map, per_room, out, switch))
+            device = _place(product, category, rule, target, world_map, per_room, out, switch)
+            if avoid:
+                _clear_of(device, world_map, avoid)
+            out.append(device)
     return out
 
 

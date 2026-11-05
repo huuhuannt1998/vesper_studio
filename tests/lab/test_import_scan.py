@@ -143,6 +143,31 @@ def test_a_scanned_piece_faces_away_from_the_wall_its_back_stands_against(tmp_pa
     assert front(got["cabinet"]) == (-1.0, 0.0)  # west, away from the east wall
 
 
+def test_devices_are_placed_clear_of_the_scan_s_furniture(tmp_path):
+    """A wall device the rules would put behind a scanned piece moves to the nearest free point by a wall; a home
+    with no scanned piece in the way places its devices exactly as before."""
+    from vesper.lab.generate import AVOID_M, Request, floor_plan_from, place_devices, starter, typed_ids
+    from vesper.lab.plan import rectify
+    from vesper.lab.scan_roomplan import read_roomplan_json
+    cat = load_catalog(setup(tmp_path)[0])
+    plan, _, _ = read_roomplan_json(fixture())
+    plan = typed_ids(rectify(plan))[0]
+    m = floor_plan_from(plan, "imported/x")
+    request = Request(Path("."), ["living", "bedroom"], 0, starter(["living", "bedroom"], cat)[0])
+    free = place_devices(m, request, cat)
+    assert place_devices(m, request, cat, avoid=[]) == free
+    wall = next(d for d in free if d["at"].get("mount") == "wall")
+    x, z = wall["at"]["xy"]
+    box = [x - 0.4, z - 0.4, x + 0.4, z + 0.4]  # a cabinet right where it would go
+    moved = next(d for d in place_devices(m, request, cat, avoid=[box]) if d["name"] == wall["name"])
+    mx, mz = moved["at"]["xy"]
+    assert not (box[0] - AVOID_M < mx < box[2] + AVOID_M and box[1] - AVOID_M < mz < box[3] + AVOID_M)
+    assert math.dist((mx, mz), (x, z)) < 1.0
+    room = m.room(wall["at"]["room"])
+    from vesper.lab.generate import _edges, _gap
+    assert min(_gap(e, (mx, mz)) for e in _edges(list(room.polygon))) <= 0.25  # still on a wall
+
+
 def test_built_in_furniture_goes_only_into_rooms_the_scan_has_no_objects_in(tmp_path):
     cat, _ = setup(tmp_path)
     raw = fixture()
@@ -380,6 +405,11 @@ def test_the_model_turns_as_the_plan_s_points_do():
     got = [sum(m[r][c] * v for c, v in enumerate((x, y, z, 1.0))) for r in range(3)]
     want = turn_point((x + 1.5, z + 3.0), turn)
     assert got == [pytest.approx(want[0]), pytest.approx(0.8), pytest.approx(want[1])]
+
+
+def test_a_regenerated_home_sets_aside_a_scan_s_files_too():
+    from vesper.lab.compose import HOME_FILES
+    assert {"scene.glb", "scan.json", "source", ".gitignore"} <= set(HOME_FILES)
 
 
 def test_one_scan_error_class():
