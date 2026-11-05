@@ -87,3 +87,18 @@ export function roomFacts(room, devices, ceiling) {
   return { name: roomName(room), width: r2(Math.max(...xs) - Math.min(...xs)), depth: r2(Math.max(...zs) - Math.min(...zs)),
            area: r2(Math.abs(a) / 2), ceiling, devices: Object.values(devices).filter((d) => d.room === room.id).length };
 }
+
+// The rooms with a light on (the tour bar's bulbs): a light's effect (the rules' on), else its own state.
+export function litRooms(devices, effects = {}) {
+  const lit = new Set();
+  for (const d of Object.values(devices)) {
+    if (d.category !== "light") continue;
+    const e = effects[d.name] || d.effect || {}, s = d.state || {};
+    const on = "on" in e ? e.on === true : s["On/Off.OnOff"] === true || String(s.state || "").toUpperCase() === "ON";
+    if (on && d.room) lit.add(d.room);
+  }
+  return lit;
+}
+
+// What a click on a window does to its roller shade (a click on a window toggles it).
+export const windowPrompt = (open) => (open ? "Shade up: click to lower" : "Shade down: click to raise");

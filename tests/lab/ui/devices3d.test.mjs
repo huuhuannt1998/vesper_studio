@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import * as THREE from "../../../vesper/lab/ui/vendor/three/build/three.module.min.js";
-import { CATEGORIES, buildDevice, facingYaw } from "../../../vesper/lab/ui/devices3d.js";
+import { CATEGORIES, buildDevice, facingYaw, lightLook } from "../../../vesper/lab/ui/devices3d.js";
 
 const dev = (category, mount = "wall", extra = {}) => ({ name: `the_${category}`, category, mount, ...extra });
 const part = (model, name) => model.group.getObjectByName(name);
@@ -101,4 +101,33 @@ test("the hub is a small box on a stand at table height, its LED green while eve
   assert.equal(part(m, "led").material.emissive.getHex(), 0x2e8a57);
   m.update({ up: 3, devices: 4 });
   assert.equal(part(m, "led").material.emissive.getHex(), 0xe0a030);
+});
+
+// -- lights you can see (play-view environment design 2026-11-05, §1) -------------------------------------------
+test("a light's look follows its state and brightness: off shows nothing, dimmed shows proportionally less", () => {
+  const off = lightLook({ state: "OFF" }, { on: false });
+  assert.deepEqual([off.on, off.level, off.glow, off.pool, off.intensity], [false, 0, 0, 0, 0]);
+  const full = lightLook({ state: "ON", brightness: 254 }, { on: true });
+  const dim = lightLook({ state: "ON", brightness: 64 }, { on: true });
+  assert.equal(full.level, 1);
+  assert.ok(full.glow > dim.glow && dim.glow > 0);
+  assert.ok(full.pool > dim.pool && dim.pool > 0);
+  assert.ok(full.intensity > dim.intensity && dim.intensity > 0);
+  assert.equal(lightLook({ state: "ON" }, {}).level, 1); // on/off only: full
+  assert.equal(lightLook({ state: "ON", brightness: 0 }, { on: true }).level, 1); // a level never reported: full
+  assert.equal(lightLook({ "On/Off.OnOff": true, "Level Control.CurrentLevel": 127 }, { on: true }).level, 0.5);
+});
+
+test("a light that is on shows a glow under its fixture and a warm pool on the floor below it", () => {
+  const m = buildDevice(THREE, dev("light", "ceiling", { drop: 2.35 }));
+  const glow = m.aura.getObjectByName("glow"), pool = m.aura.getObjectByName("pool");
+  assert.ok(glow && pool);
+  assert.ok(Math.abs(pool.position.y + 2.35 - 0.012) < 1e-6); // on the floor, 2.35 m under the fixture
+  m.update({ state: "OFF" }, { on: false });
+  assert.ok(!glow.visible && !pool.visible);
+  m.update({ state: "ON", brightness: 254 }, { on: true });
+  assert.ok(glow.visible && pool.visible);
+  const bright = [glow.material.opacity, pool.material.opacity, m.light.intensity];
+  m.update({ state: "ON", brightness: 80 }, { on: true });
+  assert.ok(glow.material.opacity < bright[0] && pool.material.opacity < bright[1] && m.light.intensity < bright[2]);
 });

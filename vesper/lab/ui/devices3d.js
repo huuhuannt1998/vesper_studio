@@ -15,9 +15,23 @@ const WARM = 0xffd7a0, LED_OFF = 0x3a3f44, RED = 0xc23b2e, GREEN = 0x2e8a57, AMB
 export const facingYaw = (facing) => Math.PI / 2 - ((facing || 0) * Math.PI) / 180;
 
 const on = (state, effect) => effect && "on" in effect ? effect.on === true
-  : String((state || {}).state || "").toUpperCase() === "ON";
+  : (state || {})["On/Off.OnOff"] === true || String((state || {}).state || "").toUpperCase() === "ON";
 
-export function buildDevice(T, d) {
+// How a light looks (play-view environment design 2026-11-05, §1): off, nothing; on, a glow under its fixture, a warm
+// pool on the floor and a warm light, each by its brightness (0..254, or a Matter light's level), so a dimmed light
+// is visibly dimmer and an on/off light is full. A light that is on always shows a little (`shown`); one switched on
+// whose level reads 0 (a twin that never reported one) is at full, as the bulb would be.
+export function lightLook(state, effect) {
+  const s = state || {};
+  if (!on(s, effect || {})) return { on: false, level: 0, glow: 0, pool: 0, intensity: 0, emissive: 0.05 };
+  const given = [s.brightness, s["Level Control.CurrentLevel"]].find((v) => typeof v === "number" && v > 0);
+  const level = Math.max(0, Math.min(1, (given ?? 254) / 254)), shown = Math.max(0.15, level);
+  return { on: true, level, glow: 0.9 * shown, pool: 0.6 * shown, intensity: 16 * shown, emissive: 1.2 + 2.3 * shown };
+}
+
+// `looks`: {glowMap, poolMap}, the soft round textures a light's glow and floor pool are drawn with (view3d.js paints
+// them; without them, as under node, the two are plain shapes).
+export function buildDevice(T, d, looks = {}) {
   const group = new T.Group();
   group.name = d.name || "device";
   const mat = (color, extra = {}) => new T.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0, ...extra });
@@ -68,6 +82,8 @@ export function buildDevice(T, d) {
   const fmt = (v, digits = 1) => (typeof v === "number" ? (Math.round(v * 10 ** digits) / 10 ** digits).toString() : "");
   let update = () => {};
   let light = null;
+  const aura = new T.Group(); // what a light casts beyond its hardware: drawn at the same place, not part of its size
+  aura.name = `${group.name} light`;
   const c = d.category;
 
   if (c === "light") { // a flush ceiling fixture: canopy, stem, shade and a diffuser that glows
@@ -76,13 +92,29 @@ export function buildDevice(T, d) {
     add(new T.CylinderGeometry(0.11, 0.15, 0.07, 32, 1, true), mat(WHITE, { side: T.DoubleSide }), "shade", [0, -0.02, 0]);
     const diffuser = add(new T.CylinderGeometry(0.145, 0.145, 0.012, 32),
       mat(0xfaf6ee, { emissive: WARM, emissiveIntensity: 0.05, roughness: 0.9 }), "diffuser", [0, -0.06, 0]);
-    light = new T.PointLight(WARM, 0, 8, 2);
+    light = new T.PointLight(WARM, 0, 9, 2);
     light.position.set(0, -0.2, 0);
     group.add(light);
+    const soft = (map) => ({ color: WARM, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending,
+      ...(map ? { map } : {}) });
+    const glow = new T.Sprite(new T.SpriteMaterial(soft(looks.glowMap))); // under the fixture, seen at eye level
+    glow.name = "glow";
+    glow.position.set(0, -0.16, 0);
+    glow.scale.set(0.7, 0.7, 1);
+    aura.add(glow);
+    const pool = new T.Mesh(new T.PlaneGeometry(3.2, 3.2).rotateX(-Math.PI / 2), // light on the floor below it
+      new T.MeshBasicMaterial({ ...soft(looks.poolMap), toneMapped: false }));
+    pool.name = "pool";
+    pool.position.set(0, -(d.drop ?? 2.35) + 0.012, 0);
+    pool.renderOrder = 1;
+    aura.add(pool);
     update = (state, effect) => {
-      const lit = on(state, effect), b = typeof (state || {}).brightness === "number" ? state.brightness / 254 : 1;
-      light.intensity = lit ? 4.5 * Math.max(0.15, b) : 0;
-      diffuser.material.emissiveIntensity = lit ? 1.2 + 1.8 * b : 0.05;
+      const look = lightLook(state, effect);
+      light.intensity = look.intensity;
+      diffuser.material.emissiveIntensity = look.emissive;
+      glow.visible = pool.visible = look.on;
+      glow.material.opacity = look.glow;
+      pool.material.opacity = look.pool;
     };
   } else if (c === "motion_sensor" || c === "light_sensor") { // a puck with a lens dome and an LED
     add(new T.CylinderGeometry(0.03, 0.032, 0.03, 24), mat(WHITE), "body", [0, -0.015, 0]);
@@ -161,7 +193,7 @@ export function buildDevice(T, d) {
     update = (state, effect) => setLed(l, on(state, effect) || (state || {}).vibration === true, GREEN, 2);
   }
   group.traverse((o) => { if (o.isMesh) o.castShadow = false; });
-  return { group, light, update: (state, effect) => update(state || {}, effect || {}) };
+  return { group, light, aura, update: (state, effect) => update(state || {}, effect || {}) };
 }
 
 // The hub (Home Assistant's box, with the Zigbee coordinator beside it, as on a shelf in a real home): a small white

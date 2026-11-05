@@ -2,7 +2,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { deviceGroups, roomName, roomSpot, tourRooms } from "../../../vesper/lab/ui/nav.js";
+import { deviceGroups, litRooms, roomName, roomSpot, tourRooms, windowPrompt } from "../../../vesper/lab/ui/nav.js";
+
+test("the tour bar knows the rooms with a light on, by the light's effect or its own state", () => {
+  const devices = { a: { name: "a", category: "light", room: "living" }, b: { name: "b", category: "light", room: "bed",
+    state: { state: "ON" } }, c: { name: "c", category: "plug", room: "office", state: { state: "ON" } },
+  d: { name: "d", category: "light", room: "kitchen", state: { state: "ON" } } };
+  assert.deepEqual([...litRooms(devices, { a: { on: true }, d: { on: false } })].sort(), ["bed", "living"]);
+  assert.deepEqual([...litRooms(devices, { a: { on: false }, b: { on: false } })], ["kitchen"]);
+  assert.deepEqual([...litRooms(devices, { a: { on: false }, b: { on: false }, d: { on: false } })], []);
+});
+
+test("a window says what a click does to its shade", () => {
+  assert.equal(windowPrompt(false), "Shade down: click to raise");
+  assert.equal(windowPrompt(true), "Shade up: click to lower");
+});
 
 const square = (id, label, x0, z0, x1, z1, outdoor = false) =>
   ({ id, label, outdoor, polygon: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]] });
