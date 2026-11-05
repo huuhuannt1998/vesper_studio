@@ -41,6 +41,7 @@ its pages in your browser, or as a desktop app for macOS and Windows.
   - [Choosing products](#choosing-products)
   - [Generated homes](#generated-homes)
   - [Importing a floor plan](#importing-a-floor-plan)
+  - [Importing a scan or a 3D model](#importing-a-scan-or-a-3d-model)
   - [Furniture](#furniture)
   - [A home in a real place: sun, weather, windows](#a-home-in-a-real-place-sun-weather-windows)
   - [Checking a layout](#checking-a-layout)
@@ -262,6 +263,14 @@ newer. For furnishing with Claude, also install [Claude Code](https://claude.com
 and the add-on of [Blender MCP](https://github.com/ahujasid/blender-mcp) (`addon.py`: in Blender, Edit, Preferences,
 Add-ons, Install from disk); VESPER runs the MCP server itself (`uvx mcp-for-blender`, so `uv` is needed too). Blender
 is needed only to make a home's model, not to play it.
+
+**Scans and 3D models** (`vesper lab import` of a RoomPlan USDZ or a `.glb .gltf .obj .ply` model; a RoomPlan JSON
+needs nothing): the `scan` extra (trimesh, numpy, scipy, usd-core), from your clone:
+
+    uv tool install --python 3.12 --editable '.[scan]'                # the vesper command, with the extra
+    uv pip install --python .venv/bin/python -e '.[scan]'               # or in a development .venv
+
+See [Importing a scan or a 3D model](#importing-a-scan-or-a-3d-model).
 
 **A browser for automatic checks**: `vesper lab look` uses Google Chrome or any Chromium-based browser it finds; set
 `VESPER_BROWSER` to its executable otherwise.
@@ -708,6 +717,69 @@ of wall between them; a door between rooms that do not touch is left out when ev
 entrance without it, and refused when a room needs it. Doors are numbered from 1 in the order of the plan as read,
 everywhere (the summary, the warnings, a refusal, the lobby), even after one is left out. A small room is still a
 room: a WC typed bathroom may be 1 m², a closet or store (`other`) 0.5 m².
+
+### Importing a scan or a 3D model
+
+    vesper lab import scans/flat/room.json homes/flat            # a RoomPlan scan (JSON)
+    vesper lab import scans/flat/room_p.usdz homes/flat          # the same scan as RoomPlan's USDZ
+    vesper lab import models/house.glb homes/house --types living,kitchen,bedroom
+    vesper lab import models/house.obj homes/house --scale 0.01  # a model in centimetres
+
+`vesper lab import` also builds a home from a scan of a real room, or from a 3D model of a house, through the same
+steps as a floor plan: the walls straightened, every problem listed before anything is written, then devices, furniture
+and the layout check.
+
+**A room scanned with a phone.** On an iPhone or iPad with LiDAR, scan with an app built on Apple's RoomPlan, such as
+**Polycam** (its Room mode) or the **3D Scanner App**, and export RoomPlan's **JSON** (CapturedRoom, or
+CapturedStructure for several rooms) or its **USDZ**. A RoomPlan scan is in metres, so it needs no scale. VESPER takes:
+
+- the rooms the walls enclose, named and typed by the scan's room labels;
+- the doors, windows and openings on their walls, with each window's measured sill and height;
+- the scan's objects (bed, sofa, storage, refrigerator...) as the home's furniture, marked `source: scan`. VESPER adds
+  its built-in furniture only to rooms the scan has no objects in.
+
+A room much larger than its type usually is (a 37 m² meeting room labelled a dining room) is built as measured, with a
+warning.
+
+In a one-room scan every door leads "outside", because the rooms beyond were not scanned. The summary says which door
+VESPER takes as the entrance.
+
+RoomPlan's mesh USDZ (`room.usdz`) leaves the openings out. When you give it and a `room.json` or `room_p.usdz` lies
+beside it, VESPER reads that file instead and says so. A JSON needs nothing extra. A USDZ needs usd-core.
+
+VESPER cannot convert a USDZ for its 3D view, so it draws a scanned home itself.
+
+**A 3D model** (`.glb`, `.gltf`, `.obj`, `.ply`): a photogrammetry or LiDAR scan, or a house model from the web.
+VESPER reads the floor plan from the model's shape:
+
+- the up axis is detected, never assumed;
+- the floor, walls, doorways and windows are found by cutting the model at set heights;
+- the rooms are named "room 1..N" and typed `other`, unless you give their types in order with `--types`.
+
+A model whose ceiling is not 2.1-4.0 m above its floor is rescaled to put the ceiling at 2.5 m, and a warning says by
+how much. A model rescaled by more than x5 or less than x0.2, or one VESPER cannot measure, is refused. Give its units
+with `--scale` (metres per unit). VESPER also refuses a model with several rooms and no door found between them.
+
+The model becomes the home's 3D view: it is turned into the home's frame and written as `scene.glb`. The model draws
+its own furniture, so VESPER adds none. `vesper lab renav` can take the walking floor from the model.
+
+Reading meshes and USDZ needs the `scan` extra (trimesh, numpy, scipy, usd-core): in your clone,
+`uv tool install --python 3.12 --editable '.[scan]'` (see [Optional parts](#5-optional-parts)). Without it, VESPER
+says which extra to install. A RoomPlan JSON needs nothing extra.
+
+**The model is yours.** VESPER keeps the original in the home's `source/` folder, with `scene.glb` beside it, and
+writes a `.gitignore` in the home that lists both, so they do not go into a repository with the home by mistake. A
+model's licence is between you and its author: check that it lets you use the model this way. VESPER never uploads,
+shares or redistributes a scan or a model.
+
+The home's `scan.json` records where everything came from:
+
+- the file read, and the reader's warnings;
+- for a model: the up axis, the scale and the transform into the home's frame;
+- each door's measured bottom and top.
+
+The scan's furniture stands where it was measured, so in `vesper lab layout` a rule that only the scan's own pieces
+break is a warning, not an error.
 
 ### Furniture
 
