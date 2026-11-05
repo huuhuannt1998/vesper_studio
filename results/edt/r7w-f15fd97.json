@@ -1,0 +1,1313 @@
+{
+ "analysis": "R7-W (protocol Addendum 14, post hoc): recorded shortwave and three more ERA5 years",
+ "code_commit": "f15fd97",
+ "engine_corrected": {
+  "cover_pair": {
+   "clock_relation": {
+    "coverage_all": 0.8917,
+    "coverage_held_out": 0.9003,
+    "coverage_train": 0.8844,
+    "covered_by_some_pair": 785,
+    "flagged": 785,
+    "pair": [
+     "Minneapolis 01-14 n0",
+     "Stockholm 07-15 n180"
+    ]
+   },
+   "frame_relation": {
+    "coverage_all": 0.6583,
+    "coverage_held_out": 0.686,
+    "coverage_train": 0.6372,
+    "covered_by_some_pair": 199,
+    "flagged": 199,
+    "pair": [
+     "Minneapolis 01-14 n0",
+     "Stockholm 07-15 n180"
+    ]
+   }
+  },
+  "summary": {
+   "bound": 9515,
+   "clock_by_kind": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 704
+   },
+   "clock_flags": 785,
+   "failed_envs": 0,
+   "frame_by_kind": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 8
+   },
+   "frame_flags": 199,
+   "indoor_knobs": null,
+   "negative_control": {
+    "fired": 1243,
+    "flagged": 0,
+    "n": 3466
+   },
+   "run": 5926
+  }
+ },
+ "fetch": {
+  "endpoint": "https://archive-api.open-meteo.com/v1/archive (models=era5)",
+  "log": "requests.jsonl in the lane's scratch directory (every URL)",
+  "pause_s": 2.0,
+  "requests": 266,
+  "statuses": {
+   "200": 266
+  },
+  "user_agent": "python-httpx"
+ },
+ "inputs": {
+  "engine_corrected": "r6d-5b54586",
+  "published": "8fcd672"
+ },
+ "khat": {
+  "assumed": {
+   "bias_pooled_at_0": -2.111,
+   "bias_pooled_at_1": 7.291,
+   "bootstrap": {
+    "ci95": [
+     0.2052,
+     0.2894
+    ],
+    "median": 0.2501,
+    "no_root": 0,
+    "resamples": 2000,
+    "seed": 20261105,
+    "unit": "local day"
+   },
+   "days": 51,
+   "hours_pooled": 2072,
+   "khat": 0.25,
+   "khat_linear_crosscheck": 0.2868,
+   "mean_solar_gain_w": 120.76,
+   "per_room": {
+    "dining room": {
+     "bias_at_0": -2.228,
+     "bias_at_1": 7.13,
+     "hours": 1036,
+     "khat": 0.2643
+    },
+    "room": {
+     "bias_at_0": -1.994,
+     "bias_at_1": 7.452,
+     "hours": 1036,
+     "khat": 0.2358
+    }
+   },
+   "recorded_split_hours": null
+  },
+  "assumed_split_ground": {
+   "bias_pooled_at_0": -2.111,
+   "bias_pooled_at_1": 8.998,
+   "bootstrap": {
+    "ci95": [
+     0.1749,
+     0.2456
+    ],
+    "median": 0.2129,
+    "no_root": 0,
+    "resamples": 2000,
+    "seed": 20261105,
+    "unit": "local day"
+   },
+   "days": 51,
+   "hours_pooled": 2072,
+   "khat": 0.2128,
+   "khat_linear_crosscheck": 0.2528,
+   "mean_solar_gain_w": 142.25,
+   "per_room": {
+    "dining room": {
+     "bias_at_0": -2.228,
+     "bias_at_1": 8.838,
+     "hours": 1036,
+     "khat": 0.2249
+    },
+    "room": {
+     "bias_at_0": -1.994,
+     "bias_at_1": 9.159,
+     "hours": 1036,
+     "khat": 0.2006
+    }
+   },
+   "recorded_split_hours": {
+    "daylight_hours_with_split": 637,
+    "mean_assumed_share_same_hours": 0.5143,
+    "mean_recorded_share": 0.7032,
+    "source": "Open-Meteo archive, ERA5-Land (models=era5_land) snow_depth (51 of 51 days)"
+   }
+  },
+  "published_r6b": {
+   "ci95": [
+    0.2052,
+    0.2894
+   ],
+   "khat": 0.25
+  },
+  "recorded_split": {
+   "bias_pooled_at_0": -2.111,
+   "bias_pooled_at_1": 7.534,
+   "bootstrap": {
+    "ci95": [
+     0.203,
+     0.2832
+    ],
+    "median": 0.244,
+    "no_root": 0,
+    "resamples": 2000,
+    "seed": 20261105,
+    "unit": "local day"
+   },
+   "days": 51,
+   "hours_pooled": 2072,
+   "khat": 0.2439,
+   "khat_linear_crosscheck": 0.2774,
+   "mean_solar_gain_w": 123.16,
+   "per_room": {
+    "dining room": {
+     "bias_at_0": -2.228,
+     "bias_at_1": 7.373,
+     "hours": 1036,
+     "khat": 0.2578
+    },
+    "room": {
+     "bias_at_0": -1.994,
+     "bias_at_1": 7.695,
+     "hours": 1036,
+     "khat": 0.23
+    }
+   },
+   "recorded_split_hours": {
+    "daylight_hours_with_split": 637,
+    "mean_assumed_share_same_hours": 0.5143,
+    "mean_recorded_share": 0.7032,
+    "source": "Open-Meteo archive, ERA5-Land (models=era5_land) snow_depth (51 of 51 days)"
+   }
+  },
+  "recorded_split_ground": {
+   "bias_pooled_at_0": -2.111,
+   "bias_pooled_at_1": 9.242,
+   "bootstrap": {
+    "ci95": [
+     0.1712,
+     0.2415
+    ],
+    "median": 0.2084,
+    "no_root": 0,
+    "resamples": 2000,
+    "seed": 20261105,
+    "unit": "local day"
+   },
+   "days": 51,
+   "hours_pooled": 2072,
+   "khat": 0.2083,
+   "khat_linear_crosscheck": 0.2453,
+   "mean_solar_gain_w": 144.65,
+   "per_room": {
+    "dining room": {
+     "bias_at_0": -2.228,
+     "bias_at_1": 9.081,
+     "hours": 1036,
+     "khat": 0.2203
+    },
+    "room": {
+     "bias_at_0": -1.994,
+     "bias_at_1": 9.402,
+     "hours": 1036,
+     "khat": 0.1965
+    }
+   },
+   "recorded_split_hours": {
+    "daylight_hours_with_split": 637,
+    "mean_assumed_share_same_hours": 0.5143,
+    "mean_recorded_share": 0.7032,
+    "source": "Open-Meteo archive, ERA5-Land (models=era5_land) snow_depth (51 of 51 days)"
+   }
+  }
+ },
+ "published": {
+  "cover_pair": {
+   "clock_relation": {
+    "coverage_all": 0.8924,
+    "coverage_held_out": 0.9014,
+    "coverage_train": 0.8847,
+    "covered_by_some_pair": 790,
+    "flagged": 790,
+    "pair": [
+     "Minneapolis 01-14 n0",
+     "Stockholm 07-15 n180"
+    ]
+   },
+   "frame_relation": {
+    "coverage_all": 0.6583,
+    "coverage_held_out": 0.686,
+    "coverage_train": 0.6372,
+    "covered_by_some_pair": 199,
+    "flagged": 199,
+    "pair": [
+     "Minneapolis 01-14 n0",
+     "Stockholm 07-15 n180"
+    ]
+   }
+  },
+  "orientation_witnesses": {
+   "clock_relation": 123,
+   "frame_relation": 100
+  },
+  "summary": {
+   "bound": 9515,
+   "clock_by_kind": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 709
+   },
+   "clock_flags": 790,
+   "failed_envs": 0,
+   "frame_by_kind": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 8
+   },
+   "frame_flags": 199,
+   "indoor_knobs": null,
+   "negative_control": {
+    "fired": 1247,
+    "flagged": 0,
+    "n": 3466
+   },
+   "run": 5926
+  }
+ },
+ "setback": {
+  "2023": {
+   "automations": 6,
+   "automations_commanding_a_setback": 16,
+   "baseline_coldest_room_c": 17.0,
+   "breaching_among_commanded": 17,
+   "breaching_runs": 17,
+   "by_city": {
+    "Minneapolis": 10,
+    "Stockholm": 7
+   },
+   "by_env": {
+    "Minneapolis 2023-01-14 n0": 6,
+    "Minneapolis 2023-01-14 n180": 4,
+    "Stockholm 2023-01-14 n0": 4,
+    "Stockholm 2023-01-14 n180": 3
+   },
+   "coldest_caused_room_c": [
+    7.8,
+    9.1,
+    9.9
+   ],
+   "denominator": 88,
+   "outdoor_days_1_2_c": {
+    "Minneapolis": {
+     "hours": 48,
+     "mean_c": 1.36,
+     "min_c": -0.6
+    },
+    "Stockholm": {
+     "hours": 48,
+     "mean_c": 3.52,
+     "min_c": 1.6
+    }
+   },
+   "runs_with_setback_in_window": 62,
+   "year": 2023
+  },
+  "2024": {
+   "automations": 16,
+   "automations_commanding_a_setback": 16,
+   "baseline_coldest_room_c": 16.0,
+   "breaching_among_commanded": 61,
+   "breaching_runs": 61,
+   "by_city": {
+    "Minneapolis": 31,
+    "Stockholm": 30
+   },
+   "by_env": {
+    "Minneapolis 2024-01-14 n0": 15,
+    "Minneapolis 2024-01-14 n180": 16,
+    "Stockholm 2024-01-14 n0": 15,
+    "Stockholm 2024-01-14 n180": 15
+   },
+   "coldest_caused_room_c": [
+    -2.4,
+    5.2,
+    8.1
+   ],
+   "denominator": 88,
+   "outdoor_days_1_2_c": {
+    "Minneapolis": {
+     "hours": 48,
+     "mean_c": -17.96,
+     "min_c": -21.7
+    },
+    "Stockholm": {
+     "hours": 48,
+     "mean_c": -10.73,
+     "min_c": -17.5
+    }
+   },
+   "runs_with_setback_in_window": 62,
+   "year": 2024
+  },
+  "2025": {
+   "automations": 16,
+   "automations_commanding_a_setback": 16,
+   "baseline_coldest_room_c": 15.3,
+   "breaching_among_commanded": 35,
+   "breaching_runs": 35,
+   "by_city": {
+    "Minneapolis": 31,
+    "Stockholm": 4
+   },
+   "by_env": {
+    "Minneapolis 2025-01-14 n0": 15,
+    "Minneapolis 2025-01-14 n180": 16,
+    "Stockholm 2025-01-14 n0": 2,
+    "Stockholm 2025-01-14 n180": 2
+   },
+   "coldest_caused_room_c": [
+    4.5,
+    6.0,
+    9.8
+   ],
+   "denominator": 88,
+   "outdoor_days_1_2_c": {
+    "Minneapolis": {
+     "hours": 48,
+     "mean_c": -5.52,
+     "min_c": -19.1
+    },
+    "Stockholm": {
+     "hours": 48,
+     "mean_c": 3.33,
+     "min_c": -1.1
+    }
+   },
+   "runs_with_setback_in_window": 61,
+   "year": 2025
+  },
+  "2026": {
+   "automations": 16,
+   "automations_commanding_a_setback": 18,
+   "baseline_coldest_room_c": 15.6,
+   "breaching_among_commanded": 53,
+   "breaching_runs": 53,
+   "by_city": {
+    "Minneapolis": 31,
+    "Stockholm": 22
+   },
+   "by_env": {
+    "Minneapolis 2026-01-14 n0": 15,
+    "Minneapolis 2026-01-14 n180": 16,
+    "Stockholm 2026-01-14 n0": 11,
+    "Stockholm 2026-01-14 n180": 11
+   },
+   "coldest_caused_room_c": [
+    2.7,
+    8.1,
+    9.8
+   ],
+   "denominator": 88,
+   "outdoor_days_1_2_c": {
+    "Minneapolis": {
+     "hours": 48,
+     "mean_c": -6.37,
+     "min_c": -13.6
+    },
+    "Stockholm": {
+     "hours": 48,
+     "mean_c": 2.04,
+     "min_c": 0.9
+    }
+   },
+   "runs_with_setback_in_window": 69,
+   "year": 2026
+  },
+  "population_reading_weekday": 5,
+  "published_r2c_nominal": 53
+ },
+ "shortwave": {
+  "against_engine_corrected": {
+   "clock_relation": {
+    "held_other_kinds": 9,
+    "held_same_kinds": 774,
+    "lost": 2,
+    "lost_by_kind": {
+     "fires_somewhere_only": 1,
+     "time_spread": 1
+    },
+    "lost_by_quantity": {
+     "temperature": 2
+    },
+    "new": 783,
+    "new_by_kind": {},
+    "new_by_quantity": {},
+    "new_flags": 0,
+    "old": 785
+   },
+   "frame_relation": {
+    "held_other_kinds": 0,
+    "held_same_kinds": 198,
+    "lost": 1,
+    "lost_by_kind": {
+     "fires_somewhere_only": 1
+    },
+    "lost_by_quantity": {
+     "temperature": 1
+    },
+    "new": 198,
+    "new_by_kind": {},
+    "new_by_quantity": {},
+    "new_flags": 0,
+    "old": 199
+   },
+   "run": {
+    "new": 5926,
+    "old": 5926
+   }
+  },
+  "against_published": {
+   "clock_relation": {
+    "held_other_kinds": 9,
+    "held_same_kinds": 774,
+    "lost": 7,
+    "lost_by_kind": {
+     "fires_somewhere_only": 1,
+     "time_spread": 6
+    },
+    "lost_by_quantity": {
+     "sun": 5,
+     "temperature": 2
+    },
+    "new": 783,
+    "new_by_kind": {},
+    "new_by_quantity": {},
+    "new_flags": 0,
+    "old": 790
+   },
+   "frame_relation": {
+    "held_other_kinds": 0,
+    "held_same_kinds": 198,
+    "lost": 1,
+    "lost_by_kind": {
+     "fires_somewhere_only": 1
+    },
+    "lost_by_quantity": {
+     "temperature": 1
+    },
+    "new": 198,
+    "new_by_kind": {},
+    "new_by_quantity": {},
+    "new_flags": 0,
+    "old": 199
+   },
+   "run": {
+    "new": 5926,
+    "old": 5926
+   }
+  },
+  "orientation_witnesses_against_engine_corrected": {
+   "clock_relation": {
+    "held": 119,
+    "lost": 4,
+    "minimal_witness_axis": {
+     "city": 1,
+     "date": 659,
+     "north_deg": 123
+    },
+    "new": 4,
+    "old": 123,
+    "with_an_orientation_witness": 123
+   },
+   "frame_relation": {
+    "held": 95,
+    "lost": 5,
+    "minimal_witness_axis": {
+     "city": 1,
+     "date": 96,
+     "north_deg": 101
+    },
+    "new": 6,
+    "old": 100,
+    "with_an_orientation_witness": 101
+   }
+  },
+  "orientation_witnesses_against_published": {
+   "clock_relation": {
+    "held": 119,
+    "lost": 4,
+    "minimal_witness_axis": {
+     "city": 1,
+     "date": 659,
+     "north_deg": 123
+    },
+    "new": 4,
+    "old": 123,
+    "with_an_orientation_witness": 123
+   },
+   "frame_relation": {
+    "held": 95,
+    "lost": 5,
+    "minimal_witness_axis": {
+     "city": 1,
+     "date": 96,
+     "north_deg": 101
+    },
+    "new": 6,
+    "old": 100,
+    "with_an_orientation_witness": 101
+   }
+  },
+  "split_context": {
+   "mean_over_windows": {
+    "assumed": 0.319,
+    "recorded": 0.5498
+   },
+   "snow_covered_windows": [
+    "Minneapolis 01-14",
+    "Stockholm 01-14"
+   ],
+   "windows": {
+    "Minneapolis 01-14": {
+     "max_snow_depth_m": 0.07,
+     "mean_assumed_share": 0.321,
+     "mean_recorded_share": 0.4371,
+     "no_split": 0,
+     "sun_up_hours": 27
+    },
+    "Minneapolis 04-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.457,
+     "mean_recorded_share": 0.5605,
+     "no_split": 0,
+     "sun_up_hours": 42
+    },
+    "Minneapolis 07-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.5055,
+     "mean_recorded_share": 0.7561,
+     "no_split": 0,
+     "sun_up_hours": 45
+    },
+    "Minneapolis 10-14": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.1574,
+     "mean_recorded_share": 0.2982,
+     "no_split": 0,
+     "sun_up_hours": 31
+    },
+    "Phoenix 01-14": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.6733,
+     "mean_recorded_share": 0.8002,
+     "no_split": 0,
+     "sun_up_hours": 30
+    },
+    "Phoenix 04-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.5518,
+     "mean_recorded_share": 0.7039,
+     "no_split": 0,
+     "sun_up_hours": 39
+    },
+    "Phoenix 07-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.099,
+     "mean_recorded_share": 0.4709,
+     "no_split": 0,
+     "sun_up_hours": 42
+    },
+    "Phoenix 10-14": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.776,
+     "mean_recorded_share": 0.8175,
+     "no_split": 0,
+     "sun_up_hours": 33
+    },
+    "Seattle 01-14": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.4058,
+     "mean_recorded_share": 0.6671,
+     "no_split": 0,
+     "sun_up_hours": 27
+    },
+    "Seattle 04-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.1814,
+     "mean_recorded_share": 0.4725,
+     "no_split": 0,
+     "sun_up_hours": 42
+    },
+    "Seattle 07-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.3243,
+     "mean_recorded_share": 0.5539,
+     "no_split": 0,
+     "sun_up_hours": 46
+    },
+    "Seattle 10-14": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.4985,
+     "mean_recorded_share": 0.6656,
+     "no_split": 0,
+     "sun_up_hours": 32
+    },
+    "Singapore 01-14": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.0948,
+     "mean_recorded_share": 0.637,
+     "no_split": 0,
+     "sun_up_hours": 36
+    },
+    "Singapore 04-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.0784,
+     "mean_recorded_share": 0.409,
+     "no_split": 0,
+     "sun_up_hours": 36
+    },
+    "Singapore 07-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.1684,
+     "mean_recorded_share": 0.5353,
+     "no_split": 0,
+     "sun_up_hours": 36
+    },
+    "Singapore 10-14": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.1946,
+     "mean_recorded_share": 0.592,
+     "no_split": 0,
+     "sun_up_hours": 36
+    },
+    "Stockholm 01-14": {
+     "max_snow_depth_m": 0.22,
+     "mean_assumed_share": 0.0011,
+     "mean_recorded_share": 0.0124,
+     "no_split": 0,
+     "sun_up_hours": 18
+    },
+    "Stockholm 04-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.2782,
+     "mean_recorded_share": 0.5928,
+     "no_split": 0,
+     "sun_up_hours": 43
+    },
+    "Stockholm 07-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.4708,
+     "mean_recorded_share": 0.6673,
+     "no_split": 0,
+     "sun_up_hours": 54
+    },
+    "Stockholm 10-14": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.0824,
+     "mean_recorded_share": 0.245,
+     "no_split": 0,
+     "sun_up_hours": 33
+    },
+    "Sydney 01-14": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.2457,
+     "mean_recorded_share": 0.5536,
+     "no_split": 0,
+     "sun_up_hours": 42
+    },
+    "Sydney 04-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.6361,
+     "mean_recorded_share": 0.7378,
+     "no_split": 0,
+     "sun_up_hours": 35
+    },
+    "Sydney 07-15": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.3111,
+     "mean_recorded_share": 0.5557,
+     "no_split": 0,
+     "sun_up_hours": 30
+    },
+    "Sydney 10-14": {
+     "max_snow_depth_m": 0.0,
+     "mean_assumed_share": 0.1433,
+     "mean_recorded_share": 0.4539,
+     "no_split": 0,
+     "sun_up_hours": 39
+    }
+   }
+  },
+  "summary": {
+   "bound": 9515,
+   "clock_by_kind": {
+    "fires_somewhere_only": 184,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 700
+   },
+   "clock_flags": 783,
+   "failed_envs": 0,
+   "frame_by_kind": {
+    "fires_somewhere_only": 184,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 8
+   },
+   "frame_flags": 198,
+   "indoor_knobs": {
+    "GROUND_REFLECTED": 1,
+    "RECORDED_SPLIT": 1
+   },
+   "negative_control": {
+    "fired": 1243,
+    "flagged": 0,
+    "n": 3466
+   },
+   "run": 5926
+  },
+  "sweep_commit": "52ded7b",
+  "weather": {
+   "knobs {\"GROUND_REFLECTED\": 1, \"RECORDED_SPLIT\": 1}": 48,
+   "recorded split and snow depth, every day": 48
+  }
+ },
+ "stability_of_the_199": {
+  "by_kind_held_in_every_year": {
+   "fires_somewhere_only": 171,
+   "flaps": 8,
+   "night_light": 30,
+   "time_spread": 8
+  },
+  "by_kind_held_in_no_year": {
+   "fires_somewhere_only": 3
+  },
+  "by_quantity_held_in_no_year": {
+   "(none)": 1,
+   "temperature": 2
+  },
+  "flagged_in_2023_and_2025": 190,
+  "flagged_in_every_year": 185,
+  "flagged_in_k_years": {
+   "0": 3,
+   "2": 11,
+   "3": 185
+  },
+  "flagged_in_no_year": 3,
+  "flagged_in_some_year": 196,
+  "frame_flags_2026": 199,
+  "reading_weekday": 13,
+  "same_kinds_in_every_year": 183,
+  "years": [
+   "2023",
+   "2024",
+   "2025"
+  ]
+ },
+ "stability_of_the_clock_flags": {
+  "clock_flags_2026": 790,
+  "flagged_in_every_year": 755,
+  "flagged_in_some_year": 782
+ },
+ "weekdays": {
+  "2023": {
+   "2023-01-14": "Sat / Sun / Mon",
+   "2023-04-15": "Sat / Sun / Mon",
+   "2023-07-15": "Sat / Sun / Mon",
+   "2023-10-14": "Sat / Sun / Mon"
+  },
+  "2024": {
+   "2024-01-14": "Sun / Mon / Tue",
+   "2024-04-15": "Mon / Tue / Wed",
+   "2024-07-15": "Mon / Tue / Wed",
+   "2024-10-14": "Mon / Tue / Wed"
+  },
+  "2025": {
+   "2025-01-14": "Tue / Wed / Thu",
+   "2025-04-15": "Tue / Wed / Thu",
+   "2025-07-15": "Tue / Wed / Thu",
+   "2025-10-14": "Tue / Wed / Thu"
+  },
+  "2026": {
+   "2026-01-14": "Wed / Thu / Fri",
+   "2026-04-15": "Wed / Thu / Fri",
+   "2026-07-15": "Wed / Thu / Fri",
+   "2026-10-14": "Wed / Thu / Fri"
+  }
+ },
+ "years": {
+  "2023": {
+   "against_published": {
+    "clock_relation": {
+     "held_other_kinds": 16,
+     "held_same_kinds": 747,
+     "lost": 27,
+     "lost_by_kind": {
+      "fires_somewhere_only": 9,
+      "time_spread": 18
+     },
+     "lost_by_quantity": {
+      "(none)": 2,
+      "humidity": 2,
+      "sun": 5,
+      "temperature": 18
+     },
+     "new": 771,
+     "new_by_kind": {
+      "fires_somewhere_only": 5,
+      "night_light": 1,
+      "time_spread": 3
+     },
+     "new_by_quantity": {
+      "(none)": 4,
+      "sun": 3,
+      "temperature": 1
+     },
+     "new_flags": 8,
+     "old": 790
+    },
+    "frame_relation": {
+     "held_other_kinds": 2,
+     "held_same_kinds": 188,
+     "lost": 9,
+     "lost_by_kind": {
+      "fires_somewhere_only": 9
+     },
+     "lost_by_quantity": {
+      "(none)": 1,
+      "humidity": 2,
+      "temperature": 6
+     },
+     "new": 196,
+     "new_by_kind": {
+      "fires_somewhere_only": 6,
+      "night_light": 1
+     },
+     "new_by_quantity": {
+      "(none)": 4,
+      "sun": 2
+     },
+     "new_flags": 6,
+     "old": 199
+    },
+    "run": {
+     "new": 5926,
+     "old": 5926
+    }
+   },
+   "cover_pair": {
+    "clock_relation": {
+     "coverage_all": 0.8949,
+     "coverage_held_out": 0.8933,
+     "coverage_train": 0.8964,
+     "covered_by_some_pair": 771,
+     "flagged": 771,
+     "pair": [
+      "Stockholm 01-14 n0",
+      "Stockholm 07-15 n0"
+     ]
+    },
+    "frame_relation": {
+     "coverage_all": 0.6071,
+     "coverage_held_out": 0.5517,
+     "coverage_train": 0.6514,
+     "covered_by_some_pair": 196,
+     "flagged": 196,
+     "pair": [
+      "Stockholm 01-14 n180",
+      "Stockholm 07-15 n0"
+     ]
+    }
+   },
+   "orientation_witnesses_against_published": {
+    "clock_relation": {
+     "held": 101,
+     "lost": 22,
+     "minimal_witness_axis": {
+      "city": 2,
+      "date": 663,
+      "north_deg": 105
+     },
+     "new": 4,
+     "old": 123,
+     "with_an_orientation_witness": 105
+    },
+    "frame_relation": {
+     "held": 91,
+     "lost": 9,
+     "minimal_witness_axis": {
+      "city": 1,
+      "date": 98,
+      "north_deg": 97
+     },
+     "new": 6,
+     "old": 100,
+     "with_an_orientation_witness": 97
+    }
+   },
+   "summary": {
+    "bound": 9515,
+    "clock_by_kind": {
+     "fires_somewhere_only": 182,
+     "flaps": 8,
+     "night_light": 29,
+     "time_spread": 689
+    },
+    "clock_flags": 771,
+    "failed_envs": 0,
+    "frame_by_kind": {
+     "fires_somewhere_only": 182,
+     "flaps": 8,
+     "night_light": 29,
+     "time_spread": 8
+    },
+    "frame_flags": 196,
+    "indoor_knobs": null,
+    "negative_control": {
+     "fired": 1282,
+     "flagged": 0,
+     "n": 3466
+    },
+    "run": 5926
+   },
+   "sweep_commit": "52ded7b",
+   "weekday_split": {
+    "clock_relation": {
+     "lost": 27,
+     "lost_reading_weekday": 4,
+     "new": 8,
+     "new_reading_weekday": 6
+    },
+    "frame_relation": {
+     "lost": 9,
+     "lost_reading_weekday": 4,
+     "new": 6,
+     "new_reading_weekday": 5
+    },
+    "negative_control_flagged": 0,
+    "negative_control_flagged_reading_weekday": 0,
+    "run_reading_weekday": 360
+   },
+   "weekdays": {
+    "2023-01-14": "Sat / Sun / Mon",
+    "2023-04-15": "Sat / Sun / Mon",
+    "2023-07-15": "Sat / Sun / Mon",
+    "2023-10-14": "Sat / Sun / Mon"
+   }
+  },
+  "2024": {
+   "against_published": {
+    "clock_relation": {
+     "held_other_kinds": 21,
+     "held_same_kinds": 755,
+     "lost": 14,
+     "lost_by_kind": {
+      "fires_somewhere_only": 8,
+      "time_spread": 11
+     },
+     "lost_by_quantity": {
+      "(none)": 1,
+      "humidity": 4,
+      "sun": 6,
+      "temperature": 3
+     },
+     "new": 822,
+     "new_by_kind": {
+      "fires_somewhere_only": 46,
+      "time_spread": 1
+     },
+     "new_by_quantity": {
+      "(none)": 45,
+      "sun": 1
+     },
+     "new_flags": 46,
+     "old": 790
+    },
+    "frame_relation": {
+     "held_other_kinds": 0,
+     "held_same_kinds": 191,
+     "lost": 8,
+     "lost_by_kind": {
+      "fires_somewhere_only": 8
+     },
+     "lost_by_quantity": {
+      "(none)": 1,
+      "humidity": 4,
+      "temperature": 3
+     },
+     "new": 238,
+     "new_by_kind": {
+      "fires_somewhere_only": 47
+     },
+     "new_by_quantity": {
+      "(none)": 45,
+      "sun": 2
+     },
+     "new_flags": 47,
+     "old": 199
+    },
+    "run": {
+     "new": 5926,
+     "old": 5926
+    }
+   },
+   "cover_pair": {
+    "clock_relation": {
+     "coverage_all": 0.9063,
+     "coverage_held_out": 0.9026,
+     "coverage_train": 0.9097,
+     "covered_by_some_pair": 822,
+     "flagged": 822,
+     "pair": [
+      "Seattle 01-14 n0",
+      "Stockholm 07-15 n180"
+     ]
+    },
+    "frame_relation": {
+     "coverage_all": 0.7395,
+     "coverage_held_out": 0.7652,
+     "coverage_train": 0.7154,
+     "covered_by_some_pair": 238,
+     "flagged": 238,
+     "pair": [
+      "Stockholm 01-14 n0",
+      "Stockholm 07-15 n180"
+     ]
+    }
+   },
+   "orientation_witnesses_against_published": {
+    "clock_relation": {
+     "held": 99,
+     "lost": 24,
+     "minimal_witness_axis": {
+      "city": 1,
+      "date": 720,
+      "north_deg": 101
+     },
+     "new": 2,
+     "old": 123,
+     "with_an_orientation_witness": 101
+    },
+    "frame_relation": {
+     "held": 90,
+     "lost": 10,
+     "minimal_witness_axis": {
+      "city": 1,
+      "date": 145,
+      "north_deg": 92
+     },
+     "new": 2,
+     "old": 100,
+     "with_an_orientation_witness": 92
+    }
+   },
+   "summary": {
+    "bound": 9515,
+    "clock_by_kind": {
+     "fires_somewhere_only": 224,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 709
+    },
+    "clock_flags": 822,
+    "failed_envs": 0,
+    "frame_by_kind": {
+     "fires_somewhere_only": 224,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 8
+    },
+    "frame_flags": 238,
+    "indoor_knobs": null,
+    "negative_control": {
+     "fired": 1252,
+     "flagged": 30,
+     "n": 3466
+    },
+    "run": 5926
+   },
+   "sweep_commit": "52ded7b",
+   "weekday_split": {
+    "clock_relation": {
+     "lost": 14,
+     "lost_reading_weekday": 3,
+     "new": 46,
+     "new_reading_weekday": 43
+    },
+    "frame_relation": {
+     "lost": 8,
+     "lost_reading_weekday": 2,
+     "new": 47,
+     "new_reading_weekday": 44
+    },
+    "negative_control_flagged": 30,
+    "negative_control_flagged_reading_weekday": 30,
+    "run_reading_weekday": 360
+   },
+   "weekdays": {
+    "2024-01-14": "Sun / Mon / Tue",
+    "2024-04-15": "Mon / Tue / Wed",
+    "2024-07-15": "Mon / Tue / Wed",
+    "2024-10-14": "Mon / Tue / Wed"
+   }
+  },
+  "2025": {
+   "against_published": {
+    "clock_relation": {
+     "held_other_kinds": 8,
+     "held_same_kinds": 771,
+     "lost": 11,
+     "lost_by_kind": {
+      "fires_somewhere_only": 3,
+      "time_spread": 8
+     },
+     "lost_by_quantity": {
+      "(none)": 1,
+      "sun": 6,
+      "temperature": 4
+     },
+     "new": 780,
+     "new_by_kind": {
+      "time_spread": 1
+     },
+     "new_by_quantity": {
+      "sun": 1
+     },
+     "new_flags": 1,
+     "old": 790
+    },
+    "frame_relation": {
+     "held_other_kinds": 0,
+     "held_same_kinds": 196,
+     "lost": 3,
+     "lost_by_kind": {
+      "fires_somewhere_only": 3
+     },
+     "lost_by_quantity": {
+      "(none)": 1,
+      "temperature": 2
+     },
+     "new": 196,
+     "new_by_kind": {},
+     "new_by_quantity": {},
+     "new_flags": 0,
+     "old": 199
+    },
+    "run": {
+     "new": 5926,
+     "old": 5926
+    }
+   },
+   "cover_pair": {
+    "clock_relation": {
+     "coverage_all": 0.9192,
+     "coverage_held_out": 0.9197,
+     "coverage_train": 0.9189,
+     "covered_by_some_pair": 780,
+     "flagged": 780,
+     "pair": [
+      "Minneapolis 01-14 n0",
+      "Stockholm 07-15 n180"
+     ]
+    },
+    "frame_relation": {
+     "coverage_all": 0.7551,
+     "coverage_held_out": 0.7765,
+     "coverage_train": 0.7387,
+     "covered_by_some_pair": 196,
+     "flagged": 196,
+     "pair": [
+      "Minneapolis 01-14 n0",
+      "Stockholm 07-15 n180"
+     ]
+    }
+   },
+   "orientation_witnesses_against_published": {
+    "clock_relation": {
+     "held": 113,
+     "lost": 10,
+     "minimal_witness_axis": {
+      "city": 1,
+      "date": 663,
+      "north_deg": 116
+     },
+     "new": 3,
+     "old": 123,
+     "with_an_orientation_witness": 116
+    },
+    "frame_relation": {
+     "held": 91,
+     "lost": 9,
+     "minimal_witness_axis": {
+      "city": 1,
+      "date": 99,
+      "north_deg": 96
+     },
+     "new": 5,
+     "old": 100,
+     "with_an_orientation_witness": 96
+    }
+   },
+   "summary": {
+    "bound": 9515,
+    "clock_by_kind": {
+     "fires_somewhere_only": 182,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 700
+    },
+    "clock_flags": 780,
+    "failed_envs": 0,
+    "frame_by_kind": {
+     "fires_somewhere_only": 182,
+     "flaps": 8,
+     "night_light": 30,
+     "time_spread": 8
+    },
+    "frame_flags": 196,
+    "indoor_knobs": null,
+    "negative_control": {
+     "fired": 1230,
+     "flagged": 0,
+     "n": 3466
+    },
+    "run": 5926
+   },
+   "sweep_commit": "52ded7b",
+   "weekday_split": {
+    "clock_relation": {
+     "lost": 11,
+     "lost_reading_weekday": 3,
+     "new": 1,
+     "new_reading_weekday": 1
+    },
+    "frame_relation": {
+     "lost": 3,
+     "lost_reading_weekday": 2,
+     "new": 0,
+     "new_reading_weekday": 0
+    },
+    "negative_control_flagged": 0,
+    "negative_control_flagged_reading_weekday": 0,
+    "run_reading_weekday": 360
+   },
+   "weekdays": {
+    "2025-01-14": "Tue / Wed / Thu",
+    "2025-04-15": "Tue / Wed / Thu",
+    "2025-07-15": "Tue / Wed / Thu",
+    "2025-10-14": "Tue / Wed / Thu"
+   }
+  }
+ }
+}

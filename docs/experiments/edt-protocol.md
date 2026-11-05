@@ -1774,3 +1774,17 @@ relations). Reported: the pair and its training, held-out and overall coverage.
 paper's "seasons" are four dates of one year, and the flags are statements about those dates' weather; that is
 reported as it comes out. A flag of the 199 that is not flagged in some year is not thereby wrong: an automation that
 diverges only under a particular weather (a cold night, a cloudy noon) is a weather-conditional finding.
+
+**A14.9 Deviations (dated 2026-11-05, after the runs; nothing above is changed).** All runs ran at `52ded7b` as
+registered. After seeing 2024's sweep, whose negative control flags 30 of its 1,252 firing automations (below A1.2's 5 %
+halt, so no halt), two diagnostics were added to the report (`f15fd97`); they are not registered analyses.
+
+- *The weekday.* A3.1 put every 2026 date on a Wednesday; A14.1(b) does not keep the weekday. In 2023 the four dates are
+  all Saturdays and in 2025 all Tuesdays, but in 2024 one is a Sunday and three are Mondays, so an automation that
+  reads the day of the week can diverge across 2024's dates for no weather reason. Reported per year: how many new
+  flags, lost flags and flagged negative-control automations read the weekday (a time condition's `weekday`, or a
+  template's `weekday()`, by a text match); of the 199, how many read it and how many are flagged in both 2023 and
+  2025 (the two years whose dates share one weekday each).
+- *The setback.* The other years' measured days also fall on other weekdays than 2026's (Thursday and Friday), so a
+  weekday-scheduled setback may not be commanded at all. Reported per year: the runs (of 88) in which the automation
+  commanded its setback in the measured days, how many of them breach, and how many of the 22 read the weekday.

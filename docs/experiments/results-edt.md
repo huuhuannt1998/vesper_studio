@@ -2394,3 +2394,138 @@ The sweep ran again at `db19e34`: rung 4, current binder, device rule, recorded 
   R7-A's duplicated-environment control (Addendum 12) shows the same budget's one refusal; no flag changes there.
 - **Reading.** With every engine defect the two differential tests found now fixed, and the population re-run, the
   frame relation's findings are the published 199 less the 3 automations Home Assistant would never have run.
+
+## Revision R7-W (Addendum 14): recorded shortwave, k̂ again, three more ERA5 years
+
+**Post hoc** (registered as Addendum 14 at `52ded7b`, after the fourth internal review, before its runs; the options at
+`986b5d6`, the script `scripts/revision/r7w_weather.py`). Every run ran at `52ded7b` on 2026-11-05, 09:26–10:59Z,
+with 4 workers under nice, one after another. Aggregates: `results/edt/r7w-f15fd97.json`. The report adds two
+diagnostics written after the runs (A14.9, dated): weekday readers, and setback runs with a commanded setback. The
+sweep at `8fcd672` stays the paper's primary result.
+
+**The data.** 266 requests to the Open-Meteo archive, all answered (HTTP 200), each URL logged; nothing cached was
+fetched again. The archive answers `snow_depth` with nulls under `models=era5`, so the snow depth is ERA5-Land's
+(stated in A14.1 before any run). Every one of the 48 traces of the shortwave sweep read the recorded split and the
+snow depth for all four of its days, and carries both knobs in its header.
+
+### Item 9(a): the recorded split and the ground term, both on (A14.3)
+
+The recorded beam share is larger than the assumed 0.8 (1 - cloud) in every one of the 24 city-date windows: over their
+sun-up hours, the mean of the window means is **0.55 recorded against 0.32 assumed**. The largest gaps are where the
+cloud-cover rule counts the sky as nearly overcast (Singapore 0.41–0.64 against 0.08–0.19; Phoenix in July 0.47
+against 0.10). Two windows have snow deeper than 1 cm: Minneapolis January
+(up to 0.07 m) and Stockholm January (up to 0.22 m), where the albedo is 0.6.
+
+| | `8fcd672` (published) | `5b54586` (R6-D, options off) | `52ded7b`, both options on |
+|---|---|---|---|
+| bound / run | 9,515 / 5,926 | 9,515 / 5,926 | 9,515 / 5,926 |
+| frame flags | 199 | 199 | **198** (184 fires_somewhere_only, 30 night_light, 8 flaps, 8 time_spread) |
+| clock flags | 790 | 785 | 783 (700 time_spread) |
+| negative control | 0 of 1,247 firing | 0 of 1,243 | 0 of 1,243 |
+
+- **Frame relation, against `8fcd672`:** 198 of the 199 hold with the same kinds, 0 with other kinds; **1 is lost** (a
+  fires_somewhere_only flag of a temperature reader); **0 are new**. Against R6-D the same: 198 held, 1 lost, 0 new.
+- **Clock relation:** against `8fcd672`, 774 hold with the same kinds, 9 with other kinds, 7 are lost (6 time_spread, 1
+  fires_somewhere_only; 5 sun readers, 2 temperature readers), 0 new. Against R6-D (the same engine), 2 are lost (both
+  temperature readers) and 0 new: the other 5 are R6-D's own engine corrections.
+- **Orientation witnesses.** Frame relation: 101 automations have one (100 at `8fcd672`): 95 held, 5 lost, 6 new;
+  minimal witness orientation 101, date 96, city 1. Clock relation: 123 (123 at `8fcd672`): 119 held, 4 lost, 4 new.
+
+So replacing the assumed split by the recorded one, and adding the snow-driven ground reflection, moves one frame flag
+of 199 and about one in twenty of the orientation witnesses, in both directions, although the beam share it changes
+is on average 0.23 higher. The axis that witnesses half of the frame flags does not rest on the 0.8 (1 - cloud) rule.
+
+### Item 9(a): k̂ with the recorded split (A14.4)
+
+The reproduction holds exactly: the assumed split gives R6-B's **k̂ = 0.25 [0.2052, 0.2894]** (2,072 hours, 51 days).
+Over home B's 637 daylight hours the recorded beam share is 0.70 on average, the assumed one 0.51.
+
+| Setting | k̂ [bootstrap 95 %] | per room (dining room / room) | k̂_lin | b(1), K | In R4-B's x0.25–x2? |
+|---|---|---|---|---|---|
+| assumed split (reproduction) | 0.25 [0.205, 0.289] | 0.264 / 0.236 | 0.287 | +7.29 | at its lower end |
+| **recorded split** | **0.244 [0.203, 0.283]** | 0.258 / 0.230 | 0.277 | +7.53 | just below (0.244 < 0.25) |
+| recorded split + ground term | 0.208 [0.171, 0.242] | 0.220 / 0.197 | 0.245 | +9.24 | below |
+| assumed split + ground term | 0.213 [0.175, 0.246] | 0.225 / 0.201 | 0.253 | +9.00 | below |
+
+The recorded split moves k̂ by -0.006, inside its own interval; the ground term moves it by -0.04 (it adds about a
+sixth to the modelled solar gain: 123 -> 145 W mean with the recorded split, 121 -> 142 W with the assumed one). Home B still needs about a quarter of the model's solar
+aperture, now a little less; with the ground term, R4-B's bracket no longer reaches it.
+
+### Item 9(b): three more ERA5 years (A14.5)
+
+The dates keep their month and day; their weekdays do not (A14.9): 2026's are Wednesdays (measured days Thursday and
+Friday), 2023's all Saturdays, 2025's all Tuesdays, and **2024's one Sunday and three Mondays**.
+
+| Year | run | frame flags | clock flags | negative control (flagged / firing) | frame flags vs `8fcd672`: same kinds / other kinds / lost / new | clock: lost / new |
+|---|---|---|---|---|---|---|
+| 2026 (`8fcd672`) | 5,926 | 199 | 790 | 0 / 1,247 | | |
+| 2023 | 5,926 | 196 | 771 | 0 / 1,282 | 188 / 2 / 9 / 6 | 27 / 8 |
+| 2024 | 5,926 | **238** | 822 | **30 / 1,252** | 191 / 0 / 8 / **47** | 14 / 46 |
+| 2025 | 5,926 | 196 | 780 | 0 / 1,230 | 196 / 0 / 3 / 0 | 11 / 1 |
+
+No environment failed in any year. Every lost frame flag in every year is fires_somewhere_only, of a temperature or
+humidity reader (or, once a year, one reading no environment quantity).
+
+- **2024 is a weekday artifact, not a weather one** (diagnostic, A14.9). Of 2024's 47 new frame flags, 44 read the day
+  of the week, and 45 read no environment quantity at all; **all 30 flagged negative-control automations read the
+  weekday**. The 30 are below A1.2's 5 % halt (2.4 %), so the run stands, but the negative control did its job: in a
+  year whose dates fall on different weekdays the oracle sees the weekday, as it should. 360 of the 5,926 run
+  automations read the weekday. In 2023, 5 of the 6 new frame flags and 4 of the 9 lost read it as well (their dates
+  fall on another weekday than 2026's); in 2025, 2 of the 3 lost.
+- **Stability of the 199** (A14.5): **185 are flagged in every one of the three years**, 196 in some year, 3 in none
+  (all fires_somewhere_only: 2 temperature readers and 1 reading no environment quantity); 11 in two of the three.
+  183 keep the same kinds in every year. By kind, held in every year: 171 of 185 fires_somewhere_only, and all 30
+  night_light, 8 flaps and 8 time_spread. 190 are flagged in both 2023 and 2025, the two years whose dates share one
+  weekday. 13 of the 199 read the weekday.
+- **The 790 clock flags:** 755 are flagged in every year, 782 in some year.
+- **Orientation witnesses** (frame relation; 100 at `8fcd672`): 97 in 2023 (91 of the 100 held), 92 in 2024 (90 held),
+  96 in 2025 (91 held). Clock relation (123): 105, 101 and 116.
+
+### Item 9(b): the setback breach count per year (A14.6)
+
+R2-c's 22 setback automations alone, the core four (Minneapolis and Stockholm, January 14, both orientations), R4-B's
+nominal corner; 88 runs per year. **The 2026 rerun reproduces R2-c exactly: 53 of 88.**
+
+| Year | breaching runs (of 88) | automations | Minneapolis / Stockholm | coldest caused room, min / median / max | baseline's coldest room | outdoor air days 1–2, mean (min): Minneapolis / Stockholm | runs with a commanded setback (A14.9) |
+|---|---|---|---|---|---|---|---|
+| 2026 | **53** | 16 | 31 / 22 | 2.7 / 8.1 / 9.8 C | 15.6 C | -6.4 (-13.6) / +2.0 (+0.9) C | 69 |
+| 2023 | **17** | 6 | 10 / 7 | 7.8 / 9.1 / 9.9 C | 17.0 C | +1.4 (-0.6) / +3.5 (+1.6) C | 62 |
+| 2024 | **61** | 16 | 31 / 30 | -2.4 / 5.2 / 8.1 C | 16.0 C | -18.0 (-21.7) / -10.7 (-17.5) C | 62 |
+| 2025 | **35** | 16 | 31 / 4 | 4.5 / 6.0 / 9.8 C | 15.3 C | -5.5 (-19.1) / +3.3 (-1.1) C | 61 |
+
+- The count follows the January weather: **17, 35, 53 and 61 of 88** over the four years, from a mild Minneapolis
+  January (2023, mean +1.4 C) to a very cold one (2024, -18 C, when Stockholm breaches as often as Minneapolis). In
+  every year the baseline never goes below 15.3 C.
+- Minneapolis breaches in all four years (31 of 44 runs in three of them, 10 in 2023); Stockholm from 4 to 30.
+- The weekday moves which runs command a setback at all: 69 runs in 2026 (18 automations), 61–62 in the other years (16
+  automations); 5 of the 22 read the weekday. Every breaching run is among the commanded ones in every year, so the
+  spread from 17 to 61 is the weather's, on 61–62 commanded runs.
+
+### Item 9(b): the best cover pair per year (A14.7)
+
+| Sweep | clock relation, k = 1 pair (coverage all) | frame relation, k = 1 pair (coverage all) |
+|---|---|---|
+| `8fcd672` (2026) | Minneapolis 01-14 n0 + Stockholm 07-15 n180 (0.892) | Minneapolis 01-14 n0 + Stockholm 07-15 n180 (0.658) |
+| `5b54586` (2026) | the same (0.892) | the same (0.658) |
+| 2023 | Stockholm 01-14 n0 + Stockholm 07-15 n0 (0.895) | Stockholm 01-14 n180 + Stockholm 07-15 n0 (0.607) |
+| 2024 | Seattle 01-14 n0 + Stockholm 07-15 n180 (0.906) | Stockholm 01-14 n0 + Stockholm 07-15 n180 (0.740) |
+| 2025 | Minneapolis 01-14 n0 + Stockholm 07-15 n180 (0.919) | Minneapolis 01-14 n0 + Stockholm 07-15 n180 (0.755) |
+
+**The best pair changes in two of the three years** (2023 and 2024, under both relations). What holds in every year is
+its shape: a cold-climate January environment with Stockholm in July; which cold city and which orientation are the
+weather's. Every frame flag of every year is covered by some pair.
+
+### What this changes, stated
+
+- **9(a):** the assumed beam share was too low by about 0.23 on average, but the frame flags and the orientation
+  witnesses barely depend on it: 198 of 199 frame flags kept with their kinds, none new; 101 orientation witnesses
+  against 100, 95 of them the same automations. k̂ moves from 0.25 to 0.244 with the recorded split, and to 0.21 with
+  the ground term.
+- **9(b):** the frame flags are stable across weather years: 185 of 199 (93 %) are flagged in each of 2023, 2024 and
+  2025, and 196 in some year. The setback breach count is not: 17 to 61 of 88 over four Januaries, with 53 the recorded
+  year's. The single-year count is one draw of a quantity the January weather sets; the paper should state it as such.
+  The best cover pair is weather-specific in its cities and orientations.
+- **A limitation found on the way:** dates that fall on different weekdays make the oracle see weekday conditions
+  (2024: 47 new frame flags, 30 negative-control flags, all weekday readers). A3.1's choice of one weekday for every
+  date is what keeps the registered sweeps free of this; a multi-year design must keep the weekday fixed or exempt
+  weekday readers.
