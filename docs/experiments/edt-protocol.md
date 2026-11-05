@@ -1788,3 +1788,101 @@ halt, so no halt), two diagnostics were added to the report (`f15fd97`); they ar
 - *The setback.* The other years' measured days also fall on other weekdays than 2026's (Thursday and Friday), so a
   weekday-scheduled setback may not be commanded at all. Reported per year: the runs (of 88) in which the automation
   commanded its setback in the measured days, how many of them breach, and how many of the 22 read the weekday.
+
+## Addendum 13 (2026-11-05, post hoc: written after the fourth internal review, before its runs)
+
+**Post hoc**: written after the fourth internal review asked for it (its items 6(a), 6(b), 6(c) and 11(b)) and after
+every result it revisits was seen (R4-A's partition, R4-B's corners, R6-B's propagation, the environment validation),
+but before any run below. Nothing earlier changes; every number below is reported beside the earlier ones, and
+earlier numbers stand. Base: the rung-4 ERA5 sweep `8fcd672` (the frame relation, the twins' reporting rule
+`device`), its home and recorded weather (never fetched again), and its rung-2.5 sweep for R4-A's partition; R4-B's
+corner definitions and R6-B's open-loop worker, unchanged. Script: `scripts/revision/r7b_room_terms.py`; results:
+`results/edt/r7b-<commit7>.json` (aggregates only) and a section "Revision R7-B (Addendum 13)" of `results-edt.md`.
+No pass/fail criterion below is a registered verdict; every analysis is descriptive.
+
+**A13.0 One new knob, bit-identical at its default** (set only through `vesper.env.indoor.knobs`; the pinned
+fingerprint test is extended to it): `INDOOR_T_OFFSET_C` (default 0.0) adds a constant to every indoor room's air
+temperature as its sensors read it, and the room's relative humidity is its vapour pressure (unchanged) over the
+saturation pressure at that shifted temperature. The room's own temperature, its heat balance and therefore every
+thermostat's control (the home's heating reads the model's room, not a sensor) are unchanged; daylight and the porch
+(outdoor air) are unchanged. So an offset moves what every indoor sensor reads with the heating trajectory held: it
+represents an error in the modelled room temperature level, which is how the validation residuals were measured.
+
+**A13.1 Item 6(a): the flags over R4-B's 120 corners (open loop).**
+
+- *Replay set.* Every automation that runs at rung 4 of `8fcd672` and is flagged under either relation (the frame
+  relation's 199, the clock relation's 790) or reads a temperature, a humidity or an illuminance by its names as
+  written (206, 63, 67): 954 automations. The clock set is included because a timing probe (one environment, not a
+  reported number) put a setting at about 6 s per environment for the 954.
+- *Settings.* R4-B's 120 corners: internal gains {0, 2, 5} W/m² x roof and ground {off, on} x warm-up {1, 5, 10 days,
+  periodic (30 days on the first day's weather)} x heat capacity {80, 110, 165, 260, 370} kJ/(m² K), as
+  `r4b_error_budget.corner_knobs`. Each records all 48 traces afresh under its knobs in a cache of its own (the trace's
+  reuse key names the knobs) and replays the replay set on them with the sweep's worker (R6-B's, reporting rule
+  `device`). The nominal corner (G0-Foff-W1-C165) is every knob at its default: it is the reference and must reproduce
+  `8fcd672`'s outcomes for the replay set exactly, and its clock and frame divergences (reported). The review's "only
+  the environments the flags need" does not apply: a flag is a divergence across the 48 environments of its relation,
+  so every corner records all 48.
+- *Families* (membership at a setting, computed by the same functions at every setting and on the published outcomes):
+  1. frame flags (199);
+  2. **orientation witnesses, frame relation**: frame flags with a one-axis orientation witness under the frame
+     relation (two environments of one city and date differing only in the plan's bearing over which the
+     frame-restricted divergences are not empty; R4-A's "axes admitting a witness", the north axis; 100 in R4-A);
+  3. temperature flags: frame flags that read a temperature (104);
+  4. humidity flags: frame flags that read a humidity (36);
+  5. **sensor-driven room-model flags**: frame flags that read a sensed quantity (temperature, humidity, illuminance,
+     weather) and are not frame-flagged at the published rung 2.5 (R4-A's partition, 104). Rung 2.5 is not re-run:
+     its indoor rooms read rung 2's assumed curve, which no knob here touches.
+  Secondary: the clock flags (790), and the clock relation's outcome-class orientation witnesses (R6-B's and Table
+  XI's definition: clock flags whose outcome classes differ between the two bearings of one city and date; 123).
+- *Reported per family*: the published count; the **robust core** (members at every one of the 120 settings, the
+  reference included); the **possible set** (members at any of them); lost somewhere and gained somewhere; the
+  per-corner minimum and maximum and the corners at each; the mean count per level of each factor (over the other
+  three). For the frame flags also how many change their kinds at some corner. The possible set is within the replay
+  set: an automation outside it that would gain a flag at some corner is not seen (R4-B's check found 3 of 5,653 such
+  automations changing an outcome at aperture x2, 1 flag), so it is a lower bound on the corpus-wide union.
+
+**A13.2 Item 6(b): an indoor-temperature offset (open loop).** The replay set and families of A13.1, at
+`INDOOR_T_OFFSET_C` in **{-1.7, -0.9, +2, +7} K** (registered, the review's values), each with all 48 traces recorded
+afresh, against the reference at 0 (recorded afresh too, which must reproduce `8fcd672` as in A13.1). Sources, from
+the validation sections of `results-edt.md` and the validation report it cites: -0.9 and -1.7 K, room temperature on
+home A, every room simulated 0.9-1.7 C too cold (R2-a, "Bias direction"; `results-2026-11-04-environment.md`, "T on
+A"); +7 K, home B, both rooms about 7 K too warm (+7.1 and +7.5 K; b(1) = +7.29 K, R6-B A9.3 and A9.4). No indoor
+residual of +2 K is measured: the +2 is the review's "±2 K for symmetry" (Reviewer 3, W2), the size of R2-a's and
+R4-B's earlier two-kelvin offsets; it is reported as that.
+- *Sign.* These are residuals, model minus measured. An offset of the residual's own sign adds to the model's error;
+  the one that would correct it has the opposite sign. So, secondary: the opposite signs **{+1.7, +0.9, -2, -7} K**,
+  run the same way.
+- *Reported*: for the humidity flags (36) and the sensor-driven room-model flags (104), the robust core and possible
+  set over {0, -1.7, -0.9, +2, +7} (primary), and over all nine values (secondary), with each value's count; the
+  same for every family of A13.1.
+
+**A13.3 Item 6(c): the humidity class** (a fact read from the repository, no run): where VESPER's EN ISO 13788 class
+comes from (the code's comment, the validation protocol's addendum 2 and its result file and commits), and whether
+"deliberately conservative" or an equivalent appears in the code (`vesper/`) or the documents (`docs/`). Reported as
+found.
+
+**A13.4 Item 11(b): illuminance with a change-reporting sensor.**
+
+- *Search* (done before writing this, to name the product): `catalog/vds` (zigbee, zwave, matter, tasmota) for a
+  product that reports illuminance and exposes no occupancy. Only the Zigbee catalog has illuminance products; 143 of
+  them expose no occupancy, and every illuminance product with a reporting rule in the catalog has the library default
+  (a change, at most every 10 s, at least every 3,600 s). None is in the twins' `CARRIED_BY` (the motion-carried rule
+  A6.9 gave the RTCGQ11LM), so under the reporting rule `device` each reports its illuminance on change.
+- *Product*: **`zigbee:tuya:s-lux-zb`** ("Light sensor", L1 in the catalog, illuminance and battery reporting, no
+  occupancy). Its reporting rule is the catalog's library default, assumed (as the RTCGQ11LM's was before A6.9), so
+  this tests what an illuminance reader sees with a change-reporting light sensor, not this product's measured timing.
+  The other L1 dedicated light sensors (`xfy-cgq-zigb`, `tze284_aaeasoll`, `ti0001-illuminance`) have the same rule,
+  so the choice does not change a trace.
+- *Home*: `8fcd672`'s EDT home with a `<room>_lux1` of that product beside each of the 8 `<room>_lux0` (the seven
+  indoor rooms and the porch), at the same place. Every existing entity id is unchanged (tested); the motion role keeps
+  the RTCGQ11LM's occupancy.
+- *Runs* (rung 4, all 48 environments, reporting rule `device`, traces recorded afresh): **ref**, the 67 run
+  automations that read an illuminance, bound as in `8fcd672`, in the augmented home: it must reproduce their
+  published outcomes exactly (reported); **swap**, the same 67 with every RTCGQ11LM illuminance entity they name
+  replaced by its `lux1` neighbour's (whole entity ids, templates included; nothing else changes).
+- *Reported*: how many of the 67 name a replaced entity and how many entities were replaced; under each relation the
+  flags at ref and at swap, flags gained and lost, kinds changed; outcomes changed; automations that fire somewhere.
+
+**A13.5 Resources.** At most 4 workers, under `nice -n 5`; about three hours. Raw outcomes stay in
+`~/vesper-lab/edt/r7-B/scratch` (local); each setting's traces are removed after its outcomes are kept. Any deviation
+is dated below this addendum.
