@@ -58,8 +58,10 @@ FLOORED = 0.5  # a room's share of cells with floor under them at least this (a 
 SOLID = 0.6  # a region with a top over this share of it, between 1 m and the ceiling, is inside an object
 GROW_M = 0.6  # a room grows into the walls around it up to this far (to the middle of the wall)
 SIMPLIFY_M = 0.1  # a room outline has no edge shorter than this
-SMALL_GAP_M = 0.3  # gaps in a slice narrower than this are closed (a wall's two faces, holes in a scan)
-FLANK_M = 0.4  # a doorway with no lintel needs this much wall in line with it on both sides
+SMALL_GAP_M = 0.5  # gaps in a slice narrower than this are closed (a wall's two faces, holes in a scan)
+TOP_BELOW_M = 0.15  # a model with a ceiling is also cut this far under it: the wall over a tall opening
+NEAR_WALL_M = 0.4  # that cut bounds rooms only this close to the walls below it
+FLANK_M = 0.4  # an opening has this much wall (60 % of it) in line with it on both sides
 HORIZONTAL = 0.9  # a face whose normal is this close to the up axis is horizontal
 VERTICAL = 0.3  # and one this far from it is vertical (a wall)
 COVER = 0.7  # a run counts as walled (or open) in a slice when this share of its cells is
@@ -266,8 +268,29 @@ class _Layers:
             sel = normals[:, 1] * sign > HORIZONTAL
             hs, ws, t = y[sel], areas[sel], xz[sel]
             peaks = _peaks(hs, ws, self.lo, self.span, np)
-            self.layers[key] = [(hh, a, _raster(t[np.abs(hs - hh) <= self.win], self.origin, self.cell,
-                                                self.shape, np)) for hh, a in peaks]
+            layers = [(hh, a, _raster(t[np.abs(hs - hh) <= self.win], self.origin, self.cell, self.shape, np))
+                      for hh, a in peaks]
+            self.layers[key] = self._merge(layers)
+
+    def _merge(self, layers):
+        """Neighbouring layers less than 1.5 % of the model's height apart are one (a scanned floor is not flat: it
+        spreads over a few centimetres), up to three times that thick in all."""
+        gap = self.span * 0.015
+        out: list[list] = []
+        for h, a, c in layers:
+            if out and h - out[-1][-1][0] <= gap and h - out[-1][0][0] <= 3 * gap:
+                out[-1].append((h, a, c))
+            else:
+                out.append([(h, a, c)])
+        merged = []
+        for grp in out:
+            area = sum(a for _, a, _ in grp)
+            height = sum(h * a for h, a, _ in grp) / area
+            cover = grp[0][2].copy()
+            for _, _, c in grp[1:]:
+                cover |= c
+            merged.append((height, area, cover))
+        return merged
 
     def overlap(self, a, b) -> float:
         return float((a & b).sum()) * self.cell ** 2
@@ -275,23 +298,29 @@ class _Layers:
     def storeys(self, metric: bool):
         """Floors with a ceiling over them: [(floor, ceiling, overlap)], at most one per floor, sorted by floor, none
         overlapping another in height. With `metric`, only ceilings 2.1-4.0 above their floor count. A floor and a
-        ceiling pair when they cover 30 % of the smaller of the two; under one ceiling, the floor is the highest
-        covering at least 60 % of what the best does (a ground plane under the house is lower), and over one floor the
-        ceiling is the lowest covering 80 % of what the best does (a table's underside covers far less)."""
+        ceiling pair when they cover 30 % of the smaller of the two. Under one ceiling, of the floors covering at least
+        60 % of what the best does, the floor is the lowest that lies mostly under it (not seats or tables, which are
+        higher), else the highest (a ground plane far larger than the house is lower). Over one floor the ceiling is
+        the lowest covering 80 % of what the best does (a table's underside covers far less). Not in metres, a ceiling
+        is at least GENERIC_STOREY of the model's height above its floor (not a table, nor the underside of a rug)."""
         ups, downs = self.layers["up"], self.layers["down"]
         pairs = []
         for d in downs:
             cands = []
             for u in ups:
                 gap = d[0] - u[0]
-                if gap <= self.win * 2 or (metric and not CEILING_M[0] <= gap <= CEILING_M[1]):
+                if metric and not CEILING_M[0] <= gap <= CEILING_M[1]:
+                    continue
+                if not metric and gap < GENERIC_STOREY * (self.lo + self.span - u[0]):
                     continue
                 o = self.overlap(u[2], d[2])
                 if o > 0 and o >= 0.3 * min(u[2].sum(), d[2].sum()) * self.cell ** 2:
-                    cands.append((u[0], o))
+                    cands.append((u[0], float(u[2].sum()) * self.cell ** 2, o))
             if cands:
-                best = max(o for _, o in cands)
-                f, o = max(((f, o) for f, o in cands if o >= 0.6 * best), key=lambda c: c[0])
+                best = max(o for _, _, o in cands)
+                good = [c for c in cands if c[2] >= 0.6 * best]
+                inside = [c for c in good if c[2] >= 0.5 * c[1]]
+                f, _, o = min(inside, key=lambda c: c[0]) if inside else max(good, key=lambda c: c[0])
                 pairs.append((f, d[0], o))
         per_floor = []
         for f in sorted({p[0] for p in pairs}):
@@ -417,6 +446,8 @@ class _Grids:
         self.lintel = LINTEL_SLICE_M if ceiling is None else min(LINTEL_SLICE_M, ceiling - 0.1)
         heights = {"floor": FLOOR_SLICE_M, "sill": SILL_SLICE_M, "wall": WALL_SLICE_M, "head": HEAD_SLICE_M,
                    "lintel": self.lintel}
+        if ceiling is not None and ceiling - TOP_BELOW_M > self.lintel + 0.1:
+            heights["top"] = ceiling - TOP_BELOW_M  # the wall over an opening taller than the lintel cut
         tall = tris[(tris[:, :, 1].max(axis=1) > 0.0) & (tris[:, :, 1].min(axis=1) < max(heights.values()) + 0.01)]
         segs = {k: _segments(tall, h, np) for k, h in heights.items()}
         floor_sel = (normals[:, 1] > HORIZONTAL) & (np.abs(tris[:, :, 1].mean(axis=1)) < 0.1)
@@ -438,6 +469,18 @@ class _Grids:
         disk = _disk(int(round(SMALL_GAP_M / 2 / CELL_M)), np)
         self.raw = {k: _raster_segments(s, self.origin, CELL_M, self.shape, np) for k, s in segs.items()}
         self.occ = {k: ndi.binary_closing(g, structure=disk) | g for k, g in self.raw.items()}
+        # the walls openings are looked for in: the cuts at 1.0 and at 1.6 m together (a scan misses a wall at one
+        # height or the other behind furniture; doors and windows are open at both)
+        both = self.raw["wall"] | self.raw["head"]
+        self.walls = ndi.binary_closing(both, structure=disk) | both
+        # and the walls rooms are bounded by: those and the cut at 2.15 m, where furniture rarely reaches and the wall
+        # over a door or a window closes it (a scan's wall missed lower down is often there); and, near those walls,
+        # the cut just under the ceiling (over a taller opening; away from the walls it holds beams and lamps)
+        upper = both | self.raw["lintel"]
+        if "top" in self.raw:
+            near = ndi.binary_dilation(self.walls, structure=_disk(int(round(NEAR_WALL_M / CELL_M)), np))
+            upper = upper | (self.raw["top"] & near)
+        self.bounds = ndi.binary_closing(upper, structure=disk) | upper
         # a slice that does not reach a height (walls cut lower, or the ceiling under the lintel) says nothing there
         self.has = {k: bool(g.any()) for k, g in self.raw.items()}
         self.floor = ndi.binary_dilation(
@@ -446,12 +489,6 @@ class _Grids:
         tops = (normals[:, 1] > HORIZONTAL) & (tris[:, :, 1].mean(axis=1) > WALL_SLICE_M + 0.05) & (
             tris[:, :, 1].mean(axis=1) < top_hi)
         self.tops = _raster(tris[tops][:, :, [0, 2]], self.origin, CELL_M, self.shape, np)
-        if ceiling is not None:
-            ceil_sel = (normals[:, 1] < -HORIZONTAL) & (np.abs(tris[:, :, 1].mean(axis=1) - ceiling) < 0.25)
-            self.ceil = ndi.binary_dilation(
-                _raster(tris[ceil_sel][:, :, [0, 2]], self.origin, CELL_M, self.shape, np), iterations=2)
-        else:
-            self.ceil = np.zeros(self.shape, dtype=bool)
 
     def point(self, i, j):
         """A position given in grid corner coordinates (cell (i, j) spans [i, i+1] x [j, j+1]) in metres."""
@@ -478,20 +515,24 @@ def _runs(line, np):
     return [(int(s), int(e)) for s, e in zip(starts, ends, strict=True) if s > 0 and e < len(line)]
 
 
-def _openings(g: _Grids, door_range=DOOR_M, need_top=True):
+def _openings(g: _Grids, door_range=DOOR_M):
     """The doors and windows of the grids: [{kind, axis, cells: [(i, j)...], width (m), centre (i, j), across}],
     `axis` 0 for a wall along x (its runs along the grid's first index), 1 along z; `centre` in grid corner
-    coordinates (`_Grids.point`); `across` the wall's thickness in cells. Also the door-like gaps in line with a wall
-    that failed only the test above them (kind "gap"). `need_top` False: a doorway needs nothing above it."""
+    coordinates (`_Grids.point`); `across` the wall's thickness in cells.
+
+    A run is a free stretch of one grid row (or column) between two wall cells, with the wall going on in line beyond
+    both its ends (60 % of FLANK_M). A doorway: door_range wide, open at 0.1 m. A window: WINDOW_M wide, walled at
+    0.5 m (its sill) and at the lintel height, open at 1.6 m. No lintel is asked of a doorway: a scan rarely sees the
+    wall over a door, and a full-height opening is a way through too (RoomPlan's "opening"); `_sides` then keeps only
+    the runs that are a way through their wall."""
     np = g.np
     occ = g.occ
-    wall = occ["wall"]
+    wall = g.walls
     flank = int(round(FLANK_M / CELL_M))
     found = []
     for axis in (0, 1):
         w = wall if axis == 0 else wall.T
         o = {k: (v if axis == 0 else v.T) for k, v in occ.items()}
-        ceil = g.ceil if axis == 0 else g.ceil.T
         for row in range(w.shape[1]):
             line = w[:, row]
             if line.all() or not line.any():
@@ -502,43 +543,48 @@ def _openings(g: _Grids, door_range=DOOR_M, need_top=True):
                 def frac(k, cells=cells, row=row, o=o):
                     return float(o[k][cells, row].mean())
                 kind = None
+                # an opening is a gap in a wall's line: the wall goes on beyond both of its ends (a run beside a
+                # thin wall, between two corners, is not)
+                before, after = w[max(0, s - flank):s, row], w[e:e + flank, row]
+                in_line = min(before.mean(), after.mean())
+                # or an opening next to a corner: the wall goes on beyond one end, the other is the corner's wall
+                corner = max(before.mean(), after.mean()) >= 0.6 and before[-3:].all() and after[:3].all()
+                if in_line < 0.6 and not corner:
+                    continue
                 if door_range[0] <= length <= door_range[1] and frac("floor") <= 1 - COVER:
-                    lintel = g.has["lintel"] and frac("lintel") >= COVER
-                    in_line = bool(w[max(0, s - flank):s, row].all() and w[e:e + flank, row].all())
-                    over = float(ceil[cells, row].mean()) >= 0.5
-                    if lintel or (in_line and (over or g.ceiling is None or not need_top)):
-                        kind = "door"
-                    elif in_line:
-                        kind = "gap"
+                    kind = "door"
                 if kind is None and WINDOW_M[0] <= length <= WINDOW_M[1] and frac("sill") >= COVER and (
                         frac("head") <= 1 - COVER) and (not g.has["lintel"] or frac("lintel") >= COVER):
                     kind = "window"
                 if kind:
-                    found.append((axis, row, s, e, kind))
-    # one opening per group of runs in neighbouring rows that overlap
+                    found.append((axis, row, s, e, kind, float(in_line)))
+    # one opening per group of runs in neighbouring rows that overlap; its kind is that of the run most in line with
+    # its wall (beside a thin wall, a row off its line can look like a door where the line has a window)
     found.sort()
     groups: list[list] = []
     for run in found:
-        axis, row, s, e, kind = run
+        axis, row, s, e = run[:4]
         for grp in groups:
-            a2, r2, s2, e2, k2 = grp[-1]
-            if a2 == axis and k2 == kind and r2 == row - 1 and s < e2 and s2 < e:
+            a2, r2, s2, e2 = grp[-1][:4]
+            if a2 == axis and r2 == row - 1 and s < e2 and s2 < e:
                 grp.append(run)
                 break
         else:
             groups.append([run])
+    rank = {"window": 1, "door": 0}
     out = []
     for grp in groups:
         axis = grp[0][0]
-        rows = [r for _, r, _, _, _ in grp]
-        widths = sorted((e - s) for _, _, s, e, _ in grp)
-        mid = sorted((s + e) / 2 for _, _, s, e, _ in grp)[len(grp) // 2]
+        kind = max(grp, key=lambda r: (r[5], rank[r[4]]))[4]
+        rows = [r[1] for r in grp]
+        widths = sorted((r[3] - r[2]) for r in grp if r[4] == kind)
+        mid = sorted((r[2] + r[3]) / 2 for r in grp if r[4] == kind)[len(widths) // 2]
         cells = []
-        for _, r, s, e, _ in grp:
-            cells += [((k, r) if axis == 0 else (r, k)) for k in range(s, e)]
+        for r in grp:
+            cells += [((k, r[1]) if axis == 0 else (r[1], k)) for k in range(r[2], r[3])]
         row_mid = (min(rows) + max(rows) + 1) / 2
         centre = (mid, row_mid) if axis == 0 else (row_mid, mid)
-        out.append({"kind": grp[0][4], "axis": axis, "cells": cells, "width": widths[len(widths) // 2] * CELL_M,
+        out.append({"kind": kind, "axis": axis, "cells": cells, "width": widths[len(widths) // 2] * CELL_M,
                     "centre": centre, "across": len(rows)})
     return out
 
@@ -549,7 +595,7 @@ def _regions(g: _Grids, openings):
     """The free regions of the wall slice with the doors and windows closed: (labels, rooms, outside label set,
     barrier). rooms: [label] kept as rooms."""
     np, ndi = g.np, g.ndi
-    barrier = g.occ["wall"].copy()
+    barrier = g.bounds.copy()
     for o in openings:
         if o["kind"] in ("door", "window"):
             idx = np.array(o["cells"])
@@ -706,6 +752,7 @@ def _dedupe(ring):
 
 # --- the whole -----------------------------------------------------------------------------------------------------
 
+GENERIC_STOREY = 0.4  # with no metric storey, a ceiling is at least this share of the model's height above its floor
 AMBIGUOUS = 0.67  # a second axis scoring this share of the best one is read too, and the plan decides
 
 
@@ -840,7 +887,7 @@ def _read_up(tris, normals, areas, up, scale, np, ndi):
     for o in openings:
         if o["kind"] not in ("door", "window"):
             continue
-        sides = _sides(g, o, labels, barrier, ids, edge)
+        sides = _sides(g, o, labels, ids, edge)
         if sides is None:
             continue
         a, b = sides
@@ -918,22 +965,40 @@ def _lowest(storeys, warnings):
     return f, c
 
 
-def _sides(g: _Grids, o, labels, barrier, ids, edge):
+def _sides(g: _Grids, o, labels, ids, edge):
     """What lies on the two sides of an opening, walking out across its wall up to 1 m: a room id, "outside", or
-    "dropped" (a free region that is not a room and does not reach the edge); None when a side is all wall."""
-    i, j = (int(v) for v in o["centre"])
+    "dropped" (a free region that is not a room and does not reach the edge). An opening is a way through its wall:
+    the walk crosses only the opening itself; a run along a jagged wall's face, or in front of a door leaf or a pane,
+    is not one (None). The walk starts at the opening's middle, else a quarter or 40 % of its width to either side
+    (a scan's door frame or an open leaf can stand in the way)."""
+    ci, cj = o["centre"]
+    width = o["width"] / CELL_M
+    for shift in (0.0, -0.25 * width, 0.25 * width, -0.4 * width, 0.4 * width):
+        i, j = (int(ci + shift), int(cj)) if o["axis"] == 0 else (int(ci), int(cj + shift))
+        got = _walk(g, o, labels, ids, edge, i, j)
+        if got is not None:
+            return got
+    return None
+
+
+def _walk(g: _Grids, o, labels, ids, edge, i, j):
+    own = set(o["cells"])
     reach = int(round(1.0 / CELL_M))
     out = []
     for sign in (-1, 1):
         found = None
-        for step in range(1, reach + 1):
+        for step in range(0, reach + 1):
             ii, jj = (i, j + sign * step) if o["axis"] == 0 else (i + sign * step, j)
             if not (0 <= ii < labels.shape[0] and 0 <= jj < labels.shape[1]):
                 found = "outside"
                 break
-            if barrier[ii, jj]:
+            if (ii, jj) in own:
                 continue
+            if g.walls[ii, jj]:
+                return None
             lab = int(labels[ii, jj])
+            if lab == 0:  # under the wall above the opening
+                continue
             found = ids.get(lab) or ("outside" if lab in edge else "dropped")
             break
         if found is None:
@@ -956,7 +1021,7 @@ def _scale_from_doors(tris, normals, areas, floor, band, np, ndi):
         g = _Grids(t, normals @ _yaw(angle, np).T, areas * s0 * s0, None, np, ndi)
     except ScanError:
         return None, None
-    doors = [o for o in _openings(g, door_range=(0.3, 2.4), need_top=False) if o["kind"] == "door"]
+    doors = [o for o in _openings(g, door_range=(0.3, 2.4)) if o["kind"] == "door"]
     if not doors:
         return None, None
     widths = sorted(o["width"] for o in doors)
