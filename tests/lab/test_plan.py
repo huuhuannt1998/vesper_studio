@@ -489,6 +489,17 @@ def test_a_wrong_scale_is_refused_when_the_rooms_are_on_the_whole_far_from_their
     assert area_warnings(scaled_house(0.7)) == ([], [])  # 0.5 times: small rooms, each within its range
 
 
+def test_a_plan_measured_in_metres_is_never_refused_for_its_scale_only_warned():
+    """A scan (RoomPlan, or a model at a known scale) is in metres: rooms far from their usual size are said and
+    judged one by one, never refused as a wrong scale (a 37 m² meeting room labelled a dining room is 37 m²)."""
+    warnings = []
+    assert check_house(scaled_house(2), warnings=warnings, metric=True) == []
+    assert warnings[0] == ("the rooms are on the whole 3.8 times their usual size: measured in metres, so built as "
+                           "measured")
+    assert len(warnings) > 1 and all("built as read" in w for w in warnings[1:])  # each large room said too
+    assert check_house(scaled_house(2), metric=True) == []  # no list given: nothing said, nothing refused
+
+
 def test_a_plan_without_a_front_door_is_not_a_house():
     p = house()
     p["entrance"] = None
@@ -901,6 +912,20 @@ def test_a_window_on_no_outside_wall_is_left_out_with_a_warning_not_refused():
     middle = copy.deepcopy(p)
     middle["windows"] = [{"at": [2.5, 2], "width": 1.2, "room": "living"}]  # in the middle of the room
     assert rectify(middle)["windows"] == []  # no list given: no warning kept, the window still left out
+
+
+def test_the_windows_kept_are_numbered_as_the_plan_as_read_numbers_them():
+    """`window_numbers`, as `numbers` for doors: each window kept, its place in the plan as read (a scan's sill and
+    head heights follow their window through rectify)."""
+    p = metres([room("living", "living", rect(0, 0, 5, 4)), room("store", "other", rect(0, 4.2, 5, 5.5))],
+               doors=[{"at": [4, 4.1], "width": 0.9, "rooms": ["living", "store"]}],
+               windows=[{"at": [2.5, 4.1], "width": 1.2, "room": "living"},  # indoors: left out
+                        {"at": [2.5, 0], "width": 1.2, "room": "living"},
+                        {"at": [0, 4.8], "width": 0.6, "room": "store"}])
+    kept = [0, 1, 2]
+    out = rectify(p, [], window_numbers=kept)
+    assert len(out["windows"]) == 2 and kept == [1, 2]
+    assert out["windows"][1]["room"] == "store"
 
 
 def test_a_window_of_a_balcony_is_left_out_with_a_warning():

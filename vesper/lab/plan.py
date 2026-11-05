@@ -781,7 +781,8 @@ def plan_transform(plan_m: dict) -> dict:
     return {"angle_deg": angle, "centre": [about[0], about[1]]}
 
 
-def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] | None = None) -> dict:
+def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] | None = None,
+            window_numbers: list[int] | None = None) -> dict:
     """The plan straightened. In order: the plan is turned so its dominant wall direction is the x axis; every wall
     within 10 degrees of an axis is made exactly parallel to it, consecutive walls on one line become one wall, and
     steps narrower than 15 cm are ironed out; where two rooms overlap the larger loses the strip (the smaller keeps
@@ -801,7 +802,8 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
     straightened.
 
     Doors are named as `door_name` names them: `numbers` is each door's place in the plan as read (None: this plan
-    is the plan as read); a list given is updated in place to the doors kept."""
+    is the plan as read); a list given is updated in place to the doors kept. `window_numbers`, when a list is given
+    (each window's place in the plan as read), is updated in place to the windows kept, as `numbers` is for doors."""
     load_plan(plan_m, numbers)
     if plan_m["units"] != "m":
         raise PlanError("rectify: the plan is in pixels; scale it to metres first (scale_plan)")
@@ -1101,7 +1103,7 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
         if numbers is not None:
             numbers[:] = [n for k, n in enumerate(numbers) if k not in loose]
 
-    kept, dropped = [], []  # dropped: (its warning's place, its room) for a window on no outside wall
+    kept, dropped, kept_k = [], [], []  # dropped: (its warning's place, its room) for a window on no outside wall
     for k, w in enumerate(windows):
         r = ids.index(w["room"])
         what = f"window {k + 1} of {named(w['room'])}"  # counted from 1, as doors are
@@ -1122,7 +1124,10 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
             w["width"] = round(width, 9)
         w["at"] = rnd(q)
         kept.append(w)
+        kept_k.append(k)
     plan["windows"] = kept
+    if window_numbers is not None:
+        window_numbers[:] = [window_numbers[k] for k in kept_k]
     from vesper.lab.windows import CORNER_M as WINDOW_CORNER_M, RULES
     lit = {ids.index(w["room"]) for w in kept}
     for at, r in dropped:  # a room of a kind with windows, left with none, gets them by rule where it has a wall out
@@ -1163,7 +1168,8 @@ def entrance_porch(plan_m: dict) -> tuple[int, str] | None:
     return (into[0], room) if len(into) == 1 else None
 
 
-def check_house(plan_m: dict, numbers: list[int] | None = None, warnings: list[str] | None = None) -> list[str]:
+def check_house(plan_m: dict, numbers: list[int] | None = None, warnings: list[str] | None = None,
+                metric: bool = False) -> list[str]:
     """Every way a plan in metres is not a house (an empty list when it is): rooms that overlap, a room under 0.5 m²
     (a mis-read, not a room), a scale that cannot be right, no entrance (a door to the outside; one into a
     balcony only when the balcony is an entrance porch, `entrance_porch`), and rooms not
@@ -1175,7 +1181,11 @@ def check_house(plan_m: dict, numbers: list[int] | None = None, warnings: list[s
     against its type's plausible range ([0.5 x the smallest, 1.5 x the largest] typical area; 2 to 60 m² for a type
     with none; a WC typed bathroom down to 1 m², a closet or store, "other", to 0.5 m²: AREA_FLOOR), and a room
     outside it is built as read with a sentence appended to `warnings` (when a list is given): real rooms are often
-    smaller or larger than a generated home's. An outdoor room, such as a balcony, has any size."""
+    smaller or larger than a generated home's. An outdoor room, such as a balcony, has any size.
+
+    `metric`: the plan was measured in metres (a scan: RoomPlan, or a 3D model at a known or stated scale), so its
+    scale is not in doubt: rooms far from their usual size are said in `warnings` (when a list is given), each room
+    judged as above, and nothing is refused for it (a 37 m² meeting room labelled a dining room is 37 m²)."""
     load_plan(plan_m, numbers)
     if plan_m["units"] != "m":
         raise PlanError("check_house: the plan is in pixels; scale it to metres first (scale_plan)")
@@ -1188,6 +1198,11 @@ def check_house(plan_m: dict, numbers: list[int] | None = None, warnings: list[s
               if r["type"] in AREAS and areas[r["id"]] >= ROOM_LEAST_M2]
     whole = statistics.median(ratios) if ratios else 1.0
     scale_ok = SCALE_RANGE[0] <= whole <= SCALE_RANGE[1]
+    if not scale_ok and metric:
+        if warnings is not None:
+            warnings.append(f"the rooms are on the whole {whole:.1f} times their usual size: measured in metres, so "
+                            "built as measured")
+        scale_ok = True
     if not scale_ok:
         problems.append(f"the scale looks wrong: rooms are on the whole {whole:.1f} times their usual size; give "
                         f"--scale or --area")
