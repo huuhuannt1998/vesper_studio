@@ -288,3 +288,30 @@ def test_without_a_library_the_gallery_says_where_it_looked(tmp_path, monkeypatc
 def test_the_unreadable_fixture_really_has_no_floor():
     with pytest.raises(ValueError):
         parse_cubicasa_svg(NO_FLOOR)
+
+
+# -- the page -------------------------------------------------------------------------------------------------------
+def test_every_element_the_gallery_looks_up_is_on_the_compose_page_and_the_page_serves_it(server):
+    import re
+
+    from tests.lab.test_compose import call
+    from vesper.lab.play import UI_DIR
+    page, js = (UI_DIR / "compose.html").read_text(), (UI_DIR / "gallery.js").read_text()
+    names = set(re.findall(r'\$\("([\w-]+)"\)', js))
+    assert {"library", "library-grid", "library-overlay", "library-use", "library-read"} <= names
+    for name in names:
+        assert f'id="{name}"' in page, f"gallery.js looks up #{name}, which compose.html does not have"
+    assert 'id="library-open"' in page and "./gallery.js" in (UI_DIR / "compose.js").read_text()
+    status, body = call(server, "/gallery.js")
+    assert status == 200 and body == (UI_DIR / "gallery.js").read_bytes()
+
+
+def test_the_gallery_s_filters_and_room_count_are_the_server_s():
+    import re
+
+    from vesper.lab.play import UI_DIR
+    js = (UI_DIR / "gallery.js").read_text()
+    choices = re.search(r"export const ROOM_CHOICES = \[(.*?)\];", js, re.S).group(1)
+    assert [v for v in re.findall(r'\["([^"]*)",', choices) if v] == list(pl.ROOMS)
+    living = re.search(r"const LIVING = new Set\(\[(.*?)\]\)", js).group(1)
+    assert tuple(re.findall(r'"(\w+)"', living)) == pl.LIVING

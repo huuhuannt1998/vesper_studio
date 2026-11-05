@@ -1,6 +1,8 @@
 // The compose page (plan W10): rooms and device rows -> a vesper-request/1; the catalog searched, a product's card
 // (its network, configuration, evidence ladder and firmware); generate the home, then play it.
 
+import { libraryScaleNote, mountGallery, parseHash } from "./gallery.js";
+
 export const LEVEL_TEXT = {
   L0: ["identity", "L0: a real product, by vendor and model"],
   L1: ["config", "L1: its configuration (features) from the sources"],
@@ -274,6 +276,10 @@ export function importNote(job, seconds = 0) {
   if (job.state !== "done") return "";
   const n = job.plan.rooms.length, rooms = `${n} room${n === 1 ? "" : "s"}`;
   const builds = "Generate home builds this plan as edited here.";
+  if (job.kind === "library") {
+    return `${rooms} from the plan library (${job.library?.id || job.name}), from its own drawing: no Claude. ` +
+      `Check them over the image: ${builds}`;
+  }
   return job.kind === "json"
     ? `${rooms} from ${job.name || "the plan file"}. Check them and set the scale if it is in pixels: ${builds}`
     : `Claude read ${rooms}${job.name ? ` from ${job.name}` : ""}. Check each one over the image and set the scale: ${builds}`;
@@ -318,7 +324,7 @@ if (typeof document !== "undefined") {
                   // the imported plan: the job reading it, the plan as edited, the scale text and what the check said
                   plan: { job: null, state: "none", kind: null, plan: null, scale: "", source: "", problems: [],
                           warnings: [], floors: null, summary: "", transform: null, straight: null, size: null,
-                          image: null, saved: null,
+                          image: null, saved: null, library: null,
                           // the reading (kept as read) and what the user changed: names and types, rooms left out,
                           // the entrance chosen (undefined: the reading's); `plan` and `notes` follow from them
                           read: null, edits: {}, left: [], entrance: undefined, notes: [] } };
@@ -512,7 +518,7 @@ if (typeof document !== "undefined") {
 
   function clearShown() {
     Object.assign(imp, { job: null, read: null, plan: null, notes: [], problems: [], warnings: [], floors: null,
-                         straight: null, transform: null, image: null, size: null, saved: null });
+                         straight: null, transform: null, image: null, size: null, saved: null, library: null });
     $("import-read").hidden = true;
     $("import-overlay").replaceChildren();
     showImport(model.rooms.mode === "plan");
@@ -573,8 +579,8 @@ if (typeof document !== "undefined") {
                          warnings: job.warnings || [], floors: job.floors_drawn ?? null,
                          summary: job.summary || "", transform: job.transform,
                          straight: job.rooms,
-                         saved: job.saved || null, scale: "", size: null,
-                         image: job.kind === "png" || job.kind === "jpg" ? `/api/import/${job.job}/image` : null });
+                         saved: job.saved || null, scale: "", size: null, library: job.library || null,
+                         image: ["png", "jpg", "library"].includes(job.kind) ? `/api/import/${job.job}/image` : null });
     rebuild();
     progress(importNote(job));
     $("import-scale").value = "";
@@ -697,6 +703,7 @@ if (typeof document !== "undefined") {
       tr.querySelector(".area").textContent = areaText(byId[tr.dataset.room]);
     }
     $("import-scale-note").textContent = imp.read.units === "m" ? "The plan is in metres: it needs no scale."
+      : imp.library ? libraryScaleNote(imp.library)
       : imp.read.scale ? "Claude read the plan's own scale: leave Scale empty to use it, or write one to replace it."
       : "No scale was read: give a room's width or length in metres, or the home's floor area in m².";
     $("import-summary").textContent = imp.summary || "";
@@ -709,7 +716,7 @@ if (typeof document !== "undefined") {
     checkTimer = setTimeout(async () => {
       const mine = ++checkSeq;
       try {
-        const got = await api("/api/import/check", { plan: imp.plan, scale: imp.scale,
+        const got = await api("/api/import/check", { plan: imp.plan, scale: imp.scale, drawn: Boolean(imp.library),
                                                      door_numbers: imp.doorNumbers, floors_drawn: imp.floors });
         if (mine !== checkSeq) return;
         Object.assign(imp, { problems: got.problems, warnings: got.warnings || [], summary: got.summary,
@@ -730,12 +737,28 @@ if (typeof document !== "undefined") {
     drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files[0]); };
     $("import-scale").oninput = (e) => { imp.scale = e.target.value; recheck(); };
     $("import-stop").onclick = stopReading;
+    $("library-open").onclick = () => openLibrary();
     $("import-entrance").onchange = (e) => {
       imp.entrance = e.target.value === "" ? null : Number(e.target.value);
       rebuild();
       drawChecked();
       recheck(0);
     };
+  }
+
+  // -- the plan library's gallery (gallery.js) ----------------------------------------------------------------
+  // The preview draws the plan's rooms over its image as the import panel does: the same overlay, its own svg.
+  let gallery = null;
+  function libraryOverlay(svg, plan, image) {
+    svg.replaceChildren();
+    const [w, h] = plan.size || [0, 0];
+    const shapes = overlayShapes(plan.plan, { size: w && h ? { w, h } : null, problems: plan.problems });
+    drawOverlay(svg, shapes, svgMake, { image: w && h ? image : null });
+  }
+  function openLibrary(filters = {}, planId = null) {
+    gallery = gallery || mountGallery({ $, el, api, overlay: libraryOverlay, onUse: takeJob,
+                                        onRead: (file) => upload(file) });
+    gallery.open(filters, planId);
   }
 
   function whereControl(row) {
@@ -997,6 +1020,12 @@ if (typeof document !== "undefined") {
     drawPlace();
     drawRows();
     await search();
+    const link = parseHash(window.location.hash); // #library&rooms=3-4&floors=1&plan=<id>: the gallery, opened
+    if (link) {
+      model.rooms.mode = "plan";
+      drawRooms();
+      openLibrary(link, link.plan);
+    }
     page.ready = true;
   }
   init().catch((e) => { page.error = e.message; $("outcome").textContent = `The page could not start: ${e.message}`; });
