@@ -1364,3 +1364,28 @@ with the same measures, for completeness.
 **A15.10 Resources.** At most 2 processes at a time, under `nice -n 5`; each runs one environment's VESPER replay,
 then its Home Assistant run. Home Assistant runs in-process on the virtual clock, as in Addendum 10; no port is
 opened.
+
+**A15.11 After the shakedown, before any comparison run (2026-11-05).** The shakedown (A15.3: Phoenix 2026-04-15,
+the stratum's 227 automations, comparison and reading runs, at `f556117`; never reported) ran without error, and
+VESPER's side reproduced the sweep in all 227 pairs. It showed three things, which change the harness and the rules
+as follows before the first comparison run. Nothing above is otherwise changed.
+
+1. *Harness: duplicate ids.* Two sampled automations (different files) carry the same `id`. Home Assistant's entity
+   registry then creates only the first, and the other is "unavailable" in every run. From now on the harness gives
+   Home Assistant a duplicate `id` with a suffix that makes it unique (`ha_diff.run_env`). The `id` is only the
+   automation's unique id in Home Assistant; nothing an automation does depends on it. Addendum 10's 263 hold no
+   duplicate id, so its runs are unchanged.
+2. *Rule: data VESPER does not render.* Permissive replay records a call to a service the home does not have (a
+   script, a notifier) without rendering its data. Home Assistant renders it, and a template error there stops its
+   run (in the shakedown, a template that picks at random from a group attribute the input stream does not carry).
+   Rule 3 of A15.6 gains, first: Home Assistant's log for the pair reports an error rendering a data template, and
+   every call that only VESPER made is to a service outside the home's four entity domains (`light`, `switch`,
+   `lock`, `climate`). The pair is then *HA semantics VESPER lacks*, "permissive replay records a call without
+   rendering its data".
+3. *A sun condition's boundary (disclosed).* One `restart` automation, triggered by a sun event with an offset,
+   tests a sun condition `before` the same event with the same offset. At that instant Home Assistant 2026.10.2's
+   sun condition holds (it fails only *after* `before`; `components/sun/condition.py`), and VESPER's does not (it
+   holds only strictly before). So the two take different branches. This is an engine-bug candidate of A15.6(4)
+   in a construct outside the stratum's six (the `sun` condition, documented as supported). It is not fixed before
+   the comparison runs. If the four environments show it, it is handled by A15.8 like any other defect, and its
+   occurrence there is a confirmation, not a discovery.
