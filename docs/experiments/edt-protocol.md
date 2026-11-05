@@ -2167,3 +2167,148 @@ registered rule or number).**
 - *Two descriptive counts:* the room holding the coldest *caused* breach per breaching run (A18.1 registered the
   coldest room over all runs), and whether the per-room breaching runs are a subset of the hallway's.
 - *A18.4's estimate:* the 2,668 closed-loop runs took 12.5 min and the five plan replays 3.6 min in all.
+
+## Addendum 19 (2026-11-05, post hoc: written after the sixth internal review, before its runs)
+
+**Post hoc**: written after the sixth internal review asked for these analyses (its items 2, 3, 5(a) and 10) and after
+every result they revisit was seen (R4-B's corners, R7-A to R8-Y in `docs/experiments/results-edt.md`), but before any
+number below is computed. Nothing earlier changes and every earlier number stands; what follows is reported beside it.
+A change made after a computation is dated at the end of this addendum and called a deviation. Review 6's item numbers
+are in brackets. **No sweep is run again.** Items 3, 5(a) and 10 read saved runs and cached traces only; item 2 runs
+four small closed-loop settings (A19.1). Script: `scripts/revision/r9z_analyses.py` (tests first,
+`tests/edt/test_r9z_analyses.py`); results: `results/edt/r9z-<commit7>.json` (aggregates and anonymous indices only: no
+automation text, alias, entity name, repository or hash) and a section "Revision R9-Z (Addendum 19)" of
+`results-edt.md`. At most 3 worker processes, under nice. Scratch: `~/vesper-lab/edt/r9-Z/` (local). "Frame flags" are
+`8fcd672`'s 199 under the frame relation; "orientation witnesses" its 100 (A12.1's definition, as A17.1 and A18.3 use
+it). No pass/fail criterion is registered here; every analysis is descriptive.
+
+**A19.1 The setback headline at a realistic internal-gains setting [2].**
+
+- *The corner.* Internal gains **2 W/m²**, heat capacity **165 kJ/(m² K)** (medium), the envelope as built (roof and
+  ground off, U_wall 0.35 and U_glass 1.4 W/(m² K)), the nominal warm-up (1 day): R4-B's corner `G2-Foff-W1-C165`.
+  The same at **5 W/m²** (`G5-Foff-W1-C165`). The other three warm-ups of each (5, 10 days, periodic) are reported
+  beside, from R4-B, and are not the headline.
+- *Population, path and rule.* R2-c's 22 setback automations (`120f4ca`, rung 4, bound as stored), each alone, closed
+  loop (R4-B's worker `r4b_error_budget._closed_job`), in the core four environments (Minneapolis and Stockholm,
+  2026-01-14, plan north 0 and 180): 88 runs, each against its own setting's baseline (no automation), R2-c's causal
+  rule (a room-run cell counts when the room's minimum over days 1-2 is below 10 C with the automation and not in the
+  baseline; 7 rooms per run).
+- *Hallway thermostat* (the model as built): R4-B's saved stage-2 runs (`r4b-scratch/full.pkl`), judged by R2-c's
+  `judge` as R4-B's report did. Check: their summary reproduces R4-B's published corner rows (breaching runs, caused
+  cells, automations, repositories, coldest caused room min / median / max, baseline coldest room).
+- *Per-room thermostats.* R8-Y's per-room runs exist only at internal gains 0 (A18.1, A18.2), so **they do not exist at
+  either corner**. They are run now: each corner with `PER_ROOM_THERMOSTAT` 1 (A18.0's binding rule: a command to the
+  hallway thermostat sets every room's), 88 runs and 4 baselines each. *Check, run first:* each corner under the
+  hallway thermostat is run again with the current code (88 + 4 runs each) and must reproduce R4-B's saved rows (the
+  same breaching runs, and every coldest caused room, caused-cell count and baseline minimum); a mismatch is stated
+  and its cause found before a per-room number is used. 4 settings x 92 = 368 closed-loop runs.
+- *Reported per corner and thermostat layout:* breaching runs (of 88), Minneapolis / Stockholm, caused cells (of 616);
+  **distinct automations and distinct repositories** with a breach, and the breaching automations per repository
+  (anonymous, R4-B's R1.. order); the **coldest caused room per breaching run (min / median / max)**; the coldest room
+  per run over all 88; the baseline's coldest room; the breaching runs and coldest caused room of the rules that turn
+  the thermostat off apart from the setpoint-only ones (A18.5's split, registered here); per-room against hallway:
+  whether the per-room breaching runs are a subset, lost and gained. Beside: R4-B's J (of 132) and all-48 (of 1,056)
+  counts at the corner, where R4-B has them.
+- *In context.* R4-B's companion runs (A7.4) were made at the nominal corner only (every knob at its default): they do
+  not allow an in-context result at either corner, and none is run here. That is stated with the numbers.
+- *How it will be read (stated now):* the review's headline is the hallway count at `G2-Foff-W1-C165` with its
+  automations, repositories and coldest-caused-room range, the per-room count beside it; 5 W/m² is reported as the
+  upper realistic value and 0 W/m² (R2-c's 53, R8-Y's 46 per room) as the conservative extreme. No other corner is
+  chosen after seeing it.
+
+**A19.2 Two orientation cores [3].** All memberships are read from saved records: R8-X's (`r8-X/scratch/members.pkl`:
+the whole sweeps `8fcd672`, R7-W's shortwave run `52ded7b`, A8.8's variants at `ba8a54c`, R7-A's and R7-B's
+settings) and R8-Y's (`r8-Y/scratch/plan-witness-ids.pkl`: the plans' witnesses among the 199).
+
+- *(a) The attributable, orientation-relevant core.* The published witnesses held at every one of these settings:
+  the recorded beam/diffuse split (R7-W's shortwave run, A14.3), glazing x0.5 and x2 (A8.8, A17.2; x1 is the
+  published), and plans seed 9, 11 and 16 (A18.3): **6 settings, 3 brackets**. *Checks first:* each bracket alone gives
+  its published core (95; 79; 86). Reported: the joint core; its possible set (each source within its own replayed set;
+  the plans' within the 199); the core without each bracket in turn; the witnesses held in k of the 6 settings.
+  Secondary: the same with plan seed 8 and the mirrored home added (8 settings); and the frame-flag family over the 6
+  (the plans' within the 199, by R8-Y's records).
+- *(b) The all-bracket joint core,* restated: A17.1's 139 settings, recomputed from `members.pkl` by R8-X's own
+  `core_report` (it must give 7 again; 7 with the glazing variants, 141); and, secondary, the 141 with the three plans
+  added (144). Labelled as including terms whose attribution condition fails (k̂ brackets a lumped magnitude, not an
+  aperture).
+- *(c) Orientation-isotropic settings among the 139.* The rule, fixed now: a setting is **orientation-relevant** when
+  the term it moves enters a room's balance in proportion to the irradiance on that room's windows, so that it moves a
+  north room and a south room differently: the solar aperture scale (R7-A x0.21, x0.25, x0.29, x0.5, x2), the direct
+  share (R7-A 0.6, 0.95) and the recorded shortwave (R7-W). It is **orientation-isotropic** when it moves a term the
+  same way in every room whatever its windows face: internal gains, roof and ground, warm-up and capacity (R7-B's
+  corners), the indoor temperature offset (R7-B's offsets), the outdoor air offset and the humidity class (R7-A), and
+  the engine correction (R6-D). The three copies of the unperturbed model (R7-A's nominal, R7-B's corner reference and
+  offset reference) are counted apart. Reported: the counts in each class, how many of the 139 are R7-B's corners, and
+  the witnesses' joint core over the orientation-relevant settings alone and over the isotropic ones alone.
+- *(d) The structural features of the witnesses in (a)'s core,* against the witnesses outside it (of the 100).
+  Per witness, from its bound automation as stored at `8fcd672` and the standard EDT home rebuilt by
+  `vesper.edt.home.build_edt_home` (checked: the rebuilt home's role entity ids are those `8fcd672`'s bound automations
+  use): **rooms** read (the rooms of the home's role entities named in its triggers and conditions; generic room ids,
+  the porch is outdoor; "no room-scoped role" when none), and rooms acted on, secondary; the **window facings** of the
+  rooms read (the plan facing, 0 / 90 / 180 / 270, of the standard home's windows; a room with none, such as the
+  corridor, counts as windowless), and whether the rooms read have windows of one facing only; the **sensed quantity**
+  (A12's read kind, temperature / humidity / neither, each environment kind of `kinds`, and the role features read:
+  temperature, humidity, illuminance, motion, ...); the **kind**: the published frame divergence kinds, and the kinds
+  of the frame relation restricted to the witnessing orientation pairs (union over the pairs that diverge). Reported as
+  counts in the core and outside it; aggregates only. A feature that every core witness has and few outside do is
+  reported as such; nothing is tested.
+
+**A19.3 The frame relation's tolerance sensitivity [5(a)].**
+
+- *Oracle.* `frame_invariance`, `frame_divergences` and `frame_restricted_divergences` get a separate sun tolerance,
+  `h_sun_min` (default None: h x 60 min, as now, so every caller is bit-identical; tested). The clock tolerance stays
+  `h` (hours). Nothing else in the oracle changes.
+- *Population:* the 5,926 run automations of `8fcd672`, their saved outcomes and first-firing instants, their frames
+  (`frames_of(bound)`), the sensed frame invariant as published (no crossing option). A flag is the sweep's: frame
+  divergences, less an envelope kind holding in every environment, non-empty.
+- *Cells:* h_clk in **{1, 3, 6} h** x h_sun in **{60, 180, 360} min**: 9 cells. *Check:* (3 h, 180 min) reproduces the
+  199 and every published frame kind set exactly.
+- *Reported per cell:* frame flags (of 5,926); by kind (fires_somewhere_only, time_spread, flaps, night_light,
+  night_cover); against the published 199, gained and lost; time_spread flags by the frames the automation is judged
+  in (clock only, sun only, sensed only, mixed). Beside them, the clock relation's own counts at h in {1, 3, 6} h (the
+  806 and 541 the paper reports, recomputed from the same saved outcomes as a check). Also stated, as found in the
+  repository's documents: where 3 h comes from and what it is meant to represent.
+
+**A19.4 The three cached-data checks the notes list as open [10].** Each needs only saved outcomes or cached traces;
+all three are done.
+
+- *(a) The humidity clamp against the 36 humidity frame flags.* The model clamps an indoor room's relative humidity
+  to [15, 85] % (`vesper.env.indoor`). Per humidity frame flag (`"humidity" in kinds`) and environment where it has an
+  outcome: the humidity entities it reads (the home's humidity role entities named in its triggers or conditions; a
+  porch entity is outdoor, not clamped by that rule, and is reported apart); their series over the run from the cached
+  rung-4 traces of `8fcd672` (the engine's own state, `r6a_analyses.env_series`, reporting rule `device`). A value is
+  **clamped** at or above 84.95 % or at or below 15.05 % (the clamp, with the reports' rounding). Reported: (i) the
+  flags and (flag, environment) cells whose read series is clamped at the **first firing** (the last value at or
+  before the first-firing instant; primary: a crossing at a clamped value); (ii) the flags whose A8.5 crossing instant
+  (`sensed_crossing_refs`, `crossing_instant`, days 1-2) falls at a clamped value, and those with a numeric bound at or
+  beyond the clamp (above >= 85 or below <= 15); (iii) the flags whose read series reaches the clamp anywhere in days
+  1-2 (an upper bound); by city. A flag in (i) or (ii) is the part of the class that rests on the clamp.
+- *(b) Multiply caused dead rules.* Population: `8fcd672`'s 390 environment-coupled dead automations. A6.6's reasons
+  are a cascade; its order, stated as an ordered list in the results, is read from `r4a_analyses.dead_reasons`. Three
+  **reason predicates** are evaluated independently, by probes replayed open loop on the 48 cached rung-4 traces (as
+  A6.6's own probes; the probe action is A6.6's switch call):
+  - **T** (the triggers never fire): the triggers alone, no conditions (A6.6's P1), fire in no environment;
+  - **C** (a condition never holds): the conditions under a `time_pattern` trigger every 5 minutes, with the probe
+    action, fire in no environment; not evaluable when a condition names `trigger`;
+  - **A** (the actions end before any call): the automation's own actions under the same `time_pattern` trigger, no
+    conditions, make no call in any environment; not evaluable when an action names `trigger`.
+  Check: T must hold for the automations whose A6.6 reason is a trigger reason (the cached
+  `r7-A/scratch/dead-reasons.pkl`) and fail for the "actions" and "condition" reasons. Reported: how many of the 390
+  satisfy two or more evaluable predicates (multiply caused), the combinations, the not evaluable, and the
+  multiply-caused count by A6.6's reason. The 5-minute pattern can miss a condition that holds for less than 5 minutes;
+  that limit is stated.
+- *(c) The engine-discrepancy propagation, blocked by environment.* R6-C's per-pair records (`r6-C/pairs-134b209.json`,
+  the registered run; artifacts as R6-C classified them, read from `results/edt/r6c-ha-diff-533ceb1.json`) and
+  `8fcd672`'s flags. Check first: `ha_diff.propagate` on them reproduces R6-C's published registered (per-environment)
+  and by-automation summaries for the 199 frame flags and the 8 time_spread flags (same seed). New, primary:
+  **environment-blocked** draws (1,000 replicates, seed 20261105): per replicate, each of the 48 sweep environments is
+  assigned one of the 4 compared environments, uniformly with replacement, and every flag's outcome in that environment
+  draws a pair (of the same VESPER firing status) from the assigned environment's pairs only, so a site- and
+  date-systematic discrepancy hits every flag in that environment together. Otherwise A10.5(b)'s rules. Reported: the
+  frame flags changing kinds (mean, 2.5 and 97.5 percentiles), the time_spread ones, against A10.7's limit (at most 9 of
+  199), beside the registered and by-automation propagations; and the direction in which the per-environment
+  independence biases the count, as these show it.
+
+**A19.5 Resources.** 368 closed-loop runs (minutes), the dead-rule probes over 48 cached traces (390 automations x 4
+probes), the humidity series of 48 traces, and Monte Carlo over saved records. At most 3 workers under nice. Any
+deviation is dated below this addendum.
