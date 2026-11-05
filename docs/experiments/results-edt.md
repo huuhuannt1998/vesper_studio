@@ -3334,3 +3334,182 @@ reach is over the sweep's own inputs, which are open loop with no residents: an 
 occupancy or on its own actions' effects is outside it, as everywhere in this instrument. The one gate-differing pair
 is unexplained. `tests/lab/test_ui.py`'s JavaScript check fails in this worktree because node skips one page test;
 it is untouched by this lane and was deselected.
+
+## Revision R10-Q (Addendum 21): the standard home's geometry, the rung-0 trade-off curve, the interior beam-light term
+
+**Post hoc** (after the seventh internal review, items 4, 5 and 6(a)), registered before its runs as protocol
+Addendum 21 (`docs/experiments/edt-protocol.md`, commit `0084a15`). New knob: `BEAM_LIGHT_SCALE`
+(`vesper.env.indoor`, commit `c496a0c`). It multiplies the interior beam (direct-sun) term of a room's daylight and
+nothing else; the diffuse term, the solar heat and `DAYLIGHT_SCALE` are unchanged. It is bit-identical at 1 by the
+extended fingerprint test. Script: `scripts/revision/r10q.py`; numbers: `results/edt/r10q-b5f9a19.json` (aggregates
+only). No sweep was run again.
+
+### Item 5: the standard home's geometry (A21.1)
+
+Read from the simulator's input: `8fcd672`'s EDT standard home (`work-8fcd672/edt/`, whose `map.json` and
+`windows.json` are byte-identical to `base/`'s), through `vesper.env.indoor.room_models` at the defaults. The home is
+a generated 6-room plan (seed 7) with a hallway: 7 indoor spaces and an outdoor porch, which has no model. Ceiling
+height 2.5 m everywhere. Floor areas are the rooms' polygons, inside the walls. Bearings are given for the sweep's two
+plan orientations (north 0 / north 180).
+
+| Space | Floor (m²) | Volume (m³) | Opaque outside wall (m²) | Glass (m²), facing at north 0 / 180 | H walls / glass / ventilation (W/K) | H (W/K) | C (MJ/K) | τ = C/H (h) |
+|---|---|---|---|---|---|---|---|---|
+| Living room | 22.80 | 57.0 | 20.02 | 2 x 2.24 = 4.48, N / S | 7.01 / 6.27 / 9.69 | 22.97 | 3.762 | 45.5 |
+| Bedroom (larger) | 14.44 | 36.1 | 17.56 | 1.44, N / S | 6.15 / 2.02 / 6.14 | 14.30 | 2.383 | 46.3 |
+| Office | 12.92 | 32.3 | 16.56 | 1.44, E / W | 5.80 / 2.02 / 5.49 | 13.30 | 2.132 | 44.5 |
+| Hallway | 10.00 | 25.0 | 5.00 | none | 1.75 / 0 / 4.25 | 6.00 | 1.650 | 76.4 |
+| Bedroom (smaller) | 9.12 | 22.8 | 14.06 | 1.44, W / E | 4.92 / 2.02 / 3.88 | 10.81 | 1.505 | 38.7 |
+| Kitchen | 6.84 | 17.1 | 3.50 | 1.00, S / N | 1.22 / 1.40 / 2.91 | 5.53 | 1.129 | 56.7 |
+| Bathroom | 6.84 | 17.1 | 4.14 | 0.36, S / N | 1.45 / 0.50 / 2.91 | 4.86 | 1.129 | 64.5 |
+| **House** | **82.96** | **207.4** | **80.84** | **10.16** | **28.29 / 14.22 / 35.26** | **77.78** | **13.688** | **48.9** |
+
+- **The check holds:** H = 77.78 W/K = 28.29 walls (36.4 %) + 14.22 glass (18.3 %) + 35.26 ventilation (45.3 %),
+  R6-B's 77.8 = 28.3 + 14.2 + 35.3 to its printed precision; C = 13.69 MJ/K and C/H = 48.9 h, R2-a's.
+- **The ventilation arithmetic.** 0.5 ACH x 207.4 m³ x ρc_p / 3600. The model's constant is 0.34 Wh/(m³ K), that is
+  ρc_p = 1,224 J/(m³ K), which gives **35.26 W/K**. With the textbook 1.2 kg/m³ x 1,005 J/(kg K) = 1,206 J/(m³ K) the
+  same volume gives 34.74 W/K. Read backwards, 35.3 W/K is 207.6 m³ at the model's constant (210.7 m³ at the textbook
+  one), not the review's ≈214 m³; that estimate used ρc_p ≈ 1,190 J/(m³ K).
+- **The capacity.** C = 165 kJ/(m² K) x 82.96 m² = 13.69 MJ/K. C/H = 13.69e6 / 77.78 / 3600 = 48.9 h; read backwards,
+  48.9 h and 165 kJ/(m² K) give 83.0 m², the floor area above.
+- The interior partitions (U 2.0 W/(m² K)) move heat between rooms and are not in H (R6-B).
+- The glass is 10.16 m², 12.2 % of the floor area; 5 of the 7 windows are on the plan's north-south axis (the living
+  room's two and the larger bedroom's at plan north; the kitchen's and the bathroom's at plan south), 2 on the east-west
+  axis (the office east, the smaller bedroom west). Turning the plan by 180 degrees swaps each window's facing.
+
+### Item 6(a): the rung-0 trade-off curve (A21.2)
+
+The scores are A6.7's and A8.1's, recomputed with their own code, folds, seed and rows. **The checks hold:** the pooled
+out-of-fold AUCs reproduce A8.2's (frame 0.7824 with 8 features, 0.9194 with 8+4; clock 0.9459, 0.9809) and the
+held-out AUCs reproduce A8.1's (frame 0.8485, 0.8411; clock 0.9338, 0.9531). Population: the 5,926 automations that
+run at rung 4 (199 frame flags, base rate 3.4 %; 790 clock flags). An automation passes when its score is at least the
+threshold; the eight features are few and discrete, so many automations share a score and pass together.
+
+**Frame flags, pooled out-of-fold scores (all 5,926):**
+
+| Features | P at R 0.8 (passed) | P at R 0.9 (passed) | P at R 0.95 (passed) | R at P 0.3 (passed) | R at P 0.5 (passed) | R at P 0.7 (passed) |
+|---|---|---|---|---|---|---|
+| 8 (A8.1's model) | 0.063 (2,539) | **0.034 (5,258)** | 0.034 (5,555) | 0.643 (406) | 0.633 (250) | 0.030 (7) |
+| 8+4 | 0.350 (457) | **0.071 (2,523)** | 0.063 (3,038) | 0.814 (518) | 0.618 (216) | 0.030 (6) |
+
+**Frame flags, A8.1's registered split (held-out 2,777, 86 flags):**
+
+| Features | P at R 0.8 (passed) | P at R 0.9 (passed) | P at R 0.95 (passed) | R at P 0.3 (passed) | R at P 0.5 (passed) | R at P 0.7 |
+|---|---|---|---|---|---|---|
+| 8 | 0.057 (1,301) | 0.058 (1,383) | 0.036 (2,376) | 0.628 (116) | 0.558 (93) | 0 |
+| 8+4 | 0.141 (488) | 0.032 (2,612) | 0.032 (2,612) | 0.779 (216) | 0.558 (93) | 0 |
+
+**Clock flags, for comparison:**
+
+| Scores, features | P at R 0.8 (passed) | P at R 0.9 (passed) | P at R 0.95 (passed) | R at P 0.3 | R at P 0.5 | R at P 0.7 |
+|---|---|---|---|---|---|---|
+| out-of-fold, 8 | 0.850 (745) | 0.794 (896) | 0.208 (3,639) | 0.943 | 0.927 | 0.925 |
+| out-of-fold, 8+4 | 0.835 (758) | 0.812 (877) | 0.764 (984) | 0.987 | 0.984 | 0.980 |
+| split, 8 | 0.823 (356) | 0.642 (514) | 0.194 (1,786) | 0.907 | 0.907 | 0.885 |
+| split, 8+4 | 0.810 (363) | 0.755 (440) | 0.611 (570) | 0.964 | 0.964 | 0.945 |
+
+**The implied budget** (frame flags, recall 0.9; triage at random would pass 0.9 x 5,926 = 5,333 in expectation):
+
+- **8 features: 5,258 of 5,926 (88.7 %; repository bootstrap 80.7-93.7 %)**, against random's 5,333. Rung 0 as
+  registered does not shrink the simulation budget for the frame relation's flags at 90 % recall: its precision there
+  (0.034) is the base rate.
+- 8+4 features: 2,523 of 5,926 (42.6 %; 15.7-52.0 %). On the split, scaled to 5,926: 2,951 (8) and 5,574 (8+4); the
+  split and the pooled scores disagree by a factor of two in opposite directions, so neither budget is stable.
+- At recall 0.8 the 8+4 model passes 457 (7.7 %, precision 0.35); the curve is steep between 0.8 and 0.9, where
+  the remaining flags share their scores with thousands of unflagged automations.
+- For the clock relation's flags the budget is small: 896 of 5,926 (15.1 %; 13.2-27.8 %) with 8 features, 877
+  (14.8 %; 13.3-16.6 %) with 8+4.
+
+So a syntactic triage is cost-effective for the clock relation's flags and is not, at 90 % recall, for the frame
+relation's: what the frame relation finds is mostly not visible in the automation's syntax. The pooled scores come
+from five models, so a threshold over them is a pooled operating point, not one deployable model's (A21.2's limit).
+
+### Item 4(a): the interior beam-light term bracketed by k̂ (A21.3)
+
+The 67 run automations that read an illuminance (R7-B's A13.4 population), as bound, in the standard home, open loop
+in all 48 environments, every trace recorded afresh; about 30 s per setting with 4 workers, no environment failed.
+**The reference check holds:** recorded now, it reproduces `5b54586` on the 67 exactly (0 of 3,216 outcomes differ;
+0 membership mismatches), so the published memberships are 7 frame flags, 15 clock flags and 17 automations firing
+somewhere.
+
+| BEAM_LIGHT_SCALE | Frame flags (of 7): lost / gained | Clock flags (of 15): lost / gained | Fire somewhere (of 67) | Outcomes changed (of 3,216), automations |
+|---|---|---|---|---|
+| 1 (reference) | 7: 0 / 0 | 15: 0 / 0 | 17 | 0 |
+| 0.289 | 7: 0 / 0 | 15: 0 / 0 | 17 | 19, in 2 |
+| **0.250** (k̂) | 7: 0 / 0 | 15: 0 / 0 | 17 | 19, in 2 |
+| 0.205 | 7: 0 / 0 | 15: 0 / 0 | 17 | 18, in 2 |
+
+**Robust core / possible set over the four settings: frame 7 / 7, clock 15 / 15**; no flag changes its kinds; the
+same 17 fire somewhere at every setting. Scaling the interior beam light by k̂'s interval moves the first firing of 2
+automations in 18-19 environment outcomes and changes no flag.
+
+### Item 4(b): the change-reporting sensor at a corrected daylight level (A21.4)
+
+R7-B's home (a `zigbee:tuya:s-lux-zb` beside each of the 8 RTCGQ11LM sensors; 79 entity references replaced in 65 of
+the 67) and its swap. **Both anchors hold:** the augmented home as bound reproduces `5b54586` exactly (0 of 3,216), and
+the swap at the defaults reproduces R7-B's swap (7 frame and 15 clock flags, 0 lost, 0 gained, 1 clock flag's kinds
+changed, 17 firing somewhere; 526 outcomes in 16 automations move against the reference). Daylight is scaled by
+`DAYLIGHT_SCALE`, the knob rung 3 uses at 1/14.8; check D's residual after A9.6's three factors is model / measured =
+2.49 (0.93-3.49). Outcomes changed are counted against the swap anchor.
+
+| Setting (swapped home) | Daylight x | Beam x | Frame (of 7): flagged, lost / gained | Clock (of 15): flagged, lost / gained | Fire somewhere (of 67) | Outcomes changed (automations) |
+|---|---|---|---|---|---|---|
+| swap anchor | 1 | 1 | 7, 0 / 0 | 15, 0 / 0 | 17 | 0 |
+| **primary: 1/2.49** | 0.402 | 1 | 7, 0 / 0 | 15, 0 / 0 | 17 | 169 (8) |
+| **primary: 1/2.49** | 0.402 | 0.25 | **6, 1 / 0** | 14, 1 / 0 | 16 | 187 (8) |
+| primary: 1/0.93 | 1.075 | 1 | 7, 0 / 0 | 15, 0 / 0 | 17 | 94 (7) |
+| primary: 1/0.93 | 1.075 | 0.25 | 7, 0 / 0 | 15, 0 / 0 | 17 | 97 (7) |
+| primary: 1/3.49 | 0.287 | 1 | 7, 0 / 0 (1 changes kinds) | 15, 0 / 0 | 17 | 205 (8) |
+| primary: 1/3.49 | 0.287 | 0.25 | **6, 1 / 0** | 14, 1 / 0 | 16 | 232 (8) |
+| secondary: x2.49 | 2.49 | 1 | 7, **1 / 1** | 15, 1 / 1 | 17 | 114 (9) |
+| secondary: x2.49 | 2.49 | 0.25 | 6, 1 / 0 | 14, 1 / 0 | 16 | 107 (8) |
+| secondary: x0.93 | 0.93 | 1 | 7, 0 / 0 | 15, 0 / 0 | 17 | 104 (7) |
+| secondary: x0.93 | 0.93 | 0.25 | 7, 0 / 0 | 15, 0 / 0 | 17 | 108 (7) |
+| secondary: x3.49 | 3.49 | 1 | 7, 1 / 1 | 15, 1 / 1 | 17 | 124 (9) |
+| secondary: x3.49 | 3.49 | 0.25 | 7, 1 / 1 | 15, 1 / 1 | 17 | 114 (9) |
+
+| Bracket | Frame: robust core / possible set (of 7) | Clock: robust core / possible set (of 15) | Fire somewhere: at every setting / at some |
+|---|---|---|---|
+| primary six + swap anchor (7 settings) | **6 / 7** (1 lost, 0 gained) | 14 / 15 | 16 / 17 |
+| primary at beam 1 + swap anchor | 7 / 7 | 15 / 15 | 17 / 17 |
+| primary at beam 0.25 | 6 / 7 | 14 / 15 | 16 / 17 |
+| all 13 swapped settings | 5 / 8 (2 lost, 1 gained) | 13 / 16 | 15 / 18 |
+
+What moves, by anonymous index among the 67 (kinds are the oracle's names):
+- **One flag (A30) is lost when the daylight is corrected downward and the beam cut to k̂** (1/2.49 and 1/3.49 at beam
+  0.25). Its published frame kinds are *fires\_somewhere\_only* and *night\_light*; at those settings it fires in no
+  environment, so it is no longer flagged under either relation. At 1/3.49 with the beam as built it keeps
+  *fires\_somewhere\_only* (firing in 2 environments) and loses *night\_light*.
+- Under the literal multiplication (the secondary set, the rooms 2.5-3.5 times brighter), one flag (A26, kind
+  *fires\_somewhere\_only*) stops firing anywhere and one unflagged automation (A41) starts firing in 6-16
+  environments and becomes a *fires\_somewhere\_only* flag.
+- So each change is a *fires\_somewhere\_only* flag appearing or disappearing: an illuminance threshold that the room's
+  daylight crosses in some environments at one daylight level and in none at another. No change is a change of timing
+  or of which environments fire among those that do.
+- 50 of the 67 fire nowhere at the reference; across all 13 swapped settings 15 fire somewhere at every setting and 18
+  at some. The resident-free home leaves the illuminance class mostly untested whatever the daylight level.
+
+### What this changes, stated
+
+- The standard home's geometry is printed (82.96 m² over 7 spaces, 2.5 m, 207.4 m³, 10.16 m² of glass); it reproduces
+  R6-B's H = 77.8 W/K and its 45 % ventilation share, and C/H = 48.9 h, from the simulator's own input. The review's
+  derived 214 m³ is 207.4 m³ at the model's ρc_p (1,224 J/(m³ K)).
+- Rung 0's trade-off curve: to catch 90 % of the frame relation's flags the registered eight-feature triage passes
+  5,258 of 5,926 (88.7 %), about what random triage would (5,333); with the four frame features, 2,523 (42.6 %). For the
+  clock relation's flags it passes 896 (15.1 %). The single operating point the paper reports does not show this.
+- **The interior beam term is inert over k̂'s interval**: robust core 7 of 7 frame and 15 of 15 clock illuminance flags.
+- **At the corrected daylight level the inert-path claim holds for 6 of the 7 frame flags, not all 7**, by A21.5's
+  reading: with daylight corrected by check D's residual (1/2.49 or 1/3.49) and the beam cut to k̂, one
+  *fires\_somewhere\_only* flag fires nowhere and is lost; none is gained. With the beam as built, the correction loses
+  none. Under the literal reading (daylight x 2.49-3.49) one flag is lost and one gained. The manuscript's statement
+  that the illuminance path's flags do not depend on the daylight level should be restated with these counts: they do
+  not depend on the sensor's reporting or on the beam term alone, but 1-2 of them are existence-of-firing flags that
+  appear or disappear with the daylight level.
+
+*Concerns, stated.*
+- Open loop over the 67 readers only; daylight reaches nothing else in the resident-free home.
+- Each daylight correction is one factor for every room and hour; check D's residual is a median over 240 hours of one
+  dataset, and the comparison behind it is not like-for-like (A9.6).
+- The beam bracket scales a magnitude, not the beam's direction or timing; the change-reporting sensor's rule is the
+  catalog default (R7-B).
+- The trade-off curve's pooled scores come from five fold models; the split's held-out half is one model on 2,777 rows,
+  and the two give budgets that differ by a factor of two in opposite directions for the frame flags.
