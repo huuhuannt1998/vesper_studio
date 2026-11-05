@@ -479,3 +479,118 @@ five, does not owe that to one plan or one window; one flagged (or orientation-w
 owes it to that home. The mirror separates "faces east" from "faces west" for the same plan; the other plan changes
 which rooms have which façade; glazing changes how much the windows weigh. Five homes are a small sample of plans, not
 a population of real homes; that limit is stated with the results.
+
+## Addendum 6 (2026-11-04): the frame-relative relation, the dead-rule class, rung 2.5, the richer outcome
+
+Written after the second internal review of the results above and before any run under it. Because it follows a
+review of results already seen, everything it adds is **post hoc** in the paper's terms (chosen after the first
+results); its rules are nevertheless fixed here, before the runs that use them, and nothing below is tuned on those
+runs. Nothing earlier changes: the relation of section 4 (now called the *clock relation*) is computed beside the new
+one on every sweep, and every earlier verdict stands as reported.
+
+**A6.1 Frames.** An automation's timing frames are read from its bound triggers and conditions (nested `and` / `or` /
+`not` included; conditions inside actions and `choose` options are not):
+
+- **clock**: a `time` or `time_pattern` trigger; a `time` condition; a template trigger or condition reading `now()`
+  or `utcnow()`;
+- **sun**: a `sun` trigger; a `sun` condition; a `state` or `numeric_state` trigger or condition on `sun.sun`; a
+  template reading `sun.sun`;
+- **sensed**: a `state` or `numeric_state` trigger or condition, or a template, on an entity that reads illuminance,
+  temperature, humidity or weather (the rules `vesper.edt.corpus.env_kinds` uses).
+
+Anything else (motion, doors, actuators, helpers, start events) gives no frame. An automation with no frame is judged
+in the clock frame, as before.
+
+**A6.2 Frame-relative first firing.** In each environment where the automation fires, its first firing in the judged
+window has one value per frame:
+
+- clock: its local time of day (the outcome's `first_tod_h`);
+- sun: the signed minutes from the nearest *reference instant* (on the firing's day or either neighbouring day). The
+  reference instants are those its sun triggers name: sunrise or sunset plus the trigger's offset; a `state` trigger
+  on `sun.sun` to `below_horizon` (sunset), to `above_horizon` (sunrise), or with no `to` (both); a `numeric_state`
+  trigger on the sun's elevation: the time the elevation crosses the threshold, rising for `above` and setting for
+  `below`. An automation with no such trigger takes those of its sun conditions (`after` / `before` events with
+  their offsets, `sun.sun` states, elevation thresholds). They are computed from the environment's site and date with
+  the astral code the replay's engine uses (`vesper.env.sun.sun_events`; astral's `time_at_elevation` for an
+  elevation). A sun frame with no reference that can be computed (a template, the azimuth) is not computable;
+- sensed: not computable.
+
+**A6.3 The frame-relative relation.** Per frame: the clock frame is invariant iff the circular spread of the first
+firings' times of day is at most h = 3 h (section 4); the sun frame iff the range (max minus min) of its sun-relative
+minutes is at most 180 min, over the environments where a reference exists that day; a frame that is not computable
+counts as invariant (its timing is commissioned by the quantity it reads). The timing divergence under the relation
+(`time_spread` in its result) holds iff **no** frame of the automation is invariant. Hence: a single-frame automation
+is flagged for timing only if its spread exceeds h in its own frame; a pure sensed automation never is; a mixed-frame
+automation only if it is invariant in none of its frames. `fires_somewhere_only`, `flaps`, `night_light`,
+`night_cover` and the static rule are unchanged. An automation is flagged under the relation iff its divergences
+under it (`frame_divergences`) are non-empty; `divergences` stays the clock relation's.
+
+Reported beside it, as a sensitivity and not a criterion: the same relation with the sensed frame *not* counted as
+invariant whenever the automation has a computable frame. Witnesses under the relation: a pair differing in one axis
+whose divergences under the relation, restricted to the pair, are non-empty; the minimal witness's preference is
+section 6's. Also reported per automation: the set of axes that admit a witness. Proposition 1 (a set diverges iff
+one of its pairs does) holds for each single frame but not for mixed-frame timing; the number of automations flagged
+under the relation with no pair witness at all is reported.
+
+**A6.4 The richer outcome (reported only, never part of any flag).** Per environment, beside the outcome, the sweep
+keeps: the firing count (distinct firing instants in the judged window); the payload, a canonical hash of the set of
+distinct (service, entity, data) calls in the judged window, where data are the command parts the engine sends (a
+light's state and brightness, a thermostat's mode and setpoint, a switch's or lock's payload; an action the engine
+only records contributes its service and entity, since the engine does not render its data); and the branches, the
+set of (choose or if step, option taken) pairs in the judged window (the default as option -1). Over the environments
+where the automation fires: `count_differs`, `payload_differs`, `branch_differs` when they are not all equal. Reported:
+how many automations that are **not** flagged (clock relation, and frame relation) differ under each.
+
+**A6.5 Rung 2.5.** Between rungs 2 and 3: the home has its site and the recorded weather (ERA5), so the porch's
+(outdoor) sensors read the outdoor air temperature, humidity and illuminance exactly as at rung 4; every indoor
+room's sensors read rung 2's assumed curve (`vesper.lab.rules.ambient_at`, with the lamps that are on), not the room
+model. The trace header names the site, as at rungs 2-4. Section 2's environments, the ladder's comparison with
+rung 4 (A1.4) and every report of a rung apply to it. The sensor-driven flags (flagged at rung 4 and reading a sensed
+quantity as written) are split into **ERA5-only** (flagged at rung 2.5 too) and **room-model-dependent** (not flagged
+at rung 2.5), under the clock relation (the paper's 179) and under the frame relation; the share that keeps the same
+divergence kinds at rung 2.5 is reported beside.
+
+**A6.6 The dead-rule class.** An automation is *dead* when it runs at rung 4 (has an outcome in at least one
+environment) and fires in none. The class needs no contrast and is anti-monotone in E (a larger grid can only remove
+members). Each dead automation's reason is derived mechanically by replaying the dead automations again, open loop,
+against the same rung-4 traces in two probes whose only action is one call (`switch.turn_on` on a plug): P1, its
+triggers alone (no conditions); P2, its triggers and its conditions. Reasons, the first that applies:
+
+- (a) P2 fires somewhere: *the actions end before any call* (an action-level condition, a `choose` with no matching
+  option, a delay past the window);
+- (b) P1 fires somewhere and P2 nowhere: *a condition never holds when a trigger fires*. The blocking condition is
+  found by replaying P1 plus every top-level condition but one; it is named by kind: a sun condition (*unsatisfiable
+  at these latitudes and dates*), a time condition, a sensed-quantity condition, a condition on an entity that never
+  changes (motion, door, actuator), another or a template; more than one: *several conditions*;
+- (c) P1 fires nowhere: from the traces, for each `numeric_state` trigger on a sensed entity, per environment:
+  *unreachable* (no value over the run lies on the firing side), *never armed* (every value lies on it, so Home
+  Assistant never arms the trigger), or *armed, no crossing in the judged window*. Every (trigger, environment)
+  unreachable: *threshold out of the observed range in every environment*; every one never armed: *never armed*; only
+  those two, mixed: *threshold unreachable or never armed, by environment*; otherwise *armed numeric_state never
+  crosses in the judged window*. Every trigger a `state` trigger on entities that never change in a trace (no
+  residents; actuators held by the open loop): *trigger entities never change*. Anything else: *not derived*.
+
+Reported: counts by reason, over all dead automations and over the environment-coupled ones. A hand audit of the
+reasons is a separate task, not part of this addendum.
+
+**A6.7 The ladder and the cover, restated.**
+
+- The necessity criterion for quantification is restated on rung 2 alone: *the physics is necessary for
+  quantification iff rung 2 does not reproduce rung 4* (A1.4's reproduction rule). Rung 1, which flags nothing by
+  construction, is a sanity check only. Reported under the clock and the frame relations, rung 2.5 beside it.
+- Rung 0 is refitted against the frame relation's flags (A1.4's model, folds, bootstrap and held-out threshold),
+  separately over the automations that run (not the bound ones) and over the environment-coupled automations that
+  run; each with the eight A1.4 features, and with those plus four frame features (clock, sun, sensed frame present;
+  more than one frame). The clock relation's flags are refitted on the same two populations, for the denominator
+  correction alone.
+- Greedy maximum coverage over the 1,128 environment pairs, for k = 1, 2, 3 pairs: a pair covers an automation iff
+  its divergences (clock or frame relation) restricted to the pair are non-empty; chosen on the training half, ties
+  to the smaller environment keys; coverage reported on the training half, the held-out half and all. Greedy keeps
+  its 1 - 1/e guarantee over pairs; k = 1 is the exhaustive best pair.
+- Every rung's run count (automations with an outcome) is reported.
+
+**A6.8 Runs.** At the commit that implements this addendum, in a fresh work directory whose ERA5 cache is copied
+from the `120f4ca` work directory (no trace is copied), at rung 4, 2.5, 2, 3 and 1, in that order, 5 worker
+processes. **Check before anything is reported:** the clock relation on the new rung-4 sweep must give the 797
+flagged automations of `120f4ca` exactly; if it does not, the cause is found before any number is used. Section 5's
+halt rule applies to every rung.
