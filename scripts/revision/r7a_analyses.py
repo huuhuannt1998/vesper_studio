@@ -333,6 +333,13 @@ def report_openloop(lab: Path, scratch: Path) -> dict:
             "witness_mismatches": sum(1 for i in ids if ref[i]["witness"] != pub[i]["witness"]),
             "outcome_mismatches": sum(1 for i in ids for k, v in pub[i]["outcomes"].items()
                                       if ref[i]["outcomes"].get(k) != v)}
+        # the replays run the current (engine-corrected, 5b54586) code: the defects' reach, by a text match (A11.2)
+        moved = [json.dumps(d["run"][i]["bound"]) for i in ids
+                 if any(ref[i]["outcomes"].get(k) != v for k, v in pub[i]["outcomes"].items())]
+        out["check_ref_x1"]["automations_with_an_outcome_mismatch"] = len(moved)
+        out["check_ref_x1"]["of_them_reading_sun_sun"] = sum(1 for t in moved if "sun.sun" in t)
+        out["check_ref_x1"]["of_them_using_kelvin_or_color_temp"] = sum(1 for t in moved
+                                                                         if "kelvin" in t or "color_temp" in t)
     run = d["run"]
     pw = pub_fam["orientation_witnesses"]
     rows = {}
