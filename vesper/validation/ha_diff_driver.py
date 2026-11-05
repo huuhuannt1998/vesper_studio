@@ -180,7 +180,9 @@ async def _run(job: dict, out: dict) -> None:
         raw_calls.append(row)
         return row
 
-    with tempfile.TemporaryDirectory(prefix="ha-diff-") as config_dir:
+    # Home Assistant's executor threads may still be writing `.storage` when the run ends (they are never stopped,
+    # see main); a failed removal of the scratch config must not turn a finished run into an error.
+    with tempfile.TemporaryDirectory(prefix="ha-diff-", ignore_cleanup_errors=True) as config_dir:
         hass = core.HomeAssistant(config_dir)
         hass.services = _registry_class(core, record)(hass)
         loader.async_setup(hass)
