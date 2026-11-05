@@ -2154,3 +2154,16 @@ rooms) and R2-c's causal rule are unchanged.
 
 **A18.4 Resources.** About 18 x 92 + 1,104 closed-loop runs (about 25 min) and 5 x 48 trace recordings with the 199
 replayed (about an hour), at most 4 workers. Any deviation is dated below this addendum.
+
+**A18.5 Additions after the runs (2026-11-05; each made after the numbers it concerns had been seen; none changes a
+registered rule or number).**
+
+- *The thermostat-off split, a diagnostic.* Under per-room thermostats the coldest room of most cold-January runs sat
+  at 6.7 C (a 7 C setpoint less the 0.3 K band), and the runs below it came from two automations. So, beside every
+  registered statistic: the breaching runs and their coldest caused room for the automations whose climate actions
+  turn a thermostat off (`climate.turn_off`, or an `hvac_mode` of off; read statically from the bound automation, 4
+  of the 22) apart from the others; and, per-room only, the coldest room's depth below the commanded setpoint for the
+  others. Not registered; labelled as such where reported.
+- *Two descriptive counts:* the room holding the coldest *caused* breach per breaching run (A18.1 registered the
+  coldest room over all runs), and whether the per-room breaching runs are a subset of the hallway's.
+- *A18.4's estimate:* the 2,668 closed-loop runs took 12.5 min and the five plan replays 3.6 min in all.

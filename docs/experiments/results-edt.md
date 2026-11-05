@@ -2899,3 +2899,135 @@ The difference is the one outcome `8fcd672` refused in one environment; both are
 - The 7 is a demanding count. A witness needs some orientation pair to diverge, and a small change can move that to
   another pair or to none; holding at all 139 settings is a strict test.
 - The location labels are one reader's (mine), against R4-C's conventions, with no second rater.
+
+## Revision R8-Y (Addendum 18): per-room thermostats, a wall/glass U corner, and the orientation witnesses over generated plans
+
+**Post hoc** (after the fifth internal review, items 5 and 4(b)), registered before its runs as protocol Addendum 18
+(`docs/experiments/edt-protocol.md`, commit `c415635`), with additions after the runs dated there (A18.5). New knobs
+(`vesper.env.indoor`, bit-identical at their defaults by the extended fingerprint test and a fingerprint of the
+hallway-heated test house taken before the option): `U_WALL` (0.35), `U_WINDOW` (1.4) and `PER_ROOM_THERMOSTAT` (0).
+New home variants: `plan-seed9`, `plan-seed11`, `plan-seed16`. Script: `scripts/revision/r8y_physics.py` (tests
+`tests/edt/test_r8y_physics.py`); numbers: `results/edt/r8y-1d03220.json` (aggregates only). 4 workers under nice;
+the 2,668 closed-loop runs took 12.5 min, the five plan replays 3.6 min; no run or environment failed.
+
+### Item 5(a): the setback population with a thermostat in every room (A18.1)
+
+R2-c's 22 setback automations, each alone, closed loop, in the core four (Minneapolis and Stockholm, 2026-01-14, plan
+north 0 and 180): 88 runs, each against its own setting's baseline, R2-c's causal rule, R4-B's nominal corner. With the
+option on, every heated room has its own thermostat at the hallway thermostat's setpoint and mode (a command to the
+hallway thermostat sets them all; A18.0's rule).
+
+- *Check.* The hallway setting (the model as built) **reproduces R2-c step 2 exactly**: the same 53 breaching runs, and
+  every coldest caused room, caused-cell count, baseline minimum, coldest room, largest drop and setback length (0
+  mismatches).
+
+| Thermostats | Breaching runs (of 88) | Automations | Minneapolis / Stockholm | Caused cells (of 616) | Coldest caused room per breaching run, min / median / max | Coldest room per run, all 88 | Baseline coldest room |
+|---|---|---|---|---|---|---|---|
+| hallway (as built) | **53** | 16 | 31 / 22 | 315 | 2.7 / 8.1 / 9.8 C | 2.7 / 9.3 / 18.5 C | 15.6 C |
+| per room | **46** | 13 | 24 / 22 | 279 | **2.7 / 7.2 / 9.9 C** | 2.7 / 9.85 / 19.7 C | 19.7 C |
+
+- **The per-room breaching runs are a subset of the hallway's** (46 of 53; 0 gained). The 7 lost are Minneapolis runs of 4
+  automations (A8, A12, A21 two each, A18 one) whose coldest room now stays at 10.0-10.8 C. Over all 48 environments the
+  per-room setting breaches in 46 of 1,056 runs, **all in the core** (0 outside it).
+- *The coldest room moves.* Under the hallway thermostat the coldest room of the 88 runs is bedroom 1 in 77 and bedroom
+  2 in 11; with a thermostat per room it is bedroom 1 in 48, **the bathroom in 36** and bedroom 2 in 4. 36 of 88 runs
+  change their coldest room (bedroom 1 -> bathroom 29, bedroom 2 -> bathroom 7), 17 of them among the 53 runs breaching
+  in either; the coldest room's minimum rises by 0.0 / 0.9 / 4.1 K (min / median / max). Of the breaching runs, the
+  coldest caused room is bedroom 1 in 47 and bedroom 2 in 6 (hallway), bedroom 1 in 28, the bathroom in 17 and bedroom
+  2 in 1 (per room). Caused breaches reach every room in both settings: 40-49 caused cells per room under the hallway
+  thermostat, 37-45 per room.
+- *Why the minimum barely moves (A18.5, a diagnostic after the runs).* With a thermostat per room, a 7 C setback is
+  held: the coldest room of a setpoint-only rule bottoms out at **6.7 C** (the setpoint less the 0.3 K band). The
+  per-room minimum below 6.7 C comes from **2 automations that turn the thermostat off** (of 4 that do; A11 and A13):
+
+| Breaching runs, coldest caused room min / median / max | Setpoint-only rules (18) | Rules that turn the thermostat off (4; 2 breach) |
+|---|---|---|
+| hallway | 48 runs, 5.2 / 8.3 / 9.8 C | 5 runs, 2.7 / 3.5 / 8.4 C |
+| per room | 41 runs, **6.7** / 7.7 / 9.9 C | 5 runs, 2.7 / 3.8 / 8.5 C |
+
+  Per room, a setpoint-only rule's coldest room ends 0.3 K below to 10.2 K above its commanded setpoint (median 2.35 K
+  above). So the hallway thermostat's distribution of heat is what takes a setpoint-only rule's rooms 1.5 K below its
+  setpoint (5.2 C at 7 C); the 2.7 C extreme is a rule that switches the heating off, which no thermostat layout holds.
+
+### Item 5(b): the wall/glass U corner (A18.2)
+
+The same 88 runs at U_wall {0.35, 0.6, 1.0} x U_glass {1.4, 2.0, 2.8} W/(m² K), everything else nominal. **(0.35, 1.4)
+is the current setting** (the row above). The standard home's H runs from 77.8 W/K (as built: walls 28.3, glass 14.2,
+ventilation 35.3) to 144.6 W/K at (1.0, 2.8) (walls 80.8, glass 28.5).
+
+| U_wall / U_glass | H (W/K) | Hallway: breaching runs (of 88), Minneapolis / Stockholm, caused cells | Hallway: coldest caused room min / median / max | Hallway: baseline coldest | Per room: breaching runs | Per room: coldest caused room min / median / max |
+|---|---|---|---|---|---|---|
+| **0.35 / 1.4** | 77.8 | **53**, 31 / 22, 315 | 2.7 / 8.1 / 9.8 C | 15.6 C | 46 | 2.7 / 7.2 / 9.9 C |
+| 0.35 / 2.0 | 83.9 | 53, 31 / 22, 345 | 1.8 / 7.6 / 9.3 | 15.4 | 51 | 1.8 / 7.7 / 9.9 |
+| 0.35 / 2.8 | 92.0 | 53, 31 / 22, 359 | 0.7 / 7.0 / 8.5 | 15.1 | 53 | 0.9 / 7.1 / 9.5 |
+| 0.6 / 1.4 | 98.0 | 54, 32 / 22, 363 | -0.1 / 6.5 / 9.8 | 14.9 | 53 | 0.0 / 6.7 / 8.9 |
+| 0.6 / 2.0 | 104.1 | 55, 33 / 22, 369 | -0.7 / 6.3 / 9.8 | 14.8 | 53 | -0.6 / 6.7 / 8.5 |
+| 0.6 / 2.8 | 112.2 | 57, 33 / 24, 376 | -1.4 / 6.1 / 9.7 | 14.5 | 55 | -1.3 / 6.7 / 9.8 |
+| 1.0 / 1.4 | 130.3 | 63, 33 / 30, 409 | -3.0 / 5.3 / 9.4 | 14.0 | 61 | -2.9 / 6.7 / 9.8 |
+| 1.0 / 2.0 | 136.4 | 63, 33 / 30, 414 | -3.4 / 5.1 / 9.3 | 13.8 | 63 | -3.2 / 6.7 / 9.8 |
+| 1.0 / 2.8 | 144.6 | **63**, 33 / 30, 421 | **-3.8** / 4.9 / 8.8 | 13.6 | 63 | -3.7 / 6.7 / 9.4 |
+
+- **Every step toward a leakier envelope strengthens the finding**: under either thermostat layout the breaching-run
+  sets are nested along both U axes (each a subset of the next), the count rises 53 -> 63 (hallway) and 46 -> 63 (per
+  room), and the coldest caused room falls to -3.8 C. No baseline room falls below 10 C at any corner (hallway coldest
+  13.6 C; per room 19.7 C everywhere).
+- At the pre-1980 corner (1.0 / 1.4 and leakier) the per-room count reaches the hallway's (61-63), so the
+  thermostat layout matters only for a well-insulated house.
+- Split as in A18.5, the setpoint-only rules under per-room thermostats bottom out at **6.7 C at every corner**; their
+  hallway minimum falls from 5.2 C to 2.1 C with U. The sub-6.7 C per-room minima at every corner are the two
+  thermostat-off rules (2.7 C as built, -3.7 C at 1.0 / 2.8).
+
+### The setback finding, restated (A18.2's reading)
+
+Over the registered primary settings (the hallway thermostat at the nine U corners, and per-room thermostats as built),
+**46 to 63 of the 88 core cold-January runs breach**, with the coldest caused room between **-3.8 and 9.9 C**; the
+secondary per-room x U product gives the same ranges (46-63; -3.7 to 9.9 C). The finding survives a thermostat in
+every room in kind (46 of 88, every one also breaching under the hallway thermostat) and is strengthened by every
+leakier envelope. What changes is its mechanism's attribution: with per-room thermostats a setpoint-only setback
+holds every room at its setpoint (6.7 C at 7 C, still below 10 C), so the "coldest room reaches 2.7 C" is the
+thermostat-off rule's, and a setpoint-only rule's coldest room below its setpoint (5.2 C as built) is the hallway
+thermostat's distribution of heat.
+
+### Item 4(b): the orientation witnesses over generated plans (A18.3)
+
+The generator's window rule offers only four room -> facing assignments over seeds 7-39 (the living room's panes always
+face the plan's top, the kitchen's the bottom, bedroom 1's west, the office's east; only the bathroom and bedroom 2
+vary). A18.3's rule gave **seeds 11 and 16** (the two assignments not yet swept) and **seed 9** (seed 8's assignment,
+a larger living-room pane). In each home, all 48 rung-4 traces were recorded afresh (0 copied; 48 recorded each) and the
+199 frame flags of `8fcd672` replayed on them.
+
+- *Check (i).* The standard home, built and recorded afresh, reproduces `8fcd672`'s frame flags, kinds and orientation
+  witnesses over the 199 exactly (0 mismatches each), and `5b54586`'s outcomes exactly (0 of 9,552). It differs from
+  `8fcd672` in 470 outcomes, the count of R7-A's dated deviation (Addendum 10's engine fixes, which `5b54586` carries);
+  none changes a flag, a kind or a witness.
+- *Check (ii).* Seed 8 replayed this way agrees with A8.8's full sweep of `plan-seed8` on every frame flag, kind and
+  witness over the 199 (0 mismatches). So the restricted replay is the full sweep for these automations.
+
+| Home | Frame flags kept (of 199, same kinds) | Orientation witnesses kept (of 100): temperature / humidity / neither (of 64 / 30 / 6) | Lost | New among the 199 |
+|---|---|---|---|---|
+| seed 9 (new) | 196 | **93**: 61 / 28 / 4 | 7 | 5 |
+| seed 11 (new) | 199 | **94**: 62 / 27 / 5 | 6 | 5 |
+| seed 16 (new) | 197 | **94**: 62 / 27 / 5 | 6 | 1 |
+| seed 8 (A8.8's plan, restricted replay) | 196 | 92: 59 / 28 / 5 | 8 | 6 |
+| mirror east-west (A8.8's full sweep) | 199 | 95: 61 / 28 / 6 | 5 | 0 |
+
+- **The core over the three new plans: 86 of the 100 orientation witnesses** (temperature 58 of 64, humidity 25 of
+  30, neither 3 of 6); 9 hold in two of the three, 5 in one, none in none. The possible set is 105 (5 new, within the
+  199).
+- Secondary: over the four generated plans (with seed 8) the core is **85**; with the mirrored home too, **81** (10
+  hold in four of the five, 5 in three, 4 in two). The possible set is 107.
+- The frame flags themselves: 194 of 199 hold in every plan (all five homes), none is gained.
+
+So the floor plan is a smaller term for the orientation witnesses than the lumped solar gain (R7-A: 42 of 100 over
+13 settings, 47 over k̂'s interval): 81-86 of the 100 do not owe their orientation sensitivity to the standard home's
+window arrangement.
+
+*Concerns, stated.*
+- The generated plans vary only two of seven rooms' window facings (and every room's size), so the core over plans
+  over-estimates the core over real homes' window distributions; a finite set of plans, like a finite set of
+  settings, over-estimates the intersection over its population.
+- The witnesses outside the 199 (an automation that would become a frame flag in another plan) are not seen.
+- The per-room thermostats follow one controller (A18.0's binding rule); a home whose room thermostats keep their own
+  setpoints would not see the setback at all in the other rooms, which is not run.
+- The U corner holds the heating at 100 W/m² of floor; the leakiest corner's baseline still holds every room above
+  13.6 C, so no baseline breach is excluded by the causal rule.

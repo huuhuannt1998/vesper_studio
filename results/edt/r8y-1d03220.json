@@ -1,0 +1,1791 @@
+{
+ "analysis": "revision R8-Y (protocol Addendum 18)",
+ "code_commit": "1d03220",
+ "inputs": {
+  "engine_reference": "r6d-5b54586",
+  "frame": "8fcd672",
+  "full_sweeps": [
+   "r6a-variant-mirror-ew-ba8a54c",
+   "r6a-variant-plan-seed8-ba8a54c"
+  ],
+  "setback": "120f4ca"
+ },
+ "item4b_plans": {
+  "checks": {
+   "seed8_vs_a88_full_sweep": {
+    "frame_flag_mismatches": 0,
+    "frame_kind_mismatches": 0,
+    "witness_mismatches": 0
+   },
+   "standard_vs_5b54586_outcome_mismatches": 0,
+   "standard_vs_8fcd672": {
+    "frame_flag_mismatches": 0,
+    "frame_kind_mismatches": 0,
+    "outcome_mismatches": 470,
+    "outcomes": 9552,
+    "witness_mismatches": 0
+   }
+  },
+  "core_new_three_by_read_kind": {
+   "humidity": 25,
+   "neither": 3,
+   "temperature": 58
+  },
+  "core_over_plans": {
+   "four_generated": {
+    "core": 85,
+    "frame_flags": {
+     "core": 194,
+     "held_in": {
+      "0": 0,
+      "1": 0,
+      "2": 3,
+      "3": 2,
+      "4": 194
+     },
+     "new_in_any": 0,
+     "of": 199,
+     "plans": [
+      "seed11",
+      "seed16",
+      "seed8",
+      "seed9"
+     ],
+     "possible": 199
+    },
+    "held_in": {
+     "0": 0,
+     "1": 3,
+     "2": 6,
+     "3": 6,
+     "4": 85
+    },
+    "new_in_any": 7,
+    "of": 100,
+    "plans": [
+     "seed11",
+     "seed16",
+     "seed8",
+     "seed9"
+    ],
+    "possible": 107
+   },
+   "four_generated_and_mirror": {
+    "core": 81,
+    "frame_flags": {
+     "core": 194,
+     "held_in": {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 3,
+      "4": 2,
+      "5": 194
+     },
+     "new_in_any": 0,
+     "of": 199,
+     "plans": [
+      "mirror",
+      "seed11",
+      "seed16",
+      "seed8",
+      "seed9"
+     ],
+     "possible": 199
+    },
+    "held_in": {
+     "0": 0,
+     "1": 0,
+     "2": 4,
+     "3": 5,
+     "4": 10,
+     "5": 81
+    },
+    "new_in_any": 7,
+    "of": 100,
+    "plans": [
+     "mirror",
+     "seed11",
+     "seed16",
+     "seed8",
+     "seed9"
+    ],
+    "possible": 107
+   },
+   "new_three": {
+    "core": 86,
+    "frame_flags": {
+     "core": 194,
+     "held_in": {
+      "0": 0,
+      "1": 0,
+      "2": 5,
+      "3": 194
+     },
+     "new_in_any": 0,
+     "of": 199,
+     "plans": [
+      "seed11",
+      "seed16",
+      "seed9"
+     ],
+     "possible": 199
+    },
+    "held_in": {
+     "0": 0,
+     "1": 5,
+     "2": 9,
+     "3": 86
+    },
+    "new_in_any": 5,
+    "of": 100,
+    "plans": [
+     "seed11",
+     "seed16",
+     "seed9"
+    ],
+    "possible": 105
+   }
+  },
+  "frame_flags": 199,
+  "orientation_witnesses": 100,
+  "per_plan": {
+   "mirror": {
+    "frame_flags_kept": 199,
+    "frame_flags_same_kinds": 199,
+    "new_witnesses_among_199": 0,
+    "source": "A8.8 full sweep",
+    "witnesses_kept": 95,
+    "witnesses_kept_by_read_kind": {
+     "humidity": [
+      28,
+      30
+     ],
+     "neither": [
+      6,
+      6
+     ],
+     "temperature": [
+      61,
+      64
+     ]
+    },
+    "witnesses_lost": 5
+   },
+   "seed11": {
+    "frame_flags_kept": 199,
+    "frame_flags_same_kinds": 199,
+    "new_witnesses_among_199": 5,
+    "source": "restricted replay",
+    "witnesses_kept": 94,
+    "witnesses_kept_by_read_kind": {
+     "humidity": [
+      27,
+      30
+     ],
+     "neither": [
+      5,
+      6
+     ],
+     "temperature": [
+      62,
+      64
+     ]
+    },
+    "witnesses_lost": 6
+   },
+   "seed16": {
+    "frame_flags_kept": 197,
+    "frame_flags_same_kinds": 197,
+    "new_witnesses_among_199": 1,
+    "source": "restricted replay",
+    "witnesses_kept": 94,
+    "witnesses_kept_by_read_kind": {
+     "humidity": [
+      27,
+      30
+     ],
+     "neither": [
+      5,
+      6
+     ],
+     "temperature": [
+      62,
+      64
+     ]
+    },
+    "witnesses_lost": 6
+   },
+   "seed8": {
+    "frame_flags_kept": 196,
+    "frame_flags_same_kinds": 196,
+    "new_witnesses_among_199": 6,
+    "source": "restricted replay",
+    "witnesses_kept": 92,
+    "witnesses_kept_by_read_kind": {
+     "humidity": [
+      28,
+      30
+     ],
+     "neither": [
+      5,
+      6
+     ],
+     "temperature": [
+      59,
+      64
+     ]
+    },
+    "witnesses_lost": 8
+   },
+   "seed9": {
+    "frame_flags_kept": 196,
+    "frame_flags_same_kinds": 196,
+    "new_witnesses_among_199": 5,
+    "source": "restricted replay",
+    "witnesses_kept": 93,
+    "witnesses_kept_by_read_kind": {
+     "humidity": [
+      28,
+      30
+     ],
+     "neither": [
+      4,
+      6
+     ],
+     "temperature": [
+      61,
+      64
+     ]
+    },
+    "witnesses_lost": 7
+   },
+   "standard": {
+    "frame_flags_kept": 199,
+    "frame_flags_same_kinds": 199,
+    "new_witnesses_among_199": 0,
+    "source": "restricted replay",
+    "witnesses_kept": 100,
+    "witnesses_kept_by_read_kind": {
+     "humidity": [
+      30,
+      30
+     ],
+     "neither": [
+      6,
+      6
+     ],
+     "temperature": [
+      64,
+      64
+     ]
+    },
+    "witnesses_lost": 0
+   }
+  },
+  "runs": {
+   "seed11": {
+    "elapsed_s": 42.2,
+    "failed_environments": 0,
+    "traces_before": 0,
+    "traces_recorded": 48
+   },
+   "seed16": {
+    "elapsed_s": 41.3,
+    "failed_environments": 0,
+    "traces_before": 0,
+    "traces_recorded": 48
+   },
+   "seed8": {
+    "elapsed_s": 42.8,
+    "failed_environments": 0,
+    "traces_before": 0,
+    "traces_recorded": 48
+   },
+   "seed9": {
+    "elapsed_s": 43.0,
+    "failed_environments": 0,
+    "traces_before": 0,
+    "traces_recorded": 48
+   },
+   "standard": {
+    "elapsed_s": 44.1,
+    "failed_environments": 0,
+    "traces_before": 0,
+    "traces_recorded": 48
+   }
+  },
+  "witnesses_by_read_kind": {
+   "humidity": 30,
+   "neither": 6,
+   "temperature": 64
+  }
+ },
+ "item5_setback": {
+  "a18_5_turns_thermostat_off": {
+   "automations": 4,
+   "breaching_anonymous": [
+    "A11",
+    "A13"
+   ],
+   "by_setting": {
+    "hall-W0.35-G1.4": {
+     "setpoint_only": {
+      "breaching_runs": 48,
+      "coldest_caused_room_per_run_c": [
+       5.2,
+       8.3,
+       9.8
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       2.7,
+       3.5,
+       8.4
+      ]
+     }
+    },
+    "hall-W0.35-G2": {
+     "setpoint_only": {
+      "breaching_runs": 48,
+      "coldest_caused_room_per_run_c": [
+       5.1,
+       7.75,
+       9.3
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       1.8,
+       2.7,
+       7.8
+      ]
+     }
+    },
+    "hall-W0.35-G2.8": {
+     "setpoint_only": {
+      "breaching_runs": 48,
+      "coldest_caused_room_per_run_c": [
+       4.9,
+       7.05,
+       8.5
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       0.7,
+       1.6,
+       7.2
+      ]
+     }
+    },
+    "hall-W0.6-G1.4": {
+     "setpoint_only": {
+      "breaching_runs": 49,
+      "coldest_caused_room_per_run_c": [
+       4.7,
+       6.5,
+       9.8
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -0.1,
+       1.0,
+       6.9
+      ]
+     }
+    },
+    "hall-W0.6-G2": {
+     "setpoint_only": {
+      "breaching_runs": 50,
+      "coldest_caused_room_per_run_c": [
+       4.5,
+       6.3,
+       9.8
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -0.7,
+       0.3,
+       6.5
+      ]
+     }
+    },
+    "hall-W0.6-G2.8": {
+     "setpoint_only": {
+      "breaching_runs": 52,
+      "coldest_caused_room_per_run_c": [
+       3.5,
+       6.2,
+       9.7
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -1.4,
+       -0.4,
+       6.1
+      ]
+     }
+    },
+    "hall-W1-G1.4": {
+     "setpoint_only": {
+      "breaching_runs": 58,
+      "coldest_caused_room_per_run_c": [
+       2.5,
+       6.0,
+       9.4
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -3.0,
+       -2.1,
+       5.3
+      ]
+     }
+    },
+    "hall-W1-G2": {
+     "setpoint_only": {
+      "breaching_runs": 58,
+      "coldest_caused_room_per_run_c": [
+       2.3,
+       5.9,
+       9.3
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -3.4,
+       -2.5,
+       5.0
+      ]
+     }
+    },
+    "hall-W1-G2.8": {
+     "setpoint_only": {
+      "breaching_runs": 58,
+      "coldest_caused_room_per_run_c": [
+       2.1,
+       5.9,
+       8.8
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -3.8,
+       -2.9,
+       4.8
+      ]
+     }
+    },
+    "room-W0.35-G1.4": {
+     "setpoint_only": {
+      "breaching_runs": 41,
+      "coldest_caused_room_per_run_c": [
+       6.7,
+       7.7,
+       9.9
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       2.7,
+       3.8,
+       8.5
+      ]
+     }
+    },
+    "room-W0.35-G2": {
+     "setpoint_only": {
+      "breaching_runs": 46,
+      "coldest_caused_room_per_run_c": [
+       6.7,
+       7.7,
+       9.9
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       1.8,
+       2.9,
+       8.1
+      ]
+     }
+    },
+    "room-W0.35-G2.8": {
+     "setpoint_only": {
+      "breaching_runs": 48,
+      "coldest_caused_room_per_run_c": [
+       6.7,
+       7.25,
+       9.5
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       0.9,
+       1.9,
+       7.5
+      ]
+     }
+    },
+    "room-W0.6-G1.4": {
+     "setpoint_only": {
+      "breaching_runs": 48,
+      "coldest_caused_room_per_run_c": [
+       6.7,
+       6.8,
+       8.9
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       0.0,
+       1.1,
+       7.1
+      ]
+     }
+    },
+    "room-W0.6-G2": {
+     "setpoint_only": {
+      "breaching_runs": 48,
+      "coldest_caused_room_per_run_c": [
+       6.7,
+       6.7,
+       8.5
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -0.6,
+       0.5,
+       6.7
+      ]
+     }
+    },
+    "room-W0.6-G2.8": {
+     "setpoint_only": {
+      "breaching_runs": 50,
+      "coldest_caused_room_per_run_c": [
+       6.7,
+       6.7,
+       9.8
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -1.3,
+       -0.2,
+       6.3
+      ]
+     }
+    },
+    "room-W1-G1.4": {
+     "setpoint_only": {
+      "breaching_runs": 56,
+      "coldest_caused_room_per_run_c": [
+       6.7,
+       6.7,
+       9.8
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -2.9,
+       -1.9,
+       5.4
+      ]
+     }
+    },
+    "room-W1-G2": {
+     "setpoint_only": {
+      "breaching_runs": 58,
+      "coldest_caused_room_per_run_c": [
+       6.7,
+       6.7,
+       9.8
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -3.2,
+       -2.3,
+       5.2
+      ]
+     }
+    },
+    "room-W1-G2.8": {
+     "setpoint_only": {
+      "breaching_runs": 58,
+      "coldest_caused_room_per_run_c": [
+       6.7,
+       6.7,
+       9.4
+      ]
+     },
+     "turns_thermostat_off": {
+      "breaching_runs": 5,
+      "coldest_caused_room_per_run_c": [
+       -3.7,
+       -2.8,
+       4.9
+      ]
+     }
+    }
+   },
+   "of_them_breaching_somewhere": 2,
+   "per_room_coldest_room_minus_setpoint_k_setpoint_only": [
+    -0.3,
+    2.35,
+    10.2
+   ]
+  },
+  "automations": 22,
+  "breaching_runs_per_room_vs_hallway": {
+   "gained": 0,
+   "lost": 7,
+   "lost_by_automation": {
+    "A12": 2,
+    "A18": 1,
+    "A21": 2,
+    "A8": 2
+   },
+   "per_room_subset_of_hallway": true
+  },
+  "check_reference_reproduces_r2c": {
+   "field_mismatches": 0,
+   "fields_compared": [
+    "coldest_caused_room_c",
+    "caused_cells",
+    "baseline_coldest_room_c",
+    "coldest_room_c",
+    "largest_drop_k",
+    "setback_h"
+   ],
+   "r2c_breaching_runs_core": 53,
+   "reference_breaching_runs_core": 53,
+   "same_runs": true
+  },
+  "core": [
+   "Minneapolis 2026-01-14 n0",
+   "Minneapolis 2026-01-14 n180",
+   "Stockholm 2026-01-14 n0",
+   "Stockholm 2026-01-14 n180"
+  ],
+  "elapsed_s": 749.4,
+  "h_by_corner_w_k": {
+   "W0.35-G1.4": {
+    "glass_w_k": 14.22,
+    "shares": {
+     "glass": 0.1829,
+     "ventilation": 0.4533,
+     "walls": 0.3638
+    },
+    "total_w_k": 77.78,
+    "ventilation_w_k": 35.26,
+    "walls_w_k": 28.29
+   },
+   "W0.35-G2": {
+    "glass_w_k": 20.32,
+    "shares": {
+     "glass": 0.2423,
+     "ventilation": 0.4204,
+     "walls": 0.3373
+    },
+    "total_w_k": 83.87,
+    "ventilation_w_k": 35.26,
+    "walls_w_k": 28.29
+   },
+   "W0.35-G2.8": {
+    "glass_w_k": 28.45,
+    "shares": {
+     "glass": 0.3092,
+     "ventilation": 0.3832,
+     "walls": 0.3075
+    },
+    "total_w_k": 92.0,
+    "ventilation_w_k": 35.26,
+    "walls_w_k": 28.29
+   },
+   "W0.6-G1.4": {
+    "glass_w_k": 14.22,
+    "shares": {
+     "glass": 0.1452,
+     "ventilation": 0.3598,
+     "walls": 0.495
+    },
+    "total_w_k": 97.99,
+    "ventilation_w_k": 35.26,
+    "walls_w_k": 48.5
+   },
+   "W0.6-G2": {
+    "glass_w_k": 20.32,
+    "shares": {
+     "glass": 0.1952,
+     "ventilation": 0.3388,
+     "walls": 0.466
+    },
+    "total_w_k": 104.08,
+    "ventilation_w_k": 35.26,
+    "walls_w_k": 48.5
+   },
+   "W0.6-G2.8": {
+    "glass_w_k": 28.45,
+    "shares": {
+     "glass": 0.2535,
+     "ventilation": 0.3142,
+     "walls": 0.4323
+    },
+    "total_w_k": 112.21,
+    "ventilation_w_k": 35.26,
+    "walls_w_k": 48.5
+   },
+   "W1-G1.4": {
+    "glass_w_k": 14.22,
+    "shares": {
+     "glass": 0.1091,
+     "ventilation": 0.2705,
+     "walls": 0.6203
+    },
+    "total_w_k": 130.32,
+    "ventilation_w_k": 35.26,
+    "walls_w_k": 80.84
+   },
+   "W1-G2": {
+    "glass_w_k": 20.32,
+    "shares": {
+     "glass": 0.149,
+     "ventilation": 0.2585,
+     "walls": 0.5926
+    },
+    "total_w_k": 136.42,
+    "ventilation_w_k": 35.26,
+    "walls_w_k": 80.84
+   },
+   "W1-G2.8": {
+    "glass_w_k": 28.45,
+    "shares": {
+     "glass": 0.1968,
+     "ventilation": 0.2439,
+     "walls": 0.5593
+    },
+    "total_w_k": 144.55,
+    "ventilation_w_k": 35.26,
+    "walls_w_k": 80.84
+   }
+  },
+  "identity_hallway_vs_per_room": {
+   "breaching_in_either": 53,
+   "coldest_room_change_c": [
+    0.0,
+    0.9,
+    4.1
+   ],
+   "coldest_room_changed": 36,
+   "coldest_room_changed_among_breaching_in_either": 17,
+   "runs": 88,
+   "transitions": {
+    "bedroom_1->bathroom": 29,
+    "bedroom_2->bathroom": 7
+   }
+  },
+  "nesting": {
+   "hall": {
+    "along_u_glass_at_each_u_wall": {
+     "W0.35": true,
+     "W0.6": true,
+     "W1": true
+    },
+    "along_u_wall_at_each_u_glass": {
+     "G1.4": true,
+     "G2": true,
+     "G2.8": true
+    }
+   },
+   "hall_subset_of_room_at_each_corner": {
+    "W0.35-G1.4": false,
+    "W0.35-G2": false,
+    "W0.35-G2.8": true,
+    "W0.6-G1.4": false,
+    "W0.6-G2": false,
+    "W0.6-G2.8": false,
+    "W1-G1.4": false,
+    "W1-G2": true,
+    "W1-G2.8": true
+   },
+   "room": {
+    "along_u_glass_at_each_u_wall": {
+     "W0.35": true,
+     "W0.6": true,
+     "W1": true
+    },
+    "along_u_wall_at_each_u_glass": {
+     "G1.4": true,
+     "G2": true,
+     "G2.8": true
+    }
+   }
+  },
+  "per_room": "room-W0.35-G1.4",
+  "per_room_coldest_room_minus_setpoint_k": [
+   -3.4,
+   2.3,
+   10.2
+  ],
+  "per_room_nominal_48": {
+   "automations": 13,
+   "baseline_coldest_room_c": 19.7,
+   "breaching_runs": 46,
+   "by_city": {
+    "Minneapolis": 24,
+    "Stockholm": 22
+   },
+   "by_env": {
+    "Minneapolis 2026-01-14 n0": 12,
+    "Minneapolis 2026-01-14 n180": 12,
+    "Stockholm 2026-01-14 n0": 11,
+    "Stockholm 2026-01-14 n180": 11
+   },
+   "caused_cells": 279,
+   "caused_cells_by_room": {
+    "bathroom": 37,
+    "bedroom_1": 45,
+    "bedroom_2": 40,
+    "corridor": 39,
+    "kitchen": 39,
+    "living": 39,
+    "office": 40
+   },
+   "coldest_caused_room_identity": {
+    "bathroom": 17,
+    "bedroom_1": 28,
+    "bedroom_2": 1
+   },
+   "coldest_caused_room_per_run_c": [
+    2.7,
+    7.2,
+    9.9
+   ],
+   "coldest_room_identity": {
+    "bathroom": 465,
+    "bedroom_1": 239,
+    "bedroom_2": 219,
+    "office": 133
+   },
+   "coldest_room_per_run_c": [
+    2.7,
+    20.2,
+    29.2
+   ],
+   "denominator": 1056,
+   "largest_drop_k": 17.0,
+   "runs": 1056,
+   "runs_with_a_setback": 370
+  },
+  "per_room_nominal_outside_core": 0,
+  "reference": "hall-W0.35-G1.4",
+  "restated_all_18": {
+   "breaching_runs_max": 63,
+   "breaching_runs_min": 46,
+   "coldest_caused_room_c_highest": 9.9,
+   "coldest_caused_room_c_lowest": -3.8,
+   "settings": 18
+  },
+  "restated_primary": {
+   "breaching_runs_max": 63,
+   "breaching_runs_min": 46,
+   "coldest_caused_room_c_highest": 9.9,
+   "coldest_caused_room_c_lowest": -3.8,
+   "settings": 10
+  },
+  "settings": {
+   "hall-W0.35-G1.4": {
+    "automations": 16,
+    "baseline_coldest_room_c": 15.6,
+    "breaching_runs": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 315,
+    "caused_cells_by_room": {
+     "bathroom": 42,
+     "bedroom_1": 49,
+     "bedroom_2": 49,
+     "corridor": 40,
+     "kitchen": 42,
+     "living": 48,
+     "office": 45
+    },
+    "coldest_caused_room_identity": {
+     "bedroom_1": 47,
+     "bedroom_2": 6
+    },
+    "coldest_caused_room_per_run_c": [
+     2.7,
+     8.1,
+     9.8
+    ],
+    "coldest_room_identity": {
+     "bedroom_1": 77,
+     "bedroom_2": 11
+    },
+    "coldest_room_per_run_c": [
+     2.7,
+     9.3,
+     18.5
+    ],
+    "denominator": 88,
+    "largest_drop_k": 15.7,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "hall-W0.35-G2": {
+    "automations": 16,
+    "baseline_coldest_room_c": 15.4,
+    "breaching_runs": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 345,
+    "caused_cells_by_room": {
+     "bathroom": 49,
+     "bedroom_1": 50,
+     "bedroom_2": 49,
+     "corridor": 48,
+     "kitchen": 49,
+     "living": 49,
+     "office": 51
+    },
+    "coldest_caused_room_identity": {
+     "bedroom_1": 48,
+     "bedroom_2": 4,
+     "living": 1
+    },
+    "coldest_caused_room_per_run_c": [
+     1.8,
+     7.6,
+     9.3
+    ],
+    "coldest_room_identity": {
+     "bedroom_1": 78,
+     "bedroom_2": 4,
+     "living": 6
+    },
+    "coldest_room_per_run_c": [
+     1.8,
+     8.75,
+     18.4
+    ],
+    "denominator": 88,
+    "largest_drop_k": 16.6,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "hall-W0.35-G2.8": {
+    "automations": 16,
+    "baseline_coldest_room_c": 15.1,
+    "breaching_runs": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 359,
+    "caused_cells_by_room": {
+     "bathroom": 50,
+     "bedroom_1": 53,
+     "bedroom_2": 50,
+     "corridor": 53,
+     "kitchen": 50,
+     "living": 50,
+     "office": 53
+    },
+    "coldest_caused_room_identity": {
+     "bedroom_1": 36,
+     "bedroom_2": 1,
+     "living": 16
+    },
+    "coldest_caused_room_per_run_c": [
+     0.7,
+     7.0,
+     8.5
+    ],
+    "coldest_room_identity": {
+     "bedroom_1": 64,
+     "bedroom_2": 1,
+     "living": 23
+    },
+    "coldest_room_per_run_c": [
+     0.7,
+     8.05,
+     18.2
+    ],
+    "denominator": 88,
+    "largest_drop_k": 17.6,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "hall-W0.6-G1.4": {
+    "automations": 17,
+    "baseline_coldest_room_c": 14.9,
+    "breaching_runs": 54,
+    "by_city": {
+     "Minneapolis": 32,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 363,
+    "caused_cells_by_room": {
+     "bathroom": 50,
+     "bedroom_1": 54,
+     "bedroom_2": 53,
+     "corridor": 53,
+     "kitchen": 50,
+     "living": 50,
+     "office": 53
+    },
+    "coldest_caused_room_identity": {
+     "bedroom_1": 45,
+     "bedroom_2": 9
+    },
+    "coldest_caused_room_per_run_c": [
+     -0.1,
+     6.5,
+     9.8
+    ],
+    "coldest_room_identity": {
+     "bedroom_1": 74,
+     "bedroom_2": 14
+    },
+    "coldest_room_per_run_c": [
+     -0.1,
+     7.6,
+     18.0
+    ],
+    "denominator": 88,
+    "largest_drop_k": 18.3,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "hall-W0.6-G2": {
+    "automations": 17,
+    "baseline_coldest_room_c": 14.8,
+    "breaching_runs": 55,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 369,
+    "caused_cells_by_room": {
+     "bathroom": 53,
+     "bedroom_1": 55,
+     "bedroom_2": 53,
+     "corridor": 53,
+     "kitchen": 51,
+     "living": 51,
+     "office": 53
+    },
+    "coldest_caused_room_identity": {
+     "bedroom_1": 46,
+     "bedroom_2": 9
+    },
+    "coldest_caused_room_per_run_c": [
+     -0.7,
+     6.3,
+     9.8
+    ],
+    "coldest_room_identity": {
+     "bedroom_1": 79,
+     "bedroom_2": 9
+    },
+    "coldest_room_per_run_c": [
+     -0.7,
+     7.15,
+     17.9
+    ],
+    "denominator": 88,
+    "largest_drop_k": 19.0,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "hall-W0.6-G2.8": {
+    "automations": 17,
+    "baseline_coldest_room_c": 14.5,
+    "breaching_runs": 57,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 24
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 12,
+     "Stockholm 2026-01-14 n180": 12
+    },
+    "caused_cells": 376,
+    "caused_cells_by_room": {
+     "bathroom": 53,
+     "bedroom_1": 57,
+     "bedroom_2": 53,
+     "corridor": 53,
+     "kitchen": 53,
+     "living": 54,
+     "office": 53
+    },
+    "coldest_caused_room_identity": {
+     "bedroom_1": 45,
+     "bedroom_2": 4,
+     "living": 8
+    },
+    "coldest_caused_room_per_run_c": [
+     -1.4,
+     6.1,
+     9.7
+    ],
+    "coldest_room_identity": {
+     "bedroom_1": 76,
+     "bedroom_2": 4,
+     "living": 8
+    },
+    "coldest_room_per_run_c": [
+     -1.4,
+     6.75,
+     17.7
+    ],
+    "denominator": 88,
+    "largest_drop_k": 19.7,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "hall-W1-G1.4": {
+    "automations": 17,
+    "baseline_coldest_room_c": 14.0,
+    "breaching_runs": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "caused_cells": 409,
+    "caused_cells_by_room": {
+     "bathroom": 53,
+     "bedroom_1": 63,
+     "bedroom_2": 63,
+     "corridor": 55,
+     "kitchen": 55,
+     "living": 57,
+     "office": 63
+    },
+    "coldest_caused_room_identity": {
+     "bedroom_1": 50,
+     "bedroom_2": 13
+    },
+    "coldest_caused_room_per_run_c": [
+     -3.0,
+     5.3,
+     9.4
+    ],
+    "coldest_room_identity": {
+     "bedroom_1": 75,
+     "bedroom_2": 13
+    },
+    "coldest_room_per_run_c": [
+     -3.0,
+     6.1,
+     17.3
+    ],
+    "denominator": 88,
+    "largest_drop_k": 21.2,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "hall-W1-G2": {
+    "automations": 17,
+    "baseline_coldest_room_c": 13.8,
+    "breaching_runs": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "caused_cells": 414,
+    "caused_cells_by_room": {
+     "bathroom": 53,
+     "bedroom_1": 63,
+     "bedroom_2": 63,
+     "corridor": 55,
+     "kitchen": 56,
+     "living": 61,
+     "office": 63
+    },
+    "coldest_caused_room_identity": {
+     "bedroom_1": 50,
+     "bedroom_2": 13
+    },
+    "coldest_caused_room_per_run_c": [
+     -3.4,
+     5.1,
+     9.3
+    ],
+    "coldest_room_identity": {
+     "bedroom_1": 75,
+     "bedroom_2": 13
+    },
+    "coldest_room_per_run_c": [
+     -3.4,
+     6.0,
+     17.2
+    ],
+    "denominator": 88,
+    "largest_drop_k": 21.6,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "hall-W1-G2.8": {
+    "automations": 17,
+    "baseline_coldest_room_c": 13.6,
+    "breaching_runs": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "caused_cells": 421,
+    "caused_cells_by_room": {
+     "bathroom": 55,
+     "bedroom_1": 63,
+     "bedroom_2": 63,
+     "corridor": 57,
+     "kitchen": 57,
+     "living": 63,
+     "office": 63
+    },
+    "coldest_caused_room_identity": {
+     "bedroom_1": 50,
+     "bedroom_2": 13
+    },
+    "coldest_caused_room_per_run_c": [
+     -3.8,
+     4.9,
+     8.8
+    ],
+    "coldest_room_identity": {
+     "bedroom_1": 75,
+     "bedroom_2": 13
+    },
+    "coldest_room_per_run_c": [
+     -3.8,
+     6.0,
+     17.0
+    ],
+    "denominator": 88,
+    "largest_drop_k": 22.0,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "room-W0.35-G1.4": {
+    "automations": 13,
+    "baseline_coldest_room_c": 19.7,
+    "breaching_runs": 46,
+    "by_city": {
+     "Minneapolis": 24,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 12,
+     "Minneapolis 2026-01-14 n180": 12,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 279,
+    "caused_cells_by_room": {
+     "bathroom": 37,
+     "bedroom_1": 45,
+     "bedroom_2": 40,
+     "corridor": 39,
+     "kitchen": 39,
+     "living": 39,
+     "office": 40
+    },
+    "coldest_caused_room_identity": {
+     "bathroom": 17,
+     "bedroom_1": 28,
+     "bedroom_2": 1
+    },
+    "coldest_caused_room_per_run_c": [
+     2.7,
+     7.2,
+     9.9
+    ],
+    "coldest_room_identity": {
+     "bathroom": 36,
+     "bedroom_1": 48,
+     "bedroom_2": 4
+    },
+    "coldest_room_per_run_c": [
+     2.7,
+     9.85,
+     19.7
+    ],
+    "denominator": 88,
+    "largest_drop_k": 17.0,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "room-W0.35-G2": {
+    "automations": 15,
+    "baseline_coldest_room_c": 19.7,
+    "breaching_runs": 51,
+    "by_city": {
+     "Minneapolis": 29,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 14,
+     "Minneapolis 2026-01-14 n180": 15,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 320,
+    "caused_cells_by_room": {
+     "bathroom": 39,
+     "bedroom_1": 49,
+     "bedroom_2": 48,
+     "corridor": 46,
+     "kitchen": 45,
+     "living": 47,
+     "office": 46
+    },
+    "coldest_caused_room_identity": {
+     "bathroom": 20,
+     "bedroom_1": 28,
+     "bedroom_2": 3
+    },
+    "coldest_caused_room_per_run_c": [
+     1.8,
+     7.7,
+     9.9
+    ],
+    "coldest_room_identity": {
+     "bathroom": 39,
+     "bedroom_1": 45,
+     "bedroom_2": 4
+    },
+    "coldest_room_per_run_c": [
+     1.8,
+     9.3,
+     19.7
+    ],
+    "denominator": 88,
+    "largest_drop_k": 17.9,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "room-W0.35-G2.8": {
+    "automations": 16,
+    "baseline_coldest_room_c": 19.7,
+    "breaching_runs": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 347,
+    "caused_cells_by_room": {
+     "bathroom": 47,
+     "bedroom_1": 53,
+     "bedroom_2": 50,
+     "corridor": 48,
+     "kitchen": 49,
+     "living": 50,
+     "office": 50
+    },
+    "coldest_caused_room_identity": {
+     "bathroom": 20,
+     "bedroom_1": 28,
+     "bedroom_2": 3,
+     "living": 2
+    },
+    "coldest_caused_room_per_run_c": [
+     0.9,
+     7.1,
+     9.5
+    ],
+    "coldest_room_identity": {
+     "bathroom": 39,
+     "bedroom_1": 42,
+     "bedroom_2": 3,
+     "living": 4
+    },
+    "coldest_room_per_run_c": [
+     0.9,
+     8.7,
+     19.7
+    ],
+    "denominator": 88,
+    "largest_drop_k": 18.8,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "room-W0.6-G1.4": {
+    "automations": 16,
+    "baseline_coldest_room_c": 19.7,
+    "breaching_runs": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 360,
+    "caused_cells_by_room": {
+     "bathroom": 50,
+     "bedroom_1": 53,
+     "bedroom_2": 53,
+     "corridor": 52,
+     "kitchen": 49,
+     "living": 50,
+     "office": 53
+    },
+    "coldest_caused_room_identity": {
+     "bathroom": 22,
+     "bedroom_1": 27,
+     "bedroom_2": 4
+    },
+    "coldest_caused_room_per_run_c": [
+     0.0,
+     6.7,
+     8.9
+    ],
+    "coldest_room_identity": {
+     "bathroom": 41,
+     "bedroom_1": 43,
+     "bedroom_2": 4
+    },
+    "coldest_room_per_run_c": [
+     0.0,
+     8.1,
+     19.7
+    ],
+    "denominator": 88,
+    "largest_drop_k": 19.7,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "room-W0.6-G2": {
+    "automations": 16,
+    "baseline_coldest_room_c": 19.7,
+    "breaching_runs": 53,
+    "by_city": {
+     "Minneapolis": 31,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 15,
+     "Minneapolis 2026-01-14 n180": 16,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 365,
+    "caused_cells_by_room": {
+     "bathroom": 52,
+     "bedroom_1": 53,
+     "bedroom_2": 53,
+     "corridor": 53,
+     "kitchen": 51,
+     "living": 50,
+     "office": 53
+    },
+    "coldest_caused_room_identity": {
+     "bathroom": 22,
+     "bedroom_1": 27,
+     "bedroom_2": 4
+    },
+    "coldest_caused_room_per_run_c": [
+     -0.6,
+     6.7,
+     8.5
+    ],
+    "coldest_room_identity": {
+     "bathroom": 41,
+     "bedroom_1": 43,
+     "bedroom_2": 4
+    },
+    "coldest_room_per_run_c": [
+     -0.6,
+     7.7,
+     19.7
+    ],
+    "denominator": 88,
+    "largest_drop_k": 20.3,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "room-W0.6-G2.8": {
+    "automations": 17,
+    "baseline_coldest_room_c": 19.7,
+    "breaching_runs": 55,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 22
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 11,
+     "Stockholm 2026-01-14 n180": 11
+    },
+    "caused_cells": 373,
+    "caused_cells_by_room": {
+     "bathroom": 53,
+     "bedroom_1": 55,
+     "bedroom_2": 53,
+     "corridor": 53,
+     "kitchen": 53,
+     "living": 53,
+     "office": 53
+    },
+    "coldest_caused_room_identity": {
+     "bathroom": 24,
+     "bedroom_1": 28,
+     "bedroom_2": 3
+    },
+    "coldest_caused_room_per_run_c": [
+     -1.3,
+     6.7,
+     9.8
+    ],
+    "coldest_room_identity": {
+     "bathroom": 43,
+     "bedroom_1": 42,
+     "bedroom_2": 3
+    },
+    "coldest_room_per_run_c": [
+     -1.3,
+     7.2,
+     19.7
+    ],
+    "denominator": 88,
+    "largest_drop_k": 21.0,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "room-W1-G1.4": {
+    "automations": 17,
+    "baseline_coldest_room_c": 19.7,
+    "breaching_runs": 61,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 28
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 14,
+     "Stockholm 2026-01-14 n180": 14
+    },
+    "caused_cells": 388,
+    "caused_cells_by_room": {
+     "bathroom": 53,
+     "bedroom_1": 61,
+     "bedroom_2": 57,
+     "corridor": 53,
+     "kitchen": 53,
+     "living": 54,
+     "office": 57
+    },
+    "coldest_caused_room_identity": {
+     "bathroom": 28,
+     "bedroom_1": 33
+    },
+    "coldest_caused_room_per_run_c": [
+     -2.9,
+     6.7,
+     9.8
+    ],
+    "coldest_room_identity": {
+     "bathroom": 47,
+     "bedroom_1": 41
+    },
+    "coldest_room_per_run_c": [
+     -2.9,
+     6.7,
+     19.7
+    ],
+    "denominator": 88,
+    "largest_drop_k": 22.6,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "room-W1-G2": {
+    "automations": 17,
+    "baseline_coldest_room_c": 19.7,
+    "breaching_runs": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "caused_cells": 397,
+    "caused_cells_by_room": {
+     "bathroom": 53,
+     "bedroom_1": 63,
+     "bedroom_2": 59,
+     "corridor": 53,
+     "kitchen": 53,
+     "living": 57,
+     "office": 59
+    },
+    "coldest_caused_room_identity": {
+     "bathroom": 36,
+     "bedroom_1": 27
+    },
+    "coldest_caused_room_per_run_c": [
+     -3.2,
+     6.7,
+     9.8
+    ],
+    "coldest_room_identity": {
+     "bathroom": 55,
+     "bedroom_1": 33
+    },
+    "coldest_room_per_run_c": [
+     -3.2,
+     6.7,
+     19.7
+    ],
+    "denominator": 88,
+    "largest_drop_k": 22.9,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   },
+   "room-W1-G2.8": {
+    "automations": 17,
+    "baseline_coldest_room_c": 19.7,
+    "breaching_runs": 63,
+    "by_city": {
+     "Minneapolis": 33,
+     "Stockholm": 30
+    },
+    "by_env": {
+     "Minneapolis 2026-01-14 n0": 16,
+     "Minneapolis 2026-01-14 n180": 17,
+     "Stockholm 2026-01-14 n0": 15,
+     "Stockholm 2026-01-14 n180": 15
+    },
+    "caused_cells": 411,
+    "caused_cells_by_room": {
+     "bathroom": 55,
+     "bedroom_1": 63,
+     "bedroom_2": 63,
+     "corridor": 55,
+     "kitchen": 55,
+     "living": 59,
+     "office": 61
+    },
+    "coldest_caused_room_identity": {
+     "bathroom": 42,
+     "bedroom_1": 21
+    },
+    "coldest_caused_room_per_run_c": [
+     -3.7,
+     6.7,
+     9.4
+    ],
+    "coldest_room_identity": {
+     "bathroom": 61,
+     "bedroom_1": 27
+    },
+    "coldest_room_per_run_c": [
+     -3.7,
+     6.7,
+     19.7
+    ],
+    "denominator": 88,
+    "largest_drop_k": 23.4,
+    "runs": 88,
+    "runs_with_a_setback": 69
+   }
+  }
+ }
+}
