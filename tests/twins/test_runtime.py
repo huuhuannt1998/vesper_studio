@@ -299,3 +299,39 @@ def test_every_command_is_heard_as_it_is_logged_accepted_or_not(vds):
     rt.operate(tid, "state", "OFF", actor="alice")
     assert heard == rt.actions
     assert [(a.actor, a.accepted) for a in heard] == [("platform", True), ("platform", False), ("human:alice", True)]
+
+
+def _rtcgq11lm():
+    import json
+    from pathlib import Path
+    path = Path("catalog/vds/zigbee.json")
+    if not path.is_file():
+        pytest.skip("needs catalog/vds")
+    return next(r for r in json.loads(path.read_text()) if r["id"] == "zigbee:aqara:rtcgq11lm")
+
+
+@pytest.mark.parametrize("rule", ["device", "catalog"])
+def test_rtcgq11lm_illuminance_reports_only_with_motion_or_the_heartbeat_under_the_device_rule(rule):
+    """The Aqara RTCGQ11LM sends illuminance only with a motion detection, or on its hourly heartbeat
+    (zigbee-herdsman-converters 26.123.0, lumi_illuminance: "there is no illuminance without movement"). Under the
+    catalog's library-default rule (min 10 s, any change) it reports every change; `reporting_rule` selects."""
+    from vesper.twins import runtime as rt_module
+    with rt_module.reporting_rule(rule):
+        rt, events, (tid,) = runtime(_rtcgq11lm())
+        rt.clock.advance(100)
+        rt.stimulate(tid, {"type": "ambient", "illuminance": 250})
+        rt.clock.advance(20)
+        lux = [(e.observed_t, e.value, e.cause) for e in events if e.feature == "illuminance"]
+        if rule == "catalog":
+            assert [v for _, v, _ in lux] == [250]
+            return
+        assert lux == []  # no motion: the device sends nothing
+        rt.stimulate(tid, {"type": "ambient", "illuminance": 300})
+        rt.stimulate(tid, {"type": "presence"})  # a motion detection carries the illuminance with it
+        lux = [(e.value, e.observed_t) for e in events if e.feature == "illuminance"]
+        assert lux == [(300, 120)]
+        rt.stimulate(tid, {"type": "ambient", "illuminance": 40})
+        rt.clock.advance(120 + 3600 - rt.clock.now())  # the heartbeat, an hour after the last report
+        lux = [(e.value, e.cause) for e in events if e.feature == "illuminance"]
+        assert lux[-1] == (40, "periodic") and len(lux) == 2
+    assert rt_module.REPORTING_RULE == "catalog"  # restored

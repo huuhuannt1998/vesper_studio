@@ -287,14 +287,41 @@ def bootstrap_auc_ci(scores, labels, groups, n: int = 1000) -> tuple[list[float]
     return [float(np.percentile(values, 2.5)), float(np.percentile(values, 97.5))], len(values)
 
 
+FRAME_FEATURES = ("frame_clock", "frame_sun", "frame_sensed", "frame_mixed")
+POPULATIONS = {  # protocol A6.7: the bound automations (A1.4), the ones that run, the environment-coupled ones that run
+    "bound": lambda a: a.get("bound") is not None,
+    "run": lambda a: a.get("bound") is not None and bool(a.get("outcomes")),
+    "coupled_run": lambda a: a.get("bound") is not None and bool(a.get("outcomes")) and bool(a.get("kinds")),
+}
+
+
+def frame_features(bound: dict) -> dict[str, float]:
+    """Four syntactic frame features of a bound automation (protocol A6.7): which frames it declares, and whether
+    it declares more than one (vesper.edt.oracle.frames_of)."""
+    from vesper.edt.oracle import frames_of
+    f = frames_of(bound)
+    return {"frame_clock": float("clock" in f.frames), "frame_sun": float("sun" in f.frames),
+            "frame_sensed": float("sensed" in f.frames), "frame_mixed": float(f.mixed)}
+
+
 def _rung0(autos: dict) -> dict:
     """The detector over the automations bound at rung 4 (an unbindable one was never tested, so it is no negative).
     Primary: cross-validation by repo. Beside it: the AUC of a plain stratified split, which near-duplicates inflate."""
-    items = [(i, a) for i, a in autos.items() if a.get("bound") is not None]
-    y = np.array([int(bool(a["divergences"])) for _, a in items], dtype=int)
+    return rung0_fit(autos)
+
+
+def rung0_fit(autos: dict, label: str = "divergences", population: str = "bound", with_frames: bool = False) -> dict:
+    """Rung 0 as A1.4 fits it, over `population` (POPULATIONS: "bound", A1.4's; "run" or "coupled_run", A6.7),
+    labelled by a non-empty `label` ("divergences": the clock relation; "frame_divergences": the frame relation),
+    on the eight syntactic features, plus the four frame features when `with_frames`."""
+    keep = POPULATIONS[population]
+    items = [(i, a) for i, a in autos.items() if keep(a)]
+    y = np.array([int(bool(a.get(label))) for _, a in items], dtype=int)
     groups = [a.get("repo") or i for i, a in items]
     recall_key = f"recall_at_precision_{PRECISION_FLOOR}"
-    base = {"features": list(FEATURES), "n": len(items), "n_flagged": int(y.sum()), "n_repos": len(set(groups)),
+    names = FEATURES + (FRAME_FEATURES if with_frames else ())
+    base = {"features": list(names), "population": population, "label": label, "n": len(items),
+            "n_flagged": int(y.sum()), "n_repos": len(set(groups)),
             "base_rate": float(y.mean()) if len(items) else None, "folds": 0, "folds_random": 0, "seed": SEED,
             "model": f"logistic regression, L2 {L2}, standardised features",
             "cv": "5-fold, whole repos per fold, stratified as well as repos allow",
@@ -307,7 +334,8 @@ def _rung0(autos: dict) -> dict:
         return {**base, "null": "one class only: every bound automation is flagged at rung 4, or none is"}
     if minority < 2:
         return {**base, "null": "a class has fewer than 2 members: no cross-validation is possible"}
-    x = np.array([[linter_features(a["raw"])[f] for f in FEATURES] for _, a in items], dtype=float)
+    rows = [{**linter_features(a["raw"]), **(frame_features(a["bound"]) if with_frames else {})} for _, a in items]
+    x = np.array([[r[f] for f in names] for r in rows], dtype=float)
     k_random = min(FOLDS, minority)
     random_scores, _, random_scored = _cross_validate(x, y, stratified_folds(y, k_random))
     out = {**base, "folds_random": k_random, "auc_random_folds": auc(random_scores[random_scored], y[random_scored])}
@@ -411,7 +439,7 @@ def _compare(r4: dict, rr: dict) -> dict:
 def ladder_report(results_by_rung: dict[int, dict]) -> dict:
     """The necessity ladder from sweep results keyed by rung (rung 4 is required). Rung 0's detector is fitted on
     rung 4's automations; each other rung present is compared with rung 4. Degenerate inputs give None, not errors."""
-    by_rung = {int(k): v for k, v in results_by_rung.items()}
+    by_rung = {(int(float(k)) if float(k).is_integer() else float(k)): v for k, v in results_by_rung.items()}
     if 4 not in by_rung:
         raise ValueError("the ladder needs the rung 4 result to compare against")
     r4 = by_rung[4]

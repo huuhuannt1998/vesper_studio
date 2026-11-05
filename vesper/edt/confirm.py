@@ -170,7 +170,7 @@ def closed_loop(bound: dict | None, env: Env, home_yaml: Path, cache: Path, *, d
     climate; the rest recorded). Returns {"outcome": Outcome, "firings": [Firing], "refused": [...], "rooms": [room]
     (those its climate targets heat or cool), "temperatures": {room: [(t, C), ...]} for those rooms}. The home is
     copied, never touched. `bound` None: the home with no automation (the baseline), "rooms" every indoor room."""
-    from vesper.edt.trace import copy_home, env_site, rung_scaling
+    from vesper.edt.trace import copy_home, env_site, has_home_site, rung_scaling
     from vesper.lab.automations import Engine
     from vesper.lab.home import load_lab_home
     from vesper.lab.session import Session
@@ -178,7 +178,7 @@ def closed_loop(bound: dict | None, env: Env, home_yaml: Path, cache: Path, *, d
     from vesper.twins.home import load_catalog
     site = env_site(env)
     with rung_scaling(env), tempfile.TemporaryDirectory(prefix="edt-confirm-") as tmp:
-        run_yaml = copy_home(Path(home_yaml), Path(tmp) / "home", site if env.rung >= 3 else None,
+        run_yaml = copy_home(Path(home_yaml), Path(tmp) / "home", site if has_home_site(env) else None,
                              Path(cache) / "weather", [bound] if bound else None)
         home = load_lab_home(run_yaml, load_catalog(Path(catalog_dir)))
         s = Session(home, clock=LogicalClock())

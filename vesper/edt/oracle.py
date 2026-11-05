@@ -18,6 +18,12 @@ site at all (a rung-1 trace names none) there is no sunset: "cover open at night
 """
 from __future__ import annotations
 
+import functools
+import hashlib
+import json
+import re
+from dataclasses import dataclass
+
 from vesper.edt.types import Env, Firing, Outcome
 from vesper.env.sun import sun_events
 
@@ -126,4 +132,327 @@ def divergences(by_env: dict[Env, Outcome]) -> set[str]:
     for kind in ("flaps", "night_light", "night_cover"):
         if any(getattr(o, kind) for o in outcomes):
             out.add(kind)
+    return out
+
+
+# ---- the frame-relative relation (protocol Addendum 6, A6.1-A6.3) ---------------------------------------------------
+#
+# The clock relation above compares first firings by local clock time. A sun trigger is *specified* to fire at a
+# different clock time in another place or season, so that relation flags behaviour the trigger commissions. The
+# frame-relative relation compares an automation's first firings in the frame(s) its triggers and conditions declare:
+# clock (time of day), sun (minutes from the sun event it names) or sensed (not computable: commissioned).
+
+CLOCK, SUN, SENSED = "clock", "sun", "sensed"
+FRAMES = (CLOCK, SUN, SENSED)
+SENSED_KINDS = frozenset({"illuminance", "temperature", "humidity", "weather"})
+ENVELOPE_KINDS = ("flaps", "night_light", "night_cover")
+_NOW = re.compile(r"\b(utc)?now\s*\(")
+_SUN_STATES = {"below_horizon": ("sunset",), "above_horizon": ("sunrise",)}
+_LOGIC = ("and", "or", "not")
+
+
+@dataclass(frozen=True)
+class SunRef:
+    """A sun instant an automation names: sunrise or sunset plus an offset (seconds), or the time the sun's
+    elevation crosses `elevation` degrees, rising or setting."""
+    event: str  # "sunrise", "sunset" or "elevation"
+    offset_s: float = 0.0
+    elevation: float | None = None
+    rising: bool | None = None
+
+
+@dataclass(frozen=True)
+class Frames:
+    """An automation's timing frames and the sun instants its sun frame is measured from (empty: not computable)."""
+    frames: frozenset = frozenset()
+    sun_refs: tuple = ()
+
+    @property
+    def judged(self) -> frozenset:
+        """The frames it is judged in: its own, or the clock frame when it declares none."""
+        return self.frames or frozenset({CLOCK})
+
+    @property
+    def mixed(self) -> bool:
+        return len(self.frames) > 1
+
+    def computable(self, frame: str) -> bool:
+        return frame == CLOCK or (frame == SUN and bool(self.sun_refs))
+
+
+def _as_list(value) -> list:
+    return value if isinstance(value, list) else [] if value is None else [value]
+
+
+def _texts(node):
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for k, v in node.items():
+            if k not in ("id", "alias", "conditions"):
+                yield from _texts(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _texts(v)
+
+
+def _template_frames(step, out: set) -> None:
+    """The frames a step's templates read: now() is the clock; sun.sun the sun; a sensed entity the sensed frame."""
+    from vesper.edt.corpus import _TPL_ENTITY_RE, _entity_kinds
+    for text in _texts(step):
+        if "{{" not in text and "{%" not in text:
+            continue
+        if _NOW.search(text):
+            out.add(CLOCK)
+        for m in _TPL_ENTITY_RE.finditer(text):
+            kinds = _entity_kinds(m.group(1) or m.group(2))
+            if "sun" in kinds:
+                out.add(SUN)
+            if kinds & SENSED_KINDS:
+                out.add(SENSED)
+
+
+def _number(value) -> float | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _offset_s(value) -> float | None:
+    """A sun offset in seconds, as the engine reads it (None when it cannot be read)."""
+    from vesper.lab.automations import AutomationError, _offset
+    if value is None:
+        return 0.0
+    try:
+        return _offset(value, "offset")
+    except (AutomationError, TypeError, ValueError):
+        return None
+
+
+def _entity_frames(step: dict, out: set, refs: list, condition: bool) -> None:
+    """A state or numeric_state step: its entities' frames, and the sun instants a `sun.sun` one names."""
+    from vesper.edt.corpus import _entity_kinds, _ids
+    kind = str(step.get("platform") or step.get("trigger") or step.get("condition") or "")
+    attribute = step.get("attribute") if isinstance(step.get("attribute"), str) else None
+    for eid in _ids(step.get("entity_id")):
+        kinds = _entity_kinds(eid, attribute)
+        if eid.split(".", 1)[0] == "sun":
+            out.add(SUN)
+            if kind == "state" and attribute is None:
+                wanted = _as_list(step.get("state") if condition else step.get("to"))
+                events = [e for w in wanted for e in _SUN_STATES.get(str(w), ())] if wanted else \
+                    ["sunrise", "sunset"]
+                refs.extend(SunRef(e) for e in events)
+            elif kind == "numeric_state" and attribute == "elevation":
+                for key, rising in (("above", True), ("below", False)):
+                    value = _number(step.get(key))
+                    if value is not None:
+                        refs.append(SunRef("elevation", elevation=value, rising=rising))
+        if kinds & SENSED_KINDS:
+            out.add(SENSED)
+
+
+def _trigger_frames(t, out: set, refs: list) -> None:
+    if not isinstance(t, dict):
+        return
+    kind = str(t.get("platform") or t.get("trigger") or "")
+    if kind == "sun":
+        out.add(SUN)
+        offset = _offset_s(t.get("offset"))
+        if t.get("event") in ("sunrise", "sunset") and offset is not None:
+            refs.append(SunRef(t["event"], offset))
+    elif kind in ("time", "time_pattern"):
+        out.add(CLOCK)
+    elif kind in ("state", "numeric_state"):
+        _entity_frames(t, out, refs, condition=False)
+    _template_frames(t, out)
+
+
+def _condition_frames(c, out: set, refs: list) -> None:
+    if isinstance(c, str):  # the shorthand template condition
+        _template_frames(c, out)
+        return
+    if isinstance(c, list):
+        for x in c:
+            _condition_frames(x, out, refs)
+        return
+    if not isinstance(c, dict):
+        return
+    kind = c.get("condition")
+    keys = set(c) - {"alias", "enabled"}
+    if kind is None and len(keys) == 1 and next(iter(keys)) in _LOGIC:  # the `- or: [...]` shorthand
+        _condition_frames(c[next(iter(keys))], out, refs)
+        return
+    if kind in _LOGIC:
+        _condition_frames(c.get("conditions"), out, refs)
+        return
+    if kind == "sun":
+        out.add(SUN)
+        for key in ("after", "before"):
+            offset = _offset_s(c.get(f"{key}_offset"))
+            if c.get(key) in ("sunrise", "sunset") and offset is not None:
+                refs.append(SunRef(c[key], offset))
+    elif kind == "time":
+        out.add(CLOCK)
+    elif kind in ("state", "numeric_state"):
+        _entity_frames(c, out, refs, condition=True)
+    _template_frames(c, out)
+
+
+def frames_of(bound: dict) -> Frames:
+    """An automation's timing frames from its (bound) triggers and conditions (A6.1), and the sun instants its sun
+    frame is measured from: its sun triggers', or, when they name none, its sun conditions' (A6.2)."""
+    if not isinstance(bound, dict):
+        return Frames()
+    out: set[str] = set()
+    trig_refs: list[SunRef] = []
+    cond_refs: list[SunRef] = []
+    for t in _as_list(bound.get("trigger", bound.get("triggers"))):
+        _trigger_frames(t, out, trig_refs)
+    _condition_frames(_as_list(bound.get("condition", bound.get("conditions"))), out, cond_refs)
+    refs = trig_refs or cond_refs
+    return Frames(frozenset(out), tuple(dict.fromkeys(refs)) if SUN in out else ())
+
+
+@functools.lru_cache(maxsize=65536)
+def _ref_instant(lat: float, lon: float, elevation_m: float, tz: str, date: str, day: int, ref: SunRef):
+    """Seconds after the run's first local midnight of `ref` on run day `day` (None when it does not happen)."""
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+
+    from vesper.env.site import Site
+    site = Site(lat, lon, tz, dt.date.fromisoformat(date), elevation_m)
+    if ref.event in ("sunrise", "sunset"):
+        base = sun_events(site, day)[ref.event]
+        return None if base is None else base + ref.offset_s
+    from astral import Observer, SunDirection
+    from astral.sun import time_at_elevation
+    zone = ZoneInfo(tz)
+    midnight = dt.datetime.combine(site.date, dt.time(0), tzinfo=zone)
+    try:
+        when = time_at_elevation(Observer(latitude=lat, longitude=lon, elevation=elevation_m), ref.elevation,
+                                 site.date + dt.timedelta(days=day),
+                                 SunDirection.RISING if ref.rising else SunDirection.SETTING, tzinfo=zone)
+    except (ValueError, TypeError, ArithmeticError):
+        return None
+    return (when - midnight).total_seconds()
+
+
+def sun_relative_min(site, refs, t: float) -> float | None:
+    """Signed minutes from the nearest of `refs` (on the firing's day or a neighbouring one) to a firing at `t`
+    (seconds after the run's first local midnight); None when no reference instant exists then."""
+    if site is None or not refs:
+        return None
+    day = int(t // DAY_S)
+    key = (site.lat, site.lon, site.elevation_m, site.tz, site.date.isoformat())
+    instants = [x for d in (day - 1, day, day + 1) for r in refs if (x := _ref_instant(*key, d, r)) is not None]
+    if not instants:
+        return None
+    return (t - min(instants, key=lambda x: abs(t - x))) / 60.0
+
+
+@functools.lru_cache(maxsize=256)
+def _site_of_env(city, date, north_deg):
+    from vesper.edt.trace import env_site
+    return env_site(Env(city, date, north_deg, 4))
+
+
+def site_of(env: Env):
+    """The environment's place and date (whatever its rung), or None when it names none."""
+    if env.city is None or env.date is None:
+        return None
+    return _site_of_env(env.city, env.date, env.north_deg)
+
+
+def _clock_spread(tods: list[float], h: float) -> bool:
+    return any(_circular_gap(a, b) > h for i, a in enumerate(tods) for b in tods[i + 1:])
+
+
+def frame_values(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames) -> dict:
+    """Per frame, the first firings' frame-relative values over the environments where it fires: clock, hours of
+    the day; sun, minutes from the nearest reference (an environment with none that day left out)."""
+    fired = [e for e, o in by_env.items() if o.fired and o.first_tod_h is not None]
+    out = {CLOCK: [by_env[e].first_tod_h for e in fired]}
+    if frames.sun_refs:
+        vals = []
+        for e in fired:
+            t = first_t.get(e)
+            v = None if t is None else sun_relative_min(site_of(e), frames.sun_refs, t)
+            if v is not None:
+                vals.append(v)
+        out[SUN] = vals
+    return out
+
+
+def frame_invariance(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
+                     h: float = TIME_SPREAD_H, sensed_invariant: bool = True) -> dict[str, bool]:
+    """Per judged frame, whether the first firings are invariant within `h` in it (A6.3); a frame that is not
+    computable counts as invariant. `sensed_invariant=False` (A6.3's sensitivity): the sensed frame is left out when
+    the automation has a computable frame."""
+    vals = frame_values(by_env, first_t, frames)
+    out: dict[str, bool] = {}
+    for f in sorted(frames.judged):
+        if f == CLOCK:
+            out[f] = not _clock_spread(vals[CLOCK], h)
+        elif f == SUN:
+            v = vals.get(SUN, [])
+            out[f] = not frames.sun_refs or len(v) < 2 or max(v) - min(v) <= h * 60.0
+        else:
+            out[f] = True
+    if not sensed_invariant and SENSED in out and any(frames.computable(f) for f in out if f != SENSED):
+        del out[SENSED]
+    return out
+
+
+def frame_divergences(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
+                      h: float = TIME_SPREAD_H, sensed_invariant: bool = True) -> set[str]:
+    """The kinds of disagreement under the frame-relative relation (A6.3): the clock relation's, with `time_spread`
+    held iff the first firings are invariant within `h` in none of the automation's frames."""
+    out = divergences(by_env) - {"time_spread"}
+    inv = frame_invariance(by_env, first_t, frames, h, sensed_invariant)
+    if inv and not any(inv.values()):
+        out.add("time_spread")
+    return out
+
+
+def frame_restricted_divergences(by_env: dict[Env, Outcome], first_t: dict[Env, float | None], frames: Frames,
+                                 envs, h: float = TIME_SPREAD_H, sensed_invariant: bool = True) -> set[str]:
+    """Divergences under the frame relation over `envs` alone, minus an envelope kind holding in all of them."""
+    outs = {e: by_env[e] for e in envs if e in by_env}
+    if not outs:
+        return set()
+    kinds = frame_divergences(outs, first_t, frames, h, sensed_invariant)
+    return {k for k in kinds if k not in ENVELOPE_KINDS or not all(getattr(o, k) for o in outs.values())}
+
+
+# ---- the richer outcome (A6.4; reported only, never part of a flag) -------------------------------------------------
+
+def rich_outcome(firings: list[Firing], branches=None, measured_days: tuple[int, int] = (1, 2)) -> dict:
+    """Beside the outcome, in the judged window: the first firing's time (seconds after the run's first local
+    midnight), the firing count (distinct instants), a canonical hash of the set of distinct (service, entity, data)
+    calls, and the sorted set of (choose step, option) pairs taken (`branches`: (t, step, option) tuples)."""
+    lo, hi = measured_days[0] * DAY_S, (measured_days[1] + 1) * DAY_S
+    measured = [fr for fr in firings if lo <= fr.t < hi]
+    calls = sorted({json.dumps([fr.service, fr.target, [list(p) for p in (fr.data or ())]], default=str)
+                    for fr in measured})
+    taken = sorted({(int(n), int(opt)) for t, n, opt in (branches or ()) if lo <= t < hi})
+    return {"first_t": min((fr.t for fr in measured), default=None),
+            "count": len({fr.t for fr in measured}),
+            "payload": hashlib.sha256(json.dumps(calls).encode()).hexdigest()[:16] if calls else None,
+            "branches": [list(b) for b in taken]}
+
+
+def rich_divergences(rich_by_env: dict) -> set[str]:
+    """`count_differs`, `payload_differs`, `branch_differs` over the environments where the automation fires."""
+    fired = [r for r in rich_by_env.values() if r and r.get("count")]
+    out: set[str] = set()
+    if len({r["count"] for r in fired}) > 1:
+        out.add("count_differs")
+    if len({r.get("payload") for r in fired}) > 1:
+        out.add("payload_differs")
+    if len({json.dumps(r.get("branches") or []) for r in fired}) > 1:
+        out.add("branch_differs")
     return out

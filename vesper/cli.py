@@ -2247,8 +2247,14 @@ def main(argv: list[str] | None = None) -> int:
     edt_run.add_argument("--work", required=True, help="the EDT home and trace cache (one per catalog version)")
     edt_run.add_argument("--out", required=True, help="the sweep result (JSON)")
     edt_run.add_argument("--workers", type=int, default=2, help="processes over the environments (default 2)")
-    edt_run.add_argument("--rung", type=int, default=4, choices=(1, 2, 3, 4), help="environment-model rung")
+    edt_run.add_argument("--rung", type=_edt_rung, default=4, choices=(1, 2, 2.5, 3, 4),
+                         help="environment-model rung (2.5: protocol Addendum 6)")
     edt_run.add_argument("--limit", type=int, help="only the first N de-duplicated automations")
+    edt_run.add_argument("--reporting-rule", default="device", choices=("device", "catalog"),
+                         help="the twins' reporting: a device's real rule where it departs from the catalog "
+                              "(default; protocol Addendum 6, A6.9) or the catalog's, as at 120f4ca")
+    edt_run.add_argument("--binder", default="current", choices=("current", "120f4ca"),
+                         help="the binder's rules: current, or those of the 120f4ca sweeps (A6.8's check)")
     edt_run.add_argument("--no-fetch", action="store_true", help="fetch no weather (cached, else clear sky)")
     edt_run.add_argument("--catalog", default="catalog/vds")
     edt_run.add_argument("--home-variant", default=None, help="a variant of the standard home (protocol Addendum 5): "
@@ -2544,16 +2550,23 @@ def _edt_census(args) -> int:
     return 0
 
 
+def _edt_rung(value) -> int | float:
+    """A rung as given on the command line or in a result: an integer rung as an int, rung 2.5 as a float."""
+    x = float(value)
+    return int(x) if x.is_integer() else x
+
+
 def _edt_ladder(args) -> int:
     """`vesper edt ladder`: rung 0's detector and rungs 1-3 against rung 4, from sweep result files."""
     from vesper.edt.ladder import ladder_report
-    by_rung: dict[int, dict] = {}
+    by_rung: dict = {}
     for f in args.sweep:
         result = json.loads(Path(f).read_text())
-        if int(result["rung"]) in by_rung:
+        rung = _edt_rung(result["rung"])
+        if rung in by_rung:
             print(f"FAILED edt ladder: rung {result['rung']} given twice ({f})", file=sys.stderr)
             return 1
-        by_rung[int(result["rung"])] = result
+        by_rung[rung] = result
     if 4 not in by_rung:
         print("FAILED edt ladder: no rung 4 sweep among --sweep", file=sys.stderr)
         return 1
@@ -2582,7 +2595,8 @@ def _edt_run(args) -> int:
     t0 = time.monotonic()
     result = sweep(corpus, Path(args.work), rung=args.rung, workers=args.workers, limit=args.limit,
                    fetch=not args.no_fetch, catalog_dir=args.catalog,
-                   log=lambda msg: print(msg, file=sys.stderr, flush=True), home_variant=args.home_variant)
+                   log=lambda msg: print(msg, file=sys.stderr, flush=True), home_variant=args.home_variant,
+                   reporting_rule=args.reporting_rule, binder=args.binder)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.name + ".tmp")

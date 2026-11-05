@@ -885,3 +885,50 @@ def test_a_room_less_actuator_name_binds_to_the_living_rooms_copies(edt):
 ])
 def test_audit_classes(entity_id, expected):
     assert infer_role(entity_id) == expected
+
+
+# --- protocol Addendum 6, A6.9: the binder defects the R4-C audit found ----------------------------------------
+
+@pytest.mark.parametrize("entity_id,expected", [
+    ("sensor.weather_bedroom_temperature", ("temperature", "bedroom_1")),
+    ("sensor.weather_kitchen_humidity", ("humidity", "kitchen")),
+    ("sensor.bathroom_weather_humidity", ("humidity", "bathroom")),
+    ("sensor.lumi_lumi_weather_temperature", ("temperature", "living")),  # an Aqara WSDCGQ11LM: a room sensor
+    ("sensor.lumi_weather_humidity_2", ("humidity", "living")),
+    ("sensor.weather_temperature", ("temperature", "porch")),  # no room token: still outdoors
+    ("sensor.openweathermap_temperature", ("temperature", "porch")),
+    ("sensor.weather_outdoor_humidity", ("humidity", "porch")),
+])
+def test_a_weather_token_sends_a_name_outdoors_only_without_a_room_token(entity_id, expected):
+    assert infer_role(entity_id) == expected
+
+
+@pytest.mark.parametrize("entity_id", [
+    "sensor.server_room_temperature", "sensor.serverroom_humidity", "sensor.comms_cupboard_temperature",
+    "sensor.rack_temperature", "sensor.humidor_humidity", "sensor.freezer_temperature", "sensor.fridge_temp",
+    "sensor.filament_box_humidity", "sensor.grow_box_temperature", "sensor.growtent_humidity",
+    "sensor.grow_tent_lux", "sensor.terrarium_temperature", "sensor.aquarium_temperature",
+    "sensor.water_temperature", "sensor.bath_water_temperature", "sensor.hot_tub_temperature",
+    "sensor.sauna_temperature", "sensor.beer_fermenter_temperature"])
+def test_an_enclosure_or_a_medium_is_refused_as_not_room_air(edt, entity_id):
+    _, roles, _, _ = edt
+    assert bind(one(entity_id), roles, 0) == Unbindable(f"enclosure or medium, not room air (for {entity_id})")
+
+
+@pytest.mark.parametrize("entity_id", ["sensor.bath_temperature", "sensor.bathroom_humidity",
+                                       "sensor.office_temperature", "sensor.living_room_lux"])
+def test_room_sensors_are_not_enclosures(edt, entity_id):
+    _, roles, _, _ = edt
+    assert isinstance(bind(one(entity_id), roles, 0), dict)
+
+
+def test_the_120f4ca_binder_rules_stay_available(edt):
+    """The reproduction check (A6.8) binds with the rules of 120f4ca: weather tokens outdoors, no enclosure class."""
+    from vesper.edt import bind as bind_module
+    _, roles, _, _ = edt
+    with bind_module.binder_rules("120f4ca"):
+        assert infer_role("sensor.weather_bedroom_temperature") == ("temperature", "porch")
+        assert infer_role("sensor.lumi_lumi_weather_temperature") == ("temperature", "porch")
+        assert isinstance(bind(one("sensor.server_room_temperature"), roles, 0), dict)
+    assert bind_module.BINDER_RULES == "current"
+    assert infer_role("sensor.weather_bedroom_temperature") == ("temperature", "bedroom_1")

@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import threading
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from vesper.twins.clock import LogicalClock
@@ -23,6 +24,29 @@ MATTER_AMBIENT = {"temperature": ("Temperature Measurement.MeasuredValue", "Ther
                   "humidity": ("Relative Humidity Measurement.MeasuredValue",),
                   "illuminance": ("Illuminance Measurement.MeasuredValue",)}
 MATTER_LUX = "Illuminance Measurement.MeasuredValue"  # 10000 * log10(lux) + 1, 0 for darkness
+# A device whose real reporting departs from the catalog's library default: (product id, feature) -> the feature
+# whose report carries it. The Aqara RTCGQ11LM sends illuminance only with a motion detection, or on its roughly
+# hourly heartbeat (zigbee-herdsman-converters 26.123.0, `lumi_illuminance`: "there is no illuminance without
+# movement"; issue Koenkk/zigbee-herdsman-converters#1925). Applied only under REPORTING_RULE "device".
+CARRIED_BY = {("zigbee:aqara:rtcgq11lm", "illuminance"): "occupancy"}
+# "catalog": every feature reports by its catalog rule (the default, as built); "device": a feature in CARRIED_BY
+# reports only with its carrier's "on" report and on its periodic heartbeat (max_s). Module state, read when a twin is
+# added; set it only through `reporting_rule` (EDT traces: docs/experiments/edt-protocol.md, Addendum 6).
+REPORTING_RULE = "catalog"
+REPORTING_RULES = ("catalog", "device")
+
+
+@contextmanager
+def reporting_rule(rule: str):
+    """Within the block, twins added follow `rule` (REPORTING_RULES); restored after, whatever happens."""
+    global REPORTING_RULE
+    if rule not in REPORTING_RULES:
+        raise ValueError(f"reporting rule {rule!r}: one of {', '.join(REPORTING_RULES)}")
+    old, REPORTING_RULE = REPORTING_RULE, rule
+    try:
+        yield
+    finally:
+        REPORTING_RULE = old
 
 
 @dataclass(frozen=True)
@@ -73,6 +97,7 @@ class Runtime:
         self._reporters: dict[tuple[str, str], _Reporter] = {}
         self._last_presence: dict[str, float] = {}
         self._last_observed: dict[str, float] = {}  # per twin: reports reach the platform in the order they left
+        self._carried: dict[str, bool] = {}  # per twin: added under REPORTING_RULE "device"
 
     # -- set-up -------------------------------------------------------------------------------
     def add(self, vds: dict, twin_id: str | None = None, state: dict | None = None) -> Twin:
@@ -82,6 +107,7 @@ class Runtime:
             if (twin_id or vds["id"]) in self.twins:
                 raise ValueError(f"twin {twin_id or vds['id']} already added")
             twin = Twin.from_vds(vds, seed=self.seed, twin_id=twin_id)
+            self._carried[twin.id] = REPORTING_RULE == "device"  # the reporting rule the twin was added under
             for name, value in (state or {}).items():
                 twin.state[name] = twin.coerce(name, value)
             self.twins[twin.id] = twin
@@ -183,7 +209,9 @@ class Runtime:
         return run
 
     def _rule(self, twin: Twin, name: str) -> dict | None:
-        return twin.vds.get("behavior", {}).get("reporting", {}).get(name)
+        rule = twin.vds.get("behavior", {}).get("reporting", {}).get(name)
+        carrier = CARRIED_BY.get((twin.vds.get("id"), name)) if self._carried.get(twin.id) else None
+        return {**rule, "carried_by": carrier} if rule and carrier else rule
 
     def _change(self, twin: Twin, name: str, value, cause: str) -> None:
         old = twin.state[name]
@@ -195,6 +223,8 @@ class Runtime:
                 self._emit(twin, name, value, now, cause)
             return
         rep = self._reporters[(twin.id, name)]
+        if rule.get("carried_by"):  # reported only with its carrier's report or on the heartbeat
+            return
         if not self._significant(rep.last_value, value, rule["change"]):
             if rep.pending:
                 rep.drifted = True
@@ -226,6 +256,10 @@ class Runtime:
         rep = self._reporters[(twin.id, name)]
         rep.last_value, rep.last_t = twin.state[name], self.clock.now()
         self._emit(twin, name, twin.state[name], physical_t, cause)
+        if self._carried.get(twin.id) and twin.state[name] == twin.features.get(name, {}).get("value_on", object()):
+            for (product, carried), carrier in CARRIED_BY.items():  # a detection carries these with it
+                if carrier == name and product == twin.vds.get("id") and (twin.id, carried) in self._reporters:
+                    self._report(twin, carried, self.clock.now(), "motion")
 
     def _schedule_periodic(self, twin: Twin, name: str, when: float) -> None:
         def tick():

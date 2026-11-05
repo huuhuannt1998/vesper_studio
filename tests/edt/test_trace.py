@@ -286,3 +286,53 @@ def test_the_porch_temperature_and_humidity_are_the_outdoor_air_within_rounding(
         assert min(abs(r["value"] - v) for v in values) <= tol[r["feature"]], (r, values)
         seen[r["feature"]] += 1
     assert all(n > 0 for n in seen.values()), seen
+
+
+def test_rung_2_5_porch_reads_the_outdoor_air_and_rooms_the_assumed_curve(home, tmp_path):
+    """Protocol A6.5: at rung 2.5 the porch's sensors are rung 4's (the site's outdoor air and light) and every indoor
+    room's are rung 2's (the assumed curve); the header names the site; the knob is restored after."""
+    from vesper.lab import rules
+
+    def porch(twin_id):
+        return "@porch_" in twin_id
+
+    def indoor(twin_id):
+        return not porch(twin_id)
+
+    traces = {rung: read(record_trace(home, Env(PHOENIX, "2026-07-15", 0.0, rung), tmp_path, hours=14,
+                                      fetch=False)) for rung in (2, 2.5, 4)}
+    h25, r25 = traces[2.5]
+    assert h25["site"]["lat"] == pytest.approx(33.4484) and h25["env"]["key"].endswith("-r2.5")
+
+    def series(reports, where, feature):
+        return sorted((r["t"], r["twin_id"], r["value"]) for r in reports if r["feature"] == feature
+                      and where(r["twin_id"]))
+    for feature in ("temperature", "humidity", "illuminance"):
+        assert series(r25, porch, feature) == series(traces[4][1], porch, feature), feature
+        assert series(r25, indoor, feature) == series(traces[2][1], indoor, feature), feature
+    assert series(r25, porch, "temperature") != series(traces[2][1], porch, "temperature")
+    assert rules.INDOOR_ASSUMED is False
+
+
+def test_the_device_reporting_rule_sends_illuminance_only_on_the_hourly_heartbeat_without_residents(home, tmp_path):
+    """Protocol A6.9: under the RTCGQ11LM's real rule (no illuminance without movement) a resident-free home's
+    illuminance sensors report only on their hourly heartbeat; under the catalog's rule they report every change.
+    The rule is named in the header and the file name; the catalog's trace keeps its old name and header."""
+    from vesper.twins import runtime
+    env = Env(PHOENIX, "2026-07-15", 0.0, 4)
+    cat = record_trace(home, env, tmp_path, hours=8, fetch=False)
+    dev = record_trace(home, env, tmp_path, hours=8, fetch=False, reporting_rule="device")
+    assert cat.name == f"trace-{env.key}.jsonl.gz" and dev.name == f"trace-{env.key}-rho_device.jsonl.gz"
+    (hc, rc), (hd, rd) = read(cat), read(dev)
+    assert "reporting_rule" not in hc and hd["reporting_rule"] == "device"
+
+    def lux(reports):
+        return [r for r in reports if r["feature"] == "illuminance"]
+    assert len(lux(rd)) < len(lux(rc))
+    by_twin: dict = {}
+    for r in lux(rd):
+        by_twin.setdefault(r["twin_id"], []).append(r["t"])
+    assert by_twin and all(len(ts) <= 8 for ts in by_twin.values())  # at most one an hour
+    assert all(b - a >= 3600 - 1e-6 for ts in by_twin.values() for a, b in zip(ts, ts[1:], strict=False))
+    assert [r for r in rd if r["feature"] != "illuminance"] == [r for r in rc if r["feature"] != "illuminance"]
+    assert runtime.REPORTING_RULE == "catalog"

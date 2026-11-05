@@ -6,13 +6,14 @@ names) and stay local, outside the repository. This script reads them and writes
 reason classes, environment labels (city, date, plan north) and timings. It writes no automation, no repository or
 entity name, no automation or repository hash and no corpus path.
 
-    python scripts/edt_summary.py [--lab DIR] [--commit dc119cd] [--out results/edt/summary-dc119cd.json]
+    python scripts/edt_summary.py [--lab DIR] [--commit dc119cd] [--workers 6] [--out results/edt/summary-C.json]
 
 Inputs, in --lab (default ~/vesper-lab/edt), for commit C:
-    sweep-rung{4,3,2,1}-C.json and .log    `vesper edt run` at each rung
-    cover-rung4-C.json                     `vesper edt cover` on the rung-4 sweep
-    ladder-C.json                          `vesper edt ladder`
-    confirm-rung4-C.json                   closed-loop confirmation (vesper.edt.confirm)
+    sweep-rung{4,3,2,1}-C.json and .log    `vesper edt run` at each rung (rung 2.5 too when present; Addendum 6)
+    sweep-rung4-{check120f4ca,catalogrule}-C.json   optional: Addendum 6's check and reporting-rule comparison
+    cover-rung4-C.json                     optional: `vesper edt cover` on the rung-4 sweep
+    ladder-C.json                          optional: `vesper edt ladder`
+    confirm-rung4-C.json                   optional: closed-loop confirmation (vesper.edt.confirm)
     posthoc-setcover-C.txt                 optional: stdout of the post hoc set-based greedy cover
 
 Standard library only. Protocol: docs/experiments/edt-protocol.md; results: docs/experiments/results-edt.md.
@@ -26,7 +27,8 @@ import statistics
 from collections import Counter
 from pathlib import Path
 
-RUNGS = (4, 3, 2, 1)
+RUNGS = ("4", "3", "2.5", "2", "1")  # 2.5: protocol Addendum 6, read when present
+EXTRA_SWEEPS = ("rung4-check120f4ca", "rung4-catalogrule")  # Addendum 6, A6.8 as amended by A6.9
 ENV_KINDS = ("sun", "temperature", "illuminance", "humidity", "weather")
 SENSED = {"temperature", "illuminance", "humidity", "weather"}
 TOP = 20
@@ -71,6 +73,7 @@ UNBINDABLE_RULES = [
     (r"^no room of the standard home for the area", "no room of the standard home for the area"),
     (r"^area targets of ", "area targets of an unmodelled domain"),
     (r"^entity_id .* is not an entity id$", "a value given as an entity id is not one"),
+    (r"^enclosure or medium, not room air$", "enclosure or medium, not room air"),
 ]
 REFUSED_RULES = [
     (r"^(trigger|condition) sun: the home has no site", "a sun trigger or condition with no site (rung 1)"),
@@ -197,6 +200,12 @@ def sweep_summary(path: Path, log: Path) -> dict:
         "flagged_triggered_on_every_sensor_change": sum(1 for a in flagged if on_every_sensor_change(a["bound"])),
         "flagged_triggered_on_every_sensor_change_time_spread_only": sum(
             1 for a in flagged if on_every_sensor_change(a["bound"]) and a["divergences"] == ["time_spread"]),
+        "flagged_frame": r.get("flagged_frame"),  # protocol Addendum 6, A6.3
+        "flagged_frame_by_environment_kind": dict(Counter(k for a in run if a.get("frame_divergences")
+                                                          for k in a["kinds"])),
+        "rich_divergent": r.get("rich_divergent"),
+        "reporting_rule": r.get("reporting_rule", "catalog"),
+        "binder": r.get("binder", "120f4ca"),
         "static": r["static"],
         "static_and_flagged": sum(1 for a in static if a["divergences"]),
         "negative_control": r["negative_control"],
@@ -206,13 +215,13 @@ def sweep_summary(path: Path, log: Path) -> dict:
         "unbindable_reasons": reason_table(r["unbindable_reasons"], UNBINDABLE_RULES),
         "unmodelled_domains": unmodelled_domains(r["unbindable_reasons"]),
         "refused_reasons": reason_table(r["refused_reasons"], REFUSED_RULES),
-        "timing": timing(log),
+        "timing": timing(log, WORKERS),
     }
     assert out["yield"]["run"] == len(run) and out["flagged"]["n"] == len(flagged), "sweep counts disagree"
     return out, r
 
 
-def timing(log: Path) -> dict:
+def timing(log: Path, workers: int = 6) -> dict:
     text = log.read_text()
     out: dict = {}
     m = re.search(r"replayed (\d+) x (\d+) in ([\d.]+) s", text)
@@ -226,7 +235,7 @@ def timing(log: Path) -> dict:
     per_env = [float(x) for x in re.findall(r"^\d+/\d+ \S+ ([\d.]+) s$", text, flags=re.M)]
     if per_env:
         out["per_env_s"] = {"median": statistics.median(per_env), "min": min(per_env), "max": max(per_env)}
-    out["workers"] = 6  # the run ledger: every sweep ran with --workers 6
+    out["workers"] = workers  # the run ledger (--workers of the sweeps)
     return out
 
 
@@ -333,31 +342,41 @@ def confirm_summary(path: Path, envs: dict[str, dict], repo_of: dict[str, str], 
     }
 
 
+WORKERS = 6
+
+
 def main() -> None:
+    global WORKERS
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--lab", type=Path, default=Path.home() / "vesper-lab" / "edt")
     ap.add_argument("--commit", default="dc119cd")
+    ap.add_argument("--workers", type=int, default=6, help="the sweeps' --workers, for the timing record")
     ap.add_argument("--out", type=Path)
     a = ap.parse_args()
+    WORKERS = a.workers
     out_path = a.out or Path("results/edt") / f"summary-{a.commit}.json"
     lab, c = a.lab, a.commit
 
     rungs, envs4, repo_of, kinds_of, sun_trigger = {}, None, {}, {}, {}
-    for rung in RUNGS:
-        f = lab / f"sweep-rung{rung}-{c}.json"
-        rungs[str(rung)], raw = sweep_summary(f, f.with_suffix(".log"))
-        if rung == 4:
+    for rung in (*RUNGS, *EXTRA_SWEEPS):
+        f = lab / (f"sweep-rung{rung}-{c}.json" if rung in RUNGS else f"sweep-{rung}-{c}.json")
+        if not f.exists():
+            if rung == "4":
+                raise SystemExit(f"no rung-4 sweep: {f}")
+            continue
+        rungs[rung], raw = sweep_summary(f, f.with_suffix(".log"))
+        if rung == "4":
             envs4 = raw["envs"]
             repo_of = {i: a["repo"] for i, a in raw["automations"].items()}  # in memory only, never written
             kinds_of = {i: a["kinds"] for i, a in raw["automations"].items()}
             sun_trigger = {i: has_sun_trigger(a["bound"]) for i, a in raw["automations"].items() if a["bound"]}
         del raw
-        print(f"rung {rung}: {rungs[str(rung)]['yield']}, flagged {rungs[str(rung)]['flagged']['n']}", flush=True)
+        print(f"rung {rung}: {rungs[rung]['yield']}, flagged {rungs[rung]['flagged']['n']}", flush=True)
     labels = {e["key"]: env_label(e) for e in envs4}
 
     summary = {
         "commit": c,
-        "protocol": "docs/experiments/edt-protocol.md (sections 1-7, addenda 1-3)",
+        "protocol": "docs/experiments/edt-protocol.md (sections 1-7, addenda 1-6)",
         "corpus": "45,208 automations from 1,186 public Home Assistant repositories (1,123 of them with automations); "
                   "counts are over automations "
                   "de-duplicated by canonical hash (results/edt/census-20261104.json)",
@@ -365,10 +384,6 @@ def main() -> None:
                          "dates": sorted({e["date"] for e in envs4}),
                          "north_deg": sorted({e["north_deg"] for e in envs4})},
         "rungs": rungs,
-        "ladder": json.loads((lab / f"ladder-{c}.json").read_text()),
-        "cover": cover_summary(lab / f"cover-rung4-{c}.json", labels, lab / f"posthoc-setcover-{c}.txt", kinds_of),
-        "closed_loop": confirm_summary(lab / f"confirm-rung4-{c}.json", {e["key"]: e for e in envs4}, repo_of,
-                                       sun_trigger),
         "binding_audit": {
             "source": "protocol addendum 2, A2.5 (the audit itself names corpus entities and stays local)",
             "pass_1": {"ambient_sensor_names": 63, "mis_binds_found_and_fixed": 11, "classes": 5},
@@ -376,6 +391,14 @@ def main() -> None:
                        "uncertain": 1},
         },
     }
+    if (lab / f"ladder-{c}.json").exists():
+        summary["ladder"] = json.loads((lab / f"ladder-{c}.json").read_text())
+    if (lab / f"cover-rung4-{c}.json").exists():
+        summary["cover"] = cover_summary(lab / f"cover-rung4-{c}.json", labels, lab / f"posthoc-setcover-{c}.txt",
+                                         kinds_of)
+    if (lab / f"confirm-rung4-{c}.json").exists():
+        summary["closed_loop"] = confirm_summary(lab / f"confirm-rung4-{c}.json", {e["key"]: e for e in envs4},
+                                                 repo_of, sun_trigger)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
     print(f"wrote {out_path}")

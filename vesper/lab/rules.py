@@ -41,6 +41,10 @@ LAMP_LUX = 200  # what one lamp adds to its room's illuminance (assumed)
 HEAT_BAND_C = 0.3  # a thermostat heats below setpoint - this and stops above setpoint + this (assumed)
 CENTRAL_ROOMS = ("hall", "corridor", "entry")  # a thermostat in one of these heats the whole home
 ONOFF, LOCK_STATE = "On/Off.OnOff", "Door Lock.LockState"
+# A home with a site whose indoor sensors still read the assumed curve (`ambient_at`), its outdoor ones the site's
+# weather: the EDT ladder's rung 2.5 (docs/experiments/edt-protocol.md, A6.5). False: the model as built. Module state,
+# set only through vesper.edt.trace.rung_scaling.
+INDOOR_ASSUMED = False
 _AMBIENT = {"temperature", "local_temperature", "humidity", "illuminance", "illuminance_lux"} | {
     n for names in MATTER_AMBIENT.values() for n in names}
 
@@ -369,7 +373,7 @@ class Rules:
                          "cooling": sorted(n for n, on in self._cooling.items() if on)})
         for name, dev in self.devices.items():
             if dev.room and _AMBIENT & set(self.twin(name).features):
-                if self.env is None:
+                if self.env is None or (INDOOR_ASSUMED and dev.room in self.rooms_now):
                     values = ambient_at(seconds, lamps.get(dev.room, 0))
                 elif dev.room in self.rooms_now:
                     values = self.rooms_now[dev.room]

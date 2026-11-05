@@ -167,6 +167,27 @@ def _as_rung(result, rung):
     return out
 
 
+def test_rung0_refit_over_populations_labels_and_frame_features():
+    """Protocol A6.7: rung 0 over the bound, the run or the environment-coupled run automations, against either
+    relation's flags, with or without the four frame features; A1.4's fit is the default."""
+    from vesper.edt.ladder import FRAME_FEATURES, rung0_fit
+    r4 = _rung4(40)
+    autos = r4["automations"]
+    for i, a in enumerate(autos.values()):
+        a["bound"] = a["raw"]
+        a["frame_divergences"] = a["divergences"] if i % 4 == 0 else []
+        a["kinds"] = ["sun"] if a["raw"] is SUN else []
+        if i % 5 == 4:
+            a["outcomes"] = {}  # bound but refused everywhere: not in the run population
+    assert ladder_report({4: r4})["rung0"] == rung0_fit(autos)
+    run = rung0_fit(autos, population="run")
+    assert run["n"] == 32 and rung0_fit(autos)["n"] == 40
+    coupled = rung0_fit(autos, label="frame_divergences", population="coupled_run", with_frames=True)
+    assert coupled["features"] == [*FEATURES, *FRAME_FEATURES] and coupled["label"] == "frame_divergences"
+    assert coupled["n"] == sum(1 for a in autos.values() if a["outcomes"] and a["kinds"])
+    assert coupled["n_flagged"] == sum(1 for a in autos.values() if a["outcomes"] and a["frame_divergences"])
+
+
 def test_identical_rung_reproduces_everything_with_zero_error():
     r4 = _rung4()
     row = ladder_report({4: r4, 3: _as_rung(r4, 3)})["rungs"]["3"]

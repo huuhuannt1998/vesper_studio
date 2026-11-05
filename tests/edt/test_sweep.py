@@ -101,6 +101,19 @@ def test_flag_counts_and_json(result):
     json.dumps(result)
 
 
+def test_frame_relation_and_richer_outcome_beside_the_clock_relation(result):
+    """Protocol Addendum 6: the sunset rule's clock-time spread is what its trigger commissions (no frame flag); the
+    lamp's is sensed; both keep their clock-relation flags; the richer outcome is kept per environment."""
+    dusk, lamp = result["automations"][hid(SUNSET)], result["automations"][hid(LAMP)]
+    assert dusk["frames"] == ["sun"] and dusk["sun_frame_computable"] and dusk["frame_divergences"] == []
+    assert lamp["frames"] == ["sensed"] and lamp["frame_divergences"] == []
+    assert result["flagged_frame"] == {"n": 0, "by_kind": {}}
+    rich = dusk["rich"][ENVS[0].key]
+    assert set(rich) == {"first_t", "count", "payload", "branches"} and rich["count"] == 2
+    assert rich["first_t"] % 86400 / 3600 == pytest.approx(dusk["outcomes"][ENVS[0].key]["first_tod_h"])
+    assert set(dusk["rich_divergences"]) <= {"count_differs", "payload_differs", "branch_differs"}
+
+
 def test_workers_and_limit_do_not_change_what_is_computed(corpus, work, result):
     again = sweep(corpus, work, ENVS, rung=4, workers=2, limit=20, fetch=False)
     assert json.dumps(again, sort_keys=True) == json.dumps(result, sort_keys=True)
