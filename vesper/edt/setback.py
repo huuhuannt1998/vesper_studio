@@ -75,7 +75,8 @@ def setpoints(automation) -> list[Setpoint]:
     out = []
     for svc, step in climate_steps(automation):
         data: dict = {}
-        for k in ("data_template", "data"):  # `data` wins where both name a field, as Home Assistant merges them
+        for k in ("data", "data_template"):  # `data_template` wins where both name a field: HA and the engine merge
+            # `data` first (vesper.lab.automations._call_parts)
             if isinstance(step.get(k), dict):
                 data.update(step[k])
         for f in SETPOINT_FIELDS:

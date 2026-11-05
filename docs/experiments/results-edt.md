@@ -630,7 +630,9 @@ finding): validation A's cold bias (the model's rooms 0.9-1.7 C colder than the 
 and any thermal mass lower than the real house's. Against them, VESPER's tau of about 49 h is already longer than a
 light timber frame's, which would push the other way for such a house. The count therefore rests on two uncertain
 quantities and should be reported as "20 of 42 runs at the model's nominal mass, 6-28 for half to twice that mass,
-none at four times", not as a fixed number.
+none at four times", not as a fixed number. **Superseded:** these counts are the blended-weather (dc119cd)
+sample's 7 automations; the paper reports R2-c's population-wide, ERA5 counts instead (53 of 1,056 runs at nominal
+mass; 63/53/20/0 runs for half, one, two and four times the mass), and R4-B's error-budget corners.
 
 **11. Humidity flags under a +-2 K temperature error.** The rung-4 humidity-coupled automations that ran (63: the
 37 flagged and 26 unflagged) were replayed open loop (`vesper.edt.sweep`'s own worker) in all 48 environments against

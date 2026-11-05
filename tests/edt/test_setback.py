@@ -73,3 +73,9 @@ def test_no_command_means_no_setback_and_refused_or_mode_commands_do_not_count()
 def test_consecutive_low_commands_merge():
     rows = [row(1.1 * DAY, 7), row(1.2 * DAY, 5), row(1.5 * DAY, 20)]
     assert setback_intervals(rows, DAY, 3 * DAY) == [(1.1 * DAY, 1.5 * DAY)]
+
+
+def test_data_template_wins_over_data_as_the_engine_merges_them():
+    a = {"actions": [{"service": "climate.set_temperature",
+                      "data": {"temperature": 18}, "data_template": {"temperature": 7}}]}
+    assert [s.value for s in setpoints(a)] == [7.0]
