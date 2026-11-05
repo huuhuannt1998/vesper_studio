@@ -208,6 +208,27 @@ def render_plan_view(path: Path, out_png: Path, px_per_m: float = PX_PER_M, scal
             "meta": {k: meta[k] for k in ("up", "scale", "floor_y", "ceiling_y")}, "size": [w, h], "cut_m": cut}
 
 
+ENTRANCE_PROBE_M = 0.1  # the render is looked at this far round the entrance's middle
+WALL_SHARE = 0.5  # more of it black than this: the entrance stands in a wall, not in a gap
+
+
+def _entrance_drawn(raw: dict, png: Path, ppm: float) -> bool | None:
+    """Whether the entrance Claude gave stands in a gap of the render (a doorway the scan shows: floor or nothing at
+    its middle), or in a black wall (Claude chose one where none is drawn, as its instructions say to when no door to
+    the outside shows). None when the answer is not in pixels or names no entrance."""
+    from vesper.lab.png import decode
+    ent = raw.get("entrance")
+    if raw.get("units") != "px" or ent is None:
+        return None
+    u0, v0 = raw["doors"][ent]["at"]
+    img = decode(Path(png).read_bytes())
+    r = max(1, round(ENTRANCE_PROBE_M * ppm))
+    seen = [img.pixel(u, v)[:3] == COLOURS["wall"][:3]
+            for u in range(round(u0) - r, round(u0) + r + 1) for v in range(round(v0) - r, round(v0) + r + 1)
+            if 0 <= u < img.width and 0 <= v < img.height and (u - u0) ** 2 + (v - v0) ** 2 <= r * r]
+    return bool(seen) and sum(seen) / len(seen) <= WALL_SHARE
+
+
 def _points(plan: dict):
     for r in plan["rooms"]:
         yield from r["polygon"]
@@ -235,7 +256,8 @@ def read_mesh_with_claude(path: Path, runner=None, *, scale: float | None = None
 
     meta: read_mesh's keys ("up", "scale", "floor_y", "ceiling_y", "transform": the file to the plan's frame, x east,
     y up with the floor at 0, z south, metres, the rooms starting at (0, 0)) and "reader": "claude", "m_per_px",
-    "cut_m", "floors_drawn" (Claude's count) and "render" (the PNG's path when `render_to` keeps it, else None).
+    "cut_m", "floors_drawn" (Claude's count), "render" (the PNG's path when `render_to` keeps it, else None) and
+    "entrance_drawn" (`_entrance_drawn`: False when Claude put the entrance in a drawn wall).
     `runner`, `model`, `timeout` and `stop` are `plan_read.read_plan_image`'s; `scale` replaces the detected metres
     per unit. Raises ScanError when the model cannot be drawn and PlanError when Claude's answers are not a plan (with
     Claude's text), as read_plan_image does."""
@@ -250,6 +272,7 @@ def read_mesh_with_claude(path: Path, runner=None, *, scale: float | None = None
         said: dict = {}
         raw = plan_read.read_plan_image(png, runner=runner, model=model, timeout=timeout, stop=stop, meta=said,
                                         context=context)
+        drawn = _entrance_drawn(raw, png, ppm)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     warnings = list(view["warnings"])
@@ -277,7 +300,8 @@ def read_mesh_with_claude(path: Path, runner=None, *, scale: float | None = None
     t[0][3] -= ox + sx
     t[2][3] -= oz + sz
     meta = {**view["meta"], "transform": t, "reader": "claude", "m_per_px": mpp, "cut_m": view["cut_m"],
-            "floors_drawn": said.get("floors_drawn"), "render": str(png) if render_to is not None else None}
+            "floors_drawn": said.get("floors_drawn"), "render": str(png) if render_to is not None else None,
+            "entrance_drawn": drawn}
     if said.get("floors_drawn") not in (None, 1):
         warnings.append(f"Claude saw {said['floors_drawn']} floors in the render of one storey: check the plan")
     return plan_m, meta, warnings

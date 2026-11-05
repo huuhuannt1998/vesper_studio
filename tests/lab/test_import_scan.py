@@ -21,6 +21,21 @@ from vesper.twins.home import load_catalog
 FIXTURES = Path(__file__).parent / "fixtures" / "roomplan"
 
 
+@pytest.fixture(autouse=True)
+def no_claude(monkeypatch):
+    """No test runs the real `claude` (a paid reading): it is not on PATH, so a 3D model's default reader is the
+    geometric one, and calling it fails the test. A test of Claude's reader puts a fake in its place."""
+    import shutil as sh
+
+    from vesper.lab import plan_read
+    real = sh.which
+    monkeypatch.setattr(sh, "which", lambda name, *a, **k: None if name == "claude" else real(name, *a, **k))
+
+    def refuse(*a, **k):
+        raise AssertionError("a test ran the real claude")
+    monkeypatch.setattr(plan_read, "_claude", refuse)
+
+
 def fixture() -> dict:
     return json.loads((FIXTURES / "two_rooms.json").read_text())
 
@@ -363,6 +378,82 @@ def test_a_mesh_imports_and_becomes_the_home_s_3d_view_in_the_plan_s_frame(tmp_p
     capsys.readouterr()
     assert cli.main(["lab", "layout", str(out / "home.yaml"), "--catalog", str(cat)]) == 0
     assert "0 error(s)" in capsys.readouterr().out
+
+
+def claude_reads(monkeypatch, src: Path, entrance_at=(6.45, 4.0)) -> object:
+    """`claude` on PATH, answering for `src`'s render what B3b's test answers: the two rooms, the door between them,
+    the entrance (at house point `entrance_at`) and the window, in the render's pixels. Returns the fake."""
+    import shutil as sh
+
+    from tests.lab.test_plan_read import Fake, envelope
+    from tests.lab.test_scan_render import answer_in_pixels, to_pixel
+    from vesper.lab import plan_read
+    from vesper.lab.scan_render import render_plan_view
+    view = render_plan_view(src, src.with_suffix(".probe.png"))
+    answer = answer_in_pixels(view)
+    answer["plan"]["doors"][1]["at"] = list(to_pixel(view, entrance_at[0], 1.3, entrance_at[1]))
+    fake = Fake(envelope(json.dumps(answer)))
+    real = sh.which
+    monkeypatch.setattr(sh, "which", lambda name, *a, **k: "/usr/local/bin/claude" if name == "claude" else
+                        real(name, *a, **k))
+    monkeypatch.setattr(plan_read, "_claude", fake)
+    return fake
+
+
+def test_a_mesh_is_read_by_claude_by_default_when_claude_is_here_and_its_reading_kept(tmp_path, capsys, monkeypatch):
+    cat, _ = setup(tmp_path)
+    src = mesh_house(tmp_path)
+    fake = claude_reads(monkeypatch, src)
+    out = tmp_path / "scan"
+    assert cli.main(["lab", "import", str(src), str(out), "--catalog", str(cat)]) == 0
+    said = capsys.readouterr().out
+    assert len(fake.calls) == 1 and "reader: Claude, from a top-down render" in said
+    assert "2 rooms (bedroom, living)" in said and "entrance assumed" not in said
+    assert_view_on_the_plan(out, floor=(-0.15, 0.05))  # the house's floor slab is 0.1 m thick, below 0
+    saved = out.with_name("scan.plan.json")  # kept before anything could refuse it
+    reading = json.loads(saved.read_text())
+    assert reading["format"] == "vesper-scan-reading/1" and reading["meta"]["reader"] == "claude"
+    assert reading["source"] == str(src.resolve()) and len(reading["plan"]["rooms"]) == 2
+    assert json.loads((out / "scan.json").read_text())["model"]["up"] == "y"
+    # built again from the reading, with no Claude
+    again = tmp_path / "again"
+    assert cli.main(["lab", "import", str(saved), str(again), "--catalog", str(cat)]) == 0
+    said = capsys.readouterr().out
+    assert len(fake.calls) == 1 and "the reading saved in scan.plan.json is used" in said
+    assert (json.loads((again / "plan.json").read_text())["rooms"] == json.loads((out / "plan.json").read_text())[
+        "rooms"])
+    assert (again / "scene.glb").is_file()
+
+
+def test_without_claude_a_mesh_is_read_geometrically_and_a_reading_kept_only_when_asked(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    src = mesh_house(tmp_path)
+    assert cli.main(["lab", "import", str(src), str(tmp_path / "a"), "--catalog", str(cat)]) == 0
+    assert "reader: geometric, from the model's shape" in capsys.readouterr().out
+    assert not (tmp_path / "a.plan.json").exists()
+    keep = tmp_path / "kept.json"
+    assert cli.main(["lab", "import", str(src), str(tmp_path / "b"), "--reader", "geometric", "--save-plan",
+                     str(keep), "--catalog", str(cat)]) == 0
+    assert json.loads(keep.read_text())["meta"]["reader"] == "geometric"
+    assert cli.main(["lab", "import", str(src), str(tmp_path / "c"), "--save-plan", str(keep), "--catalog",
+                     str(cat)]) == 1  # never over a reading kept earlier
+    assert "already exists" in capsys.readouterr().err and not (tmp_path / "c").exists()
+
+
+def test_an_entrance_claude_put_in_a_drawn_wall_is_said_to_be_assumed(tmp_path, capsys, monkeypatch):
+    cat, _ = setup(tmp_path)
+    src = mesh_house(tmp_path)
+    claude_reads(monkeypatch, src, entrance_at=(5.0, 4.0))  # the south wall, solid there
+    out = tmp_path / "scan"
+    assert cli.main(["lab", "import", str(src), str(out), "--reader", "claude", "--catalog", str(cat)]) == 0
+    assert "entrance assumed: door 2 (the render shows a wall there" in capsys.readouterr().out
+
+
+def test_a_roomplan_scan_takes_no_reader(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    assert cli.main(["lab", "import", str(write(tmp_path, fixture())), str(tmp_path / "x"), "--reader", "claude",
+                     "--catalog", str(cat)]) == 1
+    assert "--reader is for a 3D model" in capsys.readouterr().err
 
 
 def test_a_mesh_s_scale_is_a_number(tmp_path, capsys):

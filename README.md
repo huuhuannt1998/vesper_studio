@@ -747,14 +747,23 @@ VESPER takes as the entrance.
 RoomPlan's mesh USDZ (`room.usdz`) leaves the openings out. When you give it and a `room.json` or `room_p.usdz` lies
 beside it, VESPER reads that file instead and says so. A JSON needs nothing extra. A USDZ needs usd-core.
 
-VESPER cannot convert a USDZ for its 3D view, so it draws a scanned home itself.
+The scan itself is the home's 3D view. VESPER converts RoomPlan's USDZ (the mesh export beside the file, else the
+parametric one) into `scene.glb`, in the home's frame. VESPER still draws the doors itself, so that they open and
+close. A JSON with no USDZ beside it has no geometry, so VESPER draws that home itself.
 
 **A 3D model** (`.glb`, `.gltf`, `.obj`, `.ply`): a photogrammetry or LiDAR scan, or a house model from the web.
-VESPER reads the floor plan from the model's shape:
+VESPER reads the floor plan in one of two ways (`--reader`):
 
-- the up axis is detected, never assumed;
-- the floor, walls, doorways and windows are found by cutting the model at set heights;
-- the rooms are named "room 1..N" and typed `other`, unless you give their types in order with `--types`.
+- `claude` (the default when the `claude` command is installed): VESPER draws the model as a floor plan at an exact
+  scale, from straight above and cut 1.3 m over the floor, and Claude reads that picture. The picture goes to
+  Anthropic through your Claude Code login, and nothing else of the model does. It takes minutes and uses your
+  quota. The reading is kept, as `DIR.plan.json` or the file `--save-plan` names, so
+  `vesper lab import DIR.plan.json DIR` builds the home again without Claude. If no door to the outside is drawn
+  where Claude put the entrance, the summary says "entrance assumed".
+- `geometric` (offline): the floor, walls, doorways and windows are found by cutting the model at set heights.
+
+Either way, the up axis is detected, never assumed. Rooms Claude cannot type, and every room the geometric reader
+finds, are typed `other` unless you give their types in order with `--types`.
 
 A model whose ceiling is not 2.1-4.0 m above its floor is rescaled to put the ceiling at 2.5 m, and a warning says by
 how much. A model rescaled by more than x5 or less than x0.2, or one VESPER cannot measure, is refused. Give its units

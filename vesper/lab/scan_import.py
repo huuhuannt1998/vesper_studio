@@ -107,9 +107,48 @@ def choose(src: Path) -> tuple[Path, str | None]:
     return src, None
 
 
-def read_scan(src: Path, scale: float | None = None) -> Scan:
+READING = "vesper-scan-reading/1"  # a mesh's reading kept to import again offline: {format, source, plan, meta}
+READERS = ("claude", "geometric")
+
+
+def save_reading(path: Path, scan: "Scan") -> None:
+    """A mesh's plan (as read, before rectify) and meta, with the model's path, written to `path` (never over a file
+    that is there), so a paid reading can be imported again with no Claude call: `vesper lab import PATH DIR`."""
+    record = {"format": READING, "source": str(Path(scan.model).resolve()), "plan": scan.plan, "meta": scan.meta,
+              "warnings": scan.warnings}
+    with open(path, "x") as f:
+        f.write(json.dumps(record, indent=1) + "\n")
+
+
+def is_reading(raw) -> bool:
+    return isinstance(raw, dict) and raw.get("format") == READING
+
+
+def load_reading(path: Path, raw: dict) -> "Scan":
+    """A saved mesh reading as a Scan: its plan and meta as they were read, its model from `source` (relative to the
+    reading's folder when not absolute). A ScanError when the model is no longer there."""
+    from vesper.lab.plan import load_plan
+    src = Path(raw.get("source") or "")
+    if not src.is_absolute():
+        src = Path(path).parent / src
+    if not src.is_file():
+        raise ScanError(f"{Path(path).name}: its model {src} is not there; import the model itself")
+    plan, meta = raw.get("plan"), raw.get("meta")
+    if not isinstance(meta, dict) or "transform" not in meta:
+        raise ScanError(f"{Path(path).name}: a reading with no meta transform")
+    load_plan(plan)
+    return Scan("mesh", src, src, plan, [], [str(w) for w in raw.get("warnings") or []], {"doors": [], "windows": []},
+                notes=[f"the reading saved in {Path(path).name} is used (by the {meta.get('reader', 'geometric')} "
+                       "reader): no new reading"], meta=meta, model=src)
+
+
+def read_scan(src: Path, scale: float | None = None, reader: str = "geometric", runner=None, model: str | None = None,
+              timeout: float | None = None) -> Scan:
     """The scan or model at `src` read into a plan (see the module). `scale`: a mesh's metres per unit (a RoomPlan
-    file is in metres: a ScanError if one is given). A ScanError with the reason when it cannot be read."""
+    file is in metres: a ScanError if one is given). `reader`, for a mesh: "geometric" (`scan_mesh.read_mesh`, from
+    its shape) or "claude" (`scan_render.read_mesh_with_claude`: Claude reads its top-down render; `runner`,
+    `model`, `timeout` are plan_read's). meta["reader"] says which. A ScanError (or a PlanError from Claude's
+    reading) with the reason when it cannot be read."""
     src = Path(src)
     suffix = src.suffix.lower()
     if suffix not in SUFFIXES:
@@ -117,8 +156,17 @@ def read_scan(src: Path, scale: float | None = None) -> Scan:
     if not src.is_file():
         raise ScanError(f"{src}: no such file")
     if suffix in MESH_SUFFIXES:
-        from vesper.lab.scan_mesh import read_mesh
-        plan, meta, warnings = read_mesh(src, scale)
+        if reader not in READERS:
+            raise ScanError(f"--reader {reader!r}: choose {' or '.join(READERS)}")
+        if reader == "claude":
+            from vesper.lab import plan_read
+            from vesper.lab.scan_render import read_mesh_with_claude
+            plan, meta, warnings = read_mesh_with_claude(src, runner, scale=scale, model=model,
+                                                         timeout=plan_read.TIMEOUT_S if timeout is None else timeout)
+        else:
+            from vesper.lab.scan_mesh import read_mesh
+            plan, meta, warnings = read_mesh(src, scale)
+            meta = {**meta, "reader": "geometric"}
         return Scan("mesh", src, src, plan, [], list(warnings), {"doors": [], "windows": []}, meta=meta, model=src)
     if scale is not None:
         raise ScanError(f"{src.name} is a RoomPlan scan, in metres: --scale is for a 3D model in other units")
