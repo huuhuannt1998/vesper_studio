@@ -3715,3 +3715,144 @@ Script `scripts/revision/r11k_agreement.py`; aggregates in `results/edt/r11k-90a
   (genuine, G1, for one rater; a binding or standard-home artefact, B, for the other).
 - **Reading.** The audits that set the binder discount and the location precision reproduce under a second, blind
   rater.
+
+## Revision R11-P2 (Addendum 23): the moisture excess, a per-site outdoor perturbation, the in-context setback set at 2 W/m²
+
+**Post hoc: written after the eighth internal review, before its runs.** Registered as protocol Addendum 23 at
+`19643e1`, committed alone before any number below was computed. One dated deviation (A23.5, below). Script:
+`scripts/revision/r11p2.py` (tests `tests/edt/test_r11p2.py`, written first). New knobs in `vesper.env.indoor`:
+`MOISTURE_EXCESS_SCALE` (on EN ISO 13788's class excess alone) and `OUTDOOR_T_SERIES` (a per-site hourly series added to
+the outdoor air, its vapour pressure kept). Both are bit-identical at their defaults by the extended fingerprint test.
+Numbers: `results/edt/r11p2-f6516b1.json` (aggregates and anonymous indices only). 4 workers, under nice. Review 8's
+item numbers are in brackets.
+
+**The open-loop path (A23.0).** R7-B's replay set (954 run automations of `8fcd672`), open loop in all 48 environments,
+every trace recorded afresh per setting (about 64 s per setting; no environment failed at any setting).
+- *The reference reproduces R6-D's engine-corrected sweep `5b54586` exactly:* 0 of 45,792 outcomes differ, with 0 kind
+  and 0 membership mismatches. Against `8fcd672` it differs in 3,012 outcomes and 5 clock memberships, exactly as
+  R7-B's references did (A13.6).
+- So the published memberships are `5b54586`'s: 199 frame flags, 104 temperature-reader frame flags, 36 humidity
+  flags, 42 ERA5-only flags, 100 frame orientation witnesses, 785 clock flags, and **185 city-witness flags** (frame
+  flags with a one-date, one-bearing city pair whose frame-restricted divergences are not empty; R4-A's axis count).
+
+### Item 6: the moisture excess (A23.1)
+
+The class-1 excess (270 Pa at or below 0 °C outdoors, falling linearly to 0 at 20 °C) at ×0 (no moisture source, the
+resident-free home's own assumption), ×0.5 and ×1 (as built, the reference).
+
+| Family | Published | ×0 | ×0.5 | Robust core / possible set over ×0, ×0.5, ×1 |
+|---|---|---|---|---|
+| **Humidity flags (frame)** | 36 | 36 | 36 | **36 / 36** |
+| Humidity readers' clock flags | 37 | 37 | 37 | 37 / 37 |
+| Frame orientation witnesses reading a humidity | 31 | 30 | 30 | 30 / 31 |
+| Frame flags | 199 | 199 | 199 | 199 / 199 |
+| Clock flags (secondary) | 785 | 785 | 785 | 785 / 785 |
+
+- **The 36 humidity flags do not rest on the occupancy-derived source.** All 36 are flagged at ×0 and ×0.5, and none
+  of them changes kinds. The excess moves 297 outcomes (×0) and 275 outcomes (×0.5) among the 63 humidity readers, but
+  no flag. One orientation witness reading a humidity loses its orientation pair at both settings, and stays flagged.
+- *Check (outside the 63).* 19 outcomes (×0) and 18 outcomes (×0.5) change, in 2 automations. Both read a room's
+  humidity sensor that the binder put in place, but their quantity classification (from the names as written) is
+  empty: this is R4-B's caveat about the affected set. Both are frame flags, and both stay flagged at every setting.
+- By A23.1's reading rule, Table V's humidity row can keep its 36 at any excess from 0 to 270 Pa. R7-B's governing
+  terms (the indoor temperature level, and the warm-up from the 20.5 °C start state) are unchanged by this result.
+
+### Item 7: a per-site outdoor perturbation (A23.2)
+
+*The residual series.* Hourly ERA5 minus station, from cached inputs only (nothing fetched):
+- **Belgium:** dataset A's airport outdoor temperature, Jan–May 2016, n 3,289 h. Bias +0.196 °C, RMSE 0.754 °C,
+  r 0.991, lag-1 autocorrelation 0.765; 135 whole local days.
+- **Valencia:** NOAA ISD Manises, R6-B's record, n 1,035 h. Bias +0.704 °C, RMSE 1.469 °C, r 0.965 (A9.8's numbers
+  reproduced); lag-1 autocorrelation 0.738; 40 whole local days.
+
+*Deviation A23.5.* The Belgian check value registered (bias −0.08 °C, RMSE 0.97 °C) is W on A against Open-Meteo's
+pre-pin default blend. Against the pinned ERA5 that every sweep uses, W on A is +0.20 °C / 0.75 °C
+(`results/environment/environment-20261104T212613Z.json`), and the residual series here reproduces that exactly. The
+check was therefore judged against the pinned value. The blocks, the seed and the draws are as registered.
+
+*The draws.* A day-block bootstrap (the residuals are computable from the cache, so AR(1) was not used). In each of 8
+draws, each city has its own series: one source site chosen at random, then 4 of that site's whole days, negated (the
+air as the station measured it). The series is the same for the city's 4 dates and 2 bearings. Each draw's pooled
+mean over the cities is −0.26 to −0.57 °C, and its RMS 0.90 to 1.54 °C. Sources per draw: Belgium 2–5 cities,
+Valencia 1–4.
+
+| Family | Published | Per draw, min–max | **Robust core over the 8 draws** | Possible set | Core with the reference (9 settings) |
+|---|---|---|---|---|---|
+| **Temperature-reader frame flags** | 104 | 103–105 | **103** | 105 | 103 / 105 |
+| **City-witness flags** | 185 | 184–186 | **184** | 186 | 184 / 186 |
+| **ERA5-only flags (R4-A's rung-2.5 partition)** | 42 | 42–42 | **42** | 42 | 42 / 42 |
+| Frame flags | 199 | 198–200 | 198 | 200 | 198 / 200 |
+| Humidity flags | 36 | 36–36 | 36 | 36 | 36 / 36 |
+| Frame orientation witnesses | 100 | 90–101 | 87 | 103 | 87 / 103 |
+| Clock flags (secondary) | 785 | 770–784 | 768 | 786 | 768 / 786 |
+
+- **The review's prediction does not hold in these draws:** all 42 ERA5-only flags are flagged in all 8 draws (42 of
+  42, against 103 of 104 temperature readers and 184 of 185 city witnesses).
+- The one frame flag lost is a temperature reader and a city witness that is lost in 2 of the 8 draws. The one flag
+  gained is also a temperature reader and a city witness, gained in 2 draws. 1 of the 199 changes kinds somewhere.
+- What a per-city perturbation moves is the orientation-witness set: 87 of 100 hold in every draw, and 13 are lost in
+  at least one. An orientation pair shares its city's series, so these losses come from moving the air temperature
+  level of a pair together, not from separating it. The clock relation loses 17 of 785 in some draw (13 of them in 7
+  of the 8).
+- *Check (outside the run automations reading a temperature or a humidity).* 31–40 outcomes change per draw, in 3–4
+  automations. Each reads a room temperature or humidity sensor through the binder, with an empty quantity
+  classification. No frame flag among them changes.
+- Per draw, 1,541–1,799 outcomes change inside the temperature and humidity readers: the perturbation is not inert.
+  It moves when things fire, but not whether an automation is flagged.
+
+### Item 10(c): the in-context setback set at 2 W/m² (A23.3)
+
+R2-c's 22 setback automations of `120f4ca` in the core four environments (Minneapolis and Stockholm, 2026-01-14, plan
+north 0 and 180): 88 runs, closed loop, under the hallway thermostat. Each was run alone, with its repository's other
+run automations, and as that context without it, with a baseline per environment. The corner is R4-B's
+`G2-Foff-W1-C165`. There are 268 sessions per corner (about 80 s each corner); no run was refused.
+
+*Check (G0, the nominal corner, current code).* It reproduces R4-B's A7.4 run for run: 88 of 88 equal alone and 88 of
+88 equal in context (53 alone, 15 in context, 5 surviving, 10 new, 48 lost, all restored by a companion). Addendum 10's
+engine fixes change none of these runs.
+
+| | G0 (R4-B's nominal, reproduced) | **G2 (2 W/m², the headline corner)** |
+|---|---|---|
+| Breaching runs alone (of 88) | 53 | **37** (R9-Z's) |
+| Breaching runs in context | 15 | **13** |
+| ... surviving from alone | 5 | 5 |
+| ... of which the automation's own | 1 | 1 |
+| ... new in context | 10 | **8** |
+| Lost in context (all restored by a companion's setpoint) | 48 | 32 |
+| Automations breaching alone / in context | 16 / 4 | 16 / 4 |
+| Repositories breaching in context | 3 | 3 |
+| Coldest caused room in context, min / median / max | 1.5 / 7.7 / 8.4 °C | 2.9 / 4.5 / 9.7 °C |
+
+*By rule kind, at G2.*
+- The 4 automations still breaching in context (A4, A11, A13, A17) are the 4 of the 22 that turn the thermostat off
+  (A18.5's static split). None of the 18 setpoint-only rules breaches in context at either corner.
+- In the run (accepted thermostat-off commands):
+  - the **8 new** in-context breaches (A4 4, A17 4) all have a **companion** turning the thermostat off;
+  - the 5 surviving (A13 4, A11 1) have the target itself turning it off;
+  - none is setpoint-only.
+- At G0 two more of A11's runs are new, with the target's own off command; at G2 they are not breaches.
+
+So at the headline corner, 37 breaching runs alone become **13 in context, every one from a rule that switches the
+thermostat off**. 8 of the 13 are new, and in all 8 a companion switches it off.
+
+### What this changes, stated
+
+- [6] The 36 humidity flags are robust to the moisture excess: 36 of 36 survive at ×0, ×0.5 and ×1. The
+  occupancy-derived source is not what produces them.
+- [7] Under 8 per-site day-block draws of ERA5's station residuals, the robust cores are:
+  - temperature readers: 103 of 104;
+  - city witnesses: 184 of 185;
+  - ERA5-only flags: **42 of 42**;
+  - frame flags: 198 of 199;
+  - orientation witnesses: 87 of 100.
+- [10(c)] At 2 W/m² in context, 13 of 88 runs breach (37 alone). All 13 come from rules that switch the thermostat off,
+  and the 8 new ones come from companions that do.
+
+*Concerns, stated.*
+- The draws borrow two European airports' error structure for six cities. Most draws are colder than ERA5 on average
+  (both sites' ERA5 is warm of the station), so the bracket is not symmetric. Each city's 4 dates share one series.
+- 8 draws give a core, not a probability.
+- The open-loop items see only the 954-automation replay set.
+- The quantity classification by names misses a few binder-placed sensor reads. The checks found 2 such automations
+  in item 6 and 3–4 in item 7, and none changed a frame flag.
+- The contexts are partial, as in R4-B.
