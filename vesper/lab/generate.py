@@ -323,10 +323,11 @@ def _porch_for(k: int, d: dict, room: str, along, out, outlines: dict, porches: 
     from vesper.lab.plan import door_name
     others += [(f"the porch of {door_name(p['door'], numbers)}", p["polygon"]) for p in porches]
 
-    def new(width: float, depth: float) -> dict:
-        porch = {"id": _unique("porch", taken), "polygon": _strip(at, along, out, -width / 2, width / 2, depth),
-                 "door": k, "origin": at, "along": along, "out": out, "lo": -width / 2, "hi": width / 2,
-                 "depth": depth}
+    def new(width: float, depth: float, shift: float = 0.0) -> dict:
+        lo, hi = shift - width / 2, shift + width / 2
+        porch = {"id": _unique("porch", taken), "polygon": _strip(at, along, out, lo, hi, depth),
+                 "door": k, "origin": at, "along": along, "out": out, "lo": lo, "hi": hi,
+                 "depth": depth, "door_width": w}
         taken.add(porch["id"])
         porches.append(porch)
         return porch
@@ -349,18 +350,40 @@ def _porch_for(k: int, d: dict, room: str, along, out, outlines: dict, porches: 
                 lo, hi = min(p["lo"], t - width / 2), max(p["hi"], t + width / 2)
                 poly = _strip(p["origin"], p["along"], p["out"], lo, hi, p["depth"])
                 if not _blockers(poly, [o for o in others if o[1] is not p["polygon"]]):
-                    p.update(polygon=poly, lo=lo, hi=hi)
+                    p.update(polygon=poly, lo=lo, hi=hi, shared=True)
                     return p
     # a recessed door: the porch shrinks to fit, the deepest that does, at its widest, down to PORCH_LEAST
     least_w = max(PORCH_LEAST[0], w)
-    for depth in (round(PORCH_TRIES[0][0] - 0.1 * n, 3) for n in range(100)):
-        if depth - WALL < PORCH_LEAST[1] - _TOL:
-            break
-        for width in (round(PORCH_TRIES[-1][1] - 0.05 * n, 3) for n in range(100)):
-            if width < least_w - _TOL:
+
+    def recessed(others, shifts=(0.0,)) -> tuple[float, float, float] | None:
+        for depth in (round(PORCH_TRIES[0][0] - 0.1 * n, 3) for n in range(100)):
+            if depth - WALL < PORCH_LEAST[1] - _TOL:
                 break
-            if not _blockers(_strip(at, along, out, -width / 2, width / 2, depth), others):
-                return new(width, depth)
+            for width in (round(PORCH_TRIES[-1][1] - 0.05 * n, 3) for n in range(100)):
+                if width < least_w - _TOL:
+                    break
+                for shift in shifts:
+                    if abs(shift) > (width - w) / 2 + _TOL:  # the porch always covers its door
+                        continue
+                    if not _blockers(_strip(at, along, out, shift - width / 2, shift + width / 2, depth), others):
+                        return width, depth, shift
+        return None
+    if (fit := recessed(others)) is not None:
+        return new(*fit)
+    # two doors round the corners of a stepped wall (as a scan has them): this door's porch slides along its wall, still
+    # covering the door; else another door's porch, when it serves that door alone and is wider than it needs, is
+    # narrowed to its least (PORCH_LEAST, or its door's width) on its door, when that lets this one fit beside it
+    slides = (0.0, *(s * 0.05 * n for n in range(1, 21) for s in (1, -1)))
+    if (fit := recessed(others, slides)) is not None:
+        return new(*fit)
+    for p in sorted(porches, key=lambda p: math.dist(p["origin"], at)):
+        least = max(PORCH_LEAST[0], p.get("door_width", math.inf))
+        if p.get("shared") or p["hi"] - p["lo"] <= least + _TOL:
+            continue
+        poly = _strip(p["origin"], p["along"], p["out"], -least / 2, least / 2, p["depth"])
+        if (fit := recessed([(n, poly if o is p["polygon"] else o) for n, o in others], slides)) is not None:
+            p.update(polygon=poly, lo=-least / 2, hi=least / 2)
+            return new(*fit)
     names = ", ".join(first)
     raise GenerateError(f"{door_name(k, numbers)} (from {room!r} to the outside): {names} "
                         f"{'stand' if len(first) > 1 else 'stands'} where its porch would be; check the plan")

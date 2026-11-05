@@ -655,6 +655,39 @@ def test_a_door_near_a_corner_is_measured_to_its_wall_then_kept_clear_of_the_cor
     assert rectify(p)["doors"][0]["at"] == [5, pytest.approx(3.55)]
 
 
+L_ROOM = [[0, 0], [4, 0], [4, 2], [3, 2], [3, 3.2], [0, 3.2]]  # an L: its wall x = 3 meets a jutting corner at (3, 2)
+
+
+def test_a_door_by_a_corner_where_its_own_room_juts_out_is_moved_clear_of_it_silently():
+    """A door 5 cm from the corner where its room's wall turns out past it (Darwin's stepped wall) would open into
+    that wall: it moves along its wall to leave 0.25 m at the corner, as two doors at a corner do (A7), unsaid."""
+    p = metres([room("bed", "bedroom", L_ROOM)],
+               doors=[{"at": [3, 2.5], "width": 0.9, "rooms": ["bed", "outside"]}], entrance=0)
+    warnings = []
+    out = rectify(p, warnings)
+    assert out["doors"][0]["at"] == [3, pytest.approx(2.7)] and out["doors"][0]["width"] == pytest.approx(0.9)
+    assert warnings == []
+    assert check_house(out) == []
+
+
+def test_a_door_by_a_jutting_corner_on_a_short_wall_is_narrowed_with_a_warning():
+    p = metres([room("bed", "bedroom", L_ROOM)],
+               doors=[{"at": [3, 2.6], "width": 1.0, "rooms": ["bed", "outside"]}], entrance=0)
+    warnings = []
+    out = rectify(p, warnings)
+    assert out["doors"][0]["width"] == pytest.approx(0.9)
+    assert out["doors"][0]["at"] == [3, pytest.approx(2.7)]
+    assert warnings == ["door 1 between 'bed' and 'outside' (1.00 m) stands by a corner where its room's wall turns "
+                        "out past it: narrowed to 0.90 m to leave 0.25 m of wall at the corner"]
+
+
+def test_a_door_by_an_ordinary_corner_of_its_room_stays_where_it_was():
+    """Only a jutting corner moves a door: one at the room's own (convex) corner is left as A7 leaves it."""
+    p = metres([room("bed", "bedroom", L_ROOM)],
+               doors=[{"at": [3, 2.7], "width": 0.9, "rooms": ["bed", "outside"]}], entrance=0)
+    assert rectify(p)["doors"][0]["at"] == [3, pytest.approx(2.7)]  # 0.05 m from the convex corner (3, 3.2)
+
+
 def test_a_room_drawn_inside_another_is_refused_with_how_far_in_it_is():
     p = metres([room("living", "living", rect(0, 0, 8, 6)), room("kitchen", "kitchen", rect(2, 1.5, 5, 4.5))])
     with pytest.raises(PlanError, match=r"room 'kitchen' lies inside 'living' by 3.00 m: redraw them as separate"):

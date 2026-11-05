@@ -332,3 +332,18 @@ def test_the_cued_meeting_room_imports_with_a_scale_warning(tmp_path, capsys):
     assert "times their usual size: measured in metres, so built as measured" in said
     assert any(i["source"] == "scan" for i in items(out))
     assert (out / "source" / "room.json").is_file() and (out / ".gitignore").is_file()
+
+
+@pytest.mark.parametrize("name", ["room.json", "room_p.usdz"])
+def test_the_darwin_bedroom_imports_its_doors_kept_clear_of_its_stepped_wall_s_corners(tmp_path, capsys, name):
+    src = SCANS / "litereality-darwin-bedroom-roomplan" / "roomplan" / name
+    if not src.is_file():
+        pytest.skip("the scan test set is not here")
+    if name.endswith(".usdz"):
+        pytest.importorskip("pxr")
+    cat, _ = setup(tmp_path)
+    out = tmp_path / "darwin"
+    assert cli.main(["lab", "import", str(src), str(out), "--catalog", str(cat)]) == 0
+    assert "stands by a corner where its room's wall turns out past it" in capsys.readouterr().out
+    home = load_lab_home(out / "home.yaml", load_catalog(cat))
+    assert {r.id for r in home.map.rooms} == {"bedroom", "porch", "porch_2"}

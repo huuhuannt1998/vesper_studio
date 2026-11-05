@@ -399,7 +399,12 @@ def test_a_door_that_does_not_open_between_its_rooms_is_named():
 def test_a_porch_in_the_way_is_named_by_its_door_as_read():
     plan = three_rooms()
     plan["doors"].append({"at": [0, 4.0], "width": 0.9, "rooms": ["lr", "outside"]})  # a back door by the front one
-    plan["rooms"].append({"id": "shed", "name": "Shed", "type": "other", "polygon": rect(-2.5, 4.6, -1.0, 5.0)})
+    shed = {"id": "shed", "name": "Shed", "type": "other", "polygon": rect(-2.5, 4.6, -1.0, 5.0)}
+    plan["rooms"].append(shed)
+    # the front door's porch, narrowed to its least, leaves the back door's room for its own: both built
+    m = floor_plan_from(copy.deepcopy(plan), "imported/two", numbers=[0, 1, 2, 8])
+    assert sum(1 for r in m.rooms if r.id.startswith("porch")) == 2
+    shed["polygon"] = rect(-2.5, 3.3, -0.5, 5.0)  # the shed right outside the back door: no porch fits
     with pytest.raises(GenerateError, match=r"door 9 \(from 'lr' to the outside\)"):
         floor_plan_from(plan, "imported/two", numbers=[0, 1, 2, 8])
 
@@ -485,6 +490,26 @@ def test_a_recessed_entrance_gets_a_porch_that_fits_inside_the_recess(tmp_path, 
     capsys.readouterr()
     assert cli.main(["lab", "layout", str(out / "home.yaml"), "--catalog", str(cat)]) == 0
     assert "0 error(s)" in capsys.readouterr().out
+
+
+# A scanned bedroom (LiteReality's Darwin, rectified): its east wall steps in twice, a door to the outside on each
+# step, 0.12 m apart round the step's corner
+STEPPED = {"format": "vesper-plan/1", "units": "m", "scale": None,
+           "rooms": [{"id": "r1", "name": "bedroom", "type": "bedroom",
+                      "polygon": [[-1.04, 2.72], [-1.04, -2.54], [2.18, -2.54], [2.18, 0.72], [1.69, 0.72],
+                                  [1.69, 1.77], [1.48, 1.77], [1.48, 2.72]]}],
+           "doors": [{"at": [1.69, 1.35], "width": 0.75, "rooms": ["r1", "outside"]},
+                     {"at": [1.48, 2.35], "width": 0.64, "rooms": ["r1", "outside"]}],
+           "windows": [], "entrance": 0}
+
+
+def test_two_outside_doors_round_a_step_of_one_wall_each_get_a_porch():
+    """The second door's porch slides along its wall (still covering its door) to keep a wall from the first's."""
+    m = floor_plan_from(STEPPED, "imported/stepped")
+    assert {d.id for d in m.doorways} == {"porch-r1", "porch_2-r1"}
+    first, second = m.room("porch").polygon, m.room("porch_2").polygon
+    assert max(z for _, z in first) + 0.1 <= min(z for _, z in second) + 1e-9
+    assert min(z for _, z in second) <= 2.35 - 0.32 and max(z for _, z in second) >= 2.35 + 0.32  # covers its door
 
 
 def test_a_recess_narrower_than_a_porch_s_least_width_is_refused_naming_the_rooms():

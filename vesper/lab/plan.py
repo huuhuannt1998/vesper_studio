@@ -1083,6 +1083,41 @@ def rectify(plan_m: dict, warnings: list[str] | None = None, numbers: list[int] 
                 f"{'a corner' if len(them) == 1 else 'corners'}: narrowed to {now:.2f} m to leave "
                 f"{max(partners.values()):.2f} m of wall at {where}")
 
+    # a door to the outside beside a corner where its own room's wall turns out past the door's wall (a jutting
+    # corner: an L-shaped room's notch, a scanned room's stepped wall) would open into that wall's thickness, and no
+    # porch fits in front of it: it is moved along its wall to leave CORNER_M of wall at the corner (silently),
+    # narrowed (and said) only when its wall is too short for that, and left as it is when it is too short even so. A
+    # door between two rooms is left to A7's rule above: the room beyond fills the notch, so no porch is built there
+    jut: dict[str, list[Point]] = {}
+    for r, ring in zip(plan["rooms"], rings, strict=True):
+        s = _signed_area(ring)
+        jut[r["id"]] = [v for p, v, n in zip(ring[-1:] + ring[:-1], ring, ring[1:] + ring[:1], strict=True)
+                        if ((v[0] - p[0]) * (n[1] - v[1]) - (v[1] - p[1]) * (n[0] - v[0])) * s < -_EPS]
+    for k in sorted(spans):
+        if "outside" not in doors[k]["rooms"]:
+            continue
+        cls, off, lo, hi = spans[k]
+        width = hi - lo
+        corners = [v[0] if cls == "h" else v[1] for s in doors[k]["rooms"] if s != "outside" for v in jut[s]
+                   if abs((v[1] if cls == "h" else v[0]) - off) < 1e-6]
+        near = [c for c in corners if _clear(spans[k], c) < CORNER_M - 1e-9]
+        if not near:
+            continue
+        b = list(bounds[k])
+        for c in near:
+            nb = bound(k, c, CORNER_M)
+            b = [max(b[0], nb[0]), min(b[1], nb[1])]
+        if b[1] - b[0] < least:
+            continue
+        bounds[k] = b
+        place(k)
+        now = spans[k][3] - spans[k][2]
+        if now < width - 1e-9:
+            a, other = doors[k]["rooms"]
+            say(f"{door_name(k, numbers)} between {named(a)} and {named(other)} ({width:.2f} m) stands by a corner "
+                f"where its room's wall turns out past it: narrowed to {now:.2f} m to leave {CORNER_M:.2f} m of wall "
+                "at the corner")
+
     # a door between rooms that do not touch: left out when no room needs it to be reached from the entrance (with
     # no entrance, kept as it is: check_house says the entrance is missing, and this is decided once there is one)
     if loose and entrance is not None:
