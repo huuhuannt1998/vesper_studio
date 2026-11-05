@@ -31,7 +31,9 @@ and U_WINDOW (the outside walls' and the glass's U values) and PER_ROOM_THERMOST
 every room without a thermostat of its own on the hallway's reading, central heating; 1: every such room has a
 thermostat of its own that holds the hallway thermostat's setpoint and mode on the room's own reading; read by
 vesper.lab.rules); and (revision R10-Q, protocol Addendum 21) BEAM_LIGHT_SCALE (on the interior beam term of the
-daylight alone). At their defaults the model is the one built, to the bit."""
+daylight alone); and (revision R11-P2, protocol Addendum 23) MOISTURE_EXCESS_SCALE (on EN ISO 13788's class excess
+alone) and OUTDOOR_T_SERIES (a per-site hourly series of kelvin added to the outdoor air, its vapour pressure kept). At
+their defaults the model is the one built, to the bit."""
 from __future__ import annotations
 
 import dataclasses
@@ -89,12 +91,19 @@ PER_ROOM_THERMOSTAT = 0
 # on the interior beam (direct-sun) term of a room's daylight alone; the diffuse term, the solar heat and
 # DAYLIGHT_SCALE unchanged (revision R10-Q, protocol Addendum 21: bracketed by the thermal validation's k̂; 1.0 as built)
 BEAM_LIGHT_SCALE = 1.0
+# on EN ISO 13788's class excess (moisture_excess_kpa) alone: an occupancy load in a home with no residents; 0 is
+# class 0 at any HUMIDITY_CLASS (revision R11-P2, protocol Addendum 23; 1.0 as built)
+MOISTURE_EXCESS_SCALE = 1.0
+# None, or {site name: [kelvin at hour 0, 1, ... after the run's first local midnight]}: added to the outdoor air
+# temperature (linearly between hours, held beyond the last), its vapour pressure kept, at that site only; a per-site
+# outdoor perturbation (revision R11-P2, protocol Addendum 23; None as built)
+OUTDOOR_T_SERIES = None
 
 
 KNOBS = ("DAYLIGHT_SCALE", "CAPACITY_SCALE", "HUMIDITY_T_OFFSET_C", "INTERNAL_GAINS_W_PER_M2", "ROOF_GROUND",
          "PREWARM_DAYS", "SOLAR_APERTURE_SCALE", "OUTDOOR_T_OFFSET_C", "HUMIDITY_CLASS", "ACH", "DIRECT_SHARE",
          "RECORDED_SPLIT", "GROUND_REFLECTED", "INDOOR_T_OFFSET_C", "U_WALL", "U_WINDOW", "PER_ROOM_THERMOSTAT",
-         "BEAM_LIGHT_SCALE")
+         "BEAM_LIGHT_SCALE", "MOISTURE_EXCESS_SCALE", "OUTDOOR_T_SERIES")
 # knobs that live in another module; every other one is this module's
 _KNOB_HOME = {"DIRECT_SHARE": _sun, "RECORDED_SPLIT": _sun, "GROUND_REFLECTED": _sun}
 
@@ -151,7 +160,20 @@ def e_sat(t_c: float) -> float:
 def moisture_excess_kpa(t_out_c: float) -> float:
     """A dwelling's indoor vapour-pressure excess over the outdoor air, kPa (EN ISO 13788 internal humidity
     classes): CLASS_PA per class at or below 0 °C outside, falling linearly to none at 20 °C."""
-    return HUMIDITY_CLASS * CLASS_PA / 1000 * min(1.0, max(0.0, (20.0 - t_out_c) / 20.0))
+    excess = HUMIDITY_CLASS * CLASS_PA / 1000 * min(1.0, max(0.0, (20.0 - t_out_c) / 20.0))
+    return excess * MOISTURE_EXCESS_SCALE if MOISTURE_EXCESS_SCALE != 1.0 else excess
+
+
+def series_value(series, seconds: float) -> float:
+    """An hourly series (values at whole hours after the run's first local midnight) at `seconds`: linear between
+    hours, its first value before them and its last beyond them; 0 for no series."""
+    if not series:
+        return 0.0
+    h = max(0.0, seconds / 3600)
+    k = int(h)
+    if k >= len(series) - 1:
+        return float(series[-1])
+    return series[k] + (series[k + 1] - series[k]) * (h - k)
 
 
 def _angle(a: float, b: float) -> float:
@@ -290,9 +312,12 @@ class HomeEnvironment:
         """The outdoors at `seconds`, with OUTDOOR_T_OFFSET_C added to the air temperature (its vapour pressure kept,
         so its relative humidity is that vapour at the shifted temperature)."""
         state = self.outdoor.at(seconds)
-        if OUTDOOR_T_OFFSET_C:
+        add = OUTDOOR_T_OFFSET_C
+        if OUTDOOR_T_SERIES is not None:
+            add += series_value(OUTDOOR_T_SERIES.get(self.outdoor.site.name), seconds)
+        if add:
             vapour = state.humidity_pct / 100 * e_sat(state.temperature_c)
-            t = state.temperature_c + OUTDOOR_T_OFFSET_C
+            t = state.temperature_c + add
             state = dataclasses.replace(state, temperature_c=t, humidity_pct=min(100.0, 100 * vapour / e_sat(t)))
         return state
 
@@ -380,5 +405,7 @@ class HomeEnvironment:
                                             ("GROUND_REFLECTED", _sun.GROUND_REFLECTED, 0),
                                             ("INDOOR_T_OFFSET_C", INDOOR_T_OFFSET_C, 0.0),
                                             ("PER_ROOM_THERMOSTAT", PER_ROOM_THERMOSTAT, 0),
-                                            ("BEAM_LIGHT_SCALE", BEAM_LIGHT_SCALE, 1.0)) if v != d},
+                                            ("BEAM_LIGHT_SCALE", BEAM_LIGHT_SCALE, 1.0),
+                                            ("MOISTURE_EXCESS_SCALE", MOISTURE_EXCESS_SCALE, 1.0)) if v != d},
+            **({"outdoor_t_series": sorted(OUTDOOR_T_SERIES)} if OUTDOOR_T_SERIES is not None else {}),
             "start_c": START_C, "windows": sum(len(r.windows) for r in self.rooms.values())}}

@@ -176,11 +176,11 @@ DEFAULTS = {"DAYLIGHT_SCALE": 1.0, "CAPACITY_SCALE": 1.0, "HUMIDITY_T_OFFSET_C":
             "ROOF_GROUND": 0.0, "PREWARM_DAYS": 0.0, "SOLAR_APERTURE_SCALE": 1.0, "OUTDOOR_T_OFFSET_C": 0.0,
             "HUMIDITY_CLASS": 1, "ACH": 0.5, "DIRECT_SHARE": 0.8, "RECORDED_SPLIT": 0, "GROUND_REFLECTED": 0,
             "INDOOR_T_OFFSET_C": 0.0, "U_WALL": 0.35, "U_WINDOW": 1.4, "PER_ROOM_THERMOSTAT": 0,
-            "BEAM_LIGHT_SCALE": 1.0}
+            "BEAM_LIGHT_SCALE": 1.0, "MOISTURE_EXCESS_SCALE": 1.0, "OUTDOOR_T_SERIES": None}
 
 
 def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
-    """Every knob (R2-a's, Addendum 7's, Addendum 9's, 13's, 14's, 18's and 21's) at its default: the model of
+    """Every knob (R2-a's, Addendum 7's, Addendum 9's, 13's, 14's, 18's, 21's and 23's) at its default: the model of
     120f4ca, to the bit."""
     from vesper.env import indoor
     assert set(indoor.KNOBS) == set(DEFAULTS)
@@ -193,7 +193,8 @@ def test_the_knobs_at_their_defaults_are_the_model_before_them_to_the_bit():
     assert e.prewarm(0.0, lambda: {}) == 0.0  # no warm-up at the default
     assert not {"capacity_scale", "internal_gains_w_per_m2", "roof_ground", "prewarm_days", "solar_aperture_scale",
                 "outdoor_t_offset_c", "direct_share", "recorded_split", "ground_reflected",
-                "indoor_t_offset_c", "per_room_thermostat", "beam_light_scale"} & \
+                "indoor_t_offset_c", "per_room_thermostat", "beam_light_scale", "moisture_excess_scale",
+                "outdoor_t_series"} & \
         set(e.provenance()["indoor"])
 
 
@@ -311,6 +312,68 @@ def test_an_outdoor_offset_moves_the_outdoor_air_and_the_rooms_and_keeps_the_vap
     with indoor.knobs(OUTDOOR_T_OFFSET_C=2.0):  # the porch reads env.last
         f.step(0, {}, {}, {}, 0)
     assert f.last.temperature_c == pytest.approx(e.outdoor.at(0).temperature_c + 2.0)
+
+
+# -- revision R11-P2 (protocol Addendum 23) ---------------------------------------------------------------------------
+def test_the_moisture_excess_scale_scales_the_class_excess_and_moves_only_the_humidity():
+    """x0 is class 0 (no moisture source), x0.5 half the class-1 excess; temperature and daylight unchanged."""
+    from vesper.env import indoor
+    assert indoor.moisture_excess_kpa(-5.0) == pytest.approx(0.270)
+    with indoor.knobs(MOISTURE_EXCESS_SCALE=0.5):
+        assert indoor.moisture_excess_kpa(-5.0) == pytest.approx(0.135)
+        assert indoor.moisture_excess_kpa(10.0) == pytest.approx(0.0675)
+        assert indoor.nondefault_knobs() == {"MOISTURE_EXCESS_SCALE": 0.5}
+        assert env().provenance()["indoor"]["moisture_excess_scale"] == 0.5
+    out = {}
+    for scale in (0.0, 0.5, 1.0):
+        with indoor.knobs(MOISTURE_EXCESS_SCALE=scale):
+            out[scale] = env().step(3600, {}, {}, {}, 0)
+    with indoor.knobs(HUMIDITY_CLASS=0):
+        class0 = env().step(3600, {}, {}, {}, 0)
+    assert out[0.0] == class0
+    for rid in out[1.0]:
+        for k in ("temperature", "illuminance"):
+            assert out[0.0][rid][k] == out[0.5][rid][k] == out[1.0][rid][k]
+    assert all(out[0.0][r]["humidity"] <= out[0.5][r]["humidity"] <= out[1.0][r]["humidity"] for r in out[1.0])
+    assert any(out[0.0][r]["humidity"] < out[1.0][r]["humidity"] for r in out[1.0])
+
+
+def _named_env(name="Testville"):
+    site = parse_site({**SITE, "name": name})
+    m = house()
+    return HomeEnvironment(site, Outdoor(site), room_models(m, plan_windows(m)))
+
+
+def test_an_outdoor_series_adds_its_interpolated_hourly_value_to_its_own_site_only():
+    from vesper.env import indoor
+    e = _named_env()
+    series = {"Testville": [0.0, 2.0, 4.0, -1.0]}
+    for secs, add in ((0, 0.0), (1800, 1.0), (3600, 2.0), (2.5 * 3600, 1.5), (3 * 3600, -1.0), (30 * 3600, -1.0)):
+        a = e.outdoor_at(secs)
+        with indoor.knobs(OUTDOOR_T_SERIES=series):
+            b = e.outdoor_at(secs)
+        assert b.temperature_c == pytest.approx(a.temperature_c + add)
+        assert b.humidity_pct / 100 * e_sat(b.temperature_c) == pytest.approx(
+            a.humidity_pct / 100 * e_sat(a.temperature_c))
+    with indoor.knobs(OUTDOOR_T_SERIES=series, OUTDOOR_T_OFFSET_C=0.5):  # it adds to the uniform offset
+        assert e.outdoor_at(3600).temperature_c == pytest.approx(e.outdoor.at(3600).temperature_c + 2.5)
+    other = _named_env("Elsewhere")
+    with indoor.knobs(OUTDOOR_T_SERIES=series):
+        assert other.outdoor_at(3600).temperature_c == other.outdoor.at(3600).temperature_c
+        assert indoor.nondefault_knobs() == {"OUTDOOR_T_SERIES": series}
+        assert "outdoor_t_series" in e.provenance()["indoor"]
+    warm = {"Testville": [3.0] * 30}
+    base = {rid: r.temperature for rid, r in _run_day(_named_env()).rooms.items()}
+    with indoor.knobs(OUTDOOR_T_SERIES=warm):
+        hot = _run_day(_named_env())
+        assert hot.last.temperature_c == pytest.approx(e.outdoor.at(24 * 3600).temperature_c + 3.0)  # the porch
+    assert all(hot.rooms[r].temperature > base[r] for r in base)
+
+
+def _run_day(e):
+    for t in range(0, 24 * 3600 + 1, 600):
+        e.step(t, {}, {}, {}, 0)
+    return e
 
 
 def test_a_higher_humidity_class_raises_the_room_humidity():
