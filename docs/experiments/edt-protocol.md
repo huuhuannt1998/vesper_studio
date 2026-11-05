@@ -2546,3 +2546,24 @@ each setting is reported either way (R7-B: 17; the other 50 fire nowhere in the 
 a magnitude: it does not move the beam's direction, its timing or which room it reaches. Each daylight correction is
 one number for every room and hour (check D's residual is a median over 240 hours of one dataset); A21.4's sensor
 rule is the catalog default, as in R7-B.
+
+## Addendum 24 (2026-11-05, post hoc: written after the eighth internal review, after the second rater labelled and before any comparison)
+
+**Post hoc.** Review 8, item 2(b), asks for a second rater. A second rater, independent of the binder's authors and
+blind to the first rater's labels, labelled seeded samples (seed 20261105):
+- 50 of the 179 binder cases (R4-C);
+- 30 of the 100 dead-rule cases (R4-C);
+- 25 of the 44 sun-reader locations (R8-X).
+
+The labels use the first audits' definitions, and they are kept local, as the first rater's are. Comparison rules,
+fixed before any comparison:
+
+- **Binder.** Raw agreement and Cohen's κ on the four-way label (correct, correct_conv, misbind, uncertain), and on
+  the binary misbind vs not-misbind with uncertain cases dropped from a pair when either rater marks them uncertain.
+  Class agreement on the cases both raters call misbind.
+- **Dead.** Raw agreement and κ on the class, and on the binary genuine (G1–G3) vs not.
+- **Sun location.** Raw agreement and κ on located vs mislocated, with uncertain dropped as above.
+- **Re-estimates.** The second rater's misbind share and location precision on its own sample, beside the first
+  rater's on the same ids. Wilson intervals.
+
+Aggregates only, under the section "Revision R11-K (Addendum 24)". No pass/fail criterion.
