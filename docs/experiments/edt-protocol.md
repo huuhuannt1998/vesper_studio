@@ -1215,3 +1215,102 @@ one engine-corrected sweep reported beside it.
 
 No pass/fail criterion. If the run disagrees with `8fcd672` beyond the two defects' reach, that is reported as a
 finding about the engine, not explained away.
+
+## Addendum 14 (2026-11-05, post hoc: written after the fourth internal review, before its runs)
+
+**Post hoc**: written after the fourth internal review (its item 9, "replace two assumed shortwave inputs with
+recorded ones, and test the single-weather-year design") and after every result it revisits was seen, but before any
+run below. Nothing earlier changes: `8fcd672` stays the paper's primary sweep and every earlier number stands. Code:
+the options and the year parameter are at `986b5d6` (tests first); the script is
+`scripts/revision/r7w_weather.py` (`c0b624c`); every run below is at the commit that adds this addendum. Results:
+`results/edt/r7w-<commit7>.json` (aggregates only) and a section "Revision R7-W (Addendum 14)" of `results-edt.md`.
+No pass/fail criterion is registered here.
+
+**A14.1 Weather fetched (the only new data).** The Open-Meteo archive (`https://archive-api.open-meteo.com/v1/archive`),
+hourly, GMT, politely: a generic User-Agent (`python-httpx`), no e-mail address, 2 s between requests, every request's
+URL logged (`requests.jsonl` in the lane's scratch directory, `~/vesper-lab/edt/r7-W/`). A day already cached is never
+asked for again; the recorded weather of `work-120f4ca` is never fetched again.
+
+- (a) `direct_radiation` and `diffuse_radiation` (`models=era5`, W/m², the mean of the hour before the stamp, on the
+  horizontal) for the 6 cities x 4 dates, over the same UTC days the recorded weather covers (4 per city and date).
+- **Snow depth (stated before any run).** The archive answers `snow_depth` with nulls under `models=era5` (seen in
+  the first fetch, 2026-11-05). It is taken from ERA5-Land (`models=era5_land`, 0.1°, the land component of the same
+  reanalysis), the same windows. Where ERA5-Land has no value (a sea cell), the albedo is 0.2.
+- (b) The three years before the recorded one. The recorded year is 2026, so the years are 2023, 2024 and 2025 (the
+  brief's two choices coincide). Same month and day (01-14, 04-15, 07-15, 10-14); the weekday is not kept (the dates
+  are Wednesdays only in 2026). Every variable the sweep reads (`models=era5`), plus (a)'s and the snow depth.
+- (c) For k̂ (A14.4): (a)'s variables and the snow depth over home B's days (dataset B, Valencia, 2012). Home B's
+  recorded ERA5 days are copied from the validation's cache, not fetched again.
+
+**A14.2 Two options, off by default, bit-identical when off** (indoor knobs that live in `vesper.env.sun`, set only
+through `vesper.env.indoor.knobs`; the pinned fingerprint test covers them; a trace recorded under them carries them
+in its header and is keyed by them; with both off the weather loaded, every trace and every sweep are as before, to
+the byte).
+
+- `RECORDED_SPLIT` 1: the beam share of horizontal irradiance at a moment is direct / (direct + diffuse), the two
+  recorded series interpolated as the global one is (on the hour's middle), in place of 0.8 (1 - cloud). The global
+  irradiance itself is unchanged (ERA5's direct + diffuse equals its global). Where an hour has no recorded split, or
+  both are 0, the assumed share stands. The share sets the beam/diffuse split of both the solar heat and the daylight,
+  as `DIRECT_SHARE` does (A9.1).
+- `GROUND_REFLECTED` 1: every window's solar heat gains G x glass x 0.5 x albedo x global horizontal irradiance (0.5,
+  a vertical surface's view of the ground), through the shade as the rest of the solar heat, and scaled by the solar
+  aperture as the rest. Albedo 0.2, or 0.6 where the snow depth exceeds 0.01 m (assumed constants, the review's).
+  **Solar heat only; the daylight is unchanged** (the BRE daylight factor is a sky-only formula, and the illuminance
+  path is inert under the device reporting rule, R6-A).
+
+**A14.3 Item 9(a): one sweep with both options on.** Rung 4, the 48 environments of `8fcd672`, the current binder, the
+device reporting rule, a fresh work directory, at most 4 workers under nice. Weather: `work-120f4ca`'s recording
+copied, plus (a)'s sidecars. Check, reported: every trace's header names the recorded split and the snow depth for
+all its days, and the two knobs. Reported against `8fcd672` (primary) and against R6-D's `5b54586` (the same engine,
+the options off):
+
+- Bound and run counts, negative control, failed environments.
+- Under the clock relation and the frame relation: flags, by kind; how many flags hold with the same kinds, hold with
+  other kinds, are lost, are new; the lost and the new by kind and by the quantity the automation reads.
+- **Orientation witnesses**: per relation, the minimal-witness axis counts (R4-A's method, `r4a_analyses.witnesses`;
+  orientation 100 frame / 123 clock at `8fcd672`), and the set of flagged automations that have an orientation witness
+  (two environments differing only in plan north whose outcomes diverge, restricted to the pair, under that relation):
+  its size, held, lost and new.
+- Context: per city and date, over the sun-up hours of the run's three local days, the mean recorded beam share
+  beside the mean assumed one; the windows with snow deeper than 1 cm.
+
+**A14.4 Item 9(a): k̂ again.** R6-B's method (A9.4) unchanged: home B, the grid k = 0..2 by 0.01, the pooled bias's
+root, 2,000 bootstrap resamples of local days (seed 20261105), the per-room roots and k̂_lin. Driven from the cached
+weather only (R6-B's code path fetches; here it is replaced by a read of the cache). Settings: (i) the assumed split,
+the reproduction: it must give R6-B's k̂ = 0.25 [0.2052, 0.2894]; if it does not, that is reported first and the
+others are read against the reproduced value; (ii) **the recorded split (the reported k̂)**; (iii) the recorded split
+with the ground-reflected term; (iv) the assumed split with the ground-reflected term (to separate the two). Stated
+for each: whether R4-B's x0.25-x2 bracket contains k̂. Also: home B's daylight hours with a recorded split, and the
+mean recorded and assumed shares over them. The open-loop propagation at a new k̂ (A9.4's second step) is not run.
+
+**A14.5 Item 9(b): one sweep per year.** For each of 2023, 2024 and 2025: rung 4, the 48 environments with the year's
+dates (`vesper.edt.trace.environments(year)`), the published model (no knob, the options off), that year's recorded
+weather only, the current binder, the device reporting rule, a fresh work directory, at most 4 workers under nice,
+the three runs one after another. Reported per year: bound and run counts, negative control, failed environments,
+flags under both relations by kind, and the comparison with `8fcd672` as A14.3 (held, lost, new; orientation
+witnesses).
+
+- **Stability of the 199** (`8fcd672`'s frame flags; R6-D keeps all 199 with the same kinds): how many are flagged
+  (any kinds) in each year, in **every** one of the three years, in **some** year, in none; the number flagged in
+  k = 0..3 years; how many keep the same kinds in every year; by kind, those held in every year and those held in no
+  year; by quantity, those held in no year. The same "every / some" counts for the 790 clock flags.
+
+**A14.6 Item 9(b): the setback breach count per year.** R2-c's 22 setback automations (the population as R4-B used
+it, from `120f4ca`'s sweep), R4-B's closed-loop worker and R2-c's judge (a caused breach: a room below 10 C over days
+1-2 with the automation and not in the same environment's baseline), at R4-B's nominal corner (every knob at its
+default), in the core four: Minneapolis and Stockholm, January 14, both orientations; denominator 22 x 4 = 88 runs per
+year. The standard home of `work-120f4ca`; each year's weather from its sweep's work directory. 2026 is run again as
+the reproduction: it must give R2-c's 53 of 88; if it does not, that is reported first. Reported per year: breaching
+runs of 88, automations, per city, the coldest caused room per run (min / median / max), the baseline's coldest room,
+and the outdoor air over days 1-2 per city (mean and minimum).
+
+**A14.7 Item 9(b): the best cover pair per year.** R4-A's post hoc pair cover (`r4a_analyses.pair_cover`: greedy over
+the 1,128 environment pairs on the training half; k = 1 is the exhaustive best pair), under both relations, on each
+year's sweep and on `8fcd672` and `5b54586`. The pair "changes" when its two environments' labels without the year
+(city, month-day, plan north) differ from `8fcd672`'s (Minneapolis 01-14 n0 + Stockholm 07-15 n180, under both
+relations). Reported: the pair and its training, held-out and overall coverage.
+
+**A14.8 How it will be read (stated now).** No criterion. If many of the 199 are not flagged in other years, the
+paper's "seasons" are four dates of one year, and the flags are statements about those dates' weather; that is
+reported as it comes out. A flag of the 199 that is not flagged in some year is not thereby wrong: an automation that
+diverges only under a particular weather (a cold night, a cloudy noon) is a weather-conditional finding.
