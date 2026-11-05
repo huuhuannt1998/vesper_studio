@@ -112,3 +112,37 @@ def test_a_fitted_pair_runs_and_the_model_s_constants_are_put_back(tmp_path, mon
     r = ev._rooms_with(df, site, tmp_path, spec, 3.0, 0.25)
     assert (r["ach"], r["solar_to_air"]) == (3.0, 0.25) and r["T"]["median_rmse_c"] is not None
     assert (indoor.ACH, indoor.SOLAR_TO_AIR) == (0.5, 1.0)
+
+
+def test_the_heater_log_records_each_hour_s_heating_share_and_changes_nothing():
+    """Revision R6-B (protocol A9.3): the share of each hour's steps the room heats, beside the same output."""
+    from vesper.env.site import parse_site
+    from vesper.validation.environment import simulate_room
+    site = parse_site({"city": "Chièvres, Belgium", "date": "2016-01-15"})
+    start = dt.datetime(2016, 1, 15, tzinfo=dt.UTC)
+    args = (site, start, [2.0] * 5 + [None, 30.0], [80.0] * 7, [0.0] * 7, [100.0] * 7)
+    log = []
+    assert simulate_room(*args, setpoint=20.0, heat_log=log) == simulate_room(*args, setpoint=20.0)
+    assert log[0] == 0.0 and 0 < max(log[1:5]) <= 1 and log[5] is None  # it starts at its setpoint, then heats
+    assert 0 <= log[6] <= 1
+    unheated = []
+    simulate_room(*args, setpoint=-50.0, heat_log=unheated)
+    assert unheated == [0.0] * 5 + [None, 0.0]
+
+
+def test_a_free_floating_episode_starts_where_it_is_told_and_drifts_toward_the_outdoors():
+    from vesper.env.site import parse_site
+    from vesper.validation.environment import simulate_free_float
+    site = parse_site({"city": "Chièvres, Belgium", "date": "2016-01-15"})
+    start = dt.datetime(2016, 1, 15, tzinfo=dt.UTC)
+    n = 48
+    series = ([2.0] * n, [80.0] * n, [0.0] * n, [100.0] * n)
+    out = simulate_free_float(site, start, *series, episodes=[(3, 8, 20.0), (30, 31, 15.0)])
+    assert sorted(out) == [3, 4, 5, 6, 7, 8, 30, 31]
+    assert 2.0 < out[8] < out[3] < 20.0 and all(out[h + 1] < out[h] for h in range(3, 8))
+    assert out[30] < 15.0
+    alone = simulate_free_float(site, start, *series, episodes=[(30, 31, 15.0)])
+    assert alone == {30: out[30], 31: out[31]}  # episodes are independent
+    gap = simulate_free_float(site, start, [2.0, None, 2.0], [80.0] * 3, [0.0] * 3, [100.0] * 3,
+                              episodes=[(0, 2, 20.0)])
+    assert sorted(gap) == [0]  # an episode stops at a gap in the record

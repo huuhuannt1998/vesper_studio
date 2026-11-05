@@ -232,35 +232,67 @@ class _MeasuredOutdoor:
                             direct_fraction=direct_fraction(self.cloud[k]))
 
 
-def simulate_room(site, start, temp, rh, ghi, cloud, setpoint: float, outdoor=None) -> tuple[list[float], list[float]]:
-    """T and H: the standard room driven by these hourly series, heated to `setpoint` within VESPER's band; its
-    hourly mean temperature and humidity. `outdoor`: a _MeasuredOutdoor of the same series, to share."""
+def _standard_room(site, outdoor):
+    """The standard room (STANDARD_ROOM) and its environment under `outdoor`."""
     from vesper.env.indoor import HomeEnvironment, RoomModel
-    from vesper.lab.rules import HEAT_BAND_C
     s = STANDARD_ROOM
     win = {"id": "w", "room": "r", "width": s["window"][0], "height": s["window"][1], "facing": s["facing"]}
     room = RoomModel("r", s["w"] * s["d"], 2 * (s["w"] + s["d"]),
                      s["outside_wall_m"] * 2.5 - s["window"][0] * s["window"][1], [win])
-    room.temperature = setpoint
+    return room, HomeEnvironment(replace(site, north_deg=0.0), outdoor, {"r": room})
+
+
+def simulate_room(site, start, temp, rh, ghi, cloud, setpoint: float, outdoor=None,
+                  heat_log: list | None = None) -> tuple[list[float], list[float]]:
+    """T and H: the standard room driven by these hourly series, heated to `setpoint` within VESPER's band; its
+    hourly mean temperature and humidity. `outdoor`: a _MeasuredOutdoor of the same series, to share. `heat_log`
+    (revision R6-B): if given, each hour's share of steps the room heats is appended to it (None for a gap)."""
+    from vesper.lab.rules import HEAT_BAND_C
     outdoor = outdoor or _MeasuredOutdoor(site, start, temp, rh, ghi, cloud)
-    env = HomeEnvironment(replace(site, north_deg=0.0), outdoor, {"r": room})
+    room, env = _standard_room(site, outdoor)
+    room.temperature = setpoint
     heating, t_out, h_out = False, [], []
     for hour, value in enumerate(temp):
         if value is None:  # a gap in the record: no value, and the room goes on from where it was
             t_out.append(None)
             h_out.append(None)
+            if heat_log is not None:
+                heat_log.append(None)
             env._t = None
             continue
-        ts, hs = [], []
+        ts, hs, on = [], [], 0
         for k in range(3600 // STEP_S):
             heating = room.temperature < setpoint - HEAT_BAND_C or (
                 heating and room.temperature < setpoint + HEAT_BAND_C)
+            on += heating
             v = env.step(hour * 3600 + k * STEP_S, {}, {"r": 1.0 if heating else 0.0}, {}, 0)["r"]
             ts.append(room.temperature)
             hs.append(v["humidity"])
         t_out.append(sum(ts) / len(ts))
         h_out.append(sum(hs) / len(hs))
+        if heat_log is not None:
+            heat_log.append(on / (3600 // STEP_S))
     return t_out, h_out
+
+
+def simulate_free_float(site, start, temp, rh, ghi, cloud, episodes, outdoor=None) -> dict[int, float]:
+    """Revision R6-B (protocol A9.3): the standard room without heating through each episode (first hour, last
+    hour, starting temperature), driven as `simulate_room`; {hour: the hour's mean temperature}. Each episode starts
+    afresh at its temperature; one stops at a gap in the record."""
+    outdoor = outdoor or _MeasuredOutdoor(site, start, temp, rh, ghi, cloud)
+    out: dict[int, float] = {}
+    for first, last, start_c in episodes:
+        room, env = _standard_room(site, outdoor)
+        room.temperature = start_c
+        for hour in range(first, last + 1):
+            if temp[hour] is None:
+                break
+            ts = []
+            for k in range(3600 // STEP_S):
+                env.step(hour * 3600 + k * STEP_S, {}, {}, {}, 0)
+                ts.append(room.temperature)
+            out[hour] = sum(ts) / len(ts)
+    return out
 
 
 def _values(series) -> list[float | None]:
