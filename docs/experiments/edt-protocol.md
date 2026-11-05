@@ -2314,3 +2314,115 @@ probes), the humidity series of 48 traces, and Monte Carlo over saved records. A
 deviation is dated below this addendum.
 
 **A19 note (dated 2026-11-05, after the computations).** A19.4 (a), (b) and (c) ran after the first results commit (`ce9a316`), which had recorded them as not run: (b)'s probes were then still running and (a) and (c) had not started. They ran as registered, with nothing changed, and are reported in `results/edt/r9z-ce9a316.json` and the R9-Z section. Nothing in A19.1-A19.3 changed.
+
+## Addendum 20 (2026-11-05, post hoc: written after the sixth internal review, before its runs)
+
+**Post hoc**: written after the sixth internal review (its item 5(b): build the synthetic re-triggering stratum that
+Addendum 15 could not exercise) and before any comparison run below. Nothing earlier changes: Addenda 10 and 15, their
+samples, criteria and results stand, and this addendum's numbers are reported beside them, never pooled with them.
+Code: `vesper/validation/ha_retrigger.py` (the stratum, the synthetic trace, both runs, the comparison) on Addendum
+10's harness (`ha_diff.input_stream`, `ha_diff.ha_job`, `ha_diff.run_ha`, `ha_diff_driver.py`). Results:
+`results/edt/r9r-<commit7>.json` and a section "Revision R9-R (Addendum 20)" of `results-edt.md`. Raw outputs stay in
+`~/vesper-lab/edt/r9-R/` (local). At most 2 processes at a time, under `nice -n 5`. Home Assistant runs in-process
+on the virtual clock as in Addendum 10; no port is opened.
+
+**A20.0 What was seen before this addendum (disclosed).** No engine was run on anything below. Known beforehand, from
+the code and earlier results: in the replay (permissive) VESPER's engine runs `restart`, `queued` and `parallel` as
+`single` and ignores `max` and `max_exceeded` (A15.1); R7-C saw no trigger arrive during a run of such a mode, so
+these were untested. From the two sweeps' bound automations (static counts only): `8fcd672` has 330 run automations
+with a mode other than `single` (260 `restart`, 31 `queued`, 39 `parallel`), 41 of which fire somewhere; the
+engine-corrected sweep `db19e34` has 329 (259, 31, 39), 41 firing. Among the frame flags, exactly 2 carry such a
+mode, both `restart`, both in the 199 of `8fcd672` and in the 196 of `db19e34` (frame kinds `fires_somewhere_only`,
+and `fires_somewhere_only` with `night_light`). The engine's automation code is unchanged between `db19e34` and this
+commit. Expected, stated now: the current engine agrees with Home Assistant on the `single` automation and disagrees
+on the others wherever a trigger arrives during a run.
+
+**A20.1 The stratum: 8 synthetic automations.** Written for this test, not taken from the corpus, so they may be
+committed (as data in `ha_retrigger.py`). Each is triggered by one motion sensor of the EDT standard home turning
+`on` (a `state` trigger), has no condition, and calls only its own light (and, for one, a plug) of the home, so its
+calls are its own. Entity ids are filled in from the home's MQTT discovery.
+
+| # | mode | max | actions |
+|---|---|---|---|
+| 1 | `single` (the control) | - | light on; delay 300 s; light off |
+| 2 | `restart` | - | light on; delay 300 s; light off |
+| 3 | `restart` | - | light on; delay 100 s; plug on; delay 100 s; light off; plug off |
+| 4 | `restart` | - | light on; `wait_for_trigger` (another motion sensor, which never turns on in the trace) with a 200 s timeout, continuing on timeout; light off |
+| 5 | `queued` | 3 | light on; delay 300 s; light off |
+| 6 | `queued` | default (10) | light on; delay 95 s; light off |
+| 7 | `parallel` | 2, `max_exceeded: silent` | light on; delay 300 s; light off |
+| 8 | `parallel` | default (10) | light on; delay 300 s; light off |
+
+**A20.2 The synthetic trace.** The header (site, date, the start states of every device) of R7-C's first environment's
+cached device-rule trace (`work-r6d-db19e34`, Minneapolis 2026-01-14 north 0), with its reports replaced by the
+trigger sensor's occupancy alone, on each of the run's three days (day 0 is the warm-up and is not judged; days 1 and
+2 are), each pulse `on` at the instant given and `off` 10 s later:
+
+- *A, a spaced re-trigger:* 08:00:00, 08:02:00, 08:04:00.
+- *B, a burst:* 15 pulses, 12:00:00 plus 70 s × k, k = 0..14 (the last at 12:16:20).
+- *C, an isolated trigger:* 18:00:00.
+
+The instants are chosen so that no trigger coincides with the end of any delay, wait timeout or queued run of the 8
+under either engine's semantics (the delays are not multiples of the spacings within each segment), so the order of
+two same-instant events never decides a result. Both engines see the same entity states at the same instants
+(Addendum 10's input stream: VESPER's engine with no automation writes down every state change, and Home Assistant is
+given exactly that). No other entity changes.
+
+**A20.3 Instrumentation (harness only; added after this addendum, before the first run, inert when unused).**
+
+- *VESPER:* the engine tells a session that has an `automation_run(automation, why, event)` method about each run it
+  accepts (`event` "start": at the instant the trigger is accepted, which for a queued run is when it joins the
+  queue, as Home Assistant fires `automation_triggered` then) and, once the fix of A20.5 exists, each run a `restart`
+  ends (`event` "cancel"). The replay's session records them (`Replay.runs`, default empty). Sessions without the
+  method see no change. The engine's semantics are not changed by this.
+- *Home Assistant:* run starts are the driver's existing `triggered` record (the `automation_triggered` event).
+  Cancellations are Home Assistant's own INFO log line "Restarting" of the automation's logger, captured only when the
+  job asks for it (`info_messages`; absent, the driver is unchanged). Dropped triggers are its WARNING lines "Already
+  running" and "Maximum number of runs exceeded" (none is logged with `max_exceeded: silent`).
+
+**A20.4 Measures**, per automation, over the judged days 1 and 2 (A10.1's firing: one call on one target):
+
+1. fired; the number of firings; the number of distinct firing instants;
+2. the service-call counts: the multiset of (service, target);
+3. the firing sequences: the same length, and pairwise in time order the same (service, target) within 1 s;
+4. the run starts (accepted runs) and the cancellations;
+5. the oracle's outcome components (`vesper.edt.oracle.outcome`), `flaps` among them;
+6. descriptive: dropped triggers (VESPER's `automation_skipped` reasons; Home Assistant's log lines).
+
+Reported per automation and per segment (A, B, C, by the instant of the trigger that started the run).
+
+**A20.5 Criterion and the engine fix (fixed now).** An automation *agrees* if measures 1-5 are all equal. The engine
+agrees on the stratum if all 8 agree. The first comparison is at this addendum's engine (with A20.3's
+instrumentation only). If an automation disagrees because VESPER's engine runs a mode differently from Home Assistant
+2026.10.2, the mode is implemented as Home Assistant 2026.10.2 runs it (`helpers/script.py`: `single` drops a trigger
+during a run; `restart` stops the run under way and starts a new one; `queued` waits for the run before it, `parallel`
+runs beside it; both drop a trigger when `max` runs, running and waiting, exist; `max` defaults to 10; conditions are
+checked before any of this), each mode with a failing test first, and the comparison is run again with the fixed
+engine (the secondary, which the criterion is also reported on). The sweeps are not re-run. A difference with another
+cause is reported as found.
+
+**A20.6 Reach of the fix.**
+
+- *Static:* the run automations of `8fcd672` (of 5,926) and `db19e34` (of 5,843) with each mode, how many fire
+  somewhere, and among the 199 and 196 frame flags and the clock flags (A20.0's counts, restated).
+- *Dynamic:* every run automation of `db19e34` with a mode other than `single` (329) replayed on each of that sweep's
+  48 cached traces with the engine before the fix (gate: it must reproduce the sweep's cached outcome and richer
+  outcome in every pair; a pair that does not is reported and excluded) and with the fixed engine. Reported: the
+  pairs and automations whose outcome changes, by mode and component; with the fixed engine's outcomes in place of the
+  sweep's in all 48 environments, the frame and clock flags recomputed as the sweep computes them (A10.5(a)'s
+  recomputation): held with the same kinds, held with other kinds, lost, new; among the 196 frame flags and the 2
+  `restart` ones in particular. `8fcd672`'s one further such automation (330 against 329) is the one refused since
+  Addendum 16 as disabled at startup; it is reported statically.
+
+**A20.7 The 2 `restart` frame flags on their own environments.** Both were in R7-C's stratum (its four environments).
+Here: (a) Addendum 10's harness with the two automations alone on R7-C's four environments, at the engine before and
+after the fix, against Home Assistant; (b) the same on all 48 of their environments (`db19e34`'s cached traces; each
+Home Assistant run is a few seconds). Reported: agreement per pair (A10.4(4)'s discrepancy, A20.4's run starts and
+cancellations); and each flag recomputed with Home Assistant's outcomes in all 48 environments, and with the fixed
+engine's: does it survive (flagged), with which frame and clock kinds. This answers whether the 2 flags owe anything
+to the `restart` approximation.
+
+**A20.8 Limits, stated now.** The stratum is 8 automations on one trace in one environment: it tests that the engine
+runs the modes as Home Assistant does under known re-triggering, not how often re-triggering happens in the corpus
+(A20.6's dynamic reach measures that, for the sweep's inputs). The trigger is a `state` trigger, so Home Assistant's
+sub-second offset of time triggers plays no part.
