@@ -44,6 +44,7 @@ export function buildRequest(model) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(model.site.date || "")) problems.push("place: choose the home's date");
     request.site = { city: model.site.city, date: model.site.date, north_deg: Number(model.site.north) || 0 };
   }
+  if (model.daylightLights !== undefined) request.daylight_lights = Boolean(model.daylightLights); // vesper.lab.daylight
   request.devices = [];
   model.rows.forEach((row, k) => {
     const what = row.product ? { product: row.product } : row.category ? { category: row.category } : null;
@@ -313,7 +314,7 @@ if (typeof document !== "undefined") {
   ];
   const today = new Date().toISOString().slice(0, 10);
   const model = { rooms: { mode: "count", count: 6, program: ["living", "kitchen", "bedroom"], scene: null }, seed: 0,
-                  rows: structuredClone(STARTER), site: { city: "", date: today, north: 0 },
+                  rows: structuredClone(STARTER), site: { city: "", date: today, north: 0 }, daylightLights: true,
                   // the imported plan: the job reading it, the plan as edited, the scale text and what the check said
                   plan: { job: null, state: "none", kind: null, plan: null, scale: "", source: "", problems: [],
                           warnings: [], floors: null, summary: "", transform: null, straight: null, size: null,
@@ -978,6 +979,8 @@ if (typeof document !== "undefined") {
     $("q").oninput = () => { clearTimeout(timer); timer = setTimeout(search, 200); };
     $("add-row").onclick = () => { model.rows.push({ product: null, category: "", where: { kind: "per_room", except: [] } }); drawRows(); };
     $("generate").onclick = generate;
+    $("daylight-lights").checked = model.daylightLights;
+    $("daylight-lights").onchange = (e) => { model.daylightLights = e.target.checked; };
     $("play").onclick = play;
     $("furnish-start").onclick = furnish;
     wireImport();

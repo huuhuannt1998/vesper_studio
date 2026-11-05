@@ -329,3 +329,10 @@ test("a room left out is drawn faintly over the image, not as a room", () => {
   drawOverlay(make("svg"), shapes, make);
   assert.equal(made.filter((n) => n.tag === "polygon" && n.attrs.class === "left").length, 1);
 });
+
+test("lights follow daylight when the page asks (on by default there); a model without the choice sends none", () => {
+  const base = { rooms: { mode: "count", count: 3, program: [] }, seed: 0, rows: [] };
+  assert.equal("daylight_lights" in buildRequest(base).request, false); // an older page's request is unchanged
+  assert.equal(buildRequest({ ...base, daylightLights: true }).request.daylight_lights, true);
+  assert.equal(buildRequest({ ...base, daylightLights: false }).request.daylight_lights, false);
+});
