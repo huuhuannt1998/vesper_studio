@@ -17,8 +17,9 @@ Supported, with Home Assistant's semantics (each in tests/lab/test_automations*.
   its result turns true, re-rendered on the states it read and each minute if it read the time) and, for a home with
   a site (vesper.env), `sun` (event, offset); a trigger's id (else its index) is `trigger.id`;
 - conditions `state` (attribute, for, match), `numeric_state` (attribute), `time` (after, before, weekday),
-  `sun` (after and before sunrise or sunset, with offsets; across midnight is either), `trigger` (id), `template`
-  (also a bare template string), `and`/`or`/`not` (nested, and their `- or: [...]` shorthand);
+  `sun` (after and before sunrise or sunset, with offsets, each holding at its own instant; after sunset with
+  before sunrise is the night, either side, both strict), `trigger` (id), `template` (also a bare template string),
+  `and`/`or`/`not` (nested, and their `- or: [...]` shorthand);
 - entities as Home Assistant's integrations make them: `sun.sun` (above_horizon/below_horizon, elevation,
   azimuth, next_rising, ... on Home Assistant's update schedule, from the same astral sun at the site and date), a
   climate (its hvac mode, with temperature, current_temperature and hvac_action), a JSON light's brightness;
@@ -1544,9 +1545,11 @@ class Engine:
                 return False  # the sun does not rise or set that day
             a = None if after is None else after + c["after_offset"]
             b = None if before is None else before + c["before_offset"]
-            if a is not None and b is not None and a >= b:  # after sunset and before sunrise: either
-                return since >= a or since < b
-            return (a is None or since >= a) and (b is None or since < b)
+            # Home Assistant 2026.10.2 (components/sun/condition.py): after sunset with before sunrise is the night,
+            # either side and both strict; any other combination is both, each failing only beyond its own instant
+            if c["after"] == "sunset" and c["before"] == "sunrise":
+                return since < b or since > a
+            return (a is None or since >= a) and (b is None or since <= b)
         since = self.session.clock.now() - self._midnight
         if c["weekday"] is not None and self._weekday(int(since // DAY_S)) not in c["weekday"]:
             return False  # Home Assistant: the weekday of now, whatever the window

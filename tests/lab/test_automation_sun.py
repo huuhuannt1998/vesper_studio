@@ -80,3 +80,40 @@ def test_a_home_without_a_site_refuses_sun_automations_by_name(tmp_path):
     reasons = {r["automation"]: r["reason"] for r in s.automations.refused}
     assert "no site" in reasons["lamp at sunset"] and "no site" in reasons["lamp off at night when the sun is down"]
     assert "sun.sun" in reasons["sun state"]
+
+
+BOUNDARY = """\
+- alias: an hour before sunset, if it is not later than that
+  triggers: [{trigger: sun, event: sunset, offset: "-01:00:00"}]
+  conditions: [{condition: sun, before: sunset, before_offset: "-01:00:00"}]
+  actions: [{action: light.turn_on, target: {entity_id: {lamp}}}]
+"""
+
+
+def test_a_sun_conditions_before_holds_at_its_own_instant_as_in_home_assistant(tmp_path):
+    # Home Assistant 2026.10.2 (components/sun/condition.py): `before` fails only when now is after it, `after` only
+    # when now is before it; so a trigger at the condition's own boundary passes (protocol Addendum 15, A15.11(3))
+    s = session(tmp_path, rules=BOUNDARY)
+    lamp = lambda: s.runtime.state(s.twin_ids["bedroom_lamp"])["state"]  # noqa: E731
+    s.clock.advance(sun_events(SITE, 0)["sunset"] - 3600 - 7.5 * 3600 + 5)
+    assert lamp() == "ON"
+
+
+def test_a_sun_condition_is_either_only_for_after_sunset_and_before_sunrise(tmp_path):
+    # Home Assistant: "after: sunset" with "before: sunrise" is the night (now < sunrise or now > sunset, both strict);
+    # every other combination is both, so an after later than its before never holds
+    s = session(tmp_path)
+    e = s.automations
+    ev = sun_events(SITE, 0)
+    since = lambda: s.clock.now() - e._midnight  # noqa: E731
+    night = e._condition({"condition": "sun", "after": "sunset", "before": "sunrise"})
+    later = e._condition({"condition": "sun", "after": "sunset", "after_offset": "01:00:00", "before": "sunset",
+                          "before_offset": "-01:00:00"})
+    s.clock.advance(ev["sunset"] - since())  # exactly sunset
+    assert not e._holds(night, {})
+    s.clock.advance(1)
+    assert e._holds(night, {})
+    s.clock.advance(2 * 3600)  # two hours after sunset: after +1 h holds, before -1 h does not
+    assert not e._holds(later, {})
+    s.clock.advance(12 * 3600)  # the next morning
+    assert not e._holds(later, {})
