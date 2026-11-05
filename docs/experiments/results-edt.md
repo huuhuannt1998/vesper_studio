@@ -1035,3 +1035,202 @@ resident and 82 for an event, 51 artefacts.
 reasons); 42,031 per minute is over the 652.6 s environment phase and 36,768 over the 746 s wall; "Random 5" is
 65.1 % under minority exposure and 52.6 % under pair coverage, both from the same 100 draws. Details:
 `edt-reproducibility.md`.
+
+## Revision R4-A (Addendum 6): the frame-relative relation, the dead-rule class, rung 2.5, the richer outcome
+
+**Post hoc in the paper's terms.** Addendum 6 (with A6.9) was written after review 2 and before any run under it.
+Code: commit `8fcd672`. Every number below is in `results/edt/summary-8fcd672.json` and `analysis-8fcd672.json`,
+produced by `scripts/edt_summary.py --commit 8fcd672 --workers 5` and
+`scripts/edt_analysis/r4a_analyses.py --commit 8fcd672`. The runs used a fresh work directory (only the `120f4ca`
+ERA5 cache copied in), 5 workers, under nice.
+
+### The check (A6.8): passed
+
+Rung 4 was re-swept with the `120f4ca` binder and the catalog's reporting rule. The clock relation gives **797
+flagged automations, the same set with the same kinds as `120f4ca`**:
+
+- 0 only-new and 0 only-old flags;
+- by kind: time_spread 716, fires_somewhere_only 192, night_light 30, flaps 9;
+- yield 43,280 / 9,524 / 5,934;
+- negative control 0 / 1,247.
+
+The richer cache and the new relation change nothing in the old outcome.
+
+### What A6.9 changes (the binder fixes and rho_p)
+
+| Run (rung 4) | bound | run | clock flags | frame flags |
+|---|---|---|---|---|
+| `120f4ca` binder, catalog rule (the check) | 9,524 | 5,934 | 797 | 207 |
+| current binder, catalog rule | 9,515 | 5,926 | 790 | 200 |
+| current binder, device rule (the main run) | 9,515 | 5,926 | 790 | 199 |
+
+- **Binder fixes.** Of the 179 sensor-driven flags of `120f4ca`:
+  - 7 are now refused as "enclosure or medium, not room air";
+  - 2 are bound to another room (the weather-token rule) and stay flagged;
+  - none is bound and no longer flagged.
+
+  The two rules therefore remove 7 of the 33 wrong-medium artefacts R4-C labelled. The other 26 are not recognisable
+  from their entity names (the audit placed them from the alias, the automation or a companion entity), so a name rule
+  cannot reach them.
+- **The RTCGQ11LM's real reporting rule (rho_p)** changes no clock-relation flag among the 67 run automations that read
+  illuminance: 15 are flagged under both rules, and one changes its kinds. It changes one frame-relation flag overall.
+
+  Under the device rule the resident-free home's illuminance arrives only on the hourly heartbeat. A first firing can
+  move by up to that hour, which is below the 3 h tolerance; a fires/does-not-fire outcome hardly moves at all.
+
+  So the reporting function is now exercised and its measured effect on these findings is nil. The illuminance
+  findings are not artefacts of the library default. Of the 67, 23 read illuminance in a trigger.
+
+All numbers below are from the main runs: current binder, device rule, sweeps `rung{4,2.5,2,3,1}-8fcd672`.
+
+### Item 1: the frame-relative relation
+
+| | clock relation | frame relation |
+|---|---|---|
+| flagged (of 5,926 run) | 790 (13.3 %, repo bootstrap [11.9, 15.0]) | **199 (3.4 %, [2.6, 4.3])** |
+| env-coupled flagged / env-coupled run | 771 / 1,205 | 184 / 1,205 (15.3 %, [11.7, 19.4]) |
+| time_spread | 709 | **8** |
+| fires_somewhere_only | 185 | 185 |
+| night_light / flaps | 30 / 8 | 30 / 8 |
+| repositories with a flag | 302 | 102 |
+
+- **The sun-only, time_spread-only class.** 567 automations at `120f4ca`; 565 of them are no longer flagged. The 2
+  that remain have a sun spread above 3 h in their own frame.
+- **Transitions.** 195 automations are flagged under both relations and 595 only under the clock relation. **4 are
+  flagged only under the frame relation**: their first firings agree on the clock within 3 h but lie more than 180 min
+  apart from the sun event they name. So the frame flags are not strictly a subset of the clock flags.
+- **Sensitivity (not a criterion).** If the sensed frame is not counted as invariant when a computable frame exists,
+  there are 202 flags (time_spread 26), 3 more.
+- **Frames of the 199 flags:**
+
+  | Frames | Flags |
+  |---|---|
+  | sensed | 94 |
+  | clock+sensed | 48 |
+  | clock+sun | 28 |
+  | clock | 13 |
+  | sun | 10 |
+  | sensed+sun | 5 |
+  | clock+sensed+sun | 1 |
+
+  Of the 5,926 run automations, 2,727 declare no frame, and 7 have a sun frame with no computable reference.
+- **Witnesses under the frame relation** (minimal: orientation 100, date 98, city 1; 0 with no witness). By the set
+  of axes admitting one: all three 100, date+city 84, date 14, city 1. Under the clock relation on the main run the
+  minimal witnesses are date 666, orientation 123, city 1. Every frame flag has a pair witness, so the possible failure
+  of Proposition 1 for mixed frames does not occur in this corpus.
+- **Per quantity, frame relation** (flagged of run reading it, repo bootstrap 95 %):
+
+  | Quantity | Flagged / run | Rate | Repo bootstrap 95 % |
+  |---|---|---|---|
+  | sun | 44 / 895 | 4.9 % | [3.4, 6.9] |
+  | temperature | 104 / 206 | 50.5 % | [37.4, 63.4] |
+  | humidity | 36 / 63 | 57.1 % | [43.3, 70.6] |
+  | illuminance | 7 / 67 | 10.4 % | [1.6, 19.7] |
+  | weather | 8 / 9 | uninformative (n < 30) | |
+
+  The finding moves from "the sun" to the sensed quantities.
+
+### Item 3: rung 2.5 and the sensor-driven split
+
+Sensor-driven flags are those flagged at rung 4 that read a sensed quantity as written. Rung 2.5 gives the site and
+ERA5 to the porch only; every indoor room reads rung 2's assumed curve.
+
+| | clock relation | frame relation |
+|---|---|---|
+| sensor-driven flags (main rung 4) | 172 (the 179 less the 7 enclosures) | 146 |
+| **ERA5-only** (still flagged at rung 2.5) | **47** (46 with the same kinds) | **42** (42) |
+| **room-model-dependent** | **125** | **104** |
+| ERA5-only by quantity | temperature 38, illuminance 8, weather 6, humidity 1 | temperature 38, weather 6, illuminance 4, humidity 0 |
+| ERA5-only naming a porch sensor | 46 of 47 | 42 of 42 |
+| also flagged at rung 2 | 2 | 0 |
+
+So about a quarter of the sensor-driven findings rest on ERA5 outdoor air alone (validated to 0.75 °C RMSE on home
+A), almost all through the porch. The rest depend on the room model.
+
+### Item 2: the dead-rule class
+
+**3,584 of the 5,926 run automations fire in no environment; 390 of them are environment-coupled.** Reasons are
+derived mechanically (A6.6, probes over all 48 rung-4 traces) and are not hand-audited:
+
+| Reason | All dead | Environment-coupled |
+|---|---|---|
+| trigger entities never change (no residents; open loop) | 2,762 | 240 |
+| a condition never holds when a trigger fires: on an entity that never changes | 119 | 52 |
+| ... a template or another condition | 120 | 21 |
+| ... a time condition | 89 | 3 |
+| ... a sensed-quantity or sun-state condition | 4 | 3 |
+| ... several conditions | 11 | 1 |
+| threshold out of the observed range in every environment | 15 | 15 |
+| never armed (always on the firing side) | 11 | 11 |
+| the actions end before any call | 24 | 7 |
+| not derived | 429 | 37 |
+
+No dead automation has a sun condition as its single blocker. "Armed, never crosses in the judged window" does not
+occur. The 26 environment-coupled threshold reasons (15 unreachable + 11 never armed) are the candidate "cannot happen
+in this climate" rules. R4-C's audit found that its sample's unreachable thresholds were mis-binds, so these need that
+audit before they count as findings.
+
+### Item 7: the ladder and the cover, restated
+
+**Per-rung run counts and flags:**
+
+| Rung | Run | Clock flags | Frame flags |
+|---|---|---|---|
+| 4 | 5,926 | 790 | 199 |
+| 3 | 5,926 | 789 | 200 |
+| 2.5 | 5,926 | 659 | 93 |
+| 2 | 5,926 | 614 | 51 |
+| 1 | 4,566 | 0 | 0 |
+
+**Against rung 4** (A1.4's reproduction rule):
+
+| Rung | Clock relation: reproduced, MAE, rho | Frame relation: reproduced share | Reproduces? |
+|---|---|---|---|
+| 3 | 0.999, 0.006 h, 0.987 | 0.995 | yes / yes |
+| 2.5 | 0.834, 0.024 h, 0.790 | 0.462 | no / no |
+| 2 | 0.777, 0.031 h, 0.721 | 0.251 | no / no |
+| 1 (sanity check) | 0.00 | 0.00 | no / no |
+
+- **Necessity, restated on rung 2 alone:** rung 2 does not reproduce rung 4 under either relation, so **the physics is
+  necessary for quantification**. Under the frame relation the gap is far larger: rung 2 finds a quarter of the
+  findings. Rung 2.5 sits between rungs 2 and 4.
+- **Rung 0, refitted** (A1.4's model, repo-grouped 5-fold CV, repo bootstrap 95 %):
+
+  | Flags | Population | 8 features: AUC | + 4 frame features: AUC |
+  |---|---|---|---|
+  | frame | run (5,926; 199 flagged) | **0.782** [0.711, 0.851] | 0.919 [0.884, 0.948] |
+  | frame | env-coupled run (1,205; 184) | **0.783** [0.714, 0.838] | 0.831 [0.778, 0.875] |
+  | clock | run (5,926; 790) | 0.946 [0.929, 0.962] | 0.981 [0.975, 0.986] |
+  | clock | env-coupled run (1,205; 771) | 0.847 [0.809, 0.883] | 0.846 [0.808, 0.882] |
+
+  - Held-out recall at precision 0.55, frame flags, 8 features: 0.63 at a realised precision of 0.41 on the run
+    automations; 0.78 at 0.29 on the environment-coupled ones.
+  - The bound-population (A1.4) clock fit on the main run is 0.942.
+  - Under the frame relation the eight syntactic features no longer match rung 4 (AUC 0.78, below A1.4's 0.90). With
+    the frame features, which are themselves syntactic, the AUC rises to 0.92 over all run automations, mostly by
+    telling sensed-frame rules from the rest. Within the environment-coupled run automations it stays at 0.83.
+- **Greedy over the 1,128 environment pairs** (chosen on the training half; within 1 - 1/e of the best k pairs; k = 1
+  is the exhaustive best pair):
+
+  | k | Pairs added | Clock relation: train / held-out / all | Frame relation: train / held-out / all |
+  |---|---|---|---|
+  | 1 | Minneapolis Jan n0 + Stockholm Jul n180 | 0.885 / 0.901 / 0.892 | 0.637 / 0.686 / 0.658 |
+  | 2 | + Seattle Oct n180 + Singapore Jul n180 | 0.965 / 0.964 / 0.965 | 0.894 / 0.837 / 0.869 |
+  | 3 | + Minneapolis Apr n0 + Stockholm Jan n0 | 0.979 / 0.981 / 0.980 | 0.956 / 0.930 / 0.945 |
+
+  Every frame flag is covered by some pair (199 of 199).
+
+### Item 14: the richer outcome (reported only)
+
+Unflagged automations that differ between the environments where they fire:
+
+| | Clock relation | Frame relation |
+|---|---|---|
+| unflagged | 5,136 | 5,727 |
+| unflagged and differing in count, payload or branch | 20 | 54 |
+| count differs | 17 | 51 |
+| branch differs | 6 | 6 |
+| payload differs | 3 | 4 |
+| of them environment-coupled | 14 | 44 |
+
+So the projected outcome hides little beyond itself. Over all run automations: count 169, payload 9, branch 11.

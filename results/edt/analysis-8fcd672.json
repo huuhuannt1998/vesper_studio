@@ -1,0 +1,1294 @@
+{
+ "commit": "8fcd672",
+ "post_hoc": true,
+ "protocol": "docs/experiments/edt-protocol.md, Addendum 6",
+ "reproduction": {
+  "clock_relation_flagged_new": 797,
+  "flagged_120f4ca": 797,
+  "identical_set": true,
+  "only_new": 0,
+  "only_120f4ca": 0,
+  "same_kinds": 797,
+  "by_kind_new": {
+   "fires_somewhere_only": 192,
+   "flaps": 9,
+   "night_light": 30,
+   "time_spread": 716
+  },
+  "by_kind_120f4ca": {
+   "fires_somewhere_only": 192,
+   "flaps": 9,
+   "night_light": 30,
+   "time_spread": 716
+  },
+  "yield_new": {
+   "bound": 9524,
+   "parsed": 43280,
+   "run": 5934
+  },
+  "yield_120f4ca": {
+   "bound": 9524,
+   "parsed": 43280,
+   "run": 5934
+  },
+  "negative_control_new": {
+   "n": 3466,
+   "fired": 1247,
+   "flagged": 0,
+   "rate": 0.0,
+   "halt": false
+  },
+  "run": "rung 4, the 120f4ca binder, the catalog reporting rule (A6.8 as amended)"
+ },
+ "binder_and_reporting_rule": {
+  "120f4ca_binder_catalog_rule": {
+   "bound": 9524,
+   "run": 5934,
+   "clock_flagged": 797,
+   "frame_flagged": 207
+  },
+  "current_binder_catalog_rule": {
+   "bound": 9515,
+   "run": 5926,
+   "clock_flagged": 790,
+   "frame_flagged": 200
+  },
+  "current_binder_device_rule": {
+   "bound": 9515,
+   "run": 5926,
+   "clock_flagged": 790,
+   "frame_flagged": 199
+  },
+  "binder_fixes_on_the_179_sensor_driven": {
+   "n": 179,
+   "unbound": 7,
+   "unbound_by_reason": {
+    "enclosure or medium, not room air": 7
+   },
+   "bound_differently": 2,
+   "bound_but_no_longer_flagged": 0
+  },
+  "reporting_rule_on_illuminance_readers": {
+   "illuminance_reading_run": {
+    "catalog_rule": 67,
+    "device_rule": 67
+   },
+   "clock_relation": {
+    "catalog_rule": 15,
+    "device_rule": 15
+   },
+   "frame_relation": {
+    "catalog_rule": 7,
+    "device_rule": 7
+   },
+   "changed_flag_clock": 0,
+   "changed_flag_frame": 0,
+   "changed_kinds_clock": 1,
+   "trigger_readers": 23
+  },
+  "all_flags_changed_by_the_rule_clock": 0,
+  "all_flags_changed_by_the_rule_frame": 1
+ },
+ "flags": {
+  "run": 5926,
+  "clock_relation": {
+   "n": 790,
+   "by_kind": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 709
+   }
+  },
+  "frame_relation": {
+   "n": 199,
+   "by_kind": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 8
+   },
+   "time_spread_only": 6,
+   "share_of_run": 0.0336
+  },
+  "frame_relation_sensed_not_invariant_sensitivity": {
+   "n": 202,
+   "by_kind": {
+    "fires_somewhere_only": 185,
+    "flaps": 8,
+    "night_light": 30,
+    "time_spread": 26
+   },
+   "added_over_frame_relation": 3
+  },
+  "frame_flagged_subset_of_clock_flagged": false,
+  "frame_only": 4,
+  "transitions": {
+   "clock_and_frame": 195,
+   "clock_only": 595,
+   "frame_only": 4,
+   "neither": 5132
+  },
+  "clock_kinds_to_frame_kinds": {
+   "time_spread -> (not flagged)": 595,
+   "fires_somewhere_only+time_spread -> fires_somewhere_only": 91,
+   "fires_somewhere_only -> fires_somewhere_only": 63,
+   "fires_somewhere_only+night_light -> fires_somewhere_only+night_light": 15,
+   "fires_somewhere_only+night_light+time_spread -> fires_somewhere_only+night_light": 11,
+   "flaps+time_spread -> flaps": 4,
+   "fires_somewhere_only+flaps+time_spread -> fires_somewhere_only+flaps": 2,
+   "time_spread -> time_spread": 2,
+   "night_light+time_spread -> night_light": 2,
+   "fires_somewhere_only+flaps -> fires_somewhere_only+flaps": 1,
+   "fires_somewhere_only+night_light+time_spread -> fires_somewhere_only+night_light+time_spread": 1,
+   "flaps -> flaps": 1,
+   "night_light -> night_light": 1,
+   "fires_somewhere_only+time_spread -> fires_somewhere_only+time_spread": 1
+  },
+  "sun_only_time_spread_only": {
+   "n": 567,
+   "frame_flagged": 2,
+   "frame_kinds": {
+    "(not flagged)": 565,
+    "time_spread": 2
+   }
+  },
+  "frames": {
+   "run": {
+    "(none)": 2727,
+    "clock": 1971,
+    "sun": 706,
+    "sensed": 254,
+    "clock+sun": 167,
+    "clock+sensed": 78,
+    "sensed+sun": 18,
+    "clock+sensed+sun": 5
+   },
+   "clock_flagged": {
+    "sun": 528,
+    "sensed": 117,
+    "clock+sun": 72,
+    "clock+sensed": 50,
+    "clock": 13,
+    "sensed+sun": 7,
+    "clock+sensed+sun": 3
+   },
+   "frame_flagged": {
+    "sensed": 94,
+    "clock+sensed": 48,
+    "clock+sun": 28,
+    "clock": 13,
+    "sun": 10,
+    "sensed+sun": 5,
+    "clock+sensed+sun": 1
+   },
+   "sun_frame_not_computable_run": 7
+  },
+  "frame_flagged_by_environment_kind": {
+   "temperature": 104,
+   "humidity": 36,
+   "weather": 8,
+   "sun": 44,
+   "illuminance": 7
+  },
+  "frame_flagged_by_environment_and_divergence_kinds": {
+   "temperature / fires_somewhere_only": 88,
+   "humidity / fires_somewhere_only": 27,
+   "sun / fires_somewhere_only+night_light": 16,
+   "(none) / fires_somewhere_only": 13,
+   "sun / fires_somewhere_only": 12,
+   "temperature / fires_somewhere_only+night_light": 7,
+   "temperature+weather / fires_somewhere_only": 6,
+   "sun / time_spread": 6,
+   "humidity / flaps": 4,
+   "sun / night_light": 3,
+   "illuminance+sun / fires_somewhere_only": 3,
+   "humidity+weather / fires_somewhere_only": 2,
+   "humidity / fires_somewhere_only+flaps": 2,
+   "illuminance / fires_somewhere_only+night_light": 2,
+   "sun+temperature / fires_somewhere_only": 2
+  },
+  "frame_flagged_with_no_environment_kind": 15,
+  "repositories": {
+   "run": 722,
+   "clock_flagged": 302,
+   "frame_flagged": 102
+  },
+  "frame_flagged_assumption_free": 155
+ },
+ "witnesses": {
+  "frame_relation": {
+   "minimal_witness_axis": {
+    "north_deg": 100,
+    "date": 98,
+    "city": 1
+   },
+   "no_witness": 0,
+   "axes_admitting_a_witness": {
+    "north_deg+date+city": 100,
+    "date+city": 84,
+    "date": 14,
+    "city": 1
+   }
+  },
+  "clock_relation": {
+   "minimal_witness_axis": {
+    "north_deg": 123,
+    "date": 666,
+    "city": 1
+   },
+   "no_witness": 0,
+   "axes_admitting_a_witness": {
+    "date+city": 650,
+    "north_deg+date+city": 123,
+    "date": 16,
+    "city": 1
+   }
+  },
+  "note": "axes in the minimal-witness preference order (protocol section 6): north_deg (orientation), date, city; under the frame relation a flagged mixed-frame automation may have no pair witness at all (Proposition 1 holds per frame, not across frames)"
+ },
+ "rates": {
+  "frame_relation": {
+   "flagged_of_run": {
+    "num": 199,
+    "den": 5926,
+    "rate": 0.0336,
+    "ci95": [
+     0.0259,
+     0.0427
+    ],
+    "clusters": 722,
+    "resamples": 1000,
+    "seed": 0,
+    "wilson95_iid": [
+     0.0293,
+     0.0385
+    ]
+   },
+   "env_coupled_flagged_of_env_coupled_run": {
+    "num": 184,
+    "den": 1205,
+    "rate": 0.1527,
+    "ci95": [
+     0.1168,
+     0.1939
+    ],
+    "clusters": 368,
+    "resamples": 1000,
+    "seed": 0,
+    "wilson95_iid": [
+     0.1335,
+     0.1741
+    ]
+   },
+   "by_quantity": {
+    "sun": {
+     "num": 44,
+     "den": 895,
+     "rate": 0.0492,
+     "ci95": [
+      0.0338,
+      0.0693
+     ],
+     "clusters": 312,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.0368,
+      0.0654
+     ]
+    },
+    "temperature": {
+     "num": 104,
+     "den": 206,
+     "rate": 0.5049,
+     "ci95": [
+      0.3744,
+      0.6342
+     ],
+     "clusters": 87,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.4371,
+      0.5724
+     ]
+    },
+    "humidity": {
+     "num": 36,
+     "den": 63,
+     "rate": 0.5714,
+     "ci95": [
+      0.4333,
+      0.7059
+     ],
+     "clusters": 38,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.4486,
+      0.686
+     ]
+    },
+    "illuminance": {
+     "num": 7,
+     "den": 67,
+     "rate": 0.1045,
+     "ci95": [
+      0.0164,
+      0.1972
+     ],
+     "clusters": 42,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.0515,
+      0.2003
+     ]
+    },
+    "weather": {
+     "num": 8,
+     "den": 9,
+     "rate": 0.8889,
+     "ci95": [
+      0.4,
+      1.0
+     ],
+     "clusters": 4,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.565,
+      0.9801
+     ]
+    }
+   },
+   "by_frame": {
+    "clock": {
+     "num": 90,
+     "den": 2221,
+     "rate": 0.0405,
+     "ci95": [
+      0.0258,
+      0.0596
+     ],
+     "clusters": 538,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.0331,
+      0.0495
+     ]
+    },
+    "sun": {
+     "num": 44,
+     "den": 896,
+     "rate": 0.0491,
+     "ci95": [
+      0.0334,
+      0.069
+     ],
+     "clusters": 313,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.0368,
+      0.0653
+     ]
+    },
+    "sensed": {
+     "num": 148,
+     "den": 355,
+     "rate": 0.4169,
+     "ci95": [
+      0.3273,
+      0.4958
+     ],
+     "clusters": 141,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.3668,
+      0.4688
+     ]
+    }
+   }
+  },
+  "clock_relation": {
+   "flagged_of_run": {
+    "num": 790,
+    "den": 5926,
+    "rate": 0.1333,
+    "ci95": [
+     0.1192,
+     0.1501
+    ],
+    "clusters": 722,
+    "resamples": 1000,
+    "seed": 0,
+    "wilson95_iid": [
+     0.1249,
+     0.1422
+    ]
+   },
+   "env_coupled_flagged_of_env_coupled_run": {
+    "num": 771,
+    "den": 1205,
+    "rate": 0.6398,
+    "ci95": [
+     0.5954,
+     0.6861
+    ],
+    "clusters": 368,
+    "resamples": 1000,
+    "seed": 0,
+    "wilson95_iid": [
+     0.6123,
+     0.6665
+    ]
+   },
+   "by_quantity": {
+    "sun": {
+     "num": 609,
+     "den": 895,
+     "rate": 0.6804,
+     "ci95": [
+      0.6341,
+      0.732
+     ],
+     "clusters": 312,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.6492,
+      0.7102
+     ]
+    },
+    "temperature": {
+     "num": 121,
+     "den": 206,
+     "rate": 0.5874,
+     "ci95": [
+      0.4634,
+      0.7109
+     ],
+     "clusters": 87,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.5192,
+      0.6524
+     ]
+    },
+    "humidity": {
+     "num": 37,
+     "den": 63,
+     "rate": 0.5873,
+     "ci95": [
+      0.4464,
+      0.7213
+     ],
+     "clusters": 38,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.4642,
+      0.7004
+     ]
+    },
+    "illuminance": {
+     "num": 15,
+     "den": 67,
+     "rate": 0.2239,
+     "ci95": [
+      0.0816,
+      0.3735
+     ],
+     "clusters": 42,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.1406,
+      0.3371
+     ]
+    },
+    "weather": {
+     "num": 8,
+     "den": 9,
+     "rate": 0.8889,
+     "ci95": [
+      0.4,
+      1.0
+     ],
+     "clusters": 4,
+     "resamples": 1000,
+     "seed": 0,
+     "wilson95_iid": [
+      0.565,
+      0.9801
+     ]
+    }
+   }
+  },
+  "uninformative_below_n": 30,
+  "note": "a rate whose denominator is below 30 automations is marked uninformative in the text"
+ },
+ "richer_outcome": {
+  "clock_relation": {
+   "unflagged": 5136,
+   "unflagged_firing_somewhere": 1552,
+   "differ_any": 20,
+   "by_kind": {
+    "count_differs": 17,
+    "branch_differs": 6,
+    "payload_differs": 3
+   },
+   "combinations": {
+    "count_differs": 14,
+    "branch_differs+payload_differs": 2,
+    "branch_differs+count_differs": 2,
+    "branch_differs+count_differs+payload_differs": 1,
+    "branch_differs": 1
+   },
+   "env_coupled_differ_any": 14
+  },
+  "frame_relation": {
+   "unflagged": 5727,
+   "unflagged_firing_somewhere": 2143,
+   "differ_any": 54,
+   "by_kind": {
+    "count_differs": 51,
+    "branch_differs": 6,
+    "payload_differs": 4
+   },
+   "combinations": {
+    "count_differs": 47,
+    "branch_differs+payload_differs": 2,
+    "branch_differs+count_differs": 2,
+    "branch_differs+count_differs+payload_differs": 1,
+    "count_differs+payload_differs": 1,
+    "branch_differs": 1
+   },
+   "env_coupled_differ_any": 44
+  },
+  "all_run_by_kind": {
+   "branch_differs": 11,
+   "count_differs": 169,
+   "payload_differs": 9
+  }
+ },
+ "pair_cover": {
+  "pairs": 1128,
+  "clock_relation": {
+   "flagged": {
+    "train": 425,
+    "held_out": 365,
+    "all": 790
+   },
+   "covered_by_some_pair_all": 790,
+   "no_pair_covers": 0,
+   "greedy": {
+    "1": {
+     "pairs": [
+      [
+       "Minneapolis 2026-01-14 n0",
+       "Stockholm 2026-07-15 n180"
+      ]
+     ],
+     "distinct_envs": 2,
+     "coverage_train": 0.8847,
+     "coverage_held_out": 0.9014,
+     "coverage_all": 0.8924
+    },
+    "2": {
+     "pairs": [
+      [
+       "Minneapolis 2026-01-14 n0",
+       "Stockholm 2026-07-15 n180"
+      ],
+      [
+       "Seattle 2026-10-14 n180",
+       "Singapore 2026-07-15 n180"
+      ]
+     ],
+     "distinct_envs": 4,
+     "coverage_train": 0.9647,
+     "coverage_held_out": 0.9644,
+     "coverage_all": 0.9646
+    },
+    "3": {
+     "pairs": [
+      [
+       "Minneapolis 2026-01-14 n0",
+       "Stockholm 2026-07-15 n180"
+      ],
+      [
+       "Seattle 2026-10-14 n180",
+       "Singapore 2026-07-15 n180"
+      ],
+      [
+       "Minneapolis 2026-04-15 n0",
+       "Stockholm 2026-01-14 n0"
+      ]
+     ],
+     "distinct_envs": 6,
+     "coverage_train": 0.9788,
+     "coverage_held_out": 0.9808,
+     "coverage_all": 0.9797
+    }
+   }
+  },
+  "frame_relation": {
+   "flagged": {
+    "train": 113,
+    "held_out": 86,
+    "all": 199
+   },
+   "covered_by_some_pair_all": 199,
+   "no_pair_covers": 0,
+   "greedy": {
+    "1": {
+     "pairs": [
+      [
+       "Minneapolis 2026-01-14 n0",
+       "Stockholm 2026-07-15 n180"
+      ]
+     ],
+     "distinct_envs": 2,
+     "coverage_train": 0.6372,
+     "coverage_held_out": 0.686,
+     "coverage_all": 0.6583
+    },
+    "2": {
+     "pairs": [
+      [
+       "Minneapolis 2026-01-14 n0",
+       "Stockholm 2026-07-15 n180"
+      ],
+      [
+       "Seattle 2026-10-14 n180",
+       "Singapore 2026-07-15 n180"
+      ]
+     ],
+     "distinct_envs": 4,
+     "coverage_train": 0.8938,
+     "coverage_held_out": 0.8372,
+     "coverage_all": 0.8693
+    },
+    "3": {
+     "pairs": [
+      [
+       "Minneapolis 2026-01-14 n0",
+       "Stockholm 2026-07-15 n180"
+      ],
+      [
+       "Seattle 2026-10-14 n180",
+       "Singapore 2026-07-15 n180"
+      ],
+      [
+       "Minneapolis 2026-04-15 n0",
+       "Stockholm 2026-01-14 n0"
+      ]
+     ],
+     "distinct_envs": 6,
+     "coverage_train": 0.9558,
+     "coverage_held_out": 0.9302,
+     "coverage_all": 0.9447
+    }
+   }
+  },
+  "note": "greedy maximum coverage over environment pairs on the training half, ties to the smaller environment keys; for k pairs it is within 1 - 1/e of the best k pairs (submodular coverage); k = 1 is the exhaustive best pair"
+ },
+ "rung0": {
+  "frame_relation/run/without_frame_features": {
+   "population": "run",
+   "label": "frame_divergences",
+   "features": [
+    "sun_trigger",
+    "sun_condition",
+    "numeric_state_illuminance",
+    "numeric_state_temperature",
+    "numeric_state_humidity",
+    "numeric_state_weather",
+    "time_trigger",
+    "n_conditions"
+   ],
+   "n": 5926,
+   "n_flagged": 199,
+   "n_repos": 722,
+   "base_rate": 0.033580830239622,
+   "folds": 5,
+   "degenerate_folds": 0,
+   "auc": 0.7823967927642402,
+   "auc_ci95": [
+    0.7105923361021124,
+    0.8510930719828901
+   ],
+   "auc_random_folds": 0.8721418336663236,
+   "recall_at_precision_0.55": {
+    "recall": 0.628140703517588,
+    "precision": 0.40716612377850164,
+    "base_rate": 0.033580830239622,
+    "n_predicted_positive": 307,
+    "degenerate_folds": 0
+   },
+   "null": null
+  },
+  "frame_relation/run/with_frame_features": {
+   "population": "run",
+   "label": "frame_divergences",
+   "features": [
+    "sun_trigger",
+    "sun_condition",
+    "numeric_state_illuminance",
+    "numeric_state_temperature",
+    "numeric_state_humidity",
+    "numeric_state_weather",
+    "time_trigger",
+    "n_conditions",
+    "frame_clock",
+    "frame_sun",
+    "frame_sensed",
+    "frame_mixed"
+   ],
+   "n": 5926,
+   "n_flagged": 199,
+   "n_repos": 722,
+   "base_rate": 0.033580830239622,
+   "folds": 5,
+   "degenerate_folds": 0,
+   "auc": 0.9194154814582779,
+   "auc_ci95": [
+    0.8844243203353163,
+    0.9477742106777561
+   ],
+   "auc_random_folds": 0.9510837757848084,
+   "recall_at_precision_0.55": {
+    "recall": 0.6432160804020101,
+    "precision": 0.3764705882352941,
+    "base_rate": 0.033580830239622,
+    "n_predicted_positive": 340,
+    "degenerate_folds": 0
+   },
+   "null": null
+  },
+  "frame_relation/coupled_run/without_frame_features": {
+   "population": "coupled_run",
+   "label": "frame_divergences",
+   "features": [
+    "sun_trigger",
+    "sun_condition",
+    "numeric_state_illuminance",
+    "numeric_state_temperature",
+    "numeric_state_humidity",
+    "numeric_state_weather",
+    "time_trigger",
+    "n_conditions"
+   ],
+   "n": 1205,
+   "n_flagged": 184,
+   "n_repos": 368,
+   "base_rate": 0.15269709543568466,
+   "folds": 5,
+   "degenerate_folds": 0,
+   "auc": 0.7831676106119321,
+   "auc_ci95": [
+    0.7140158864378825,
+    0.8376066716238268
+   ],
+   "auc_random_folds": 0.8576017757526722,
+   "recall_at_precision_0.55": {
+    "recall": 0.7771739130434783,
+    "precision": 0.28542914171656686,
+    "base_rate": 0.15269709543568466,
+    "n_predicted_positive": 501,
+    "degenerate_folds": 0
+   },
+   "null": null
+  },
+  "frame_relation/coupled_run/with_frame_features": {
+   "population": "coupled_run",
+   "label": "frame_divergences",
+   "features": [
+    "sun_trigger",
+    "sun_condition",
+    "numeric_state_illuminance",
+    "numeric_state_temperature",
+    "numeric_state_humidity",
+    "numeric_state_weather",
+    "time_trigger",
+    "n_conditions",
+    "frame_clock",
+    "frame_sun",
+    "frame_sensed",
+    "frame_mixed"
+   ],
+   "n": 1205,
+   "n_flagged": 184,
+   "n_repos": 368,
+   "base_rate": 0.15269709543568466,
+   "folds": 5,
+   "degenerate_folds": 0,
+   "auc": 0.8314764936336925,
+   "auc_ci95": [
+    0.7775686193483855,
+    0.8746696239862418
+   ],
+   "auc_random_folds": 0.8973885363880254,
+   "recall_at_precision_0.55": {
+    "recall": 0.7554347826086957,
+    "precision": 0.32400932400932403,
+    "base_rate": 0.15269709543568466,
+    "n_predicted_positive": 429,
+    "degenerate_folds": 0
+   },
+   "null": null
+  },
+  "clock_relation/run/without_frame_features": {
+   "population": "run",
+   "label": "divergences",
+   "features": [
+    "sun_trigger",
+    "sun_condition",
+    "numeric_state_illuminance",
+    "numeric_state_temperature",
+    "numeric_state_humidity",
+    "numeric_state_weather",
+    "time_trigger",
+    "n_conditions"
+   ],
+   "n": 5926,
+   "n_flagged": 790,
+   "n_repos": 722,
+   "base_rate": 0.13331083361457982,
+   "folds": 5,
+   "degenerate_folds": 0,
+   "auc": 0.945938448874167,
+   "auc_ci95": [
+    0.9293226335848941,
+    0.9620608525334425
+   ],
+   "auc_random_folds": 0.9479257857171024,
+   "recall_at_precision_0.55": {
+    "recall": 0.9265822784810127,
+    "precision": 0.7065637065637066,
+    "base_rate": 0.13331083361457982,
+    "n_predicted_positive": 1036,
+    "degenerate_folds": 0
+   },
+   "null": null
+  },
+  "clock_relation/run/with_frame_features": {
+   "population": "run",
+   "label": "divergences",
+   "features": [
+    "sun_trigger",
+    "sun_condition",
+    "numeric_state_illuminance",
+    "numeric_state_temperature",
+    "numeric_state_humidity",
+    "numeric_state_weather",
+    "time_trigger",
+    "n_conditions",
+    "frame_clock",
+    "frame_sun",
+    "frame_sensed",
+    "frame_mixed"
+   ],
+   "n": 5926,
+   "n_flagged": 790,
+   "n_repos": 722,
+   "base_rate": 0.13331083361457982,
+   "folds": 5,
+   "degenerate_folds": 0,
+   "auc": 0.980917401119918,
+   "auc_ci95": [
+    0.9749140208606563,
+    0.9860793554571418
+   ],
+   "auc_random_folds": 0.9806317530265389,
+   "recall_at_precision_0.55": {
+    "recall": 0.9810126582278481,
+    "precision": 0.6686798964624676,
+    "base_rate": 0.13331083361457982,
+    "n_predicted_positive": 1159,
+    "degenerate_folds": 0
+   },
+   "null": null
+  },
+  "clock_relation/coupled_run/without_frame_features": {
+   "population": "coupled_run",
+   "label": "divergences",
+   "features": [
+    "sun_trigger",
+    "sun_condition",
+    "numeric_state_illuminance",
+    "numeric_state_temperature",
+    "numeric_state_humidity",
+    "numeric_state_weather",
+    "time_trigger",
+    "n_conditions"
+   ],
+   "n": 1205,
+   "n_flagged": 771,
+   "n_repos": 368,
+   "base_rate": 0.6398340248962655,
+   "folds": 5,
+   "degenerate_folds": 0,
+   "auc": 0.8468518950193357,
+   "auc_ci95": [
+    0.8086824599408753,
+    0.8830965464040659
+   ],
+   "auc_random_folds": 0.8503006449222089,
+   "recall_at_precision_0.55": {
+    "recall": 0.9948119325551232,
+    "precision": 0.6941176470588235,
+    "base_rate": 0.6398340248962655,
+    "n_predicted_positive": 1105,
+    "degenerate_folds": 0
+   },
+   "null": null
+  },
+  "clock_relation/coupled_run/with_frame_features": {
+   "population": "coupled_run",
+   "label": "divergences",
+   "features": [
+    "sun_trigger",
+    "sun_condition",
+    "numeric_state_illuminance",
+    "numeric_state_temperature",
+    "numeric_state_humidity",
+    "numeric_state_weather",
+    "time_trigger",
+    "n_conditions",
+    "frame_clock",
+    "frame_sun",
+    "frame_sensed",
+    "frame_mixed"
+   ],
+   "n": 1205,
+   "n_flagged": 771,
+   "n_repos": 368,
+   "base_rate": 0.6398340248962655,
+   "folds": 5,
+   "degenerate_folds": 0,
+   "auc": 0.8455713150077403,
+   "auc_ci95": [
+    0.8076087387776649,
+    0.881940272463474
+   ],
+   "auc_random_folds": 0.853628359841489,
+   "recall_at_precision_0.55": {
+    "recall": 0.9948119325551232,
+    "precision": 0.7062615101289135,
+    "base_rate": 0.6398340248962655,
+    "n_predicted_positive": 1086,
+    "degenerate_folds": 0
+   },
+   "null": null
+  },
+  "bound_A1.4_clock_relation": {
+   "n": 9515,
+   "n_flagged": 790,
+   "auc": 0.9417263791665156,
+   "auc_ci95": [
+    0.9225141091045217,
+    0.9590073422446143
+   ]
+  }
+ },
+ "ladder": {
+  "criterion": "the physics is necessary for quantification iff rung 2 does not reproduce rung 4 (A6.7); rung 1 is a sanity check; rung 2.5 is reported beside",
+  "rung4": {
+   "run": 5926,
+   "clock_flagged": 790,
+   "frame_flagged": 199
+  },
+  "rung2.5": {
+   "clock_relation": {
+    "n_flagged_rung4_total": 790,
+    "n_unbound_at_rung": 0,
+    "n_bound_both": 9515,
+    "n_envs_matched": 48,
+    "n_flagged_rung4": 790,
+    "n_flagged_both": 659,
+    "reproduced_share": 0.8341772151898734,
+    "n_flagged_rung_only": 0,
+    "n_time_pairs": 105791,
+    "mae_hours": 0.02399805604656561,
+    "n_spread_both": 2258,
+    "n_spread": 693,
+    "spearman_time_spread": 0.7897108490816853,
+    "null": null,
+    "reproduces": false,
+    "flagged_at_rung": 659
+   },
+   "frame_relation": {
+    "n_flagged_rung4_total": 199,
+    "n_unbound_at_rung": 0,
+    "n_bound_both": 9515,
+    "n_envs_matched": 48,
+    "n_flagged_rung4": 199,
+    "n_flagged_both": 92,
+    "reproduced_share": 0.4623115577889447,
+    "n_flagged_rung_only": 1,
+    "n_time_pairs": 105791,
+    "mae_hours": 0.02399805604656561,
+    "n_spread_both": 2258,
+    "n_spread": 693,
+    "spearman_time_spread": 0.7897108490816853,
+    "null": null,
+    "reproduces": false,
+    "flagged_at_rung": 93
+   },
+   "run": 5926,
+   "negative_control": {
+    "n": 3466,
+    "fired": 1247,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   }
+  },
+  "rung2": {
+   "clock_relation": {
+    "n_flagged_rung4_total": 790,
+    "n_unbound_at_rung": 0,
+    "n_bound_both": 9515,
+    "n_envs_matched": 48,
+    "n_flagged_rung4": 790,
+    "n_flagged_both": 614,
+    "reproduced_share": 0.7772151898734178,
+    "n_flagged_rung_only": 0,
+    "n_time_pairs": 105462,
+    "mae_hours": 0.031463791710326414,
+    "n_spread_both": 2228,
+    "n_spread": 688,
+    "spearman_time_spread": 0.7213961831529923,
+    "null": null,
+    "reproduces": false,
+    "flagged_at_rung": 614
+   },
+   "frame_relation": {
+    "n_flagged_rung4_total": 199,
+    "n_unbound_at_rung": 0,
+    "n_bound_both": 9515,
+    "n_envs_matched": 48,
+    "n_flagged_rung4": 199,
+    "n_flagged_both": 50,
+    "reproduced_share": 0.25125628140703515,
+    "n_flagged_rung_only": 1,
+    "n_time_pairs": 105462,
+    "mae_hours": 0.031463791710326414,
+    "n_spread_both": 2228,
+    "n_spread": 688,
+    "spearman_time_spread": 0.7213961831529923,
+    "null": null,
+    "reproduces": false,
+    "flagged_at_rung": 51
+   },
+   "run": 5926,
+   "negative_control": {
+    "n": 3466,
+    "fired": 1247,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   }
+  },
+  "rung3": {
+   "clock_relation": {
+    "n_flagged_rung4_total": 790,
+    "n_unbound_at_rung": 0,
+    "n_bound_both": 9515,
+    "n_envs_matched": 48,
+    "n_flagged_rung4": 790,
+    "n_flagged_both": 789,
+    "reproduced_share": 0.9987341772151899,
+    "n_flagged_rung_only": 0,
+    "n_time_pairs": 106859,
+    "mae_hours": 0.005892500085782823,
+    "n_spread_both": 2333,
+    "n_spread": 765,
+    "spearman_time_spread": 0.9874953733634195,
+    "null": null,
+    "reproduces": true,
+    "flagged_at_rung": 789
+   },
+   "frame_relation": {
+    "n_flagged_rung4_total": 199,
+    "n_unbound_at_rung": 0,
+    "n_bound_both": 9515,
+    "n_envs_matched": 48,
+    "n_flagged_rung4": 199,
+    "n_flagged_both": 198,
+    "reproduced_share": 0.9949748743718593,
+    "n_flagged_rung_only": 2,
+    "n_time_pairs": 106859,
+    "mae_hours": 0.005892500085782823,
+    "n_spread_both": 2333,
+    "n_spread": 765,
+    "spearman_time_spread": 0.9874953733634195,
+    "null": null,
+    "reproduces": true,
+    "flagged_at_rung": 200
+   },
+   "run": 5926,
+   "negative_control": {
+    "n": 3466,
+    "fired": 1247,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   }
+  },
+  "rung1": {
+   "clock_relation": {
+    "n_flagged_rung4_total": 790,
+    "n_unbound_at_rung": 0,
+    "n_bound_both": 9515,
+    "n_envs_matched": 48,
+    "n_flagged_rung4": 790,
+    "n_flagged_both": 0,
+    "reproduced_share": 0.0,
+    "n_flagged_rung_only": 0,
+    "n_time_pairs": 65666,
+    "mae_hours": 0.046820111752403575,
+    "n_spread_both": 1384,
+    "n_spread": 79,
+    "spearman_time_spread": -0.8640016745875865,
+    "null": null,
+    "reproduces": false,
+    "flagged_at_rung": 0
+   },
+   "frame_relation": {
+    "n_flagged_rung4_total": 199,
+    "n_unbound_at_rung": 0,
+    "n_bound_both": 9515,
+    "n_envs_matched": 48,
+    "n_flagged_rung4": 199,
+    "n_flagged_both": 0,
+    "reproduced_share": 0.0,
+    "n_flagged_rung_only": 0,
+    "n_time_pairs": 65666,
+    "mae_hours": 0.046820111752403575,
+    "n_spread_both": 1384,
+    "n_spread": 79,
+    "spearman_time_spread": -0.8640016745875865,
+    "null": null,
+    "reproduces": false,
+    "flagged_at_rung": 0
+   },
+   "run": 4566,
+   "negative_control": {
+    "n": 3209,
+    "fired": 1106,
+    "flagged": 0,
+    "rate": 0.0,
+    "halt": false
+   }
+  }
+ },
+ "sensor_split": {
+  "clock_relation": {
+   "sensor_driven": 172,
+   "era5_only": 47,
+   "room_model_dependent": 125,
+   "era5_only_same_kinds": 46,
+   "also_flagged_at_rung2": 2,
+   "sensor_driven_by_quantity": {
+    "humidity": 37,
+    "illuminance": 15,
+    "temperature": 121,
+    "weather": 8
+   },
+   "era5_only_by_quantity": {
+    "humidity": 1,
+    "illuminance": 8,
+    "temperature": 38,
+    "weather": 6
+   },
+   "sensor_driven_with_sun": 10,
+   "era5_only_with_sun": 6,
+   "sensor_driven_naming_a_porch_entity": 48,
+   "era5_only_naming_a_porch_entity": 46,
+   "era5_only_naming_no_porch_entity": 1
+  },
+  "frame_relation": {
+   "sensor_driven": 146,
+   "era5_only": 42,
+   "room_model_dependent": 104,
+   "era5_only_same_kinds": 42,
+   "also_flagged_at_rung2": 0,
+   "sensor_driven_by_quantity": {
+    "humidity": 36,
+    "illuminance": 7,
+    "temperature": 104,
+    "weather": 8
+   },
+   "era5_only_by_quantity": {
+    "humidity": 0,
+    "illuminance": 4,
+    "temperature": 38,
+    "weather": 6
+   },
+   "sensor_driven_with_sun": 6,
+   "era5_only_with_sun": 3,
+   "sensor_driven_naming_a_porch_entity": 44,
+   "era5_only_naming_a_porch_entity": 42,
+   "era5_only_naming_no_porch_entity": 0
+  }
+ },
+ "dead_rules": {
+  "dead": 3584,
+  "dead_environment_coupled": 390,
+  "run": 5926,
+  "by_reason": {
+   "trigger entities never change (no residents; open loop)": 2762,
+   "not derived": 429,
+   "a condition never holds when a trigger fires: template or other": 120,
+   "a condition never holds when a trigger fires: condition on an entity that never changes (motion, door, actuator)": 119,
+   "a condition never holds when a trigger fires: time condition": 89,
+   "the actions end before any call": 24,
+   "threshold out of the observed range in every environment": 15,
+   "never armed": 11,
+   "a condition never holds when a trigger fires: several conditions": 11,
+   "a condition never holds when a trigger fires: sensed-quantity or sun-state condition": 4
+  },
+  "by_reason_environment_coupled": {
+   "trigger entities never change (no residents; open loop)": 240,
+   "a condition never holds when a trigger fires: condition on an entity that never changes (motion, door, actuator)": 52,
+   "not derived": 37,
+   "a condition never holds when a trigger fires: template or other": 21,
+   "threshold out of the observed range in every environment": 15,
+   "never armed": 11,
+   "the actions end before any call": 7,
+   "a condition never holds when a trigger fires: time condition": 3,
+   "a condition never holds when a trigger fires: sensed-quantity or sun-state condition": 3,
+   "a condition never holds when a trigger fires: several conditions": 1
+  },
+  "environment_coupled_by_quantity": {
+   "sun": 253,
+   "temperature": 75,
+   "humidity": 26,
+   "illuminance": 50,
+   "weather": 0
+  },
+  "by_frames": {
+   "(none)": 2727,
+   "clock": 450,
+   "sun": 174,
+   "sensed": 136,
+   "clock+sun": 67,
+   "clock+sensed": 17,
+   "sensed+sun": 11,
+   "clock+sensed+sun": 2
+  },
+  "probes": {
+   "replayed": 7591,
+   "environments": 48
+  },
+  "status": "post hoc (Addendum 6, A6.6); reasons derived mechanically, not hand-audited"
+ }
+}

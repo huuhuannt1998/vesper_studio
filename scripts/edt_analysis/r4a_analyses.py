@@ -272,8 +272,19 @@ def rates(s4: dict) -> dict:
 
 # ---- the sensor-driven split (A6.5) --------------------------------------------------------------------------------
 
-def sensor_split(s4: dict, s25: dict, s2: dict) -> dict:
+def porch_sensor_ids(catalog_dir: str = "catalog/vds") -> set[str]:
+    """The standard home's porch (outdoor) temperature, humidity and illuminance entity ids."""
+    import tempfile
+
+    from vesper.edt.home import build_edt_home
+    with tempfile.TemporaryDirectory() as tmp:
+        _, roles = build_edt_home(Path(tmp), catalog_dir)
+    return {eid for (role, room, _), eid in roles.items() if room == "porch" and role in SENSED}
+
+
+def sensor_split(s4: dict, s25: dict, s2: dict, porch_ids: set[str] | None = None) -> dict:
     a4, a25, a2 = s4["automations"], s25["automations"], s2["automations"]
+    porch_ids = porch_sensor_ids() if porch_ids is None else porch_ids
     out = {}
     for name, key in (("clock_relation", CLOCK_KEY), ("frame_relation", FRAME_KEY)):
         sensor = [i for i, a in ran(s4).items() if a[key] and SENSED & set(a["kinds"])]
@@ -283,7 +294,8 @@ def sensor_split(s4: dict, s25: dict, s2: dict) -> dict:
 
         def by_q(ids):
             return {k: sum(1 for i in ids if k in a4[i]["kinds"]) for k in sorted(SENSED)}
-        porch = [i for i in sensor if "porch" in json.dumps(a4[i]["bound"])]
+        porch = [i for i in sensor if any(p in json.dumps(a4[i]["bound"]) for p in porch_ids)]
+        indoor_only = [i for i in sensor if i not in set(porch)]
         out[name] = {"sensor_driven": len(sensor), "era5_only": len(era5),
                      "room_model_dependent": len(sensor) - len(era5),
                      "era5_only_same_kinds": len(same), "also_flagged_at_rung2": len(at2),
@@ -291,7 +303,8 @@ def sensor_split(s4: dict, s25: dict, s2: dict) -> dict:
                      "sensor_driven_with_sun": sum(1 for i in sensor if "sun" in a4[i]["kinds"]),
                      "era5_only_with_sun": sum(1 for i in era5 if "sun" in a4[i]["kinds"]),
                      "sensor_driven_naming_a_porch_entity": len(porch),
-                     "era5_only_naming_a_porch_entity": sum(1 for i in era5 if i in set(porch))}
+                     "era5_only_naming_a_porch_entity": sum(1 for i in era5 if i in set(porch)),
+                     "era5_only_naming_no_porch_entity": sum(1 for i in era5 if i in set(indoor_only))}
     return out
 
 
