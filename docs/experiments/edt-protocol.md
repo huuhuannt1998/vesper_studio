@@ -1414,3 +1414,15 @@ changes. The `8fcd672` sweep stays primary. R6-D (Addendum 11) is the engine-cor
 
 Every lost frame flag is checked for `initial_state: off` (R7-C counted 3 among the 199) and for the `sun` condition
 `before` boundary (R7-C: 0). No pass/fail criterion.
+
+**A16.3 Deviation (2026-11-05, after A16's run, before a second run).** A16's sweep at `66b93f7` gave one new frame
+flag. The automation is a template trigger reading `now()` and a switch's `last_updated`. It did not fire in one
+environment (Singapore, 2026-10-14, north 180°), where the published sweep and R6-D had it fire. No engine code that it
+uses changed between the two sweeps.
+
+The cause is the template budget. It was 0.5 s of wall-clock time, and a render failing it silently fails its
+trigger. The sweep ran while other lanes loaded the machine. R6-A had reported the same kind of load-dependent
+change (A8.9).
+
+The fix: the budget counts the thread's CPU time, with a failing test first. A second sweep then runs at the fix's
+commit, exactly as A16.1 (3 workers). Both runs are reported. The second one is the engine-corrected result.
