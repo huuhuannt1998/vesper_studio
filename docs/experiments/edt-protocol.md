@@ -1426,3 +1426,240 @@ change (A8.9).
 
 The fix: the budget counts the thread's CPU time, with a failing test first. A second sweep then runs at the fix's
 commit, exactly as A16.1 (3 workers). Both runs are reported. The second one is the engine-corrected result.
+
+## Addendum 12 (2026-11-05, post hoc: written after the fourth internal review, before its runs)
+
+**Post hoc**: written after the fourth internal review asked for these analyses and after every result they revisit
+was seen (revisions R4-A to R6-D in `docs/experiments/results-edt.md`), but before any number below is computed or
+run. Nothing earlier changes, and every earlier number stands; what follows is reported beside it. A change made after
+a run is dated at the end of this addendum and called a deviation. Review 4's item numbers are in brackets.
+
+Base: the rung-4 sweeps `120f4ca` ($S_R$, the registered sweep) and `8fcd672` ($S_6$, the paper's primary sweep;
+current binder, device reporting rule), their rich outcome caches and traces; the open-loop replays of R4-B
+(`r4b-scratch`) and R6-B (`r6-B/scratch`); the engine-corrected sweep `5b54586` (R6-D); the R4-C audit labels
+(`audit-r4c/labels-{flagged,dead}.tsv`); R6-C's pair records. Script: `scripts/revision/r7a_analyses.py`. Results:
+`results/edt/r7a-<commit7>.json` (aggregates and anonymous indices only: no automation text, alias, entity name,
+repository or hash) and a section "Revision R7-A (Addendum 12)" of `results-edt.md`. At most 3 worker processes, under
+nice. "Frame flags" are $S_6$'s 199 under the frame relation and "clock flags" its 790 under the clock relation, unless
+a sweep is named.
+
+**A12.1 What an orientation witness is, and the three populations [1(b)].** From the code:
+
+- *Pair.* Two environments of one sweep that differ in exactly one axis (`vesper.edt.cover._axis`). An *orientation
+  pair* differs only in plan north (same city, date and rung).
+- *Witness under a relation.* A pair on which the relation, restricted to the two environments, finds a divergence:
+  `oracle.frame_restricted_divergences` for the frame relation, `restricted_divergences` for the clock relation (the
+  rule of `scripts/edt_analysis/r4a_analyses.py`, `witnesses`). An automation is **orientation-witnessed under a
+  relation** iff it is flagged under that relation and some orientation pair is a witness under it.
+- *Outcome-class witness.* R4-B and R6-B (`r4b_error_budget.affected`) used another rule: a clock flag with an
+  orientation pair whose outcome classes differ (`cover._differ`: fired, first time of day beyond 3 h, or an envelope
+  kind), whatever the relation.
+
+Reported: the size of each population on $S_R$ and $S_6$ (the expected values are §V-B's 100, R4-B's 129 and R6-B's
+123), and their overlaps on $S_6$: the frame relation's set against the two clock-relation sets, with how many of the
+frame relation's set are not clock flags.
+
+*The aperture propagation, re-derived on the frame relation's own set.* The population is $S_6$'s frame flags that are
+orientation-witnessed under the frame relation. Each aperture setting already run on the frame set (R6-B: x0.21,
+x0.25, x0.29, x0.5, x2; the reference x1) is replayed on that setting's cached traces: R6-B's caches, hard-linked into
+this lane's scratch. A trace is never re-recorded unless its header disagrees, and that is reported. The replayed set is
+R6-B's affected set (A9.4) united with all 199 frame flags. Reported per setting:
+
+- how many of the population keep a frame-relation orientation witness, split by what they read as written
+  (temperature, humidity, neither);
+- how many automations of the replayed set gain one;
+- the temperature and humidity frame flags kept.
+
+The reference x1 must reproduce the published frame relation for every replayed automation. This is a check; a
+mismatch is reported, not repaired.
+
+**A12.2 Bookkeeping reconciliations [1(d), 1(f), 8(c)].** Computed per automation from the sweep files; aggregates
+reported.
+
+- *790 against 797.* The clock flags of $S_6$ against those of $S_R$: kept, lost and new. For every lost or new flag,
+  the cause: refused by the binder at $S_6$; bound differently; run differently; other.
+- *390 against 391.* The environment-coupled run automations that fire in no environment, at $S_6$ and at $S_R$: the
+  same decomposition.
+- *Bound counts.* $S_R$'s bound count (expected 9,524 = 457,152 / 48) against $S_6$'s 9,515. The automations bound at
+  one and not at the other, by cause, and how many of those bound at both have a different binding (the "rebind").
+- *Engine refusals.*
+  - At $S_6$: bound minus run; the automations refused in every environment and those refused in some only
+    (`partially_refused`), so that bound = run + refused-everywhere is checked.
+  - The refusal reasons, one per automation: its first refusal reason over the environments in key order
+    (`sweep.reason_class`). They go into the six named classes ("it has no trigger"; `trigger event is not supported`,
+    with any parenthesis; `trigger mqtt`; `trigger webhook`; `trigger tag`; `'blueprint' is not supported`) and an
+    **other** line holding every remaining reason, with the other line's five largest reason classes.
+  - The same table at $S_R$, so that 3,590 is closed.
+
+**A12.3 The discrepant pair [8(b)].** R6-C's rule (`ha_diff.discrepant`): a pair is discrepant iff any of these holds:
+
+- exactly one engine fires;
+- both fire and |Δ| >= 1 s;
+- the call sets, the distinct-instant counts or the compared brightness differ;
+- Home Assistant could not load the automation.
+
+Reported on the published-engine run's 1,052 pair records: the disjoint decomposition into one engine only; both fire
+with |Δ| >= 1 s; and both fire with |Δ| < 1 s and a payload difference, by payload field. So 78 is rebuilt from 1,052 =
+630 + 414 + 8, 576 within 1 s and 608 within 60 s. The 501 sub-second-only pairs are reported beside it.
+
+**A12.4 Robust core and possible set [4].**
+
+- *Definitions.* Take a bracket (a set of sampled settings of one term) and a finding family $F$ (a set of
+  automations with a finding).
+  - The **robust core** is the automations of the published $F$ that hold the finding at every sampled setting of
+    the bracket.
+  - The **possible set** is the union over the bracket's settings of the automations holding the finding at that
+    setting, within the replayed set.
+  - A finding is held as follows. An orientation witness: orientation-witnessed under the frame relation (A12.1). A
+    temperature flag: flagged under the frame relation and reading a temperature by the names as written (`kinds`). A
+    humidity flag: likewise for humidity.
+- *Brackets, with their settings.* The nominal model is one of a bracket's settings where the bracket contains it.
+  - aperture (R4-B): x0.25, x0.5, x1, x2;
+  - outdoor air (R4-B): -2 K, 0, +2 K;
+  - humidity class (R4-B): 1, 2, 3;
+  - $\hat k$ (R6-B): x0.21, x0.25, x0.29 (the nominal x1 lies outside this bracket and is not in it);
+  - direct share (R6-B): 0.6, 0.8, 0.95;
+  - engine (R6-D): the published engine (`8fcd672`) and the corrected one (`5b54586`), as whole sweeps;
+  - all of the above together: the intersection and the union over every setting sampled in any bracket.
+- *Runs.* The outdoor-air and humidity-class settings were run only on the clock set (R4-B, `120f4ca`). They are run
+  once on the frame set with R6-B's code path (`r6b_physics._trace_job`): the sweep's worker, the current seven-field
+  result, reporting rule `device`, the `8fcd672` home and its cached weather. Traces are recorded afresh in this lane's
+  scratch, one cache per setting, and the replayed set is A12.1's. The x1 reference replay of A12.1 is the check.
+- *Reported:* per bracket and family, the published count, the robust core and the possible set, with the possible
+  set's members outside the published family. The engine bracket's possible set is over all run automations.
+
+**A12.5 A binder-discounted flag count [7].**
+
+- *Population.* Of the 199 frame flags, those declaring a sensed frame (148, A8.3) are discounted; the 51 others stay
+  as they are. The review's "44 sun-frame flags" are the flags reading the sun; those among the 148 are discounted like
+  the rest, and the overlap is reported.
+- *Labels.* An R4-C label (`labels-flagged.tsv`, keyed by the first 12 characters of the automation's hash) covers a
+  flag if the flag's hash carries that key. Reported: how many of the 148 are covered, and by which label.
+- *Primary estimate.* D = 51 + (the covered of the 148 not labelled `misbind`) + (the uncovered of the 148) x (1 - the
+  mis-bind share among the covered). `uncertain` counts as not a mis-bind here, the review's 28.5 % basis. The
+  sensitivity row counts `uncertain` as a mis-bind.
+- *Interval.* A percentile bootstrap over repositories (1,000 resamples, numpy `default_rng(0)`): the repositories of
+  the 148 are resampled with replacement and D is recomputed, the uncovered share taken from the resample's covered
+  flags.
+- *Beside it:*
+  - the review's form, 51 + 148 x (1 - 51/179), with R4-C's repository-bootstrap ends of the mis-bind share
+    ([18.8, 39.2] %);
+  - D with only the wrong-medium mis-binds discounted (R4-C's classes C1-C4 and C6), since a wrong-room mis-bind (C5)
+    is likely to survive in another room of the same home.
+
+**A12.6 Non-default execution semantics among the flags [8(a), counting only].** Counted over the automations as
+written (their raw configuration):
+
+- a `mode` other than `single`;
+- a `max`; a `max_exceeded`;
+- an `initial_state` (and how many set it false or off);
+- a `delay` step anywhere in the actions; a `wait_for_trigger` step anywhere in the actions;
+- any of these.
+
+Counted over the 199 frame flags, the 790 clock flags and the 5,926 run automations. Lane C runs the engine tests;
+nothing here runs the engine.
+
+**A12.7 The null-difference control [10(a)].** A new experiment, run once with the current code. That is the engine of
+`5b54586`, so where a published sweep is needed for comparison it is R6-D's.
+
+- *Setup.* The 9,515 automations of $S_6$, as bound there; the `8fcd672` standard home; reporting rule `device`; rung 4.
+  The path is R6-B's open loop (the sweep's own worker), with every new site registered in each worker's site table at
+  start. Dates: the four swept dates. North 0 for every environment.
+- *Duplicated environment.* The three base sites (Minneapolis, Stockholm, Phoenix) at the four dates: 12
+  environments. Each is recorded and replayed twice, in two fresh, separate caches (copies of the cached `120f4ca`
+  ERA5 weather; no fetch), and each such twice-run environment is a pair of two grid points. **Expected flag rate: 0.**
+  Reported, per relation: the automations flagged over the 12 pairs (the relation restricted to the pair) and the
+  outcome and rich-outcome mismatches. Anything other than 0 is an engine non-determinism finding, reported with its
+  cause.
+- *Near-identical sites.* Each pair is the base site with a town in the same climate and time zone, at the same date
+  and north; the coordinates are the towns' centres.
+  - Primary pairs, the town 20-50 km away: Minneapolis with Anoka, MN (45.1977, -93.3872; 26 km); Stockholm with
+    Södertälje (59.1955, 17.6253; 29 km); Phoenix with Mesa, AZ (33.4152, -111.8315; 23 km).
+  - Secondary pairs, the review's named examples, outside 20-50 km: Minneapolis with St Paul (44.9537, -93.0900;
+    14 km) and Stockholm with Uppsala (59.8586, 17.6389; 64 km).
+  - A pair is 2 environments: the base site's (from the first duplicate cache) and the town's. 5 pairs x 4 dates = 20
+    pairs.
+- *Weather.* One ERA5 request per new site and date (the Open-Meteo archive, `models=era5`, through VESPER's
+  fetcher, with a generic User-Agent and no e-mail). It is cached under `~/vesper-lab/edt/r7-A/`, with the request URLs
+  recorded there. Nothing else is fetched, and no cached weather is fetched again.
+- *Reported, per pair and pooled over the primary and over the secondary pairs, per relation (frame and clock):*
+  - the automations flagged over the pair, of those with an outcome in both environments, and the same restricted to
+    the environment-coupled ones;
+  - the kinds;
+  - the two sites' ERA5 cells and their mean absolute hourly difference of outdoor temperature over the run;
+  - for scale, the same per-pair rate over R6-D's one-axis city pairs at the same dates and north (15 city pairs x 4
+    dates).
+
+  No pass/fail threshold. Unless the duplicate control fails, a flag over a near-identical pair is a real difference
+  of recorded weather; each pooled flag is reported by kind and by what it reads.
+
+**A12.8 Dead-reason precision [10(b)].** The mechanical reasons (A6.6, `r4a_analyses.dead_rules`) are re-derived at
+$S_6$ for the 390 environment-coupled dead automations, by the same code. The check: the reason counts reproduce
+R4-A's environment-coupled column. They are joined to R4-C's dead audit (100 of $S_R$'s 391; 99 are in $S_6$'s 390).
+The auditor's classes are P (missing occupancy or presence), E (a needed event never happens), B (a binding or
+standard-home artefact), S (a calendar date outside the swept dates), G1-G3 (genuinely dead: threshold unreachable,
+condition unsatisfiable, armed crossing impossible) and X (other). A mechanical reason **matches** the diagnosis iff
+the auditor's class is in its set:
+
+| Mechanical reason | Matching auditor classes |
+|---|---|
+| trigger entities never change (no residents; open loop) | P, E |
+| a condition never holds: on an entity that never changes | P, E |
+| a condition never holds: a time condition | S, G2 |
+| a condition never holds: a template or another condition | S, G2 |
+| a condition never holds: a sensed-quantity or sun-state condition | B, G2 |
+| a condition never holds: several conditions | not comparable (no single blocker) |
+| threshold out of the observed range in every environment | B, G1 |
+| never armed | B, G1, G3 |
+| the actions end before any call | X |
+| not derived | not comparable |
+
+Reported: per mechanical reason, the audited automations and the matches (precision, Wilson 95 %), and the "not
+derived" and "not comparable" shares of the 99. The class decides a match; the audit's notes are not used to invent a
+diagnosis beyond it.
+
+**A12.9 The flags in the not-environment-coupled block [11(a)].** These are the 15 frame flags and 19 clock flags of
+$S_6$ whose automation reads no environment quantity by its names as written (`kinds` empty). Each is read locally,
+its bound configuration and its outcomes (no text is committed), and put into one cause class:
+
+- *L-sun:* a detector leak: it reads the sun (an attribute, a template or a form the name detector misses);
+- *L-sensed:* a detector leak: it reads a sensed quantity the name detector misses (the binder put a sensed role under
+  it, or it reads one through an attribute or a template);
+- *L-actuator:* the environment reaches it through a state the home's environment rules move (a thermostat's action or
+  running state, for instance), so the home couples it, not its names;
+- *N-date:* a genuine non-environment cause: a date or calendar dependence (the dates differ across environments);
+- *N-zone:* a genuine non-environment cause: the site's time zone or UTC offset;
+- *other:* anything else, described in one aggregate line.
+
+For a leak, the detector rule that missed it is named (by function, in `vesper.edt.corpus.env_kinds`). The classes
+are reconciled with Table VI's frame partition: each automation's frame set $\Phi_A$ (`frames_of`), so that the 13
+clock-only flags of each relation are matched against the 19 and the 15.
+
+**A12.10 A named variant: the crossing-time reference with env_latency [12].** The published frame relation stays as
+it is. The variant, named `frame+crossing+env_latency`, is the frame relation with A8.5's crossing-time sensed reference
+on (`sensed_crossing`), plus one outcome kind.
+
+- *env_latency.* Take the environments where the automation fires and its sensed reference has a first crossing in the
+  judged window, and in each the latency θ_e = first firing - first crossing, in minutes. The kind holds iff at least
+  two such θ_e exist, every one is >= 0, and max θ - min θ exceeds the time-spread tolerance (180 min). An automation
+  that fires before its crossing in some environment (A8.5's "precede") is not env_latency; one whose firing waits on
+  its conditions by more than the tolerance in some pair of environments is.
+- *Code:* an option of the oracle, off by default (`frame_divergences(..., env_latency=False)`), tested first. Off, it
+  reproduces the published relation bit for bit on all 5,926 run automations of $S_6$.
+- *Reported on the `8fcd672` cache* (its traces and rich outcomes, as A8.5): the flags under the variant, by kind; how
+  many carry env_latency, and how many of those also carry time_spread; and the overlap with A8.5's 8 that gain
+  time_spread (of which 4 were latency).
+
+**A12.11 The cover's upper bound [13].** The coverage matrix is recomputed from $S_6$: each flag's witness pairs over
+the 1,128 environment pairs (A12.1's rule; R4-A's pair cover). The problem: choose 6 environments to maximise the flags
+with a witness pair inside the 6 (induced pairs).
+
+- *Solver:* scipy's `milp` (HiGHS), with binary x (48 environments, summing to 6), y (pairs, y <= x at each end) and z
+  (flags, z <= the sum of its pairs' y, z <= 1); the objective is the sum of z.
+- *Reported for each relation, on all flags and on the training half (section 6's split):*
+  - the LP relaxation's bound;
+  - the MILP's optimum, or its best bound and incumbent at a 600 s limit;
+  - a local-search lower bound (single swaps from greedy's 6 environments and from 20 seeded random starts,
+    `default_rng(0)`);
+  - greedy's 3 pairs (R4-A), evaluated on their own pairs and on the 15 pairs their 6 environments induce;
+  - the gap from greedy to the upper bound.
