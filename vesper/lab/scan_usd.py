@@ -270,6 +270,10 @@ def write_glb(path: Path, out: Path, matrix) -> int:
             pts = np.asarray(mesh.GetPointsAttr().Get(time) or [], dtype=np.float64).reshape(-1, 3)
             counts = list(mesh.GetFaceVertexCountsAttr().Get(time) or [])
             idx = list(mesh.GetFaceVertexIndicesAttr().Get(time) or [])
+            if sum(counts) != len(idx) or any(n < 0 for n in counts) or any(
+                    not 0 <= i < len(pts) for i in idx):
+                raise ScanError(f"{Path(path).name}: the mesh {prim.GetPath()} is malformed (its faces list "
+                                f"{sum(counts)} corners for {len(idx)} indices into {len(pts)} points)")
             faces, at = [], 0
             for n in counts:  # each polygon as a fan of triangles
                 faces += [[idx[at], idx[at + i], idx[at + i + 1]] for i in range(1, n - 1)]

@@ -310,3 +310,22 @@ def test_the_yaw_of_a_turned_object_is_kept(tmp_path):
     [got] = [p for p in pieces if p["kind"] == "bed"]
     assert got["yaw"] == pytest.approx(30.0, abs=1e-3)
     assert got["box"] == pytest.approx([5.95, 0.075, 7.55, 2.125], abs=1e-4)
+
+
+@pytest.mark.parametrize("counts, indices", [([4], [0, 1, 2]), ([3], [0, 1, 7])])
+def test_a_malformed_mesh_is_refused_when_drawn_not_a_crash(tmp_path, counts, indices):
+    """A face listing more corners than the indices hold, or an index past the points: a ScanError naming the prim."""
+    pytest.importorskip("pxr")
+    pytest.importorskip("trimesh")
+    from pxr import Gf, Usd, UsdGeom
+
+    from vesper.lab.scan_usd import write_glb
+    path = tmp_path / "bad.usda"
+    stage = Usd.Stage.CreateNew(str(path))
+    mesh = UsdGeom.Mesh.Define(stage, "/room/Mesh_grp/Arch_grp/Wall_0_grp/Wall0")
+    mesh.CreatePointsAttr([Gf.Vec3f(0, 0, 0), Gf.Vec3f(1, 0, 0), Gf.Vec3f(1, 1, 0)])
+    mesh.CreateFaceVertexCountsAttr(counts)
+    mesh.CreateFaceVertexIndicesAttr(indices)
+    stage.GetRootLayer().Save()
+    with pytest.raises(ScanError, match="Wall0"):
+        write_glb(path, tmp_path / "out.glb", [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
