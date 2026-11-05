@@ -340,7 +340,8 @@ def compare_pair(v: list[Firing], h: list[Firing], lo: float, hi: float, scales:
     """One (automation, environment): fired, first times, Δ = VESPER - HA, call sets, instant counts, brightness."""
     vm, hm = _in(v, lo, hi), _in(h, lo, hi)
     rec = {"v_fired": bool(vm), "h_fired": bool(hm), "v_first": vm[0].t if vm else None,
-           "h_first": hm[0].t if hm else None, "v_count": len({f.t for f in vm}), "h_count": len({f.t for f in hm})}
+           "h_first": hm[0].t if hm else None, "v_count": len({f.t for f in vm}), "h_count": len({f.t for f in hm}),
+           "v_n": len(vm), "h_n": len(hm)}
     rec["delta_s"] = rec["v_first"] - rec["h_first"] if vm and hm else None
     vc, hc = {(f.service, f.target) for f in vm}, {(f.service, f.target) for f in hm}
     rec["calls_equal"] = vc == hc
@@ -362,9 +363,11 @@ def outcome_pair(v: list[Firing], h: list[Firing], site) -> tuple:
 # ---- one environment ------------------------------------------------------------------------------------------------
 
 def run_env(env: Env, sample: list[str], autos: dict, work: Path, scratch: Path, catalog_dir: str,
-            ha_python: Path, log=print) -> dict:
+            ha_python: Path, log=print, ha_transform=None) -> dict:
     """Both engines over one environment's cached trace: per automation, the comparison record, VESPER's and Home
-    Assistant's oracle outcomes, the sweep's cached outcome (the reproduction check) and HA's notes."""
+    Assistant's oracle outcomes, the sweep's cached outcome (the reproduction check) and HA's notes.
+    `ha_transform` (Addendum 15; default none): what Home Assistant is given instead of each bound automation (VESPER
+    always runs the bound automation itself)."""
     from vesper.edt.oracle import site_of
     from vesper.env.outdoor import RUN_DAYS
     home_yaml = work / "edt" / "home.yaml"
@@ -381,7 +384,7 @@ def run_env(env: Env, sample: list[str], autos: dict, work: Path, scratch: Path,
     labelled, label_of = [], {}
     for i, k in enumerate(sample):
         label_of[f"edt:{i}"] = k
-        labelled.append({**bound[k], "alias": f"edt:{i}"})
+        labelled.append({**(bound[k] if ha_transform is None else ha_transform(bound[k])), "alias": f"edt:{i}"})
     job = ha_job(_site_header(trace), inputs, labelled, end)
     t = time.monotonic()
     out = run_ha(job, ha_python, scratch / env.key)
@@ -410,6 +413,7 @@ def run_env(env: Env, sample: list[str], autos: dict, work: Path, scratch: Path,
         rec.update(v_outcome=vo, h_outcome=ho, v_rich=vr, h_rich=hr, ha_unavailable=k in unavailable,
                    vesper_refused=rep.refused.get(k), notes=notes.get(k, [])[:10], n_notes=len(notes.get(k, [])),
                    ha_refused_calls=refused_calls.get(k, 0), approximations=rep.approximations.get(k, []),
+                   n_already_running=sum("Already running" in n[3] for n in notes.get(k, [])),
                    reproduces=(cached["outcomes"].get(env.key) == vo
                                and (cached.get("rich", {}).get(env.key) or {}).get("first_t") == vr["first_t"]
                                and (cached.get("rich", {}).get(env.key) or {}).get("count") == vr["count"]
