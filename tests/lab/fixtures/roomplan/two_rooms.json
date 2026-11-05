@@ -1,0 +1,51 @@
+{
+ "version": 2,
+ "story": 0,
+ "coreModel": "",
+ "_comment": "Hand-written test fixture in Apple RoomPlan CapturedRoom (version 2) form: a living room (x 0-5, z 0-4) and a bedroom (x 5-8.5, z 0-4), metres, Y up, floor at y = -1.2, walls 2.4 m high. Transforms are column-major 4x4: a wall along x has its local x axis (1, 0, 0), one along z has (0, 0, 1). One door between the rooms (on the middle wall), one door from the living room to the outside (south wall), a window in each room.",
+ "walls": [
+  {"identifier": "W-north-living", "category": {"wall": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": null, "polygonCorners": [],
+   "dimensions": [5.0, 2.4, 0], "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2.5, 0.0, 0.0, 1]},
+  {"identifier": "W-north-bedroom", "category": {"wall": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": null, "polygonCorners": [],
+   "dimensions": [3.5, 2.4, 0], "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 6.75, 0.0, 0.0, 1]},
+  {"identifier": "W-south-living", "category": {"wall": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": null, "polygonCorners": [],
+   "dimensions": [5.0, 2.4, 0], "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2.5, 0.0, 4.0, 1]},
+  {"identifier": "W-south-bedroom", "category": {"wall": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": null, "polygonCorners": [],
+   "dimensions": [3.5, 2.4, 0], "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 6.75, 0.0, 4.0, 1]},
+  {"identifier": "W-west", "category": {"wall": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": null, "polygonCorners": [],
+   "dimensions": [4.0, 2.4, 0], "transform": [0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0.0, 0.0, 2.0, 1]},
+  {"identifier": "W-east", "category": {"wall": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": null, "polygonCorners": [],
+   "dimensions": [4.0, 2.4, 0], "transform": [0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 8.5, 0.0, 2.0, 1]},
+  {"identifier": "W-middle", "category": {"wall": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": null, "polygonCorners": [],
+   "dimensions": [4.0, 2.4, 0], "transform": [0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 5.0, 0.0, 2.0, 1]}
+ ],
+ "doors": [
+  {"identifier": "D-between", "category": {"door": {"isOpen": false}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": "W-middle", "polygonCorners": [],
+   "dimensions": [0.9, 2.03, 0], "transform": [0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 5.0, -0.185, 2.6, 1]},
+  {"identifier": "D-front", "category": {"door": {"isOpen": false}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": "W-south-living", "polygonCorners": [],
+   "dimensions": [0.9, 2.03, 0], "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1.5, -0.185, 4.0, 1]}
+ ],
+ "windows": [
+  {"identifier": "N-living", "category": {"window": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": "W-north-living", "polygonCorners": [],
+   "dimensions": [1.5, 1.2, 0], "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2.5, 0.3, 0.0, 1]},
+  {"identifier": "N-bedroom", "category": {"window": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": "W-east", "polygonCorners": [],
+   "dimensions": [1.2, 1.2, 0], "transform": [0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 8.5, 0.3, 2.0, 1]}
+ ],
+ "openings": [],
+ "floors": [
+  {"identifier": "F-floor", "category": {"floor": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": null, "polygonCorners": [],
+   "dimensions": [8.5, 4.0, 0], "transform": [1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 4.25, -1.2, 2.0, 1]}
+ ],
+ "sections": [
+  {"label": "livingRoom", "center": [2.5, -1.2, 2.0], "story": 0},
+  {"label": "bedroom", "center": [6.75, -1.2, 2.0], "story": 0}
+ ],
+ "objects": [
+  {"identifier": "O-sofa", "category": {"sofa": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": null, "attributes": {"SofaType": "rectangular"},
+   "dimensions": [2.1, 0.85, 0.9], "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2.5, -0.775, 3.4, 1]},
+  {"identifier": "O-bed", "category": {"bed": {}}, "confidence": {"high": {}}, "story": 0, "parentIdentifier": null, "attributes": {},
+   "dimensions": [1.6, 0.55, 2.05], "transform": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 6.75, -0.925, 1.1, 1]},
+  {"identifier": "O-wardrobe", "category": {"storage": {}}, "confidence": {"medium": {}}, "story": 0, "parentIdentifier": null, "attributes": {"StorageType": "cabinet"},
+   "dimensions": [1.2, 2.0, 0.6], "transform": [0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 8.15, -0.2, 3.0, 1]}
+ ]
+}
