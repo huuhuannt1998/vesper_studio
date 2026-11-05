@@ -1389,3 +1389,28 @@ as follows before the first comparison run. Nothing above is otherwise changed.
    in a construct outside the stratum's six (the `sun` condition, documented as supported). It is not fixed before
    the comparison runs. If the four environments show it, it is handled by A15.8 like any other defect, and its
    occurrence there is a confirmation, not a discovery.
+
+## Addendum 16 (2026-11-05, post hoc, after Addendum 15's results; before its run)
+
+**Post hoc**: written after Addendum 15's differential test, whose two failing parts trace to one cause. VESPER
+replayed automations with `initial_state: off` as if enabled; Home Assistant starts them disabled. Written before the
+run below. Two changes are made, each with a failing test first: the sun condition's `before` boundary (R7-C,
+`e6e3355`), and such automations are now refused at binding as "disabled at startup (initial_state: off)", because
+nothing in a single automation's replay enables them. They are neither run nor counted as dead rules. Nothing earlier
+changes. The `8fcd672` sweep stays primary. R6-D (Addendum 11) is the engine-corrected comparison this run extends.
+
+**A16.1 The run.** As A11.1:
+- one rung-4 sweep at the commit that adds this addendum;
+- current binder, device reporting rule;
+- the recorded ERA5 weather, fresh traces;
+- 3 workers, under nice;
+- script `~/vesper-lab/edt/run_r6d.sh` with this commit's worktree, output `sweep-rung4-r6d-<commit7>.json`.
+
+**A16.2 Reported**, beside `8fcd672` and R6-D (`5b54586`), with `scripts/revision/r6d_compare.py`:
+- bound and run counts, and how many automations the new refusal removes;
+- frame and clock flags by kind, with held, lost and new against `8fcd672`;
+- the negative control;
+- environment-coupled never-firing count.
+
+Every lost frame flag is checked for `initial_state: off` (R7-C counted 3 among the 199) and for the `sun` condition
+`before` boundary (R7-C: 0). No pass/fail criterion.
