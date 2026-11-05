@@ -34,18 +34,19 @@ Supported, with Home Assistant's semantics (each in tests/lab/test_automations*.
   automation's variables and trigger_variables);
 - templates: the subset of vesper.lab.ha_template (states, is_state, state_attr, now, Home Assistant's forgiving
   filters, ...), each refused by name outside it;
-- `enabled: false` anywhere; mode `single` (`max`, `max_exceeded` accepted).
+- `enabled: false` anywhere; modes `single`, `restart`, `queued` and `parallel` with `max` (default 10) as Home
+  Assistant 2026.10.2 runs them (`max_exceeded` only sets Home Assistant's log level: accepted).
 An automation using anything else (a template outside the subset, wait_template, parallel, an event, webhook or
 other trigger no simulated home fires, a key the engine does not know, an unquoted on/off that Home Assistant itself
 refuses) is refused by name when the file is loaded, never run in part; the others run.
 `Engine(permissive=True)` is for replaying public automations: an action it cannot execute is recorded (the service
-and its targets, which need not be the home's), a light parameter the twin cannot apply (a transition) is dropped, and a
-mode other than single runs as single, all said in the
-automation's `approximations`; a condition or trigger it cannot evaluate is still refused.
+and its targets, which need not be the home's) and a light parameter the twin cannot apply (a transition) is dropped,
+both said in the automation's `approximations`; a condition or trigger it cannot evaluate is still refused.
 As in Home Assistant, every trigger of a state change is evaluated before any action runs, a `for:` lasts while
-the state still matches (a numeric value, while it stays in range), and conditions are checked before mode
-`single` drops a trigger. Every command the engine sends is an `automation` record, not an input: a replay runs
-the engine again.
+the state still matches (a numeric value, while it stays in range), and conditions are checked before the mode
+decides what a trigger during a run does (single drops it; restart stops the run under way and starts again; queued
+waits for the runs before it and parallel runs beside them, each dropping a trigger beyond `max` runs). Every
+command the engine sends is an `automation` record, not an input: a replay runs the engine again.
 """
 from __future__ import annotations
 
@@ -64,6 +65,10 @@ from vesper.exposure.z2m_bridge import flatten, ieee_address
 
 DAY_S = 86400
 LOOP_LIMIT = 100  # firings of one automation at one instant: more is a loop (it triggers itself), not a day
+# Home Assistant 2026.10.2's script modes and their `max` (homeassistant/helpers/script.py; protocol Addendum 20)
+MODES = ("parallel", "queued", "restart", "single")
+DEFAULT_MAX_RUNS = 10
+MAX_EXCEEDED = ("CRITICAL", "FATAL", "ERROR", "WARNING", "WARN", "INFO", "DEBUG", "NOTSET", "SILENT")
 SERVICES = {"light": ("turn_on", "turn_off", "toggle"), "switch": ("turn_on", "turn_off", "toggle"),
             "lock": ("lock", "unlock"), "climate": ("set_temperature", "set_hvac_mode", "turn_on", "turn_off")}
 TURN_ON_MODES = ("heat_cool", "heat", "cool")  # Home Assistant's climate.turn_on: the first of these the entity has
@@ -202,6 +207,9 @@ class Automation:
     approximations: list[str] = field(default_factory=list)  # what permissive mode ran differently from the file
     variables: dict = field(default_factory=dict)  # rendered when it fires, before its conditions
     trigger_variables: dict = field(default_factory=dict)  # rendered when it loads, for its trigger templates
+    mode: str = "single"
+    max: int = DEFAULT_MAX_RUNS  # queued and parallel: the runs, running and waiting, beyond which a trigger drops
+    runs: list = field(default_factory=list)  # its _Runs under way; for queued, the first runs and the rest wait
 
 
 @dataclass
@@ -233,6 +241,8 @@ class _Run:
     context: dict
     frames: list[_Frame]
     counts: dict = field(default_factory=dict)  # a repeat whose count is a template -> its count this run
+    alive: bool = True  # False once a restart stopped it: a delay or wait that ends later does not resume it
+    stop_wait: Callable | None = None  # ends the wait_for_trigger it is in, if any
 
 
 @dataclass
@@ -403,8 +413,8 @@ def _enabled(items: list) -> list:
 class Engine:
     def __init__(self, session, permissive: bool = False, automations: list[dict] | None = None):
         """`permissive`: an action the engine cannot execute is recorded (`automation_command` with no twin) rather
-        than refusing the automation, and a mode other than single runs as single, listed in the automation's
-        `approximations`. `automations`: the automations to load, in place of the home's file."""
+        than refusing the automation, listed in the automation's `approximations`. `automations`: the automations to
+        load, in place of the home's file."""
         self.session, self.home, self.runtime = session, session.home, session.runtime
         self.permissive, self._given = permissive, automations
         self.entities: dict[str, Entity] = {}
@@ -479,10 +489,18 @@ class Engine:
         if not isinstance(a.get("hide_entity", False), bool):  # deprecated in Home Assistant, still a boolean
             raise AutomationError(f"hide_entity: {a['hide_entity']!r} is not true or false")
         mode, approximations = a.get("mode", "single"), []
-        if mode != "single":
-            if not self.permissive:
-                raise AutomationError(f"mode {mode!r} is not supported (single only)")
-            approximations.append(f"mode {mode} run as single")
+        if mode not in MODES:  # Home Assistant's schema: vol.In(SCRIPT_MODE_CHOICES)
+            raise AutomationError(f"mode {mode!r} is not one of {', '.join(MODES)}")
+        max_runs = DEFAULT_MAX_RUNS
+        if "max" in a:  # vol.All(vol.Coerce(int), vol.Range(min=2))
+            try:
+                max_runs = int(a["max"])
+            except (TypeError, ValueError):
+                raise AutomationError(f"max: {a['max']!r} is not a number") from None
+            if max_runs < 2:
+                raise AutomationError(f"max: {a['max']!r} is less than 2")
+        if "max_exceeded" in a and str(a["max_exceeded"]).upper() not in MAX_EXCEEDED:  # it only sets a log level
+            raise AutomationError(f"max_exceeded: {a['max_exceeded']!r} is not one of {', '.join(MAX_EXCEEDED)}")
         self._notes = []  # what permissive mode records instead of running, for `approximations`
         self._chooses = 0  # the automation's choose and if steps, numbered in the order they are written
         self._varnames = set(_variable_names(a))  # what templates may read besides trigger, wait and repeat
@@ -496,7 +514,7 @@ class Engine:
         actions = self._actions(a.get("actions", a.get("action")))
         approximations += self._notes
         return Automation(label, triggers, conditions, actions, approximations=approximations,
-                          variables=variables, trigger_variables=trigger_variables)
+                          variables=variables, trigger_variables=trigger_variables, mode=mode, max=max_runs)
 
     # -- templates ----------------------------------------------------------------------------------
     @property
@@ -1497,8 +1515,14 @@ class Engine:
             return
         if not all(self._holds(c, context) for c in a.conditions):
             return
-        if a.running:  # Home Assistant: "Already running" (mode single), and the trigger is dropped
+        # Home Assistant 2026.10.2 (helpers/script.py, Script.async_run), after the conditions: single drops a
+        # trigger during a run ("Already running"); queued and parallel drop one when `max` runs, running and
+        # waiting, exist ("Maximum number of runs exceeded"); restart stops the run under way and starts anew
+        if a.mode == "single" and a.runs:
             self.session.automation_skipped(a.name, why, "already running (mode single)")
+            return
+        if a.mode in ("queued", "parallel") and len(a.runs) >= a.max:
+            self.session.automation_skipped(a.name, why, f"maximum number of runs exceeded (mode {a.mode})")
             return
         now = self.session.clock.now()
         if self._burst[0] != now:
@@ -1508,9 +1532,35 @@ class Engine:
             if count == LOOP_LIMIT + 1:
                 self.session.automation_skipped(a.name, why, f"it fired {LOOP_LIMIT} times at this instant: a loop")
             return
+        run = _Run(a, why, context, [_Frame(list(a.actions))])
+        if a.mode == "restart":
+            for old in list(a.runs):
+                self._stop_run(old)
+        a.runs.append(run)
         a.running = True
         self._note_run(a, why, "start")
-        self._run(_Run(a, why, context, [_Frame(list(a.actions))]))
+        if a.mode == "queued" and len(a.runs) > 1:
+            return  # it waits for the runs before it (`_finish` starts it)
+        self._run(run)
+
+    def _stop_run(self, run: _Run) -> None:
+        """A restart stops `run`: whatever it waits on (a delay, a wait) will not resume it."""
+        a = run.automation
+        run.alive = False
+        if run.stop_wait is not None:
+            run.stop_wait()
+        a.runs.remove(run)
+        a.running = bool(a.runs)
+        self._note_run(a, run.why, "cancel")
+
+    def _finish(self, run: _Run) -> None:
+        """`run` ended; a queued automation's next run, waiting since its trigger, starts now."""
+        a = run.automation
+        if run in a.runs:
+            a.runs.remove(run)
+        a.running = bool(a.runs)
+        if a.mode == "queued" and a.runs:
+            self._run(a.runs[0])
 
     def _note_run(self, a: Automation, why: str, event: str) -> None:
         """Tell a session that asks (`automation_run`, protocol Addendum 20) of a run accepted or ended early."""
@@ -1571,7 +1621,9 @@ class Engine:
         (choose, if, sequence, a repeat's iteration): a condition step that fails ends that sequence, as Home
         Assistant's sub-scripts end, and `stop` ends the run."""
         a, clock = run.automation, self.session.clock
-        while run.frames:
+        if not run.alive:  # a restart stopped it while it waited
+            return
+        while run.alive and run.frames:
             f = run.frames[-1]
             if not f.steps:
                 self._end_frame(run)
@@ -1633,7 +1685,8 @@ class Engine:
             else:
                 for entity_id in x["entities"]:
                     self._call(a, x, self.entities[entity_id], run.why)
-        a.running = False
+        if run.alive:
+            self._finish(run)
 
     def _resolved(self, x: dict, context: dict) -> dict | None:
         """A templated service's step, now: the rendered service as written out, or None if it cannot run."""
@@ -1703,10 +1756,12 @@ class Engine:
 
         def end():
             w.active = False
+            run.stop_wait = None
             self._waits.remove(w)
             self._armed.pop(id(w), None)
             for watch in watches:
                 watch.active = False
+        run.stop_wait = end
 
         def done(why, tvars):
             if w.active:

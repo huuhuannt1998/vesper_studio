@@ -138,7 +138,7 @@ def test_a_day_with_automations_replays_exactly_without_doubling_them(tmp_path):
 
 @pytest.mark.parametrize("bad, message", [
     ("- alias: x\n  triggers: [{trigger: state, entity_id: binary_sensor.a, to: 'on'}]\n"
-     "  actions: []\n  mode: queued\n", "mode 'queued' is not supported"),
+     "  actions: []\n  mode: queue\n", "mode 'queue' is not one of parallel, queued, restart, single"),
     ("{not: a list}\n", "automations.yaml: a list of automations"),
 ])
 def test_a_file_the_engine_cannot_read_is_named(tmp_path, bad, message):

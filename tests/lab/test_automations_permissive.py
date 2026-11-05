@@ -50,11 +50,13 @@ def test_an_action_with_no_target_is_still_recorded_once(tmp_path):
     assert calls == [("a", "test", "notify.notify", "", "", "", None)]
 
 
-def test_a_mode_other_than_single_loads_as_single_and_says_so(tmp_path):
+def test_a_mode_other_than_single_loads_as_itself_with_no_approximation(tmp_path):
+    """Protocol Addendum 20: the modes run as Home Assistant runs them (tests/lab/test_automations_modes.py)."""
     _, s = home_session(tmp_path)
     e = Engine(s, permissive=True, automations=[auto([], mode="restart"), auto([], mode="single"), auto([])])
     assert e.refused == []
-    assert [a.approximations for a in e.automations] == [["mode restart run as single"], [], []]
+    assert [a.approximations for a in e.automations] == [[], [], []]
+    assert [a.mode for a in e.automations] == ["restart", "single", "single"]
 
 
 def test_a_template_outside_the_engines_subset_is_still_refused(tmp_path):
@@ -73,12 +75,10 @@ def test_something_that_is_not_a_service_is_still_refused(tmp_path):
 
 def test_strict_mode_refuses_what_permissive_records(tmp_path):
     _, s = home_session(tmp_path)
-    rules = [auto([{"action": "notify.mobile_app", "target": {"entity_id": "notify.mobile_app_phone"}}]),
-             auto([], mode="restart")]
+    rules = [auto([{"action": "notify.mobile_app", "target": {"entity_id": "notify.mobile_app_phone"}}])]
     for strict in (Engine(s, automations=rules), Engine(s, permissive=False, automations=rules)):
         assert strict.automations == []
-        assert [r["reason"] for r in strict.refused] == ["action 'notify.mobile_app' is not supported",
-                                                          "mode 'restart' is not supported (single only)"]
+        assert [r["reason"] for r in strict.refused] == ["action 'notify.mobile_app' is not supported"]
 
 
 def test_given_automations_replace_the_homes_file(tmp_path):
