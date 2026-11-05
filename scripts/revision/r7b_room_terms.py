@@ -313,6 +313,8 @@ def report_bracket(d, scratch: Path, tag: str, names: list[str], groups: dict, i
 
 def report_corners(d, scratch, groups, ids) -> dict:
     names = [n for n in corner_settings() if (scratch / f"ol-c-{n}.pkl").is_file()]
+    if "ref" not in names:
+        return None
     out, sets, *_ = report_bracket(d, scratch, "c", names, groups, ids)
     if len(names) == 120:
         out["marginals"] = _marginals(sets)
