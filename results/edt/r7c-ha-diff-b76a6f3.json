@@ -1,0 +1,2730 @@
+{
+ "all": {
+  "automations": 227,
+  "delta": {
+   "abs_lt_1s": 424,
+   "abs_lt_3h": 424,
+   "abs_lt_60s": 424,
+   "max": 1.0835356079041958e-07,
+   "median": -0.2273244857788086,
+   "min": -0.49846410751342773,
+   "n": 424,
+   "p25": -0.36119890213012695,
+   "p5": -0.48170900344848633,
+   "p75": -0.053930044174194336,
+   "p95": 1.6851117834448814e-08,
+   "zero": 32
+  },
+  "discrepant_automations": 21,
+  "discrepant_pairs": 76,
+  "flaps": {
+   "ha": 46,
+   "vesper": 46
+  },
+  "ha_dropped_already_running": {
+   "lines": 300,
+   "pairs": 16
+  },
+  "oracle_components_agree": {
+   "fired": 841,
+   "first_tod_h": 841,
+   "flaps": 908,
+   "night_cover": 908,
+   "night_light": 907
+  },
+  "pairs": 908,
+  "payload": {
+   "both_fire_pairs": 424,
+   "brightness_comparable": 34,
+   "brightness_equal": 34,
+   "calls_equal": 420,
+   "firings_equal": 423,
+   "instants_equal": 419,
+   "vesper_fewer_instants": 4,
+   "vesper_more_instants": 1
+  },
+  "status": {
+   "both": 424,
+   "neither": 417,
+   "vesper_only": 67
+  },
+  "subsecond_only_pairs": 383,
+  "symmetric_automations": 19
+ },
+ "automations": 227,
+ "beside_r6c_fixed_engine (A15.9)": {
+  "abs_delta_lt_1s": 116,
+  "abs_delta_lt_60s": 116,
+  "automations": 62,
+  "both_fire": 116,
+  "calls_equal": 116,
+  "constructs": {
+   "delay": 22,
+   "initial_state:off": 3,
+   "initial_state:on": 27,
+   "max": 1,
+   "max_exceeded": 3,
+   "mode:parallel": 1,
+   "mode:restart": 13,
+   "wait_for_trigger": 3
+  },
+  "discrepant_automations": 3,
+  "discrepant_pairs": 12,
+  "instants_equal": 112,
+  "max_abs_delta_s": 0.4401419162750244,
+  "one_engine_only_automations_initial_state_off": 1,
+  "one_engine_only_pairs": 4,
+  "pairs": 248,
+  "status": {
+   "both": 116,
+   "neither": 128,
+   "vesper_only": 4
+  }
+ },
+ "by_feature": {
+  "delay": {
+   "automations": 97,
+   "delta": {
+    "abs_lt_1s": 228,
+    "abs_lt_3h": 228,
+    "abs_lt_60s": 228,
+    "max": 1.0835356079041958e-07,
+    "median": -0.25190794467926025,
+    "min": -0.49846410751342773,
+    "n": 228,
+    "p25": -0.38359689712524414,
+    "p5": -0.49750208854675293,
+    "p75": -0.07577705383300781,
+    "p95": 7.217749953269958e-08,
+    "zero": 1
+   },
+   "discrepant_automations": 0,
+   "discrepant_pairs": 0,
+   "flaps": {
+    "ha": 22,
+    "vesper": 22
+   },
+   "ha_dropped_already_running": {
+    "lines": 300,
+    "pairs": 16
+   },
+   "oracle_components_agree": {
+    "fired": 388,
+    "first_tod_h": 388,
+    "flaps": 388,
+    "night_cover": 388,
+    "night_light": 388
+   },
+   "pairs": 388,
+   "payload": {
+    "both_fire_pairs": 228,
+    "brightness_comparable": 28,
+    "brightness_equal": 28,
+    "calls_equal": 228,
+    "firings_equal": 228,
+    "instants_equal": 228,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "both": 228,
+    "neither": 160
+   },
+   "subsecond_only_pairs": 227,
+   "symmetric_automations": 0
+  },
+  "initial_state:off": {
+   "automations": 23,
+   "delta": {
+    "n": 0
+   },
+   "discrepant_automations": 17,
+   "discrepant_pairs": 62,
+   "flaps": {
+    "ha": 0,
+    "vesper": 0
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 30,
+    "first_tod_h": 30,
+    "flaps": 92,
+    "night_cover": 92,
+    "night_light": 92
+   },
+   "pairs": 92,
+   "payload": {
+    "both_fire_pairs": 0,
+    "brightness_comparable": 0,
+    "brightness_equal": 0,
+    "calls_equal": 0,
+    "firings_equal": 0,
+    "instants_equal": 0,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "neither": 30,
+    "vesper_only": 62
+   },
+   "subsecond_only_pairs": 0,
+   "symmetric_automations": 17
+  },
+  "initial_state:on": {
+   "automations": 42,
+   "delta": {
+    "abs_lt_1s": 81,
+    "abs_lt_3h": 81,
+    "abs_lt_60s": 81,
+    "max": 9.810901246964931e-08,
+    "median": -0.16332197189331055,
+    "min": -0.4967520236968994,
+    "n": 81,
+    "p25": -0.28647804260253906,
+    "p5": -0.4217948913574219,
+    "p75": 0.0,
+    "p95": 1.6851117834448814e-08,
+    "zero": 20
+   },
+   "discrepant_automations": 1,
+   "discrepant_pairs": 2,
+   "flaps": {
+    "ha": 0,
+    "vesper": 0
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 167,
+    "first_tod_h": 167,
+    "flaps": 168,
+    "night_cover": 168,
+    "night_light": 167
+   },
+   "pairs": 168,
+   "payload": {
+    "both_fire_pairs": 81,
+    "brightness_comparable": 4,
+    "brightness_equal": 4,
+    "calls_equal": 81,
+    "firings_equal": 80,
+    "instants_equal": 80,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 1
+   },
+   "status": {
+    "both": 81,
+    "neither": 86,
+    "vesper_only": 1
+   },
+   "subsecond_only_pairs": 60,
+   "symmetric_automations": 1
+  },
+  "max": {
+   "automations": 11,
+   "delta": {
+    "abs_lt_1s": 32,
+    "abs_lt_3h": 32,
+    "abs_lt_60s": 32,
+    "max": 0.0,
+    "median": -0.16363298892974854,
+    "min": -0.28136110305786133,
+    "n": 32,
+    "p25": -0.2593090534210205,
+    "p5": -0.28136110305786133,
+    "p75": -0.10885000228881836,
+    "p95": 0.0,
+    "zero": 4
+   },
+   "discrepant_automations": 2,
+   "discrepant_pairs": 8,
+   "flaps": {
+    "ha": 8,
+    "vesper": 8
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 40,
+    "first_tod_h": 40,
+    "flaps": 44,
+    "night_cover": 44,
+    "night_light": 44
+   },
+   "pairs": 44,
+   "payload": {
+    "both_fire_pairs": 32,
+    "brightness_comparable": 0,
+    "brightness_equal": 0,
+    "calls_equal": 32,
+    "firings_equal": 32,
+    "instants_equal": 28,
+    "vesper_fewer_instants": 4,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "both": 32,
+    "neither": 8,
+    "vesper_only": 4
+   },
+   "subsecond_only_pairs": 24,
+   "symmetric_automations": 1
+  },
+  "max_exceeded": {
+   "automations": 6,
+   "delta": {
+    "n": 0
+   },
+   "discrepant_automations": 0,
+   "discrepant_pairs": 0,
+   "flaps": {
+    "ha": 0,
+    "vesper": 0
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 24,
+    "first_tod_h": 24,
+    "flaps": 24,
+    "night_cover": 24,
+    "night_light": 24
+   },
+   "pairs": 24,
+   "payload": {
+    "both_fire_pairs": 0,
+    "brightness_comparable": 0,
+    "brightness_equal": 0,
+    "calls_equal": 0,
+    "firings_equal": 0,
+    "instants_equal": 0,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "neither": 24
+   },
+   "subsecond_only_pairs": 0,
+   "symmetric_automations": 0
+  },
+  "mode:parallel": {
+   "automations": 11,
+   "delta": {
+    "abs_lt_1s": 32,
+    "abs_lt_3h": 32,
+    "abs_lt_60s": 32,
+    "max": -0.06070303916931152,
+    "median": -0.21985101699829102,
+    "min": -0.46133995056152344,
+    "n": 32,
+    "p25": -0.45923900604248047,
+    "p5": -0.46133995056152344,
+    "p75": -0.14687299728393555,
+    "p95": -0.06070303916931152,
+    "zero": 0
+   },
+   "discrepant_automations": 1,
+   "discrepant_pairs": 4,
+   "flaps": {
+    "ha": 8,
+    "vesper": 8
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 40,
+    "first_tod_h": 40,
+    "flaps": 44,
+    "night_cover": 44,
+    "night_light": 44
+   },
+   "pairs": 44,
+   "payload": {
+    "both_fire_pairs": 32,
+    "brightness_comparable": 0,
+    "brightness_equal": 0,
+    "calls_equal": 32,
+    "firings_equal": 32,
+    "instants_equal": 32,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "both": 32,
+    "neither": 8,
+    "vesper_only": 4
+   },
+   "subsecond_only_pairs": 32,
+   "symmetric_automations": 1
+  },
+  "mode:queued": {
+   "automations": 5,
+   "delta": {
+    "abs_lt_1s": 16,
+    "abs_lt_3h": 16,
+    "abs_lt_60s": 16,
+    "max": 0.0,
+    "median": -0.10624003410339355,
+    "min": -0.30636000633239746,
+    "n": 16,
+    "p25": -0.30636000633239746,
+    "p5": -0.30636000633239746,
+    "p75": 0.0,
+    "p95": 0.0,
+    "zero": 8
+   },
+   "discrepant_automations": 1,
+   "discrepant_pairs": 4,
+   "flaps": {
+    "ha": 8,
+    "vesper": 8
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 20,
+    "first_tod_h": 20,
+    "flaps": 20,
+    "night_cover": 20,
+    "night_light": 20
+   },
+   "pairs": 20,
+   "payload": {
+    "both_fire_pairs": 16,
+    "brightness_comparable": 0,
+    "brightness_equal": 0,
+    "calls_equal": 16,
+    "firings_equal": 16,
+    "instants_equal": 12,
+    "vesper_fewer_instants": 4,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "both": 16,
+    "neither": 4
+   },
+   "subsecond_only_pairs": 4,
+   "symmetric_automations": 0
+  },
+  "mode:restart": {
+   "automations": 56,
+   "delta": {
+    "abs_lt_1s": 83,
+    "abs_lt_3h": 83,
+    "abs_lt_60s": 83,
+    "max": 9.810901246964931e-08,
+    "median": -0.21590089797973633,
+    "min": -0.4924030303955078,
+    "n": 83,
+    "p25": -0.3732318878173828,
+    "p5": -0.4645240306854248,
+    "p75": -0.09361505508422852,
+    "p95": 1.6851117834448814e-08,
+    "zero": 3
+   },
+   "discrepant_automations": 1,
+   "discrepant_pairs": 4,
+   "flaps": {
+    "ha": 12,
+    "vesper": 12
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 224,
+    "first_tod_h": 224,
+    "flaps": 224,
+    "night_cover": 224,
+    "night_light": 224
+   },
+   "pairs": 224,
+   "payload": {
+    "both_fire_pairs": 83,
+    "brightness_comparable": 2,
+    "brightness_equal": 2,
+    "calls_equal": 79,
+    "firings_equal": 83,
+    "instants_equal": 83,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "both": 83,
+    "neither": 141
+   },
+   "subsecond_only_pairs": 76,
+   "symmetric_automations": 0
+  },
+  "wait_for_trigger": {
+   "automations": 24,
+   "delta": {
+    "abs_lt_1s": 12,
+    "abs_lt_3h": 12,
+    "abs_lt_60s": 12,
+    "max": -0.17875194549560547,
+    "median": -0.3808889389038086,
+    "min": -0.45923900604248047,
+    "n": 12,
+    "p25": -0.45923900604248047,
+    "p5": -0.45923900604248047,
+    "p75": -0.17875194549560547,
+    "p95": -0.17875194549560547,
+    "zero": 0
+   },
+   "discrepant_automations": 0,
+   "discrepant_pairs": 0,
+   "flaps": {
+    "ha": 0,
+    "vesper": 0
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 96,
+    "first_tod_h": 96,
+    "flaps": 96,
+    "night_cover": 96,
+    "night_light": 96
+   },
+   "pairs": 96,
+   "payload": {
+    "both_fire_pairs": 12,
+    "brightness_comparable": 0,
+    "brightness_equal": 0,
+    "calls_equal": 12,
+    "firings_equal": 12,
+    "instants_equal": 12,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "both": 12,
+    "neither": 84
+   },
+   "subsecond_only_pairs": 12,
+   "symmetric_automations": 0
+  }
+ },
+ "by_substratum": {
+  "delay": {
+   "automations": 60,
+   "delta": {
+    "abs_lt_1s": 180,
+    "abs_lt_3h": 180,
+    "abs_lt_60s": 180,
+    "max": 9.810901246964931e-08,
+    "median": -0.24584388732910156,
+    "min": -0.49846410751342773,
+    "n": 180,
+    "p25": -0.38359689712524414,
+    "p5": -0.49750208854675293,
+    "p75": -0.07964611053466797,
+    "p95": 7.217749953269958e-08,
+    "zero": 0
+   },
+   "discrepant_automations": 0,
+   "discrepant_pairs": 0,
+   "flaps": {
+    "ha": 12,
+    "vesper": 12
+   },
+   "ha_dropped_already_running": {
+    "lines": 292,
+    "pairs": 12
+   },
+   "oracle_components_agree": {
+    "fired": 240,
+    "first_tod_h": 240,
+    "flaps": 240,
+    "night_cover": 240,
+    "night_light": 240
+   },
+   "pairs": 240,
+   "payload": {
+    "both_fire_pairs": 180,
+    "brightness_comparable": 24,
+    "brightness_equal": 24,
+    "calls_equal": 180,
+    "firings_equal": 180,
+    "instants_equal": 180,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "both": 180,
+    "neither": 60
+   },
+   "subsecond_only_pairs": 180,
+   "symmetric_automations": 0
+  },
+  "frame_flag": {
+   "automations": 48,
+   "delta": {
+    "abs_lt_1s": 76,
+    "abs_lt_3h": 76,
+    "abs_lt_60s": 76,
+    "max": 1.0835356079041958e-07,
+    "median": -0.06288957595825195,
+    "min": -0.4967520236968994,
+    "n": 76,
+    "p25": -0.37287402153015137,
+    "p5": -0.47031688690185547,
+    "p75": 0.0,
+    "p95": 2.334127202630043e-08,
+    "zero": 24
+   },
+   "discrepant_automations": 3,
+   "discrepant_pairs": 4,
+   "flaps": {
+    "ha": 6,
+    "vesper": 6
+   },
+   "ha_dropped_already_running": {
+    "lines": 8,
+    "pairs": 4
+   },
+   "oracle_components_agree": {
+    "fired": 189,
+    "first_tod_h": 189,
+    "flaps": 192,
+    "night_cover": 192,
+    "night_light": 191
+   },
+   "pairs": 192,
+   "payload": {
+    "both_fire_pairs": 76,
+    "brightness_comparable": 10,
+    "brightness_equal": 10,
+    "calls_equal": 76,
+    "firings_equal": 75,
+    "instants_equal": 75,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 1
+   },
+   "status": {
+    "both": 76,
+    "neither": 113,
+    "vesper_only": 3
+   },
+   "subsecond_only_pairs": 51,
+   "symmetric_automations": 3
+  },
+  "initial_state_off": {
+   "automations": 20,
+   "delta": {
+    "n": 0
+   },
+   "discrepant_automations": 15,
+   "discrepant_pairs": 60,
+   "flaps": {
+    "ha": 0,
+    "vesper": 0
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 20,
+    "first_tod_h": 20,
+    "flaps": 80,
+    "night_cover": 80,
+    "night_light": 80
+   },
+   "pairs": 80,
+   "payload": {
+    "both_fire_pairs": 0,
+    "brightness_comparable": 0,
+    "brightness_equal": 0,
+    "calls_equal": 0,
+    "firings_equal": 0,
+    "instants_equal": 0,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "neither": 20,
+    "vesper_only": 60
+   },
+   "subsecond_only_pairs": 0,
+   "symmetric_automations": 15
+  },
+  "initial_state_on": {
+   "automations": 10,
+   "delta": {
+    "abs_lt_1s": 32,
+    "abs_lt_3h": 32,
+    "abs_lt_60s": 32,
+    "max": 9.810901246964931e-08,
+    "median": -0.19025254249572754,
+    "min": -0.323375940322876,
+    "n": 32,
+    "p25": -0.3091459274291992,
+    "p5": -0.323375940322876,
+    "p75": -0.053930044174194336,
+    "p95": 7.217749953269958e-08,
+    "zero": 0
+   },
+   "discrepant_automations": 0,
+   "discrepant_pairs": 0,
+   "flaps": {
+    "ha": 0,
+    "vesper": 0
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 40,
+    "first_tod_h": 40,
+    "flaps": 40,
+    "night_cover": 40,
+    "night_light": 40
+   },
+   "pairs": 40,
+   "payload": {
+    "both_fire_pairs": 32,
+    "brightness_comparable": 0,
+    "brightness_equal": 0,
+    "calls_equal": 32,
+    "firings_equal": 32,
+    "instants_equal": 32,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "both": 32,
+    "neither": 8
+   },
+   "subsecond_only_pairs": 32,
+   "symmetric_automations": 0
+  },
+  "mode": {
+   "automations": 70,
+   "delta": {
+    "abs_lt_1s": 128,
+    "abs_lt_3h": 128,
+    "abs_lt_60s": 128,
+    "max": 9.810901246964931e-08,
+    "median": -0.21419048309326172,
+    "min": -0.4924030303955078,
+    "n": 128,
+    "p25": -0.3732318878173828,
+    "p5": -0.4645240306854248,
+    "p75": -0.10885000228881836,
+    "p95": 2.6775524020195007e-09,
+    "zero": 8
+   },
+   "discrepant_automations": 3,
+   "discrepant_pairs": 12,
+   "flaps": {
+    "ha": 28,
+    "vesper": 28
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 276,
+    "first_tod_h": 276,
+    "flaps": 280,
+    "night_cover": 280,
+    "night_light": 280
+   },
+   "pairs": 280,
+   "payload": {
+    "both_fire_pairs": 128,
+    "brightness_comparable": 0,
+    "brightness_equal": 0,
+    "calls_equal": 124,
+    "firings_equal": 128,
+    "instants_equal": 124,
+    "vesper_fewer_instants": 4,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "both": 128,
+    "neither": 148,
+    "vesper_only": 4
+   },
+   "subsecond_only_pairs": 112,
+   "symmetric_automations": 1
+  },
+  "wait_for_trigger": {
+   "automations": 19,
+   "delta": {
+    "abs_lt_1s": 8,
+    "abs_lt_3h": 8,
+    "abs_lt_60s": 8,
+    "max": -0.17875194549560547,
+    "median": -0.27982044219970703,
+    "min": -0.3808889389038086,
+    "n": 8,
+    "p25": -0.3808889389038086,
+    "p5": -0.3808889389038086,
+    "p75": -0.17875194549560547,
+    "p95": -0.17875194549560547,
+    "zero": 0
+   },
+   "discrepant_automations": 0,
+   "discrepant_pairs": 0,
+   "flaps": {
+    "ha": 0,
+    "vesper": 0
+   },
+   "ha_dropped_already_running": {
+    "lines": 0,
+    "pairs": 0
+   },
+   "oracle_components_agree": {
+    "fired": 76,
+    "first_tod_h": 76,
+    "flaps": 76,
+    "night_cover": 76,
+    "night_light": 76
+   },
+   "pairs": 76,
+   "payload": {
+    "both_fire_pairs": 8,
+    "brightness_comparable": 0,
+    "brightness_equal": 0,
+    "calls_equal": 8,
+    "firings_equal": 8,
+    "instants_equal": 8,
+    "vesper_fewer_instants": 0,
+    "vesper_more_instants": 0
+   },
+   "status": {
+    "both": 8,
+    "neither": 68
+   },
+   "subsecond_only_pairs": 8,
+   "symmetric_automations": 0
+  }
+ },
+ "classes": {
+  "HA semantics VESPER lacks": {
+   "automations": 20,
+   "causes": {
+    "initial_state off: Home Assistant never runs it": 62,
+    "permissive replay records a call without rendering its data": 4,
+    "the 50-500 ms offset of time triggers (a now()-dependent outcome)": 5
+   },
+   "pairs": 71
+  },
+  "engine bug": {
+   "automations": 1,
+   "causes": {
+    "sun condition: a before holds at its own instant, as in Home Assistant 2026.10.2": 4
+   },
+   "pairs": 4
+  },
+  "harness artifact": {
+   "automations": 0,
+   "causes": {},
+   "pairs": 0
+  },
+  "unexplained": {
+   "automations": 1,
+   "causes": {
+    "": 1
+   },
+   "pairs": 1
+  }
+ },
+ "criterion": {
+  "first_firing_within_60s": {
+   "of": 424,
+   "pass": true,
+   "share": 1.0,
+   "value": 424
+  },
+  "frame_propagated_p97_5": {
+   "limit": 9,
+   "of": 48,
+   "pass": false,
+   "value": 11
+  },
+  "pass": false,
+  "symmetric_difference": {
+   "limit": 18,
+   "of": 908,
+   "pass": false,
+   "value": 67
+  },
+  "time_spread_direct": {
+   "of": 2,
+   "pass": true,
+   "value": 0
+  }
+ },
+ "discrepancies": [
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 19,
+   "substratum": "frame_flag",
+   "v_count": 1,
+   "v_fired": true,
+   "v_n": 1
+  },
+  {
+   "calls_equal": false,
+   "cause": "sun condition: a before holds at its own instant, as in Home Assistant 2026.10.2",
+   "class": "engine bug",
+   "delta_s": -6.418849807232618e-08,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "mode:restart"
+   ],
+   "h_count": 4,
+   "h_fired": true,
+   "h_n": 4,
+   "index": 71,
+   "substratum": "mode",
+   "v_count": 4,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "permissive replay records a call without rendering its data",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "max",
+    "mode:parallel"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 73,
+   "substratum": "mode",
+   "v_count": 50,
+   "v_fired": true,
+   "v_n": 50
+  },
+  {
+   "calls_equal": true,
+   "cause": "the 50-500 ms offset of time triggers (a now()-dependent outcome)",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": -0.2124800682067871,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "max",
+    "mode:queued"
+   ],
+   "h_count": 626,
+   "h_fired": true,
+   "h_n": 626,
+   "index": 75,
+   "substratum": "mode",
+   "v_count": 576,
+   "v_fired": true,
+   "v_n": 626
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 197,
+   "substratum": "initial_state_off",
+   "v_count": 96,
+   "v_fired": true,
+   "v_n": 96
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 198,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 199,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 200,
+   "substratum": "initial_state_off",
+   "v_count": 1,
+   "v_fired": true,
+   "v_n": 1
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 202,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 204,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 205,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 206,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 207,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 208,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 209,
+   "substratum": "initial_state_off",
+   "v_count": 1,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 211,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 212,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 214,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 216,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "sun condition: a before holds at its own instant, as in Home Assistant 2026.10.2",
+   "class": "engine bug",
+   "delta_s": -5.1149982027709484e-08,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "mode:restart"
+   ],
+   "h_count": 4,
+   "h_fired": true,
+   "h_n": 4,
+   "index": 71,
+   "substratum": "mode",
+   "v_count": 4,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "permissive replay records a call without rendering its data",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "max",
+    "mode:parallel"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 73,
+   "substratum": "mode",
+   "v_count": 12,
+   "v_fired": true,
+   "v_n": 12
+  },
+  {
+   "calls_equal": true,
+   "cause": "the 50-500 ms offset of time triggers (a now()-dependent outcome)",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": -0.2124800682067871,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "max",
+    "mode:queued"
+   ],
+   "h_count": 626,
+   "h_fired": true,
+   "h_n": 626,
+   "index": 75,
+   "substratum": "mode",
+   "v_count": 576,
+   "v_fired": true,
+   "v_n": 626
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 197,
+   "substratum": "initial_state_off",
+   "v_count": 96,
+   "v_fired": true,
+   "v_n": 96
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 198,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 199,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 200,
+   "substratum": "initial_state_off",
+   "v_count": 1,
+   "v_fired": true,
+   "v_n": 1
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 202,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 204,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 205,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 206,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 207,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 208,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 209,
+   "substratum": "initial_state_off",
+   "v_count": 1,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 211,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 212,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 214,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 216,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 23,
+   "substratum": "frame_flag",
+   "v_count": 1,
+   "v_fired": true,
+   "v_n": 1
+  },
+  {
+   "calls_equal": false,
+   "cause": "",
+   "class": "unexplained",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:on"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 34,
+   "substratum": "frame_flag",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "sun condition: a before holds at its own instant, as in Home Assistant 2026.10.2",
+   "class": "engine bug",
+   "delta_s": 2.6775524020195007e-09,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "mode:restart"
+   ],
+   "h_count": 4,
+   "h_fired": true,
+   "h_n": 4,
+   "index": 71,
+   "substratum": "mode",
+   "v_count": 4,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "permissive replay records a call without rendering its data",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "max",
+    "mode:parallel"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 73,
+   "substratum": "mode",
+   "v_count": 26,
+   "v_fired": true,
+   "v_n": 26
+  },
+  {
+   "calls_equal": true,
+   "cause": "the 50-500 ms offset of time triggers (a now()-dependent outcome)",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": -0.2124800682067871,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "max",
+    "mode:queued"
+   ],
+   "h_count": 626,
+   "h_fired": true,
+   "h_n": 626,
+   "index": 75,
+   "substratum": "mode",
+   "v_count": 576,
+   "v_fired": true,
+   "v_n": 626
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 197,
+   "substratum": "initial_state_off",
+   "v_count": 96,
+   "v_fired": true,
+   "v_n": 96
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 198,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 199,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 200,
+   "substratum": "initial_state_off",
+   "v_count": 1,
+   "v_fired": true,
+   "v_n": 1
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 202,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 204,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 205,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 206,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 207,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 208,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 209,
+   "substratum": "initial_state_off",
+   "v_count": 1,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 211,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 212,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 214,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 216,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": true,
+   "cause": "the 50-500 ms offset of time triggers (a now()-dependent outcome)",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": -0.37287402153015137,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:on"
+   ],
+   "h_count": 1,
+   "h_fired": true,
+   "h_n": 1,
+   "index": 34,
+   "substratum": "frame_flag",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "sun condition: a before holds at its own instant, as in Home Assistant 2026.10.2",
+   "class": "engine bug",
+   "delta_s": -5.653419066220522e-08,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "mode:restart"
+   ],
+   "h_count": 4,
+   "h_fired": true,
+   "h_n": 4,
+   "index": 71,
+   "substratum": "mode",
+   "v_count": 4,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "permissive replay records a call without rendering its data",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "max",
+    "mode:parallel"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 73,
+   "substratum": "mode",
+   "v_count": 50,
+   "v_fired": true,
+   "v_n": 50
+  },
+  {
+   "calls_equal": true,
+   "cause": "the 50-500 ms offset of time triggers (a now()-dependent outcome)",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": -0.2124800682067871,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "max",
+    "mode:queued"
+   ],
+   "h_count": 626,
+   "h_fired": true,
+   "h_n": 626,
+   "index": 75,
+   "substratum": "mode",
+   "v_count": 576,
+   "v_fired": true,
+   "v_n": 626
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 197,
+   "substratum": "initial_state_off",
+   "v_count": 96,
+   "v_fired": true,
+   "v_n": 96
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 198,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 199,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 200,
+   "substratum": "initial_state_off",
+   "v_count": 1,
+   "v_fired": true,
+   "v_n": 1
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 202,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 204,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 205,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 206,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 207,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 208,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 209,
+   "substratum": "initial_state_off",
+   "v_count": 1,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 211,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 212,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 4
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 214,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  },
+  {
+   "calls_equal": false,
+   "cause": "initial_state off: Home Assistant never runs it",
+   "class": "HA semantics VESPER lacks",
+   "delta_s": null,
+   "env": "Sydney.2c..20.Australia-2026-07-15-n180-r4",
+   "features": [
+    "initial_state:off"
+   ],
+   "h_count": 0,
+   "h_fired": false,
+   "h_n": 0,
+   "index": 216,
+   "substratum": "initial_state_off",
+   "v_count": 2,
+   "v_fired": true,
+   "v_n": 2
+  }
+ ],
+ "envs": [
+  "Minneapolis.2c..20.MN.2c..20.USA-2026-01-14-n0-r4",
+  "Stockholm.2c..20.Sweden-2026-07-15-n180-r4",
+  "Sydney.2c..20.Australia-2026-01-14-n0-r4",
+  "Sydney.2c..20.Australia-2026-07-15-n180-r4"
+ ],
+ "feature_automations": {
+  "delay": 97,
+  "initial_state:off": 23,
+  "initial_state:on": 42,
+  "max": 11,
+  "max_exceeded": 6,
+  "mode:parallel": 11,
+  "mode:queued": 5,
+  "mode:restart": 56,
+  "wait_for_trigger": 24
+ },
+ "fixed_engine": {
+  "automations": 227,
+  "delta": {
+   "abs_lt_1s": 424,
+   "abs_lt_3h": 424,
+   "abs_lt_60s": 424,
+   "max": 1.0835356079041958e-07,
+   "median": -0.2273244857788086,
+   "min": -0.49846410751342773,
+   "n": 424,
+   "p25": -0.36119890213012695,
+   "p5": -0.48170900344848633,
+   "p75": -0.053930044174194336,
+   "p95": 1.6851117834448814e-08,
+   "zero": 32
+  },
+  "discrepant_automations": 20,
+  "discrepant_pairs": 72,
+  "flaps": {
+   "ha": 46,
+   "vesper": 46
+  },
+  "ha_dropped_already_running": {
+   "lines": 300,
+   "pairs": 16
+  },
+  "oracle_components_agree": {
+   "fired": 841,
+   "first_tod_h": 841,
+   "flaps": 908,
+   "night_cover": 908,
+   "night_light": 907
+  },
+  "pairs": 908,
+  "payload": {
+   "both_fire_pairs": 424,
+   "brightness_comparable": 34,
+   "brightness_equal": 34,
+   "calls_equal": 424,
+   "firings_equal": 423,
+   "instants_equal": 419,
+   "vesper_fewer_instants": 4,
+   "vesper_more_instants": 1
+  },
+  "status": {
+   "both": 424,
+   "neither": 417,
+   "vesper_only": 67
+  },
+  "subsecond_only_pairs": 387,
+  "symmetric_automations": 19,
+  "vesper_outcome_differs_pairs": 0
+ },
+ "flags": {
+  "clock_flags_carrying": 180,
+  "direct": {
+   "changes": [],
+   "clock_changed": 0,
+   "flag_lost": 0,
+   "frame_changed": 0,
+   "sampled_frame_flags": 48,
+   "time_spread_changed": 0
+  },
+  "frame_flags": 199,
+  "frame_flags_carrying": 48,
+  "margin": {
+   "frame_at_risk_max": 0,
+   "m_max_s": 0.49846410751342773,
+   "m_p99_s": 0.49792909622192383,
+   "time_spread_at_risk_max": 0
+  },
+  "propagation": {
+   "primary: by automation (artifacts agree)": {
+    "clock": {
+     "clock_changed": {
+      "max": 33,
+      "mean": 23.4,
+      "median": 23.0,
+      "min": 11,
+      "p2.5": 14,
+      "p97.5": 33
+     },
+     "flags_ever_changed": 113,
+     "frame_changed": {
+      "max": 12,
+      "mean": 6.7,
+      "median": 7.0,
+      "min": 1,
+      "p2.5": 2,
+      "p97.5": 11
+     },
+     "n": 180,
+     "reps": 100
+    },
+    "frame": {
+     "clock_changed": {
+      "max": 14,
+      "mean": 5.629,
+      "median": 5.0,
+      "min": 0,
+      "p2.5": 1,
+      "p97.5": 11
+     },
+     "flags_ever_changed": 48,
+     "frame_changed": {
+      "max": 14,
+      "mean": 5.891,
+      "median": 6.0,
+      "min": 0,
+      "p2.5": 2,
+      "p97.5": 11
+     },
+     "n": 48,
+     "reps": 1000
+    },
+    "time_spread": {
+     "clock_changed": {
+      "max": 1,
+      "mean": 0.016,
+      "median": 0.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 0
+     },
+     "flags_ever_changed": 2,
+     "frame_changed": {
+      "max": 2,
+      "mean": 0.275,
+      "median": 0.0,
+      "min": 0,
+      "p2.5": 0,
+      "p97.5": 1
+     },
+     "n": 2,
+     "reps": 1000
+    }
+   },
+   "secondary: by automation (as observed)": {
+    "frame": {
+     "clock_changed": {
+      "max": 14,
+      "mean": 5.629,
+      "median": 5.0,
+      "min": 0,
+      "p2.5": 1,
+      "p97.5": 11
+     },
+     "flags_ever_changed": 48,
+     "frame_changed": {
+      "max": 14,
+      "mean": 5.891,
+      "median": 6.0,
+      "min": 0,
+      "p2.5": 2,
+      "p97.5": 11
+     },
+     "n": 48,
+     "reps": 1000
+    }
+   },
+   "secondary: per environment (artifacts agree)": {
+    "frame": {
+     "clock_changed": {
+      "max": 6,
+      "mean": 2.304,
+      "median": 2.0,
+      "min": 1,
+      "p2.5": 2,
+      "p97.5": 4
+     },
+     "flags_ever_changed": 6,
+     "frame_changed": {
+      "max": 6,
+      "mean": 2.279,
+      "median": 2.0,
+      "min": 1,
+      "p2.5": 2,
+      "p97.5": 3
+     },
+     "n": 48,
+     "reps": 1000
+    },
+    "time_spread": {
+     "clock_changed": {
+      "max": 2,
+      "mean": 2.0,
+      "median": 2.0,
+      "min": 2,
+      "p2.5": 2,
+      "p97.5": 2
+     },
+     "flags_ever_changed": 2,
+     "frame_changed": {
+      "max": 2,
+      "mean": 2.0,
+      "median": 2.0,
+      "min": 2,
+      "p2.5": 2,
+      "p97.5": 2
+     },
+     "n": 2,
+     "reps": 1000
+    }
+   }
+  },
+  "time_spread_frame_flags_carrying": 2
+ },
+ "ha_unavailable": 0,
+ "ha_version": [
+  "2026.10.2"
+ ],
+ "in_r6c_sample": 13,
+ "mode_with_a_hold": {
+  "automations": 16,
+  "both_fire_pairs": 16
+ },
+ "outside_r6c_sample": {
+  "automations": 214,
+  "delta": {
+   "abs_lt_1s": 396,
+   "abs_lt_3h": 396,
+   "abs_lt_60s": 396,
+   "max": 9.810901246964931e-08,
+   "median": -0.23414504528045654,
+   "min": -0.49846410751342773,
+   "n": 396,
+   "p25": -0.3732318878173828,
+   "p5": -0.48170900344848633,
+   "p75": -0.07577705383300781,
+   "p95": 1.6851117834448814e-08,
+   "zero": 20
+  },
+  "discrepant_automations": 21,
+  "discrepant_pairs": 76,
+  "flaps": {
+   "ha": 42,
+   "vesper": 42
+  },
+  "ha_dropped_already_running": {
+   "lines": 292,
+   "pairs": 12
+  },
+  "oracle_components_agree": {
+   "fired": 789,
+   "first_tod_h": 789,
+   "flaps": 856,
+   "night_cover": 856,
+   "night_light": 855
+  },
+  "pairs": 856,
+  "payload": {
+   "both_fire_pairs": 396,
+   "brightness_comparable": 28,
+   "brightness_equal": 28,
+   "calls_equal": 392,
+   "firings_equal": 395,
+   "instants_equal": 391,
+   "vesper_fewer_instants": 4,
+   "vesper_more_instants": 1
+  },
+  "status": {
+   "both": 396,
+   "neither": 393,
+   "vesper_only": 67
+  },
+  "subsecond_only_pairs": 367,
+  "symmetric_automations": 19
+ },
+ "pairs": 908,
+ "protocol": "docs/experiments/edt-protocol.md, Addendum 15",
+ "reach": {
+  "a mode other than single": {
+   "clock_flags": 9,
+   "fire_somewhere": 41,
+   "flaps_frame_flags": 0,
+   "frame_flags": 2,
+   "run": 330,
+   "time_spread_frame_flags": 0
+  },
+  "a mode other than single, with a delay or a wait": {
+   "clock_flags": 1,
+   "fire_somewhere": 7,
+   "flaps_frame_flags": 0,
+   "frame_flags": 0,
+   "run": 116,
+   "time_spread_frame_flags": 0
+  },
+  "any (the stratum's rule)": {
+   "clock_flags": 180,
+   "fire_somewhere": 476,
+   "flaps_frame_flags": 1,
+   "frame_flags": 48,
+   "run": 1553,
+   "time_spread_frame_flags": 2
+  },
+  "delay": {
+   "clock_flags": 42,
+   "fire_somewhere": 126,
+   "flaps_frame_flags": 1,
+   "frame_flags": 20,
+   "run": 453,
+   "time_spread_frame_flags": 2
+  },
+  "initial_state:off": {
+   "clock_flags": 11,
+   "fire_somewhere": 28,
+   "flaps_frame_flags": 0,
+   "frame_flags": 3,
+   "run": 83,
+   "time_spread_frame_flags": 0
+  },
+  "initial_state:on": {
+   "clock_flags": 119,
+   "fire_somewhere": 291,
+   "flaps_frame_flags": 0,
+   "frame_flags": 23,
+   "run": 835,
+   "time_spread_frame_flags": 0
+  },
+  "max": {
+   "clock_flags": 2,
+   "fire_somewhere": 10,
+   "flaps_frame_flags": 0,
+   "frame_flags": 0,
+   "run": 48,
+   "time_spread_frame_flags": 0
+  },
+  "max_exceeded": {
+   "clock_flags": 2,
+   "fire_somewhere": 11,
+   "flaps_frame_flags": 0,
+   "frame_flags": 2,
+   "run": 97,
+   "time_spread_frame_flags": 0
+  },
+  "mode:parallel": {
+   "clock_flags": 1,
+   "fire_somewhere": 10,
+   "flaps_frame_flags": 0,
+   "frame_flags": 0,
+   "run": 39,
+   "time_spread_frame_flags": 0
+  },
+  "mode:queued": {
+   "clock_flags": 2,
+   "fire_somewhere": 4,
+   "flaps_frame_flags": 0,
+   "frame_flags": 0,
+   "run": 31,
+   "time_spread_frame_flags": 0
+  },
+  "mode:restart": {
+   "clock_flags": 6,
+   "fire_somewhere": 27,
+   "flaps_frame_flags": 0,
+   "frame_flags": 2,
+   "run": 260,
+   "time_spread_frame_flags": 0
+  },
+  "of_run": 5926,
+  "wait_for_trigger": {
+   "clock_flags": 0,
+   "fire_somewhere": 3,
+   "flaps_frame_flags": 0,
+   "frame_flags": 0,
+   "run": 63,
+   "time_spread_frame_flags": 0
+  }
+ },
+ "reading_run": {
+  "automations": 227,
+  "delta": {
+   "abs_lt_1s": 486,
+   "abs_lt_3h": 486,
+   "abs_lt_60s": 486,
+   "max": 1.0835356079041958e-07,
+   "median": -0.2124800682067871,
+   "min": -0.49846410751342773,
+   "n": 486,
+   "p25": -0.32721400260925293,
+   "p5": -0.46442198753356934,
+   "p75": -0.05453610420227051,
+   "p95": 7.217749953269958e-08,
+   "zero": 33
+  },
+  "discrepant_automations": 4,
+  "discrepant_pairs": 14,
+  "flaps": {
+   "ha": 46,
+   "vesper": 46
+  },
+  "ha_dropped_already_running": {
+   "lines": 300,
+   "pairs": 16
+  },
+  "oracle_components_agree": {
+   "fired": 903,
+   "first_tod_h": 903,
+   "flaps": 908,
+   "night_cover": 908,
+   "night_light": 907
+  },
+  "pairs": 908,
+  "payload": {
+   "both_fire_pairs": 486,
+   "brightness_comparable": 34,
+   "brightness_equal": 34,
+   "calls_equal": 482,
+   "firings_equal": 485,
+   "instants_equal": 481,
+   "vesper_fewer_instants": 4,
+   "vesper_more_instants": 1
+  },
+  "reproduces_sweep": 908,
+  "status": {
+   "both": 486,
+   "neither": 417,
+   "vesper_only": 5
+  },
+  "subsecond_only_pairs": 444,
+  "symmetric_automations": 2
+ },
+ "reproduces_sweep": 908,
+ "substrata": {
+  "delay": 60,
+  "frame_flag": 48,
+  "initial_state_off": 20,
+  "initial_state_on": 10,
+  "mode": 70,
+  "wait_for_trigger": 19
+ },
+ "sun_condition_fix_reach": {
+  "both_not_either": {
+   "clock_flags": 0,
+   "fire_somewhere": 0,
+   "frame_flags": 0,
+   "run": 0,
+   "time_spread_frame_flags": 0
+  },
+  "boundary": {
+   "clock_flags": 2,
+   "fire_somewhere": 2,
+   "frame_flags": 0,
+   "run": 2,
+   "time_spread_frame_flags": 0
+  },
+  "of_run": 5926,
+  "sun_condition": {
+   "clock_flags": 33,
+   "fire_somewhere": 40,
+   "frame_flags": 17,
+   "run": 146,
+   "time_spread_frame_flags": 2
+  }
+ }
+}

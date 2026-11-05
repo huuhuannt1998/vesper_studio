@@ -1983,3 +1983,157 @@ two engine fixes: `sun.sun` as Home Assistant 2026.10.2 has it, and `kelvin`/`co
 
 Read with Addendum 10: the registered propagation criterion failed on the sampled discrepancies (10 of 199 > 9). With
 the defects fixed and the whole population re-run, the frame relation's flag set does not change at all.
+
+## Revision R7-C (Addendum 15): the engine test's semantic stratum
+
+**Post hoc** (after the fourth internal review, item 8(a)). Registered as protocol Addendum 15 at `f556117`, before
+any comparison run of its stratum. A15.11 (`eab00ca`) was written after the shakedown and before the first comparison
+run. Harness: Addendum 10's (`ha_diff.run_env`, Home Assistant 2026.10.2 in-process on a virtual clock, no port),
+with `vesper/validation/ha_semantics.py` added. Comparison and reading runs at `95dcc37`; fixed engine at `fa3ce1f`.
+Aggregates: `results/edt/r7c-ha-diff-b76a6f3.json` (automations by sample index only). The engine is the
+engine-corrected sweep's (`r6d-5b54586`, which carries Addendum 10's fixes), on that sweep's traces, in Addendum 10's
+four environments.
+
+**Sample.** 227 automations, **908 automation-environment pairs**: the denominators below. They are never pooled with
+Addendum 10's 263. The sub-strata are 48 frame flags (every one of the 199 that carries a construct; 13 of them were
+also in the 263), 70 `restart`/`queued`/`parallel`, 19 `wait_for_trigger`, 60 `delay`, 20 `initial_state` off and 10
+`initial_state` on. By construct (an automation counts under each it carries): 97 carry a delay, 24 a
+wait_for_trigger, 56 `restart`, 11 `parallel`, 5 `queued`, 23 `initial_state` off and 42 on.
+
+**Gate.** VESPER's side reproduces the sweep's outcome and richer outcome in **908 of 908** pairs. Home Assistant
+loaded all 227 automations in every environment.
+
+### What VESPER's engine does with the constructs (`vesper/lab/automations.py`)
+
+| Construct | VESPER's engine | In this stratum |
+|---|---|---|
+| `mode: single` (the default) | as Home Assistant: conditions first, then a trigger during a run is dropped | Home Assistant logged a dropped trigger ("Already running") in 16 jointly firing pairs (300 drops, all in delay automations); the firing counts agree in all 16 |
+| `restart`, `queued`, `parallel` | run as `single` (permissive replay; listed as an approximation, refused in strict mode) | no difference that a mode causes: Home Assistant with and without the mode has the same firing and instant counts in all 288 pairs of mode automations, and the same recorded calls in 284; in the other 4 (one queued automation) the seeded sub-second offsets fall differently, as A15.1 expects |
+| `max`, `max_exceeded` | accepted, ignored | no difference |
+| `initial_state` | accepted, ignored: the automation always starts enabled | `off`: Home Assistant never runs it (62 pairs); `on`: no difference |
+| `delay` | holds the run, which stays running for `single`; a templated delay is refused, so none is replayed | 228 jointly firing pairs, all agree (firings, instants, calls) |
+| `wait_for_trigger` | holds the run until a trigger or the timeout; `continue_on_timeout` defaults to true | 12 jointly firing pairs, all agree |
+
+So the stratum exercises `single`'s dropping, delays and waits, and `initial_state: off`. It does **not** exercise
+`restart`, `queued` or `parallel`. Only 16 sampled automations combine such a mode with a delay or a wait. 4 of them
+fire jointly (16 pairs), and in no pair did a trigger change what Home Assistant did. In the sweep, 116 run automations
+combine a non-single mode with a hold. 7 of them fire somewhere, 1 carries a clock flag and none a frame flag. That
+is the most a mode could touch.
+
+### What the two engines did
+
+| | Pairs (of 908) |
+|---|---|
+| both fire | 424 |
+| neither fires | 417 |
+| VESPER only | **67** (19 automations) |
+| Home Assistant only | **0** |
+
+- **First firing**, over the 424 jointly firing pairs: **all 424 within 0.5 s** (Δ = VESPER minus Home Assistant from
+  -0.50 to 0.00 s, median -0.23 s; 32 exactly 0). The sub-second differences are Home Assistant's 50-500 ms offset of
+  time triggers.
+- **Firing counts** (424): the number of firings is equal in **423**; distinct instants equal in 419. In the other 5,
+  VESPER has fewer instants (4) or more (1); all are the offset: one automation's simultaneous calls fall on different
+  sub-second instants in Home Assistant.
+- **Payloads** (424): (service, target) sets equal in 420; brightness comparable in 34, equal in 34.
+- **Oracle components** (908): fired and first time of day agree in 841 (the 67 one-engine pairs differ); **flaps
+  agree in 908** (46 flapping pairs in each engine); night_cover in 908; night_light in 907.
+- **Discrepant** (A10.4(4)): **76 pairs in 21 automations**; another 383 pairs differ by under a second only. Without
+  the 13 frame flags also in the 263 (214 automations, 856 pairs) the 76 are unchanged: the 13 add no discrepancy.
+
+By sub-stratum (pairs; jointly firing; discrepant):
+
+| Sub-stratum | Automations | Pairs | Both fire | VESPER only | Discrepant | Firing count equal |
+|---|---|---|---|---|---|---|
+| frame_flag | 48 | 192 | 76 | 3 | 4 | 75 of 76 |
+| mode | 70 | 280 | 128 | 4 | 12 | 128 of 128 |
+| wait_for_trigger | 19 | 76 | 8 | 0 | 0 | 8 of 8 |
+| delay | 60 | 240 | 180 | 0 | 0 | 180 of 180 |
+| initial_state_off | 20 | 80 | 0 | 60 | 60 | - |
+| initial_state_on | 10 | 40 | 32 | 0 | 0 | 32 of 32 |
+
+### Why: every discrepancy classified (rules A15.6, A15.11)
+
+| Class | Pairs | Automations | Cause |
+|---|---|---|---|
+| HA semantics VESPER lacks | 62 | 17 | `initial_state: off`: Home Assistant never runs the automation; VESPER ignores the key (the reading run, without the key, agrees) |
+| HA semantics VESPER lacks | 4 | 1 | permissive replay records a call to a script without rendering its data; Home Assistant renders it and the template fails (it picks at random from a group attribute the input stream does not carry), so its run stops (a `parallel` automation) |
+| HA semantics VESPER lacks | 5 | 2 | the 50-500 ms offset of time triggers: instant counts (4 pairs, one `queued` automation's simultaneous calls) and one pair with a condition read 0.37 s later |
+| engine bug | 4 | 1 | a `sun` condition `before` an event, with an offset, tested by a trigger at that same instant: Home Assistant 2026.10.2 holds it there (it fails only after), VESPER held it only strictly before, so the two took different branches (a `restart` automation; seen in the shakedown, A15.11(3)) |
+| unexplained | 1 | 1 | by hand: the same offset. A time trigger at 07:00:00 with an illuminance condition; the sensor reports at 07:00:00.05. VESPER reads the old value and fires, Home Assistant, 0.37 s later, the new one and does not. No registered rule covers a pair where only one engine fires, so it stays unexplained |
+| harness artifact | 0 | 0 | |
+
+No difference is due to `mode`, `max`, `max_exceeded`, `delay` or `wait_for_trigger`. The reading run (Home Assistant
+given each automation without `mode`, `max`, `max_exceeded`, `initial_state`) has 5 one-engine pairs and 14
+discrepant pairs in 4 automations: exactly the data, offset, sun-condition and unexplained rows above.
+
+**The engine fix** (`e6e3355`, failing tests first). A `sun` condition now behaves as in Home Assistant 2026.10.2:
+`before` and `after` each hold at their own instant, and only after sunset with before sunrise is "either" (the night,
+both strict). Any other pair is "both"; VESPER used to read any pair whose after came later than its before as
+either. With the fix the discrepant pairs fall from 76 to 72 (20 automations). The 4 pairs of the sun-condition
+automation now agree. VESPER's oracle outcome changes in 0 of the 908 pairs: the fix changes which service the branch
+calls, not when it fires.
+
+**Reach** (static; the sweeps are not re-run):
+
+| Construct | Run automations (of 5,926) | Fire somewhere | Clock flags | Frame flags (of 199) | time_spread frame flags |
+|---|---|---|---|---|---|
+| any of the stratum's | 1,553 | 476 | 180 | 48 | 2 |
+| a mode other than single | 330 | 41 | 9 | **2** (both `restart`) | 0 |
+| ... with a delay or a wait | 116 | 7 | 1 | 0 | 0 |
+| `initial_state` off (not modelled) | 83 | 28 | 11 | 3 | 0 |
+| `delay` | 453 | 126 | 42 | 20 (1 of them flaps) | 2 |
+| `wait_for_trigger` | 63 | 3 | 0 | 0 | 0 |
+| a `sun` condition (the fix's domain) | 146 | 40 | 33 | 17 | 2 |
+| ... with a trigger at its changed boundary (the fix's reach) | 2 | 2 | 2 | 0 | 0 |
+| ... an after and before on one event, after not earlier (either becomes both) | 0 | 0 | 0 | 0 | 0 |
+
+So 2 of the 199 frame flags involve a non-default mode (both `restart`, neither with a hold), and the sun-condition
+fix reaches no frame flag. Its reach is 2 run automations with clock flags.
+
+### The flags (A15.5)
+
+- **Direct substitution** (Home Assistant's outcome in the four environments, the sweep's in the other 44): **0 of
+  the 48 frame flags change**, including the 2 time_spread flags, and no clock kind changes.
+- **Margin**: m = 0.50 s, the largest |Δ|; 0 of the 48 frame flags and 0 of the 2 time_spread flags lie within 2m of
+  the 3 h tolerance.
+- **Propagation, primary (by automation; artifacts agree; 1,000 replicates)**: frame flags changing kinds: mean 5.9,
+  95 % range **2-11** of the 48; time_spread 0.28, 0-1 of 2; clock flags carrying a construct 23.4, 14-33 of 180. A
+  flag changes when it draws one of the 18 sampled automations (of the 148 VESPER fires) that Home Assistant fires in
+  none of the four environments: 17 `initial_state: off`, 1 whose call data fails. The flag then fires nowhere.
+- **Propagation, secondary**: per environment, frame flags 2.3, 2-3 of 48, with both time_spread flags changing in
+  every replicate (a dropped firing in one of their 48 environments adds "fires somewhere only"). By automation with
+  every pair as observed: the same as the primary (no pair is an artifact).
+
+### Criterion (A15.7): fails on (1) and (3b)
+
+| Part | Value | Limit | |
+|---|---|---|---|
+| (1) pairs where exactly one engine fires | 67 of 908 | at most 18 | **fail** |
+| (2) jointly firing pairs with \|Δ\| < 60 s | 424 of 424 (100 %) | at least 95 % | pass |
+| (3a) time_spread flags changed by direct substitution | 0 of 2 | 0 | pass |
+| (3b) 97.5th percentile of frame flags changed, primary propagation | 11 (of the 48) | at most 9 | **fail** |
+
+As registered, the engine fails on this stratum. Both failures have one cause, which this addendum and Addendum 10
+both name: VESPER ignores `initial_state: off`. That accounts for 62 of the 67 one-engine pairs; the other 5 are the
+data VESPER does not render (4) and the offset (1). The stratum over-samples the key on purpose (20 of 227
+automations, plus 3 frame flags), so 67 of 908 is not a corpus rate. In the sweep, 83 of 5,926 run automations carry
+the key, 28 of them fire somewhere, and **3 of the 199 frame flags** do. Those 3 would fire nowhere under Home
+Assistant and lose their flag. The propagation does not use that knowledge: it hands each of the 48 flags a random
+sampled automation's behaviour, so about one flag in eight (18 of 148) inherits "never runs". The direct evidence is
+that no sampled flag changes.
+
+### Beside the stratum (A15.9, descriptive)
+
+Addendum 10's 263 held 62 automations that carry a construct (248 pairs; its fixed-engine records, `3dcd4e7`). They
+show 116 jointly firing pairs, all within 0.44 s, (service, target) sets equal in 116 and instants equal in 112. There
+are 4 one-engine pairs, from 1 `initial_state: off` automation, and 12 discrepant pairs in 3 automations. They are
+three of R6-C's rows: `initial_state` off, the offset, and the brightness-0 comparison artifact.
+
+*Concerns, stated.* The stratum tests `single`'s dropping (16 pairs with drops, counts equal), delays, waits and
+`initial_state`. It does not test `restart`, `queued` or `parallel` under overlapping triggers: the one place they
+would differ never happened in the sample, and the sweep has at most 7 firing automations where it could. Those modes
+remain "run as single", a documented approximation with that reach. The inputs are VESPER's own trace-to-state
+mapping, and services outside the home's four domains are stubs, as in Addendum 10. The one unexplained pair and two
+of the offset pairs come from Home Assistant's sub-second offset meeting a report 50 ms after the hour or a
+same-instant fan-out. VESPER fires time triggers at the whole second.
