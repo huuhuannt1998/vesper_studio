@@ -164,7 +164,8 @@ def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None
     (vesper.lab.plan.door_name), whatever rooms the user left out; `floors_drawn` (the reading's count of floors
     drawn, sent back by the page) puts which storey was read in the summary."""
     from vesper.lab.geometry import polygon_area
-    from vesper.lab.plan import PlanError, check_house, load_plan, plan_transform, rectify, scale_plan
+    from vesper.lab.plan import (PlanError, check_house, load_plan, measured_scale, plan_transform, rectify,
+                                 scale_plan)
     from vesper.lab.plan_read import summary
     out = {"problems": [], "warnings": [], "summary": None, "transform": None, "rooms": None}
     try:
@@ -186,17 +187,18 @@ def import_check(plan: dict, scale: str | None = None, numbers: list[int] | None
         out["warnings"] = warnings
         out["summary"] = summary(straight, numbers, floors)
         out["rooms"] = [{"id": r["id"], "polygon": r["polygon"]} for r in straight["rooms"]]
-        out["problems"] = [_page_words(p) for p in check_house(straight, numbers, warnings)]
+        out["problems"] = [_page_words(p) for p in check_house(straight, numbers, warnings,
+                                                               metric=measured_scale(plan, room_size, area))]
     except PlanError as e:
         out["problems"] = [_page_words(str(e))]
     return out
 
 
-def _plan_home(request: dict) -> tuple[dict, dict, str, list[int]]:
+def _plan_home(request: dict) -> tuple[dict, dict, str, list[int], bool]:
     """A page request that carries a plan (as read, as edited) -> (the request without it, the plan straightened in
-    metres, the plan's file name for the home's scene, each kept door's place in the plan as read). ComposeError lists
-    every problem."""
-    from vesper.lab.plan import PlanError, rectify, scale_plan
+    metres, the plan's file name for the home's scene, each kept door's place in the plan as read, whether its scale
+    is measured: plan.measured_scale). ComposeError lists every problem."""
+    from vesper.lab.plan import PlanError, measured_scale, rectify, scale_plan
     spec = {k: v for k, v in request.items() if k not in ("plan", "scale", "source", "door_numbers")}
     if any(spec.get(k) is not None for k in ("rooms", "program", "scene")):
         raise ComposeError("an imported home's rooms come from the plan: its request names no rooms, program or scene")
@@ -211,7 +213,7 @@ def _plan_home(request: dict) -> tuple[dict, dict, str, list[int]]:
     except PlanError as e:  # checked above: only a plan that changed under us
         raise ComposeError(str(e)) from None
     name = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(str(request.get("source") or "plan.json")).name).strip(".") or "plan"
-    return spec, plan_m, name, numbers
+    return spec, plan_m, name, numbers, measured_scale(request["plan"], room_size, area)
 
 
 def compose_home(request: dict, catalog: dict, out: Path) -> dict:
@@ -228,7 +230,7 @@ def compose_home(request: dict, catalog: dict, out: Path) -> dict:
     out = Path(out)
     plan_m = None
     if request.get("plan") is not None:
-        request, plan_m, source, numbers = _plan_home(request)
+        request, plan_m, source, numbers, metric = _plan_home(request)
     out.mkdir(parents=True, exist_ok=True)
     scratch = out / f".compose-{datetime.now(UTC):%Y%m%dT%H%M%S%fZ}"
     try:
@@ -240,7 +242,8 @@ def compose_home(request: dict, catalog: dict, out: Path) -> dict:
                 generate_home(req, catalog, scratch / "home")
             else:
                 req = dataclasses.replace(req, program=[r["type"] for r in plan_m["rooms"]])
-                generate_from_plan(plan_m, req, catalog, scratch / "home", source=source, numbers=numbers)
+                generate_from_plan(plan_m, req, catalog, scratch / "home", source=source, numbers=numbers,
+                                   metric=metric)
             load_lab_home(scratch / "home" / "home.yaml", catalog)
         except (GenerateError, HomeError) as e:
             raise ComposeError(str(e)) from e

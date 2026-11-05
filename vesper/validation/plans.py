@@ -446,7 +446,7 @@ def build_check(plan_px: dict, m_per_px: float, catalog: dict | None) -> dict:
     then, with a catalog, built into a home in a temporary folder and its layout checked. "stage" is where it stopped
     ("done" when the layout was checked)."""
     from vesper.lab.generate import GenerateError, Request, generate_from_plan, starter
-    from vesper.lab.plan import PlanError, check_house, rectify, scale_plan
+    from vesper.lab.plan import PlanError, check_house, measured_scale, rectify, scale_plan
     own = plan_px.get("scale") is not None or plan_px.get("units") == "m"
     out = {"scale_from": "the plan's own scale" if own else "the true scale", "stage": "scale", "check_house": False,
            "problems": [], "warnings": [], "layout_errors": None, "layout_warnings": None, "layout_failures": [],
@@ -456,7 +456,8 @@ def build_check(plan_px: dict, m_per_px: float, catalog: dict | None) -> dict:
         out["stage"] = "rectify"
         plan = rectify(scaled, out["warnings"])
         out["stage"] = "check_house"
-        out["problems"] = check_house(plan, warnings=out["warnings"])
+        metric = measured_scale(plan_px) if own else True  # the true scale stands for one the user typed
+        out["problems"] = check_house(plan, warnings=out["warnings"], metric=metric)
     except PlanError as e:
         out["problems"] = [str(e)]
         return out
@@ -473,7 +474,8 @@ def build_check(plan_px: dict, m_per_px: float, catalog: dict | None) -> dict:
         with tempfile.TemporaryDirectory(prefix="vesper-plans-") as tmp:
             devices, _left = starter(types, catalog)
             home_dir = Path(tmp) / "home"
-            generate_from_plan(plan, Request(Path("."), types, 0, devices), catalog, home_dir, source="plan.json")
+            generate_from_plan(plan, Request(Path("."), types, 0, devices), catalog, home_dir, source="plan.json",
+                               metric=metric)
             home = load_lab_home(home_dir / "home.yaml", catalog)
             out["devices"] = len(home.devices)
             out["stage"] = "layout"

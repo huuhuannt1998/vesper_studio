@@ -428,7 +428,7 @@ def px_plan(**kw) -> dict:
     for item in (*plan["doors"], *plan["windows"]):
         item["at"] = [item["at"][0] * 100, item["at"][1] * 100]
         item["width"] *= 100
-    plan.update(units="px", scale=None, **kw)
+    plan.update({"units": "px", "scale": None, **kw})
     return plan
 
 
@@ -591,7 +591,12 @@ def test_the_check_scales_straightens_and_lists_problems_for_the_plan_as_the_use
     big = json.loads(call(s, "/api/import/check", {"plan": edited, "scale": "living width 5 m"})[1])
     assert big["problems"] == [] and big["warnings"] == [
         "room 'Bedroom' (bathroom): 14.0 m² is outside the plausible 1.0 to 10.5 m² for its type: built as read"]
-    bad = json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "living width 15 m"})[1])
+    # a scale the user wrote is a fact: rooms far larger than usual are said, not refused
+    given = json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "living width 15 m"})[1])
+    assert given["problems"] == [] and given["warnings"][0] == (
+        "the rooms are on the whole 9.7 times their usual size: measured in metres, so built as measured")
+    # one the reading inferred (a pixel size, no bar, no dimension) and implausible is refused
+    bad = json.loads(call(s, "/api/import/check", {"plan": px_plan(scale={"m_per_px": 0.03})})[1])
     assert bad["problems"] == ["the scale looks wrong: rooms are on the whole 9.7 times their usual size; write a "
                                "room's size in Scale (like 'kitchen width 3.2 m') or the home's floor area ('area 95')"]
     nope = json.loads(call(s, "/api/import/check", {"plan": px_plan(), "scale": "garage width 3 m"})[1])

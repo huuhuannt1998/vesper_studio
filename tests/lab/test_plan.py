@@ -489,6 +489,19 @@ def test_a_wrong_scale_is_refused_when_the_rooms_are_on_the_whole_far_from_their
     assert area_warnings(scaled_house(0.7)) == ([], [])  # 0.5 times: small rooms, each within its range
 
 
+def test_a_scale_is_measured_when_given_written_in_metres_or_read_off_a_bar_or_a_dimension():
+    """Only a scale inferred (a pixel size Claude guessed, an area it read) may be refused as implausible: one in
+    metres, one the user gave, one from a scale bar or a measured dimension is a fact, warned of at most."""
+    from vesper.lab.plan import measured_scale
+    px = two_rooms()
+    assert measured_scale(metres([room("a", "living", rect(0, 0, 12, 6))]))
+    assert measured_scale(px, scale="living width 5 m") and measured_scale(px, area_m2=40.0)
+    assert measured_scale(two_rooms(scale={"length_m": 5.0, "from": [0, 0], "to": [100, 0]}))
+    assert not measured_scale(px)
+    assert not measured_scale(two_rooms(scale={"m_per_px": 0.05}))
+    assert not measured_scale(two_rooms(scale={"area_m2": 30.0}))
+
+
 def test_a_plan_measured_in_metres_is_never_refused_for_its_scale_only_warned():
     """A scan (RoomPlan, or a model at a known scale) is in metres: rooms far from their usual size are said and
     judged one by one, never refused as a wrong scale (a 37 m² meeting room labelled a dining room is 37 m²)."""

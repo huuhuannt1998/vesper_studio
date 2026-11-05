@@ -400,6 +400,18 @@ def scale_plan(plan: dict, scale: str | None = None, area_m2: float | None = Non
     return out
 
 
+def measured_scale(plan: dict, scale: str | None = None, area_m2: float | None = None) -> bool:
+    """Whether the plan's scale is a fact rather than an inference: the plan is in metres, the user gave a room's
+    size or the floor area (`scale`, `area_m2`, as scale_plan takes them), or the reading took it off a scale bar or
+    a measured dimension (a stated `length_m`). Such a plan is checked with check_house(metric=True): rooms far from
+    their usual size are said, not refused. Only a scale inferred (a pixel size, an area the reading gave) and
+    implausible is refused."""
+    if scale is not None or area_m2 is not None or plan.get("units") == "m":
+        return True
+    stated = plan.get("scale")
+    return isinstance(stated, dict) and "length_m" in stated
+
+
 def _normal(plan: dict) -> dict:
     """A deep copy with every key present."""
     out = copy.deepcopy(plan)
@@ -1218,8 +1230,9 @@ def check_house(plan_m: dict, numbers: list[int] | None = None, warnings: list[s
     outside it is built as read with a sentence appended to `warnings` (when a list is given): real rooms are often
     smaller or larger than a generated home's. An outdoor room, such as a balcony, has any size.
 
-    `metric`: the plan was measured in metres (a scan: RoomPlan, or a 3D model at a known or stated scale), so its
-    scale is not in doubt: rooms far from their usual size are said in `warnings` (when a list is given), each room
+    `metric`: the plan's scale is not in doubt (`measured_scale`: written in metres, given by the user, read off a
+    scale bar or a dimension; a scan, RoomPlan or a 3D model at a known or stated scale): rooms far from their usual
+    size are said in `warnings` (when a list is given), each room
     judged as above, and nothing is refused for it (a 37 m² meeting room labelled a dining room is 37 m²)."""
     load_plan(plan_m, numbers)
     if plan_m["units"] != "m":

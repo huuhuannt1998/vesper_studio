@@ -562,7 +562,7 @@ def generate_home(request: Request, catalog: dict, out: Path, export=None) -> No
 
 def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path, source: str = "plan.json",
                        numbers: list[int] | None = None, objects: list[dict] | None = None,
-                       model: dict | None = None, scan: dict | None = None) -> None:
+                       model: dict | None = None, scan: dict | None = None, metric: bool = False) -> None:
     """Write the home of a rectified plan in metres into `out`, a new directory, as `generate_home` writes a generated
     one: its rooms renamed by type (`typed_ids`, listed in home.yaml's header), the map (`floor_plan_from`), the plan's
     windows and rule windows where a room has none (vesper.lab.windows.from_plan), the request's devices placed by
@@ -588,7 +588,7 @@ def generate_from_plan(plan_m: dict, request: Request, catalog: dict, out: Path,
     if (objects or model) and scan is None:
         raise GenerateError("a scan's objects or model come with its provenance (scan)")
     try:
-        problems = check_house(plan_m, numbers, metric=scan is not None)
+        problems = check_house(plan_m, numbers, metric=metric or scan is not None)
     except PlanError as e:
         raise GenerateError(str(e)) from None
     if problems:

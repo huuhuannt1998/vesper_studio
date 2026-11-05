@@ -881,12 +881,61 @@ def test_a_room_of_an_unusual_size_is_built_as_read_with_a_warning(tmp_path, cap
     assert (out / "home.yaml").is_file()
 
 
-def test_a_plan_whose_rooms_are_all_far_too_large_is_refused_for_its_scale(tmp_path, capsys):
+def big_home(**kw) -> dict:
+    """A correctly sized large home: a 12 x 6 m living room and a 6 x 6 m bedroom, 3.0 times the usual sizes."""
+    plan = {"format": "vesper-plan/1", "units": "m", "scale": None,
+            "rooms": [{"id": "lr", "name": "Living room", "type": "living", "polygon": rect(0, 0, 12, 6)},
+                      {"id": "b", "name": "Bedroom", "type": "bedroom", "polygon": rect(12, 0, 18, 6)}],
+            "doors": [{"at": [0, 3], "width": 0.9, "rooms": ["outside", "lr"]},
+                      {"at": [12, 3], "width": 0.9, "rooms": ["lr", "b"]}],
+            "windows": [], "entrance": 0}
+    plan.update(kw)
+    return plan
+
+
+def in_pixels(plan: dict, px_per_m: float = 100, **kw) -> dict:
+    out = copy.deepcopy(plan)
+    for r in out["rooms"]:
+        r["polygon"] = [[x * px_per_m, z * px_per_m] for x, z in r["polygon"]]
+    for item in (*out["doors"], *out["windows"]):
+        item["at"] = [item["at"][0] * px_per_m, item["at"][1] * px_per_m]
+        item["width"] *= px_per_m
+    out.update(units="px", **kw)
+    return out
+
+
+SCALED_WARNING = ("warning: the rooms are on the whole 3.0 times their usual size: measured in metres, so built as "
+                  "measured")
+
+
+def test_a_large_home_in_metres_is_built_with_a_warning_not_refused_for_its_scale(tmp_path, capsys):
     cat, _ = setup(tmp_path)
+    out = tmp_path / "big"
+    assert cli.main(["lab", "import", str(write(tmp_path, big_home())), str(out), "--catalog", str(cat)]) == 0
+    assert SCALED_WARNING in capsys.readouterr().out and (out / "home.yaml").is_file()
+
+
+def test_a_given_scale_or_area_or_a_read_scale_bar_is_not_refused_for_its_scale(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    px = in_pixels(big_home(), scale=None)
+    assert cli.main(["lab", "import", str(write(tmp_path, px, "a.json")), str(tmp_path / "a"), "--catalog", str(cat),
+                     "--area", "108"]) == 0
+    assert SCALED_WARNING in capsys.readouterr().out
+    assert cli.main(["lab", "import", str(write(tmp_path, px, "b.json")), str(tmp_path / "b"), "--catalog", str(cat),
+                     "--scale", "living width 12 m"]) == 0
+    assert SCALED_WARNING in capsys.readouterr().out
+    bar = in_pixels(big_home(), scale={"length_m": 12.0, "from": [0, 0], "to": [1200, 0]})  # a scale bar read
+    assert cli.main(["lab", "import", str(write(tmp_path, bar, "c.json")), str(tmp_path / "c"), "--catalog",
+                     str(cat)]) == 0
+    assert SCALED_WARNING in capsys.readouterr().out
+
+
+def test_an_inferred_scale_that_makes_every_room_far_too_large_is_still_refused(tmp_path, capsys):
+    cat, _ = setup(tmp_path)
+    guessed = in_pixels(big_home(), scale={"m_per_px": 0.01})  # a pixel size the reading inferred
     out = tmp_path / "mine"
-    assert cli.main(["lab", "import", str(write(tmp_path, three_rooms())), str(out), "--catalog", str(cat),
-                     "--area", "500"]) == 1
-    assert "the scale looks wrong: rooms are on the whole 10.9 times their usual size; give --scale or --area" in \
+    assert cli.main(["lab", "import", str(write(tmp_path, guessed)), str(out), "--catalog", str(cat)]) == 1
+    assert "the scale looks wrong: rooms are on the whole 3.0 times their usual size; give --scale or --area" in \
         capsys.readouterr().err
     assert not out.exists()
 
