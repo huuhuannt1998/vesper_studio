@@ -336,3 +336,27 @@ def test_the_device_reporting_rule_sends_illuminance_only_on_the_hourly_heartbea
     assert all(b - a >= 3600 - 1e-6 for ts in by_twin.values() for a, b in zip(ts, ts[1:], strict=False))
     assert [r for r in rd if r["feature"] != "illuminance"] == [r for r in rc if r["feature"] != "illuminance"]
     assert runtime.REPORTING_RULE == "catalog"
+
+
+def test_a_trace_recorded_under_a_knob_is_never_reused_for_another_setting(home, tmp_path, monkeypatch):
+    """The reuse key names every indoor knob that is not at its default (review R4-B): a trace recorded with the
+    solar aperture doubled is not served to a nominal request, nor a nominal one to a knobbed request; the default
+    setting's header is as before (no knob key), so traces recorded before the knobs are still reused."""
+    from vesper.edt import trace
+    from vesper.env import indoor
+    env = Env(PHOENIX, "2026-07-15", 0.0, 4)
+    nominal = record_trace(home, env, tmp_path, hours=2, fetch=False)
+    header, _ = read(nominal)
+    assert "indoor_knobs" not in header
+    with indoor.knobs(SOLAR_APERTURE_SCALE=2.0):
+        knobbed = record_trace(home, env, tmp_path, hours=2, fetch=False)
+    header, _ = read(knobbed)
+    assert header["indoor_knobs"] == {"SOLAR_APERTURE_SCALE": 2.0}
+    monkeypatch.setattr(trace, "_run", lambda *a, **k: pytest.fail("ran again"))
+    with indoor.knobs(SOLAR_APERTURE_SCALE=2.0):
+        assert record_trace(home, env, tmp_path, hours=2, fetch=False) == knobbed  # the same setting: reused
+    monkeypatch.undo()
+    header, _ = read(record_trace(home, env, tmp_path, hours=2, fetch=False))
+    assert "indoor_knobs" not in header  # the nominal request re-recorded, not the knobbed trace served
+    with indoor.knobs(HUMIDITY_CLASS=1, CAPACITY_SCALE=1.0):  # set to their defaults: the default key
+        assert indoor.nondefault_knobs() == {}

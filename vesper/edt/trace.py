@@ -10,7 +10,8 @@ The header: "env" (the Env and its key), "site" (or null), "start_time" (ISO loc
 "weather" (the weather source the run read; null: clear-sky fallback), "home_sha256" (of the home.yaml recorded) and
 "initial_state" ({twin_id: state}, as the environment rules left every twin before the first instant: they move
 temperature, humidity and the thermostat's setpoint before the first report, which arrives at t=10). A trace is
-reused only if env, seconds, weather and home hash all match, and the same request gives the same bytes.
+reused only if env, seconds, weather and home hash all match, and so do the indoor-model knobs set away from their
+defaults (header "indoor_knobs", absent at the defaults); the same request gives the same bytes.
 
 The reports are the twins' own, recorded before the link layer: no Zigbee latency, drops or retries. They include
 the actuators' reports (lights, running_state, battery and so on), which a replay must ignore: only the sensors an
@@ -86,7 +87,13 @@ def record_trace(home_yaml: Path, env: Env, cache: Path, *, hours: float | None 
             "home_sha256": home_sha}
     if reporting_rule != "catalog":  # the catalog's traces keep their header as before
         want["reporting_rule"] = reporting_rule
-    if out.is_file() and _header(out) is not None and all(_header(out).get(k) == v for k, v in want.items()):
+    from vesper.env.indoor import nondefault_knobs
+    knobs = nondefault_knobs()  # a trace recorded under an indoor-model knob is only reused under the same knobs
+    if knobs:
+        want["indoor_knobs"] = knobs
+    old = _header(out) if out.is_file() else None
+    if old is not None and all(old.get(k) == v for k, v in want.items()) and \
+            old.get("indoor_knobs") == want.get("indoor_knobs"):
         return out
     shown = site if env.rung > 1 else None  # rung 1 names no site, not even through its time zone
     tmp = out.with_name(f".{out.name}.tmp{os.getpid()}")

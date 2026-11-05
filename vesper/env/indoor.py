@@ -73,6 +73,14 @@ OUTDOOR_T_OFFSET_C = 0.0  # kelvin added to the outdoor air temperature (its vap
 
 KNOBS = ("DAYLIGHT_SCALE", "CAPACITY_SCALE", "HUMIDITY_T_OFFSET_C", "INTERNAL_GAINS_W_PER_M2", "ROOF_GROUND",
          "PREWARM_DAYS", "SOLAR_APERTURE_SCALE", "OUTDOOR_T_OFFSET_C", "HUMIDITY_CLASS")
+KNOB_DEFAULTS = {k: globals()[k] for k in KNOBS}  # the model as built
+
+
+def nondefault_knobs() -> dict:
+    """The knobs set away from the model as built, {name: value} (empty at the defaults): what a cached result
+    computed under them must be keyed by (vesper.edt.trace)."""
+    module = globals()
+    return {k: module[k] for k in KNOBS if module[k] != KNOB_DEFAULTS[k]}
 
 
 @contextmanager
