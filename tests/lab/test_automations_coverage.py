@@ -556,6 +556,26 @@ def test_sun_sun_turns_above_horizon_at_the_first_position_update_above_the_hori
     assert round(elevation(obs, e.site.utc(t + 7.5 * H)), 2) > -0.833
 
 
+def test_sun_sun_position_updates_at_home_assistants_phase_intervals(tmp_path):
+    # Home Assistant 2026.10.2 sun/entity.py _PHASE_UPDATES: night 20, astronomical 8, nautical 4, civil twilight 2,
+    # small day 2, day 4 minutes (protocol Addendum 10)
+    from vesper.lab.automations import SUN_PHASE_UPDATE_S
+    assert SUN_PHASE_UPDATE_S == {"night": 1200, "astronomical_twilight": 480, "nautical_twilight": 240,
+                                  "twilight": 120, "small_day": 120, "day": 240}
+    from vesper.env.sun import sun_events
+    _, s, e, _ = setup(tmp_path, [], text_home=sited_home)
+    times, apply = [], e._apply
+
+    def spy(changes):
+        times.extend(s.clock.now() for c in changes if c[0] == "sun.sun")
+        apply(changes)
+    e._apply = spy
+    sunset = sun_events(e.site, 0)["sunset"] - 7.5 * H
+    s.clock.advance(sunset + 20 * 60)  # civil twilight after sunset: every 2 minutes
+    after = [t for t in times if t > sunset + 1]
+    assert {round(b - a) for a, b in zip(after, after[1:])} == {120}
+
+
 def test_sun_sun_is_written_once_per_update_as_home_assistant_writes_it(tmp_path):
     from vesper.env.sun import sun_events
     _, s, e, _ = setup(tmp_path, [], text_home=sited_home)

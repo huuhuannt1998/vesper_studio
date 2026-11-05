@@ -89,8 +89,8 @@ SUN_TIMELINE = (("", "dawn", 18.0, "night"), ("", "dawn", 12.0, "astronomical_tw
 SUN_PHASE_BY_ELEVATION = ((10, "day"), (0, "small_day"), (-6, "twilight"), (-12, "nautical_twilight"),
                           (-18, "astronomical_twilight"), (-90, "night"))
 SUN_HORIZON_DEG = -0.833  # Home Assistant's ELEVATION_HORIZON: sun.sun is above_horizon while the elevation is above it
-SUN_PHASE_UPDATE_S = {"night": 20 * 60, "astronomical_twilight": 8 * 60, "nautical_twilight": 8 * 60,
-                      "twilight": 4 * 60, "small_day": 2 * 60, "day": 4 * 60}
+SUN_PHASE_UPDATE_S = {"night": 20 * 60, "astronomical_twilight": 8 * 60, "nautical_twilight": 4 * 60,
+                      "twilight": 2 * 60, "small_day": 2 * 60, "day": 4 * 60}  # Home Assistant's _PHASE_UPDATES
 PATTERN_MAX = {"hours": 23, "minutes": 59, "seconds": 59}
 # Triggers no simulated home fires: what each one needs
 TRIGGER_NEEDS = {"webhook": "it needs an HTTP request", "mqtt": "it needs an MQTT message",
