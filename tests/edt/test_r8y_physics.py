@@ -58,6 +58,7 @@ def test_the_summary_counts_breaches_coldest_rooms_and_identities():
     assert s["coldest_room_per_run_c"] == [6.0, 9.0, 11.0]
     assert s["coldest_room_identity"] == {"bedroom_1": 2, "living": 1}
     assert s["caused_cells_by_room"] == {"bedroom_1": 1, "living": 2}
+    assert s["coldest_caused_room_identity"] == {"bedroom_1": 1, "living": 1}
     assert s["runs_with_a_setback"] == 2 and s["by_city"] == {"Minneapolis": 1, "Stockholm": 1}
 
 

@@ -101,6 +101,9 @@ def summary(rows: list[dict], keys: set, n_auto: int) -> dict:
                                      default=None)),
             "runs_with_a_setback": sum(1 for r in sel if r["_setback"]),
             "coldest_room_identity": dict(sorted(Counter(coldest_room(r) for r in sel).items())),
+            "coldest_caused_room_identity": dict(sorted(Counter(
+                min((k for k, c in r["_cells"].items() if c[2]), key=lambda k: (r["_cells"][k][0], k))
+                for r in hit).items())),
             "caused_cells_by_room": dict(sorted(Counter(room for r in hit for room, c in r["_cells"].items()
                                                         if c[2]).items())),
             "runs_set": sorted((r["automation"], r["_key"]) for r in hit)}
@@ -257,6 +260,10 @@ def report_setback(scratch: Path, lab: Path) -> dict:
     split = {label: off_split(rows[label], core, off) for label in settings}
     below_on = [r["coldest_room_c"] - setpoint[r["automation"]] for r in rows[ROOM]
                 if r["_key"] in core and r["_setback"] and r["automation"] not in off]
+    h_runs, r_runs = set(settings[REF]["runs_set"]), set(settings[ROOM]["runs_set"])
+    per_room_vs_hall = {"per_room_subset_of_hallway": r_runs <= h_runs, "lost": len(h_runs - r_runs),
+                        "gained": len(r_runs - h_runs),
+                        "lost_by_automation": dict(sorted(Counter(a for a, _ in h_runs - r_runs).items()))}
     for s in [*settings.values(), room48]:
         s.pop("runs_set")
     return {"automations": n_auto, "core": sorted(r2c.label(r2c._env(d["envs"][k])) for k in core),
@@ -264,7 +271,7 @@ def report_setback(scratch: Path, lab: Path) -> dict:
             "settings": settings, "h_by_corner_w_k": h_by_corner(d),
             "per_room_nominal_48": room48,
             "per_room_nominal_outside_core": room48["breaching_runs"] - settings[ROOM]["breaching_runs"],
-            "identity_hallway_vs_per_room": shift,
+            "identity_hallway_vs_per_room": shift, "breaching_runs_per_room_vs_hallway": per_room_vs_hall,
             "per_room_coldest_room_minus_setpoint_k": _span(below),
             "nesting": nest, "restated_primary": restated(primary), "restated_all_18": restated(every),
             "a18_5_turns_thermostat_off": {"automations": len(off), "of_them_breaching_somewhere": len(off_breaching),
