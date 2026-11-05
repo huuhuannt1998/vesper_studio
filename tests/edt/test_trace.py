@@ -360,3 +360,15 @@ def test_a_trace_recorded_under_a_knob_is_never_reused_for_another_setting(home,
     assert "indoor_knobs" not in header  # the nominal request re-recorded, not the knobbed trace served
     with indoor.knobs(HUMIDITY_CLASS=1, CAPACITY_SCALE=1.0):  # set to their defaults: the default key
         assert indoor.nondefault_knobs() == {}
+
+
+def test_trace_file_is_the_name_record_trace_writes(home, tmp_path):
+    """Protocol A8.5: an analysis that reads cached traces names them through `trace_file`, the one function that
+    `record_trace` writes through, so the cache key is the sweep's exactly (catalog rule: no suffix; device rule:
+    -rho_device)."""
+    from vesper.edt.trace import trace_file
+    env = Env(PHOENIX, "2026-07-15", 0.0, 4)
+    assert trace_file(tmp_path, env) == tmp_path / f"trace-{env.key}.jsonl.gz"
+    assert trace_file(tmp_path, env, "device") == tmp_path / f"trace-{env.key}-rho_device.jsonl.gz"
+    assert record_trace(home, env, tmp_path, hours=2, fetch=False, reporting_rule="device") == \
+        trace_file(tmp_path, env, "device")

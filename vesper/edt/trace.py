@@ -58,6 +58,14 @@ ENVIRONMENTS: list[Env] = [Env(city, date, north, 4)
                            for city, date, north in itertools.product(CITIES, DATES, NORTHS)]
 
 
+def trace_file(cache: Path, env: Env, reporting_rule: str = "catalog") -> Path:
+    """The cached trace's path for `env` under `reporting_rule`: `trace-<Env.key>.jsonl.gz` for the catalog's rule,
+    `trace-<Env.key>-rho_<rule>.jsonl.gz` otherwise. `record_trace` writes through it, so a reader of cached traces
+    uses the sweep's own key."""
+    suffix = "" if reporting_rule == "catalog" else f"-rho_{reporting_rule}"
+    return Path(cache) / f"trace-{env.key}{suffix}.jsonl.gz"
+
+
 def record_trace(home_yaml: Path, env: Env, cache: Path, *, hours: float | None = None, fetch: bool = True,
                  get=None, catalog_dir: str = "catalog/vds", reporting_rule: str = "catalog") -> Path:
     """Record `env`'s trace of the EDT home `home_yaml` into `cache/trace-<env.key>.jsonl.gz`; its path. A trace
@@ -73,8 +81,7 @@ def record_trace(home_yaml: Path, env: Env, cache: Path, *, hours: float | None 
     if env.rung not in RUNGS:
         raise ValueError(f"rung {env.rung}: 1, 2, 2.5, 3 or 4")
     cache, home_yaml = Path(cache), Path(home_yaml)
-    suffix = "" if reporting_rule == "catalog" else f"-rho_{reporting_rule}"
-    out = cache / f"trace-{env.key}{suffix}.jsonl.gz"
+    out = trace_file(cache, env, reporting_rule)
     cache.mkdir(parents=True, exist_ok=True)
     site = env_site(env)
     if site is not None and has_home_site(env) and fetch:
