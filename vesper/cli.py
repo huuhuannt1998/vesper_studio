@@ -145,7 +145,31 @@ def _install_sigterm() -> None:
     signal.signal(signal.SIGTERM, handler)
 
 
+def _setup_ha_dev_login(args) -> int:
+    from vesper.setup_tools import save_config
+    from vesper.validation import stack
+    if args.off:
+        save_config(ha_dev_login="false")
+        print("The developer login is off: Home Assistant's hub uses the Lab's random login again "
+              "(the admin user stays in Home Assistant until you remove it there).")
+        return 0
+    save_config(ha_dev_login="true")
+    print(f"The developer login is on: admin / admin on VESPER's own Home Assistant, "
+          f"http://127.0.0.1:{stack.HA_PORT} (127.0.0.1 only, nothing off this computer can reach it).")
+    if stack.port_free(stack.HA_PORT):
+        print("It is made the next time a home plays, in every home.")
+        return 0
+    try:
+        stack.HomeAssistant(Path(args.root)).lab_login()
+        print("Home Assistant is running: the admin user is there now.")
+    except (stack.StackError, OSError, ValueError) as e:
+        print(f"It is made the next time a home plays ({e}).")
+    return 0
+
+
 def _setup(args) -> int:
+    if args.action == "ha-dev-login":
+        return _setup_ha_dev_login(args)
     if args.action == "claude-desktop":
         return _setup_claude_desktop(args)
     if args.action in ("habitat", "scenes", "all"):
@@ -2157,6 +2181,10 @@ def _main(argv: list[str] | None = None) -> int:
     setup_actions = setup.add_subparsers(dest="action", required=True)
     setup_ha_cmd = setup_actions.add_parser("ha", help="Home Assistant Core in its own venv (needs uv)")
     setup_ha_cmd.add_argument("--root", default=".vesper")
+    setup_dev = setup_actions.add_parser("ha-dev-login", help="for developers: log in to VESPER's own Home Assistant "
+                                         "(127.0.0.1 only) as admin / admin, in every home")
+    setup_dev.add_argument("--off", action="store_true", help="back to the random Lab login")
+    setup_dev.add_argument("--root", default=".vesper")
     setup_matter_cmd = setup_actions.add_parser("matter", help="the Matter host and Matter Server (needs Node.js)")
     setup_matter_cmd.add_argument("--root", default=".vesper")
     setup_assets_cmd = setup_actions.add_parser("assets", help="free furniture models (Poly Haven, CC0), one per "

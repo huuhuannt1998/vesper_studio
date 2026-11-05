@@ -319,7 +319,14 @@ class HomeAssistant:
     def lab_login(self) -> tuple[str, str]:
         """A login for the Lab's hub panel (Home Assistant's dashboard in the play page). Onboarding gives the
         owner a random password nobody keeps; the Lab sets one once, through Home Assistant's admin API, and keeps
-        it in ha/lab-login.json, readable by its owner only. Delete that file to set a new one."""
+        it in ha/lab-login.json, readable by its owner only. Delete that file to set a new one.
+
+        With the developer login on (`vesper setup ha-dev-login`), it is admin / admin instead: a local-only
+        administrator made (or set back to that password) on every play, beside the owner. Home Assistant listens on
+        127.0.0.1 only, so nothing off this computer can use it."""
+        if dev_login_on():
+            self._ensure_dev_admin()
+            return DEV_LOGIN
         path = Path(self.root) / "ha" / "lab-login.json"
         if path.is_file():
             saved = json.loads(path.read_text())
@@ -458,6 +465,31 @@ class HomeAssistant:
                                  f"{self.persist_timeout:.0f} s; stop it, delete {store.parent} and run again")
             time.sleep(0.2)
 
+    def _ensure_dev_admin(self) -> None:
+        """The `admin` user with password `admin`, a local-only administrator: made once, its password set back to
+        `admin` if it was changed."""
+        from websockets.sync.client import connect
+        from websockets.exceptions import WebSocketException
+        username, password = DEV_LOGIN
+        try:
+            with connect(f"ws://127.0.0.1:{self.port}/api/websocket", proxy=None, open_timeout=30) as ws:
+                json.loads(ws.recv(timeout=30))  # auth_required
+                ws.send(json.dumps({"type": "auth", "access_token": self.token()}))
+                if json.loads(ws.recv(timeout=30)).get("type") != "auth_ok":
+                    raise StackError("Home Assistant refused VESPER's token on its WebSocket API")
+                users = _ws_call(ws, 1, "config/auth/list") or []
+                found = next((u for u in users if u.get("username") == username), None)
+                if found is None:
+                    made = _ws_call(ws, 2, "config/auth/create", name=username, group_ids=["system-admin"],
+                                    local_only=True)
+                    _ws_call(ws, 3, "config/auth_provider/homeassistant/create", user_id=made["user"]["id"],
+                             username=username, password=password)
+                else:
+                    _ws_call(ws, 2, "config/auth_provider/homeassistant/admin_change_password", user_id=found["id"],
+                             password=password)
+        except (OSError, TimeoutError, ValueError, WebSocketException) as e:
+            raise StackError(f"could not set the developer login on Home Assistant: {type(e).__name__}: {e}") from e
+
     def token(self) -> str:
         if self._access and self._access[1] > time.monotonic() + 30:
             return self._access[0]
@@ -570,6 +602,15 @@ class HomeAssistant:
         r = self.api("POST", f"/api/services/{domain}/{service}", json=data)
         if r.status_code >= 400:
             raise StackError(f"service {domain}.{service} failed ({r.status_code}): {r.text[:200]}")
+
+
+DEV_LOGIN = ("admin", "admin")  # the developer login (`vesper setup ha-dev-login`), on 127.0.0.1 only
+
+
+def dev_login_on() -> bool:
+    """Whether the developer login is on (the configuration's `ha_dev_login`; off by default)."""
+    from vesper.setup_tools import configured
+    return (configured("ha_dev_login") or "").strip().lower() in ("true", "1", "yes", "on")
 
 
 def _ws_call(ws, msg_id: int, kind: str, **fields):

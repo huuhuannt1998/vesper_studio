@@ -478,6 +478,8 @@ class FakeHAWebSocket:
         from websockets.sync.server import serve
         import threading
         self.passwords, self.seen = {}, []
+        self.users = [{"id": "user-owner", "username": "vesper", "name": "VESPER", "is_owner": True}]
+        self.created = []
         self.server = serve(self._handle, "127.0.0.1", 0)
         self.port = self.server.socket.getsockname()[1]
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
@@ -495,6 +497,18 @@ class FakeHAWebSocket:
             if msg["type"] == "auth/current_user":
                 result = {"id": "user-owner", "name": "VESPER", "is_owner": True}
             elif msg["type"] == "config/auth_provider/homeassistant/admin_change_password":
+                self.passwords[msg["user_id"]] = msg["password"]
+                result = None
+            elif msg["type"] == "config/auth/list":
+                result = self.users
+            elif msg["type"] == "config/auth/create":
+                user = {"id": f"user-{len(self.users)}", "username": None, "name": msg["name"],
+                        "group_ids": msg["group_ids"], "local_only": msg.get("local_only", False)}
+                self.users.append(user)
+                self.created.append(user)
+                result = {"user": user}
+            elif msg["type"] == "config/auth_provider/homeassistant/create":
+                next(u for u in self.users if u["id"] == msg["user_id"])["username"] = msg["username"]
                 self.passwords[msg["user_id"]] = msg["password"]
                 result = None
             else:
@@ -593,3 +607,34 @@ def test_a_tasmota_integration_that_cannot_run_is_named_with_its_cure(tmp_path, 
     ha = onboarded(tmp_path, server)
     with pytest.raises(StackError, match=r"run `vesper setup ha` again"):
         ha.ensure_tasmota()
+
+
+def test_the_developer_login_is_admin_admin_a_local_only_administrator_and_off_by_default(tmp_path, monkeypatch):
+    """`vesper setup ha-dev-login` (Home Assistant listens on 127.0.0.1 only): every play makes sure an `admin` user
+    with password `admin` exists, a local-only administrator beside the `vesper` owner, and the hub logs in with it.
+    Off (the default) the Lab login is the random one."""
+    from vesper.validation import stack as stack_mod
+    ws = FakeHAWebSocket()
+    ha = HomeAssistant(tmp_path, port=ws.port)
+    ha.token = lambda: "token-1"
+    monkeypatch.setattr(stack_mod, "dev_login_on", lambda: False)
+    assert ha.lab_login()[0] == "vesper"
+    monkeypatch.setattr(stack_mod, "dev_login_on", lambda: True)
+    assert ha.lab_login() == ("admin", "admin")
+    admin = next(u for u in ws.users if u["username"] == "admin")
+    assert admin["group_ids"] == ["system-admin"] and admin["local_only"] and ws.passwords[admin["id"]] == "admin"
+    assert ha.lab_login() == ("admin", "admin") and len(ws.created) == 1  # an existing admin is kept, not duplicated
+    assert ws.passwords[admin["id"]] == "admin"  # and its password set back to admin
+    assert json.loads((tmp_path / "ha" / "lab-login.json").read_text())["username"] == "vesper"  # the owner's kept
+    ws.server.shutdown()
+
+
+def test_the_developer_login_setting_lives_in_the_configuration(tmp_path, monkeypatch):
+    from vesper.validation import stack as stack_mod
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    assert not stack_mod.dev_login_on()
+    from vesper.setup_tools import save_config
+    save_config(ha_dev_login="true")
+    assert stack_mod.dev_login_on()
+    save_config(ha_dev_login="false")
+    assert not stack_mod.dev_login_on()
