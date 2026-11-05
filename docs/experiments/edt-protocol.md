@@ -2809,3 +2809,13 @@ seen. The per-site draws borrow two stations' error structure (both airports, bo
 continents; a day block keeps the diurnal and within-day structure but cuts the day-to-day correlation at block edges;
 one city's series is reused across its four dates, so the dates within a city are not perturbed independently. A23.3's
 contexts are partial (about four in five of a repository's automations cannot run in the standard home, R4-B).
+
+**A23.5 Deviation (2026-11-05, after the residual check of A23.2 was computed, before any run).** The Belgian check
+value registered above (bias -0.08 C, RMSE 0.97 C) is W on A against Open-Meteo's pre-pin default blend (the first
+validation run, `results/environment/environment-20261104T053851Z.json`). VESPER's weather has been pinned to ERA5
+since revision R-A (`0c7f1ff`), and W on A against the pinned ERA5 is **bias +0.20 C, RMSE 0.75 C, r 0.991** (n 3,289;
+`results/environment/environment-20261104T212613Z.json`, `results-2026-11-04-environment.md`'s second W column). The
+residual series computed here from the cached ERA5 reproduces that exactly (bias 0.196, RMSE 0.754, r 0.9906, n 3,289),
+so the check is judged against the pinned value, and the residuals are ERA5's as the sweeps use it. Valencia's check
+passed as registered (0.704 / 1.469, n 1,035). Nothing else changes: the blocks, the seed and the draws are as
+registered (the draws do not depend on the check value).

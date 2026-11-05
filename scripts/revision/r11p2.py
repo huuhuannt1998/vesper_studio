@@ -53,7 +53,8 @@ HOURS = 73  # RUN_DAYS x 24 + 1 hourly values: the run's whole span, interpolate
 COLD_C = 10.0
 WINDOW_S = (86400.0, 3 * 86400.0)  # days 1-2, R4-B's judged window
 OFF = ("target_turns_off", "companion_turns_off", "setpoint_only")
-CHECKS = {"Belgium": {"bias": -0.08, "rmse": 0.97}, "Valencia": {"bias": 0.70, "rmse": 1.47}}
+# W on A against the pinned ERA5 (A23.5: the registered -0.08 / 0.97 was the pre-pin blend's); A9.8 for Valencia
+CHECKS = {"Belgium": {"bias": 0.20, "rmse": 0.75}, "Valencia": {"bias": 0.70, "rmse": 1.47}}
 FAMILIES = ("frame_flags", "frame_temperature_flags", "frame_humidity_flags", "era5_only_flags",
             "frame_city_witnesses", "frame_orientation_witnesses", "humidity_orientation_witnesses", "clock_flags",
             "clock_humidity_flags")
