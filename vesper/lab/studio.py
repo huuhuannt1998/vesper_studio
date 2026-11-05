@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 from vesper.lab.compose import ComposeError, ComposeServer
@@ -20,17 +22,28 @@ SCENE_JOB = re.compile(r"^scene:(\d{1,20})$")  # an HSSD house to download: `ves
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
 
+def trash_dir(root: Path) -> Path:
+    """Where a deleted home goes: the Mac's Trash, from which the Finder restores it; elsewhere a hidden `.trash` in
+    the homes folder (the lobby lists nothing in a hidden folder)."""
+    if sys.platform == "darwin" and (Path.home() / ".Trash").is_dir():
+        return Path.home() / ".Trash"
+    return root / ".trash"
+
+
 def list_homes(roots: list[Path], catalog: dict) -> list[dict]:
+    """The homes under `roots`. Those in the first root, the user's own folder, are `deletable`; a later root's (the
+    examples shipped with VESPER) are not."""
     from vesper.lab.home import HomeError, load_lab_home
     out = []
-    for root in roots:
+    for i, root in enumerate(roots):
         if not root.is_dir():
             continue
         for path in sorted(root.rglob("home.yaml")):
             rel = path.parent.relative_to(root)
             if any(part.startswith(".") or part in ("previous", "runs", "traces") for part in rel.parts):
                 continue
-            row = {"name": f"{root.name}/{rel}" if str(rel) != "." else root.name, "path": str(path)}
+            row = {"name": f"{root.name}/{rel}" if str(rel) != "." else root.name, "path": str(path),
+                   "deletable": i == 0 and str(rel) != "."}
             try:
                 h = load_lab_home(path, catalog)
                 row.update(scene=h.scene, rooms=sum(1 for r in h.map.rooms if not r.outdoor), devices=len(h.devices),
@@ -71,6 +84,37 @@ class StudioServer(ComposeServer):
             if row["name"] == name and "error" not in row:
                 return Path(row["path"])
         raise ComposeError(f"no home {name!r} in {', '.join(str(r) for r in self.roots)}")
+
+    def play(self, home: Path | None = None) -> dict:
+        out = super().play(home)
+        self._playing = Path(home) if home is not None else self.out / "home.yaml"
+        return out
+
+    def delete_home(self, name: str) -> dict:
+        """Move a home of the user's own folder (as the lobby lists it, broken or not) to the Trash; the game playing
+        it is stopped first. Nothing else can be deleted: not the examples, not a path the list does not hold."""
+        root = self.roots[0].resolve()
+        row = next((r for r in self.homes() if r["name"] == name and r.get("deletable")), None)
+        if row is None:
+            raise ComposeError(f"no home {name!r} to delete in {self.roots[0]} (the examples are not deleted here)")
+        folder = Path(row["path"]).parent
+        if folder.resolve() == root or root not in folder.resolve().parents:
+            raise ComposeError(f"{folder} is not a home folder inside {self.roots[0]}")
+        playing = getattr(self, "_playing", None)
+        if playing is not None and Path(playing).parent.resolve() == folder.resolve():
+            self.stop_play()
+            self._playing = None
+        trash = trash_dir(self.roots[0])
+        trash.mkdir(parents=True, exist_ok=True)
+        dest = trash / folder.name
+        if dest.exists():  # the Trash's own rule: a later one with the same name gets the time
+            stamp = time.strftime("%Y-%m-%d %H.%M.%S")
+            dest = trash / f"{folder.name} {stamp}"
+            n = 2
+            while dest.exists():
+                dest, n = trash / f"{folder.name} {stamp} {n}", n + 1
+        shutil.move(str(folder), str(dest))
+        return {"trash": str(dest)}
 
     def new_home(self, name: str) -> dict:
         """Where the compose page writes the next home: a new folder under the first root."""
@@ -163,7 +207,7 @@ class StudioServer(ComposeServer):
                 return super().do_GET()
 
             def do_POST(self):  # noqa: N802
-                if self.path not in ("/api/open", "/api/new", "/api/setup"):
+                if self.path not in ("/api/open", "/api/new", "/api/setup", "/api/delete"):
                     return super().do_POST()
                 if not self._loopback():
                     return self._json(403, {"error": "another site's page"})
@@ -181,6 +225,8 @@ class StudioServer(ComposeServer):
                         return self._json(200, server.play(server.home_file(str(body.get("home", "")))))
                     if self.path == "/api/new":
                         return self._json(200, server.new_home(str(body.get("name", ""))))
+                    if self.path == "/api/delete":
+                        return self._json(200, server.delete_home(str(body.get("home", ""))))
                     return self._json(200, server.setup(str(body.get("what", ""))))
                 except ComposeError as e:
                     return self._json(400, {"error": str(e)})

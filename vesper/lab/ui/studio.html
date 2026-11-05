@@ -24,7 +24,9 @@
             padding: 10px 0; border-bottom: 1px solid var(--line); }
     .home b { font-weight: 600; font-size: 14px; }
     .home .facts { grid-column: 1; font-size: 12px; color: var(--muted); }
-    .home .play { grid-row: 1 / span 2; grid-column: 2; }
+    .home .actions { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 8px; }
+    .home .delete { color: var(--muted); background: transparent; }
+    .home .delete:hover:not(:disabled), .home .delete:focus-visible { color: var(--bad); border-color: var(--bad); }
     .home.broken .facts { color: var(--bad); }
     .new { display: flex; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
     .new input { flex: 1; }

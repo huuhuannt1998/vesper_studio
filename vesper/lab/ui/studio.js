@@ -9,6 +9,12 @@ export function homeFacts(h) {
   return parts.join(" · ");
 }
 
+export function deletePrompt(h, all) {
+  const inside = all.filter((o) => o.name.startsWith(`${h.name}/`)).map((o) => o.name);
+  const also = inside.length ? ` Its folder also holds ${inside.join(", ")}, which ${inside.length === 1 ? "goes" : "go"} with it.` : "";
+  return `Move ${h.name} to the Trash?${also}`;
+}
+
 export function checkRow(c) {
   const state = c.ok ? "ok" : "missing";
   return { state, required: Boolean(c.required), title: `${c.name}: ${c.detail}`,
@@ -39,6 +45,8 @@ function say(text, bad = false) {
   o.className = bad ? "outcome bad" : "outcome";
 }
 
+function reloadHomes() { return homes(); } // homes() shadows its own name with the list it reads
+
 async function homes() {
   const { homes, roots } = await api("/api/homes");
   document.getElementById("roots").textContent = `From ${roots.join(", ")}`;
@@ -55,8 +63,23 @@ async function homes() {
         window.open(url, "_blank") || (window.location.href = url);
       } catch (e) { say(e.message, true); } finally { play.disabled = false; }
     });
+    const actions = el("span", { class: "actions" });
+    if (h.deletable) {
+      const del = el("button", { class: "delete", "aria-label": `Delete ${h.name}`, title: "Move to the Trash" }, "Delete");
+      del.addEventListener("click", async () => {
+        if (!window.confirm(deletePrompt(h, homes))) return;
+        del.disabled = play.disabled = true;
+        try {
+          await api("/api/delete", { home: h.name });
+          say(`${h.name} moved to the Trash.`);
+          await reloadHomes();
+        } catch (e) { say(e.message, true); del.disabled = false; play.disabled = Boolean(h.error); }
+      });
+      actions.append(del);
+    }
+    actions.append(play);
     return el("li", { class: h.error ? "home broken" : "home" }, el("b", {}, h.name),
-              el("span", { class: "facts" }, homeFacts(h)), play);
+              el("span", { class: "facts" }, homeFacts(h)), actions);
   }));
   document.getElementById("no-homes").hidden = homes.length > 0;
 }

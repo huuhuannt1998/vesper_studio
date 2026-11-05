@@ -2,6 +2,7 @@
 computer's checks, and setup run in the background; on 127.0.0.1 only."""
 import json
 import time
+from pathlib import Path
 
 import pytest
 
@@ -109,3 +110,78 @@ def test_a_scene_download_runs_vesper_setup_scenes_with_that_id(tmp_path):
     s.stack_root = tmp_path
     args = s._setup_args("scene:102344022")
     assert args == ["setup", "scenes", "102344022"]
+
+
+@pytest.fixture
+def two_roots(tmp_path, monkeypatch):
+    """The user's homes folder (first root) and an examples folder (a later root), with the Trash in tmp_path."""
+    from vesper.lab import studio
+    from vesper.lab.studio import StudioServer
+    monkeypatch.setattr("vesper.lab.compose.build_report", lambda c, r: {"l2": {"validated_products": [],
+                                                                                "matter": {"validated_products": []}}})
+    trash = tmp_path / "Trash"
+    trash.mkdir()
+    monkeypatch.setattr(studio, "trash_dir", lambda root: trash)
+    homes, examples = tmp_path / "vesper-homes", tmp_path / "examples"
+    for d in (homes / "test1", homes / "test2", examples / "demo"):
+        d.mkdir(parents=True)
+        write_home(d)
+    (homes / "broken").mkdir()
+    (homes / "broken" / "home.yaml").write_text("not a home")
+    launch = Launched()
+    s = StudioServer(catalog(), tmp_path / "vds", tmp_path / "results", [homes, examples], root=tmp_path / "stack",
+                     port=0, play_port=18997, launch=launch, wait_for_play=lambda port, **kw: True,
+                     run_setup=lambda what, log: Job(), doctor=lambda: [])
+    s.start()
+    yield s, launch, homes, examples, trash
+    s.stop()
+
+
+def test_a_home_in_the_user_s_folder_is_deletable_and_an_example_is_not(two_roots):
+    s, _, _, _, _ = two_roots
+    rows = {h["name"]: h for h in json.loads(call(s, "/api/homes")[1])["homes"]}
+    assert rows["vesper-homes/test1"]["deletable"] and rows["vesper-homes/broken"]["deletable"]
+    assert not rows["examples/demo"]["deletable"]
+
+
+def test_delete_moves_the_home_to_the_trash_and_it_leaves_the_list(two_roots):
+    s, _, homes, _, trash = two_roots
+    status, body = call(s, "/api/delete", {"home": "vesper-homes/test1"})
+    assert status == 200 and not (homes / "test1").exists()
+    moved = Path(json.loads(body)["trash"])
+    assert moved.parent == trash and (moved / "home.yaml").is_file()  # restorable, not erased
+    names = [h["name"] for h in json.loads(call(s, "/api/homes")[1])["homes"]]
+    assert "vesper-homes/test1" not in names and "vesper-homes/test2" in names
+    status, _ = call(s, "/api/delete", {"home": "vesper-homes/test2"})  # a second one with no name clash
+    assert status == 200 and len(list(trash.iterdir())) == 2
+
+
+def test_a_broken_home_can_be_deleted_too(two_roots):
+    s, _, homes, _, _ = two_roots
+    assert call(s, "/api/delete", {"home": "vesper-homes/broken"})[0] == 200 and not (homes / "broken").exists()
+
+
+def test_only_the_user_s_listed_homes_can_be_deleted(two_roots):
+    s, _, homes, examples, trash = two_roots
+    for name in ("examples/demo", "../vesper-homes/test1", "/etc", "vesper-homes", "vesper-homes/test1/..",
+                 "vesper-homes/none"):
+        assert call(s, "/api/delete", {"home": name})[0] == 400, name
+    assert (examples / "demo").is_dir() and (homes / "test1").is_dir() and not list(trash.iterdir())
+
+
+def test_deleting_the_home_that_is_playing_stops_its_game_first(two_roots):
+    s, launch, homes, _, _ = two_roots
+    assert call(s, "/api/open", {"home": "vesper-homes/test2"})[0] == 200
+    assert call(s, "/api/delete", {"home": "vesper-homes/test2"})[0] == 200
+    assert s._play is None and launch.stopped == [str(homes / "test2" / "home.yaml")]
+    assert not (homes / "test2").exists()
+
+
+def test_the_trash_is_the_mac_s_trash_or_a_hidden_folder_in_the_homes_folder(tmp_path, monkeypatch):
+    from vesper.lab.studio import trash_dir
+    monkeypatch.setattr("sys.platform", "linux")
+    assert trash_dir(tmp_path) == tmp_path / ".trash"
+    monkeypatch.setattr("sys.platform", "darwin")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    (tmp_path / ".Trash").mkdir()
+    assert trash_dir(tmp_path / "homes") == tmp_path / ".Trash"
