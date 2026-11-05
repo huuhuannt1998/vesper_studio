@@ -11,7 +11,10 @@ import {
   handPoint, hitTest, moveFor, promptFor, recordLine, stepInterval, tipPosition, walkKey,
 } from "./mapview.js";
 import { dialogHtml, hubHtml } from "./devicedialog.js";
-import { deviceGroups, roomFacts, roomName, roomView, tourRooms } from "./nav.js";
+import { deviceGroups, litRooms, roomFacts, roomName, roomView, tourRooms, windowPrompt } from "./nav.js";
+import {
+  dialPoint, panelLines, previewBand, previewEnvironment, previewLights, rowAt, sliderLabel,
+} from "./envpanel.js";
 import { panelHtml } from "./scenariopanel.js";
 import { PITCH_MAX, aimCamera, compassMarks, moveRelative, roomAt } from "./scene3d.js";
 
@@ -37,6 +40,13 @@ const vesper = (window.vesper = {
   setView: (mode) => setMode(mode), // "map" or "3d": the looks' choice; play picks 3D when the browser has WebGL
   aim: (target) => aim(target), // the looks' aim: turn the view so the crosshair is on a device or door
   camera: () => ({ ...cam }),
+  look: (yaw, pitch = 0, mode = cam.mode) => { // the looks' camera: a direction from the player, first or third person
+    delete cam.view;
+    Object.assign(cam, { yaw, pitch, mode });
+    if (state) updateWhere();
+    return { ...cam };
+  },
+  preview: (minutes) => (minutes === null ? endPreview() : previewAt(minutes)), // the looks: a time of day, or live
   view3d: () => (view3d ? { ...view3d.status } : null),
   view3dColors: () => (view3d ? view3d.colors() : 0),
   toScreen: (x, z) => { // page coordinates of a world point, for clicks
@@ -125,6 +135,7 @@ function onHello(h) {
     $("hub").innerHTML = "<p>No hub in this session. With Home Assistant set up, <code>vesper lab play</code> shows its dashboard here.</p>";
   }
   buildNavigation(h);
+  setupPlace(h);
   if (!opened && !h.scenario) { // the page opens on the start room seen from its doorway, as Room 334 on its Entrance
     opened = true;
     const startRoom = h.map.rooms.find((r) => roomAt(h.start[0], h.start[1], [r]));
@@ -177,6 +188,8 @@ async function start3d() {
       box.textContent = `Loading the scene: ${s.loaded + s.failed} of ${s.total} meshes`;
     });
     view3d.resize();
+    if (view3d.showBadges) view3d.showBadges($("badges").checked !== false);
+    if (previewMin !== null) previewAt(previewMin);
     box.hidden = true;
     const s = view3d.status;
     if (s.failed) toast(`${s.failed} of the scene's ${s.total} files could not be loaded (${s.missing[0]}${s.failed > 1 ? ", …" : ""})`, true);
@@ -254,8 +267,10 @@ function updateRoom() { // the Room panel and the measurements in the view follo
   const id = cam.view ? cam.view.room : me && me.room;
   const room = id && state.hello.map.rooms.find((r) => r.id === id);
   const key = `${id}|${$("dims").checked}`;
+  placeRoom = room ? room.id : null;
   if (key === roomShown) return;
   roomShown = key;
+  drawPlace();
   if (view3d && view3d.showDimensions) view3d.showDimensions(room && $("dims").checked ? room.id : null);
   const box = $("room-card");
   if (!room) { box.textContent = "Between rooms."; return; }
@@ -295,6 +310,100 @@ function updateRoom() { // the Room panel and the measurements in the view follo
 }
 $("dims").addEventListener("change", () => updateRoom());
 $("names").addEventListener("change", () => { if (view3d && view3d.showLabels) view3d.showLabels($("names").checked); });
+$("badges").addEventListener("change", () => { if (view3d && view3d.showBadges) view3d.showBadges($("badges").checked); });
+
+// -- the place and time, and the time-of-day preview (play-view environment design 2026-11-05, §4) ----------------
+// The panel over the view says where and when the home is; the slider previews another time of the home's day in the
+// view only (the sun, the sky, the shadows, each room's daylight, the sensors' badges and what each daylight-following
+// light would do), from the server's /api/daylight. Devices and Home Assistant stay live; Live returns.
+let day = null, dayAsked = null, previewMin = null, placeRoom = null;
+const liveSeconds = () => state.hello.clock.start_time + state.hello.clock.t + (performance.now() - helloAt) / 1000;
+
+function setupPlace(h) {
+  day = null;
+  dayAsked = null;
+  previewMin = null;
+  $("preview-band").hidden = true;
+  document.body.classList.toggle("has-place", Boolean(h.site));
+  $("place").className = h.site ? "place" : "place none";
+  if (h.site) fetchDay();
+  drawPlace();
+}
+
+function fetchDay() { // the day's rows; asked again when a shade changes (the preview's daylight is the shades now)
+  const asked = (dayAsked = performance.now());
+  return fetch("/api/daylight?step=900").then((r) => (r.ok ? r.json() : null)).then((d) => {
+    if (asked !== dayAsked) return;
+    day = d && Array.isArray(d.rows) ? d : null;
+    if (previewMin !== null) previewAt(previewMin);
+  }).catch(() => {});
+}
+
+function previewAt(minutes) {
+  const row = rowAt(day, minutes);
+  if (!row) return;
+  previewMin = minutes;
+  const shades = (state.environment && state.environment.shades) || {};
+  if (view3d && view3d.setPreview) {
+    view3d.setPreview({ env: previewEnvironment(row, shades), lights: previewLights(day.rules, row), rooms: row.rooms });
+  }
+  $("preview-band").textContent = previewBand(row.t, liveSeconds());
+  $("preview-band").hidden = false;
+  $("live").disabled = false;
+  drawPlace();
+}
+
+function endPreview() {
+  previewMin = null;
+  if (view3d && view3d.setPreview) view3d.setPreview(null);
+  $("preview-band").hidden = true;
+  $("live").disabled = true;
+  drawPlace();
+}
+
+$("preview").addEventListener("input", (e) => {
+  const m = Number(e.target.value);
+  if (Number.isFinite(m)) previewAt(m);
+});
+$("live").addEventListener("click", () => endPreview());
+
+let placeShown = "";
+function drawPlace() {
+  if (!state) return;
+  const h = state.hello, row = previewMin === null ? null : rowAt(day, previewMin);
+  const p = panelLines(h.site, state.environment, placeRoom, liveSeconds(),
+    row ? { t: row.t, outdoor: previewEnvironment(row).outdoor, rooms: row.rooms } : null);
+  const key = JSON.stringify(p);
+  if (key === placeShown) return; // unchanged: no redraw
+  placeShown = key;
+  if (p.none) { $("place-name").textContent = p.none; $("place-when").textContent = ""; return; }
+  $("place-name").textContent = p.place;
+  $("place-name").title = `${p.coords} · ${h.site.tz}`;
+  $("place-when").textContent = p.preview ? `${p.time} preview` : `${p.date} · ${p.time}`;
+  $("place-when").title = p.date;
+  $("place").className = p.preview ? "place preview" : "place";
+  $("place-sun").textContent = p.sun ? p.sun.text : "";
+  $("place-out").textContent = p.outdoor ? `Outside ${p.outdoor}` : "";
+  $("place-room").innerHTML = "";
+  if (p.room) {
+    const name = document.createElement("span");
+    name.className = "muted";
+    const room = h.map.rooms.find((r) => r.id === placeRoom);
+    name.textContent = room ? `${roomName(room)}${p.preview ? ", previewed daylight" : ""}` : "";
+    $("place-room").append(name, p.room);
+  }
+  const marks = '<circle class="rim" r="20"/><text y="-12.5">N</text><text x="14" y="2.5">E</text>' +
+    '<text y="17.5">S</text><text x="-14" y="2.5">W</text>';
+  let dot = "";
+  if (p.sun) {
+    const [x, y] = dialPoint(p.sun.azimuth, p.sun.elevation);
+    dot = `<circle class="sun${p.sun.up ? "" : " down"}" cx="${(x * 20).toFixed(1)}" cy="${(y * 20).toFixed(1)}" r="4"/>`;
+  }
+  $("sun-dial").innerHTML = marks + dot;
+  const minutes = row ? previewMin : Math.floor((liveSeconds() % 86400) / 60);
+  $("preview-at").textContent = sliderLabel(minutes);
+  if (!row) $("preview").value = String(Math.round(minutes / 15) * 15);
+}
 let opened = false; // the first hello opens on the start room's view
 
 function updateWhere() {
@@ -355,6 +464,14 @@ function onEffect(target, effect) {
   if (state.devices[target]) state.devices[target].effect = effect;
   if (state.doors[target]) Object.assign(state.doors[target], effect);
   updateHint();
+  updateBulbs();
+}
+
+let chips = new Map(); // room id -> its tour chip
+function updateBulbs() { // a small bulb on each room chip whose light is on
+  if (!state) return;
+  const lit = litRooms(state.devices, state.effects);
+  for (const [room, chip] of chips) chip.classList.toggle("lit", lit.has(room));
 }
 
 let scenarioRecords = []; // what the scenario panel shows: the scenario's start, alerts, the network, doors, verdicts
@@ -390,8 +507,13 @@ function onRecord(r, live = true) {
     if (view3d && view3d.setEnvironment) view3d.setEnvironment(state.environment);
     roomShown = null;
     updateRoom();
+    drawPlace();
   }
-  if (r.kind === "rule" && r.rule === "shade" && state.environment) state.environment.shades[r.window] = r.open;
+  if (r.kind === "rule" && r.rule === "shade" && state.environment) {
+    state.environment.shades[r.window] = r.open;
+    if (state.hello.site) fetchDay(); // the preview's daylight follows the shades as they are
+  }
+  if (r.kind === "report") updateBulbs();
   const who = r.kind === "task" ? r.resident : r.kind === "input" && r.why ? r.why.resident : null;
   if (who && state.residents[who]) {
     const p = state.residents[who];
@@ -586,10 +708,16 @@ function buildNavigation(h) {
   const tour = $("tour");
   tour.innerHTML = "";
   roomShown = undefined;
+  chips = new Map();
   for (const room of tourRooms(h.map.rooms)) { // a chip walks the player there, as Room 334's views move you
     const chip = document.createElement("button");
     chip.className = "chip";
     chip.textContent = roomName(room);
+    const bulb = document.createElement("span");
+    bulb.className = "bulb";
+    bulb.title = "A light is on";
+    chip.append(bulb);
+    chips.set(room.id, chip);
     chip.addEventListener("click", () => { // the camera goes to the room; the player stays (no click-to-walk)
       const v = roomView(room, state.cells, h.map.grid, view3d ? view3d.floorY : 0, h.map.doorways);
       if (!v) { toast(`there is nowhere to stand in ${roomName(room)}`, true); return; }
@@ -598,6 +726,7 @@ function buildNavigation(h) {
     });
     tour.append(chip);
   }
+  updateBulbs();
   const plan = document.createElement("button"); // the floor plan, as Room 334's last chip (M does the same)
   plan.className = "chip";
   plan.textContent = "Floor plan";
@@ -755,7 +884,9 @@ function hoverAt(e) { // the pointer over something to click shows a hand, as a 
   const now = performance.now();
   if (now - lastHover < 80) return;
   lastHover = now;
-  view3dBox.classList.toggle("pointing", Boolean(pickAt(e)));
+  const t = pickAt(e);
+  view3dBox.classList.toggle("pointing", Boolean(t));
+  view3dBox.title = t && t.kind === "window" ? promptAt(t.target) : ""; // a shade's hint by the pointer
 }
 
 function updatePrompt() { // the prompt by the pointer, again when the player moves under a still pointer
@@ -792,6 +923,10 @@ function hitItems() { // the doors and devices on the screen, for clicks and the
 
 function promptAt(target) {
   if (target === "hub") return "the hub: click for Home Assistant and every device";
+  if (String(target).startsWith("window:")) { // its roller shade: down (closed) or up
+    const id = target.slice("window:".length), shades = (state.environment && state.environment.shades) || {};
+    return windowPrompt(id in shades ? shades[id] : true);
+  }
   const me = state.actors[state.player], d = state.devices[target], door = state.doors[target];
   if (!d && !door) return "";
   const [x, z] = d ? handPoint(d) : [door.x, door.z]; // a ceiling light: its reach is from its wall switch
@@ -1045,4 +1180,4 @@ window.addEventListener("resize", layout);
   }
   requestAnimationFrame(loop);
 })();
-setInterval(() => { dirty = true; if (state) drawFeed(); }, 1000); // the clock, and the feed's old lines go
+setInterval(() => { dirty = true; if (state) { drawFeed(); drawPlace(); } }, 1000); // the clock; the feed's old lines go

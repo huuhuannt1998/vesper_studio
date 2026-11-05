@@ -57,6 +57,7 @@ def hello(session, hub_url: str | None = None, recent=(), world3d=None, humanoid
     home, world, m = session.home, session.world, session.home.map
     return {
         "type": "hello", "scene": home.scene, "player": PLAYER, "hub": hub_url, "reach_m": INTERACT_M,
+        "seed": home.seed,  # the yard around a map-built home is laid out by it: the same yard every time
         "hub_login": hub_login,  # VESPER's own lab login to its Home Assistant (loopback only), for the hub panel
         "scenario": scenario,  # {title, condition, t0} while a scenario plays: the page watches, the player is scripted
         "start": list(home.avatar["start"]),  # where the player enters: the view's place before anyone is there

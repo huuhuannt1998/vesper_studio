@@ -437,3 +437,51 @@ test("the Inspect panel's Hub button opens the hub's dialog", { skip }, async ()
   await settle();
   assert.match(p.el("card-box").textContent, /Home Assistant and its devices/);
 });
+
+// -- the place and time, and the time-of-day preview (play-view environment design 2026-11-05, §4) ----------------
+const SITE = { lat: 35.2271, lon: -80.8431, elevation_m: 229, tz: "America/New_York", north_deg: 0,
+  date: "2026-11-05", name: "Charlotte, NC, USA" };
+const ENVIRONMENT = { outdoor: { sun_elevation: 3, sun_azimuth: 110, illuminance_lux: 4000, temperature_c: 8.2,
+  cloud_cover_pct: 10 }, rooms: { bedroom: { illuminance: 40, temperature: 20.1, humidity: 48 } }, shades: {} };
+const DAY = { step: 900, lamp_lux: 200, rules: [{ room: "bedroom", lights: ["bedroom_lamp"], target_lux: 300,
+  lamp_lux: 200, lamps_full_lux: 200 }], rows: Array.from({ length: 97 }, (_, k) => ({ t: k * 900, hour: k / 4,
+  sun_elevation: k > 28 && k < 68 ? 30 : -6, sun_azimuth: 90 + k, illuminance_lux: k * 300, temperature_c: 12,
+  cloud_cover_pct: 0, rooms: { bedroom: k > 28 && k < 68 ? 400 : 10, hall: 0, kitchen: 0 } })) };
+
+test("a home with a site shows where and when it is, and the slider previews another time in the view only", { skip },
+  async () => {
+    const p = await page({ webgl: true });
+    const previews = [];
+    p.view3d.setPreview = (x) => previews.push(x);
+    const asked = [];
+    globalThis.fetch = async (url) => { asked.push(String(url)); return { ok: true, json: async () => DAY }; };
+    p.receive({ ...HELLO, site: SITE, environment: ENVIRONMENT });
+    await settle();
+    assert.deepEqual(asked, ["/api/daylight?step=900"]);
+    assert.equal(p.el("place-name").textContent, "Charlotte, NC");
+    assert.match(p.el("place-when").textContent, /^2026-11-05 · \d\d:\d\d$/);
+    assert.match(p.el("place-sun").textContent, /^Sun 3° E$/);
+    const before = p.sent.length;
+    p.el("preview").fire("input", { target: { value: "930" } }); // 15:30
+    const shown = previews.at(-1);
+    assert.equal(shown.env.outdoor.sun_elevation, 30);
+    assert.equal(shown.rooms.bedroom, 400);
+    assert.deepEqual(shown.lights, { bedroom_lamp: 0 }); // daylight enough: the rule would turn it off
+    assert.match(p.el("preview-band").textContent, /^Previewing 15:30\. Devices and Home Assistant stay live at \d\d:\d\d\.$/);
+    assert.equal(p.el("preview-band").hidden, false);
+    assert.equal(p.el("place-when").textContent, "15:30 preview");
+    p.el("preview").fire("input", { target: { value: "1260" } }); // 21:00: dark, the lamp would be full
+    assert.deepEqual(previews.at(-1).lights, { bedroom_lamp: 254 });
+    assert.equal(p.sent.length, before); // nothing went to the devices or Home Assistant
+    p.el("live").fire("click");
+    assert.equal(previews.at(-1), null);
+    assert.equal(p.el("preview-band").hidden, true);
+  });
+
+test("a home without a site says its indoors follow a fixed day, and a window says what a click does", { skip },
+  async () => {
+    const p = await page({ webgl: true });
+    assert.equal(p.el("place-name").textContent, "No place: indoor light and warmth follow a fixed day");
+    p.aimAt({ target: "window:w1", kind: "window" });
+    assert.equal(p.el("prompt3d").textContent, "Shade up: click to lower");
+  });

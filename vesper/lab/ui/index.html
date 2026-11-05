@@ -24,6 +24,20 @@
       <div id="compass" class="compass" hidden aria-hidden="true"></div>
       <div id="crosshair" class="crosshair" hidden aria-hidden="true"></div>
       <div id="prompt3d" class="prompt3d" aria-live="polite"></div>
+      <section id="place" class="place" aria-label="Where and when the home is">
+        <div class="place-head"><b id="place-name"></b><span id="place-when" class="when"></span></div>
+        <div id="place-body" class="place-body">
+          <div class="place-sky"><svg id="sun-dial" class="dial" viewBox="-24 -24 48 48" width="44" height="44"
+            role="img" aria-label="The sun's direction and height"></svg>
+            <div><div id="place-sun"></div><div id="place-out" class="muted"></div></div></div>
+          <div id="place-room" class="place-room"></div>
+          <div class="place-preview"><label for="preview">Preview the day <span id="preview-at"
+            class="muted"></span></label>
+            <div class="preview-row"><input type="range" id="preview" min="0" max="1440" step="15" value="0">
+              <button id="live" class="live" disabled>Live</button></div></div>
+        </div>
+      </section>
+      <div id="preview-band" class="band" role="status" hidden></div>
       <div id="loading" class="loading" hidden></div>
       <canvas id="map"></canvas>
       <div id="hint" class="hint" aria-live="polite"></div>
@@ -53,6 +67,7 @@
         <div id="room-card" class="room-card"></div>
         <label class="dims"><input type="checkbox" id="dims" checked> Dimensions in the view</label>
         <label class="dims"><input type="checkbox" id="names"> Device names in the view</label>
+        <label class="dims"><input type="checkbox" id="badges" checked> Sensor readings in the view</label>
       </section>
       <section id="residents-panel" class="panel" tabindex="0">
         <h2>Residents</h2>

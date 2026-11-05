@@ -14,11 +14,14 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { decodeGrid, gridBounds } from "./mapview.js";
 import { buildDevice, buildHub, facingYaw } from "./devices3d.js";
-import { buildFurniture, fitScale } from "./furniture3d.js";
+import { buildFurniture, fitScale, planarUV } from "./furniture3d.js";
+import { badgeText, hasBadge, lightPreviewText } from "./envpanel.js";
+import { litRooms } from "./nav.js";
 import {
   BACK_M, PIVOT_M, RAISE_M, cameraPose, devicePoint, doorMount, frameAt, furnitureFor, hinge, pullIn, roomAt, walkPhase,
-  cutWindows, floorKind, skyColor, sunDirection, wallBoxes, wallMount, wallRuns,
+  cutWindows, floorKind, skyGradient, sunDirection, wallBoxes, wallMount, wallRuns,
 } from "./scene3d.js";
+import { YARD_M, buildYard, entranceOf, yardLayout } from "./yard3d.js";
 
 const SKY = 0xbfd6ea, WALL = 0xeeebe4, FLOOR = 0xd2c9b8, OUTSIDE = 0x9fb98e, DOOR = 0x8a5a2b, LOCKED = 0xc0392b;
 const WALL_M = 2.5, DOOR_M = 2.05, PICK_M = 8, SWING = Math.PI / 2, SWING_S = 0.35;
@@ -33,6 +36,8 @@ export async function createView3d(container, hello, onProgress = () => {}) {
   renderer.toneMappingExposure = 1.0; // a lit interior, as Room 334's
   renderer.shadowMap.enabled = true; // the sun through the windows (a home with a site), soft as Room 334's key light
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.autoUpdate = false; // one sun over a whole yard: redrawn when the sun, a door, a shade or a model
+  let shadowsDirty = true; // changes (people cast none), not every frame
   container.append(renderer.domElement);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY); // what a window shows
@@ -42,9 +47,15 @@ export async function createView3d(container, hello, onProgress = () => {}) {
   scene.add(fill);
   const sun = new THREE.DirectionalLight(0xfff4e0, 0.8); // a home with a site: the real sun (setEnvironment)
   sun.position.set(4, 10, 2);
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.bias = -0.0005;
+  sun.shadow.mapSize.set(4096, 4096); // the yard's trees and fence, and the window frames on the floor
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.02;
   scene.add(sun, sun.target);
+  const paint = paintTextures(); // canvas textures (null without a document): glows, grass, gravel, finishes, the sun
+  const sky = skyDome(); // a gradient from the horizon to the zenith, and the sun's disc
+  if (paint) sky.setSun(paint.sun);
+  scene.add(sky.dome, sky.disc);
+  let yardBox = null; // the lawn's extent, once the yard is built
   const windowParts = {}; // window id -> {shade, glass}: drawn in a map-built home's walls
   const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 200); // a walkthrough's wide view, as Room 334's
   const floorY = hello.world3d ? hello.world3d.floor_y : 0;
@@ -112,6 +123,8 @@ export async function createView3d(container, hello, onProgress = () => {}) {
   }
 
   const plain = []; // the map-built floor, walls and furniture: hidden under a dressed model
+  const roomPanels = {}; // room id -> its ceiling panels: lit with the room's lights, when it has any
+  const lightRooms = new Set(hello.devices.filter((d) => d.category === "light").map((d) => d.room));
 
   async function loadDressed() { // the home's own model (`vesper lab dress`), drawn on the map's own axes
     status.source = "dressed";
@@ -255,17 +268,19 @@ export async function createView3d(container, hello, onProgress = () => {}) {
         panel.position.set(px, floorY + WALL_M - 0.01, pz);
         scene.add(panel);
         plain.push(panel);
+        (roomPanels[room.id] ||= []).push(panel);
       }
     }
     for (const item of hello.furniture || []) { // the home's furniture (furnishing.py), solid on its map
       const model = buildFurniture(THREE, item);
+      finish(model);
       model.position.set(item.x, floorY, item.z);
       model.rotation.y = facingYaw(item.facing);
       model.traverse((o) => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
       scene.add(model);
       const url = hello.assets && hello.assets.models && hello.assets.models[item.kind];
       if (url) freeModel(url).then((obj) => { // a free model (CC0) instead; a failed one keeps the built-in shape
-        if (obj) { dressPiece(model, obj, item); status.freePlaced += 1; } else status.freeFailed += 1;
+        if (obj) { dressPiece(model, obj, item); status.freePlaced += 1; shadowsDirty = true; } else status.freeFailed += 1;
       });
       plain.push(model);
     }
@@ -287,7 +302,28 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     solids.push(ceiling);
     for (const door of hello.doors) addSlab(door.id);
     for (const w of windows) addWindow(w);
+    addYard();
   }
+
+  function finish(model) { // each part painted as what it is (furniture3d.js's finishFor): grain, weave, steel, glaze
+    if (!paint) return;
+    model.traverse((o) => {
+      const f = o.isMesh && o.material && o.material.userData.finish;
+      if (!f || !paint.finishes[f]) return;
+      planarUV(o.geometry, { wood: 0.8, steel: 0.3, fabric: 0.25 }[f] ?? 0.5);
+      o.material.map = paint.finishes[f];
+      o.material.needsUpdate = true;
+    });
+  }
+
+  function addYard() { // a lawn, a fence, a path from the porch, trees and shrubs, the same for the home's seed
+    const layout = yardLayout(gridBounds(hello.map.grid), hello.seed ?? 0, entranceOf(hello.map.rooms, hello.map.doorways));
+    const yard = buildYard(THREE, layout, floorY, paint ? { grass: paint.grass, gravel: paint.gravel } : {}, mergeGeometries);
+    scene.add(yard);
+    yardBox = layout.lawn;
+    yard.traverse((o) => { if (o.isMesh) yardTint.push({ material: o.material, base: o.material.color.clone() }); });
+  }
+  const yardTint = []; // the yard's materials and their own colours: dimmed at dusk and night (the fill lights all)
 
   const freeModels = {}; // url -> a promise of the loaded model (vesper.lab.assets: Poly Haven, CC0), cloned per piece
   function freeModel(url) {
@@ -341,31 +377,86 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     windowParts[w.id] = { shade, glass };
   }
 
-  const bounds = gridBounds(hello.map.grid); // the sun's shadow covers the home
+  const bounds = gridBounds(hello.map.grid); // the sun's shadow covers the home and its yard
+  const SUN_M = 70;
   {
     const cx = (bounds.minX + bounds.maxX) / 2, cz = (bounds.minZ + bounds.maxZ) / 2;
-    const r = Math.hypot(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) / 2 + 2;
-    Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 0.5, far: 80 });
+    const r = Math.hypot(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) / 2 + YARD_M + 2;
+    Object.assign(sun.shadow.camera, { left: -r, right: r, top: r, bottom: -r, near: 1, far: SUN_M + r + 10 });
     sun.shadow.camera.updateProjectionMatrix();
     sun.target.position.set(cx, floorY, cz);
+    sky.dome.position.set(cx, floorY, cz);
   }
-  function setEnvironment(env) { // a home with a site: the sun, the sky and the shades of the moment (vesper.env)
-    if (!env || !env.outdoor) return;
+  let live = hello.environment || null, preview = null; // the session's environment, and a previewed moment's
+  function setEnvironment(env) { // the session's environment now (vesper.env); drawn unless a moment is previewed
+    if (env) live = env;
+    if (!preview) drawEnvironment(live);
+  }
+  function drawEnvironment(env) { // a home with a site: the sun, the sky and the shades of the moment
+    if (!env || !env.outdoor) { drawSky(45); return; }
     const o = env.outdoor, north = (hello.site && hello.site.north_deg) || 0;
     const [x, y, z] = sunDirection(o.sun_azimuth, o.sun_elevation, north);
     const t = sun.target.position;
-    sun.position.set(t.x + x * 40, t.y + y * 40, t.z + z * 40);
+    sun.position.set(t.x + x * SUN_M, t.y + y * SUN_M, t.z + z * SUN_M);
     const up = o.sun_elevation > 0, direct = (o.illuminance_lux || 0) * (1 - Math.min(1, (o.cloud_cover_pct || 0) / 100));
     sun.castShadow = up;
-    sun.intensity = up ? 0.3 + 2.7 * Math.min(1, direct / 80000) : 0;
+    sun.intensity = up ? 0.6 + 3.4 * Math.min(1, direct / 70000) : 0;
     sun.color.setHex(o.sun_elevation < 8 ? 0xffc48a : 0xfff4e0);
-    scene.background = new THREE.Color(skyColor(o.sun_elevation));
-    fill.intensity = 1.0 + 0.6 * Math.max(0, Math.min(1, o.sun_elevation / 30));
+    const day = Math.max(0, Math.min(1, o.sun_elevation / 25)); // the sky's light indoors, through the windows
+    fill.intensity = 0.25 + 0.35 * day;
+    scene.environmentIntensity = 0.2 + 0.25 * day;
+    const outside = Math.max(0.12, Math.min(1, (o.sun_elevation + 6) / 16)); // the yard by night is dark
+    for (const { material, base } of yardTint) material.color.copy(base).multiplyScalar(outside);
+    drawSky(o.sun_elevation, [x, y, z]);
     for (const [id, open] of Object.entries(env.shades || {})) if (windowParts[id]) windowParts[id].shade.visible = !open;
+    shadowsDirty = true;
+  }
+  function drawSky(elevation, toward = null) {
+    const g = skyGradient(elevation);
+    scene.background = new THREE.Color(g.horizon);
+    sky.paint(g);
+    sky.disc.visible = Boolean(toward) && elevation > -1;
+    if (toward) sky.disc.position.set(sky.dome.position.x + toward[0] * 140, sky.dome.position.y + toward[1] * 140,
+      sky.dome.position.z + toward[2] * 140);
   }
 
   const dims = []; // the room's measurement labels (showDimensions)
   const names = []; // the devices' and the hub's name tags (showLabels)
+  // A small badge whose text can change (a sensor's reading): a sprite over a canvas, redrawn only when the text does.
+  // `quiet`: the preview's mark, amber on white.
+  function textSprite(text, height, quiet = false) {
+    const canvas = typeof document !== "undefined" ? document.createElement("canvas") : null;
+    const map = canvas ? new THREE.CanvasTexture(canvas) : null;
+    if (map) map.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false }));
+    sprite.renderOrder = 3;
+    let shownText = null;
+    const show = (t) => {
+      if (t === shownText || !canvas) return;
+      shownText = t;
+      const font = "600 30px system-ui, sans-serif", pad = 14, h = 48, ctx = canvas.getContext("2d");
+      ctx.font = font;
+      const w = Math.ceil(ctx.measureText(t).width) + 2 * pad;
+      canvas.width = w;
+      canvas.height = h;
+      ctx.fillStyle = quiet ? "rgba(255, 255, 255, 0.92)" : "rgba(18, 22, 31, 0.8)";
+      ctx.beginPath();
+      ctx.roundRect(0, 0, w, h, 12);
+      ctx.fill();
+      if (quiet) { ctx.strokeStyle = "rgba(183, 121, 31, 0.9)"; ctx.lineWidth = 3; ctx.stroke(); }
+      ctx.font = font;
+      ctx.fillStyle = quiet ? "#8a5a00" : "#ffffff";
+      ctx.textBaseline = "middle";
+      ctx.fillText(t, pad, h / 2 + 1);
+      map.dispose();
+      map.image = canvas;
+      map.needsUpdate = true;
+      sprite.scale.set((height * w) / h, height, 1);
+    };
+    show(text);
+    return { sprite, show };
+  }
+
   function label(text, height = 0.12, light = false) { // a name tag above a device or a person, `height` metres tall;
     // `light`: a measurement, white with dark text, as Room 334 writes them
     const pad = 12, font = "600 28px system-ui, sans-serif", probe = document.createElement("canvas").getContext("2d");
@@ -390,9 +481,13 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     return sprite;
   }
 
+  const looks = paint ? { glowMap: paint.glow, poolMap: paint.pool } : {};
+  const badges = {}; // device name -> {sprite, text}: a sensor's reading over it (showBadges)
+  const marks = {}; // light name -> {sprite, text}: what a daylight-following rule would do, while previewing
+  let showingBadges = true;
   for (const d of hello.devices) { // the hardware itself (devices3d.js), its name, and a target for the crosshair
-    const model = buildDevice(THREE, d);
     let [x, y, z] = devicePoint(d, floorY), facing = d.facing;
+    const model = buildDevice(THREE, { ...d, drop: y - floorY }, looks);
     if (d.mount === "door" && d.door) {
       const dw = hello.map.doorways.find((w) => w.id === d.door);
       const room = hello.map.rooms.find((r) => r.id === d.room) || hello.map.rooms.find((r) => dw && dw.rooms.includes(r.id));
@@ -413,6 +508,14 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     names.push(name);
     name.position.set(x, y + (d.mount === "ceiling" ? -0.22 : 0.16), z);
     scene.add(model.group, reach, name);
+    model.aura.position.set(x, y, z);
+    scene.add(model.aura);
+    if (hasBadge(d)) { // a sensor's reading over it (under it, on a ceiling)
+      const badge = textSprite("", 0.075);
+      badge.sprite.position.set(x, y + (d.mount === "ceiling" ? -0.2 : 0.2), z);
+      scene.add(badge.sprite);
+      badges[d.name] = badge;
+    }
     if (d.switch_at) { // a ceiling light's plain wall switch, by the door: aiming at it uses the light
       const [sx, sz] = d.switch_at;
       const plate = buildDevice(THREE, { name: `${d.name} switch`, category: "switch", mount: "wall" });
@@ -572,6 +675,7 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     }
     for (const [id, door] of Object.entries(doors)) { // a door swings open and shut over SWING_S
       const e = state.effects[id] || {}, want = e.open ? SWING : 0, step = (SWING / SWING_S) * dt;
+      if (want !== door.angle) shadowsDirty = true;
       door.angle += Math.max(-step, Math.min(step, want - door.angle));
       door.pivot.rotation.y = door.angle;
       if (door.pivot.children[0] && door.pivot.children[0].material) {
@@ -580,11 +684,47 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     }
     for (const [id, parts] of Object.entries(windowParts)) { // a shade a person opened or closed (an effect)
       const e = state.effects[`${id}`];
-      if (e && "shade_open" in e) parts.shade.visible = !e.shade_open;
+      if (e && "shade_open" in e && parts.shade.visible === e.shade_open) {
+        parts.shade.visible = !e.shade_open;
+        shadowsDirty = true;
+      }
     }
+    const shown = preview && preview.lights; // previewing: what each daylight-following rule would set
     for (const [name, dev] of Object.entries(devices)) { // each model shows its device's state as the hardware does
       const key = dev.follows || name, d = state.devices[key];
-      if (d) dev.model.update(d.state, state.effects[key] || {});
+      if (shown && key in shown) dev.model.update({ state: shown[key] > 0 ? "ON" : "OFF", brightness: shown[key] },
+        { on: shown[key] > 0 });
+      else if (d) dev.model.update(d.state, state.effects[key] || {});
+    }
+    const lit = litRooms(state.devices, state.effects);
+    if (shown) {
+      for (const [name, b] of Object.entries(shown)) {
+        const d = state.devices[name];
+        if (d && b > 0) lit.add(d.room);
+      }
+    }
+    for (const [room, panels] of Object.entries(roomPanels)) { // a room with lights: its panels glow when one is on
+      const on = !lightRooms.has(room) || lit.has(room);
+      for (const p of panels) p.material.emissiveIntensity = on ? 1.1 : 0;
+    }
+    for (const [name, badge] of Object.entries(badges)) { // a sensor's reading, or its room's previewed daylight
+      const d = state.devices[name];
+      if (!d) continue;
+      const lux = preview && preview.rooms && d.room in preview.rooms ? preview.rooms[d.room] : null;
+      badge.show(badgeText(d, lux));
+      badge.sprite.visible = showingBadges;
+    }
+    for (const [name, dev] of Object.entries(devices)) { // a daylight-following light's mark while previewing
+      if (dev.follows) continue;
+      const b = shown && name in shown ? shown[name] : null;
+      if (b === null) { if (marks[name]) marks[name].sprite.visible = false; continue; }
+      if (!marks[name]) {
+        marks[name] = textSprite("", 0.07, true);
+        marks[name].sprite.position.set(dev.point[0], dev.point[1] - 0.3, dev.point[2]);
+        scene.add(marks[name].sprite);
+      }
+      marks[name].show(lightPreviewText(b));
+      marks[name].sprite.visible = true;
     }
     if (cam.view) { // a room's viewpoint (the tour bar): the camera stands there; the player stays where they are
       if (actors[state.player]) actors[state.player].group.visible = cam.mode !== "first"; // first person: no body
@@ -619,8 +759,16 @@ export async function createView3d(container, hello, onProgress = () => {}) {
     setEnvironment,
     frame(state, cam, dt) {
       update(state, cam, dt);
+      if (shadowsDirty) { renderer.shadowMap.needsUpdate = true; shadowsDirty = false; }
       renderer.render(scene, camera);
     },
+    // A previewed moment (the time-of-day preview): {env (envpanel.js's previewEnvironment), lights: {name:
+    // brightness}, rooms: {room: daylight lux}}, or null for the session's own moment. Only the view changes.
+    setPreview(p) {
+      preview = p;
+      drawEnvironment(p ? p.env : live);
+    },
+    showBadges(on) { showingBadges = Boolean(on); for (const b of Object.values(badges)) b.sprite.visible = showingBadges; },
     resize() {
       const w = container.clientWidth || 1, h = container.clientHeight || 1;
       renderer.setSize(w, h, false);
@@ -667,5 +815,136 @@ export async function createView3d(container, hello, onProgress = () => {}) {
       for (let k = 0; k < data.length; k += 4) seen.add(data[k] << 16 | data[k + 1] << 8 | data[k + 2]);
       return seen.size;
     },
+  };
+}
+
+// -- painted textures (play-view environment design 2026-11-05) -------------------------------------------------------
+// Canvas textures made once per page: a light's glow and its pool on the floor (soft discs), the lawn's grass and the
+// path's gravel, the furniture's finishes (grain, weave, brushed steel, glaze, enamel: near white, so a part's own
+// colour tints them) and the sun's disc. null without a document.
+function paintTextures() {
+  if (typeof document === "undefined") return null;
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const make = (size, draw, { repeat = false } = {}) => {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    draw(c.getContext("2d"), size);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; }
+    return t;
+  };
+  const disc = (stops) => (g, n) => {
+    const r = g.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
+    for (const [at, color] of stops) r.addColorStop(at, color);
+    g.fillStyle = r;
+    g.fillRect(0, 0, n, n);
+  };
+  const speckle = (base, spread, count, size = 2) => (g, n) => {
+    g.fillStyle = base;
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < count; k++) {
+      const v = Math.round(spread[0] + rnd() * (spread[1] - spread[0]));
+      g.fillStyle = `rgba(${v}, ${v}, ${v}, 0.5)`;
+      g.fillRect(rnd() * n, rnd() * n, size, size);
+    }
+  };
+  const grass = make(512, (g, n) => {
+    g.fillStyle = "#5d8a3f";
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < 14000; k++) { // short blades in greens and a little straw
+      const x = rnd() * n, y = rnd() * n, l = 3 + rnd() * 6, hue = 80 + rnd() * 40, light = 26 + rnd() * 22;
+      g.strokeStyle = `hsla(${hue}, ${38 + rnd() * 20}%, ${light}%, 0.55)`;
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + (rnd() - 0.5) * 3, y - l);
+      g.stroke();
+    }
+  }, { repeat: true });
+  const gravel = make(256, (g, n) => {
+    g.fillStyle = "#cfc5b2";
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < 2600; k++) {
+      const v = 150 + rnd() * 90;
+      g.fillStyle = `rgb(${v}, ${v - 6}, ${v - 18})`;
+      g.beginPath();
+      g.arc(rnd() * n, rnd() * n, 1 + rnd() * 2.2, 0, Math.PI * 2);
+      g.fill();
+    }
+  }, { repeat: true });
+  const wood = make(256, (g, n) => { // long grain lines, a few darker streaks
+    g.fillStyle = "#f2ece2";
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < 90; k++) {
+      const y = rnd() * n, v = 170 + rnd() * 60;
+      g.strokeStyle = `rgba(${v - 40}, ${v - 70}, ${v - 110}, ${0.15 + rnd() * 0.25})`;
+      g.lineWidth = 0.6 + rnd() * 1.6;
+      g.beginPath();
+      g.moveTo(0, y);
+      for (let x = 0; x <= n; x += 16) g.lineTo(x, y + Math.sin((x / n) * Math.PI * 2 * (1 + rnd())) * 2.5);
+      g.stroke();
+    }
+  }, { repeat: true });
+  const fabric = make(128, (g, n) => { // a plain weave
+    g.fillStyle = "#f0f0ee";
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < n; k += 4) {
+      g.fillStyle = "rgba(0, 0, 0, 0.07)";
+      g.fillRect(k, 0, 2, n);
+      g.fillStyle = "rgba(0, 0, 0, 0.05)";
+      g.fillRect(0, k + 2, n, 2);
+    }
+    speckle("rgba(0,0,0,0)", [120, 255], 900, 1)(g, n);
+  }, { repeat: true });
+  const steel = make(256, (g, n) => { // brushed: fine horizontal streaks
+    g.fillStyle = "#e9ebec";
+    g.fillRect(0, 0, n, n);
+    for (let k = 0; k < 500; k++) {
+      const v = 190 + rnd() * 65;
+      g.fillStyle = `rgba(${v}, ${v}, ${v + 2}, 0.35)`;
+      g.fillRect(rnd() * n, rnd() * n, 20 + rnd() * 90, 1);
+    }
+  }, { repeat: true });
+  const ceramic = make(128, speckle("#fbfbfa", [215, 250], 300, 1), { repeat: true });
+  const enamel = make(128, speckle("#f7f7f5", [225, 252], 160, 1), { repeat: true });
+  return {
+    glow: make(128, disc([[0, "rgba(255,255,255,1)"], [0.25, "rgba(255,255,255,0.55)"], [1, "rgba(255,255,255,0)"]])),
+    pool: make(256, disc([[0, "rgba(255,255,255,0.9)"], [0.45, "rgba(255,255,255,0.4)"], [1, "rgba(255,255,255,0)"]])),
+    sun: make(128, disc([[0, "rgba(255,252,240,1)"], [0.18, "rgba(255,246,220,1)"], [0.3, "rgba(255,230,180,0.45)"],
+      [1, "rgba(255,220,160,0)"]])),
+    grass, gravel, finishes: { wood, fabric, steel, ceramic, enamel },
+  };
+}
+
+// The sky: a large sphere coloured from the horizon to the zenith (skyGradient), and the sun's disc. Neither casts
+// shadows nor is tone-mapped, so the colours are the gradient's.
+function skyDome() {
+  const geo = new THREE.SphereGeometry(160, 32, 16), count = geo.attributes.position.count;
+  geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+  const dome = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide,
+    depthWrite: false, toneMapped: false, fog: false }));
+  dome.name = "sky";
+  dome.renderOrder = -1;
+  const disc = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xfff4dc, transparent: true, depthWrite: false,
+    toneMapped: false, fog: false }));
+  disc.scale.set(26, 26, 1);
+  disc.visible = false;
+  const zen = new THREE.Color(), hor = new THREE.Color(), c = new THREE.Color();
+  return {
+    dome, disc,
+    paint({ zenith, horizon }) {
+      zen.setHex(zenith);
+      hor.setHex(horizon);
+      const pos = geo.attributes.position, col = geo.attributes.color;
+      for (let k = 0; k < count; k++) {
+        const up = Math.max(0, pos.getY(k) / 160); // 0 at the horizon (and below it), 1 overhead
+        c.copy(hor).lerp(zen, Math.pow(up, 0.6));
+        col.setXYZ(k, c.r, c.g, c.b);
+      }
+      col.needsUpdate = true;
+    },
+    setSun(map) { disc.material.map = map; disc.material.needsUpdate = true; },
   };
 }

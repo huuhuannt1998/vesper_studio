@@ -250,3 +250,44 @@ body.mode-3d #map:not(.full) { display: none; }
 .room-card small { color: var(--muted); }
 .room-card .muted { font-size: 12px; }
 .dims { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 0 12px 10px; }
+
+/* The place and time over the view, top right (play-view environment design 2026-11-05, §4): compact, Room 334's
+   white veil; the preview's band under the tour bar says the view shows another moment. */
+.place { position: absolute; top: 52px; right: 12px; width: 236px; background: var(--veil); border-radius: 10px;
+  box-shadow: var(--shadow); padding: 9px 12px 10px; z-index: 2; font-size: 12px; }
+.place[hidden] { display: none; }
+.place-head { display: flex; align-items: baseline; gap: 8px; }
+.place-head b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.place-head .when { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.place.preview .place-head .when { color: var(--held); font-weight: 600; }
+.place-sky { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+.dial circle.rim { fill: none; stroke: var(--line); stroke-width: 1.5; }
+.dial text { font-size: 7px; fill: var(--muted); text-anchor: middle; font-weight: 600; }
+.dial circle.sun { fill: #e8a23a; stroke: #fff; stroke-width: 1.5; }
+.dial circle.sun.down { fill: var(--paper); stroke: var(--muted); }
+.place-room { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.place-room:empty { display: none; }
+.place-room .muted { display: block; font-size: 11px; }
+.place-preview { margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--line); }
+.place-preview label { display: block; color: var(--muted); }
+.preview-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.preview-row input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.live { border: 1px solid var(--accent); color: var(--accent); background: var(--panel); border-radius: 6px;
+  padding: 2px 8px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.live:disabled { border-color: var(--line); color: var(--muted); cursor: default; }
+.place.none .place-body { display: none; }
+.place.none .place-head b { font-weight: 400; color: var(--muted); white-space: normal; }
+.band { position: absolute; top: 52px; left: 12px; right: 260px; width: fit-content; margin: 0 auto; padding: 6px 12px;
+  border-radius: 8px; background: rgba(183, 121, 31, 0.12); border: 1px solid rgba(183, 121, 31, 0.45); color: #6f4a10;
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 2; font-weight: 600; }
+.band[hidden] { display: none; }
+body:not(.mode-3d) .place, body:not(.mode-3d) .band { display: none; }
+body.mode-3d.has-place .feed { top: 268px; }
+body.mode-3d .band:not([hidden]) ~ .toast { top: 96px; }
+/* the tour bar: a small bulb on a room whose light is on */
+.tour .chip .bulb { display: none; width: 8px; height: 8px; margin-left: 6px; border-radius: 50%; vertical-align: 1px;
+  background: #f3b23c; box-shadow: 0 0 0 2px rgba(243, 178, 60, 0.25), 0 0 6px rgba(243, 178, 60, 0.9); }
+.tour .chip.lit .bulb { display: inline-block; }
+/* the device dialog's readings */
+.spark { display: block; margin: 4px 0 2px; }
+.spark path { fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linejoin: round; }
