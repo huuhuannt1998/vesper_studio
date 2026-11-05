@@ -278,7 +278,7 @@ body.mode-3d #map:not(.full) { display: none; }
 .place.none .place-body { display: none; }
 .place.none .place-head b { font-weight: 400; color: var(--muted); white-space: normal; }
 .band { position: absolute; top: 52px; left: 12px; right: 260px; width: fit-content; margin: 0 auto; padding: 6px 12px;
-  border-radius: 8px; background: rgba(183, 121, 31, 0.12); border: 1px solid rgba(183, 121, 31, 0.45); color: #6f4a10;
+  border-radius: 8px; background: rgba(255, 248, 235, 0.95); border: 1px solid rgba(183, 121, 31, 0.45); color: #6f4a10;
   backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 2; font-weight: 600; }
 .band[hidden] { display: none; }
 body:not(.mode-3d) .place, body:not(.mode-3d) .band { display: none; }
